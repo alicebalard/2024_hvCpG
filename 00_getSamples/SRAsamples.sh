@@ -1,9 +1,9 @@
-#$ -N fasterq_dump_job
+#$ -N SRA sample
 #$ -S /bin/bash
-#$ -l tmem=4G
-#$ -l h_vmem=4G
-#$ -t 1-10
-#$ -l h_rt=24:00:00
+#$ -l tmem=5G
+#$ -l h_vmem=5G
+#$ -t 1-2
+#$ -l h_rt=240:00:00
 #$ -o /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/logs/$JOB_NAME_$JOB_ID.out
 #$ -e /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/logs/$JOB_NAME_$JOB_ID.err
 #$ -wd /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq
@@ -11,10 +11,13 @@
 echo "Running on host: $(hostname)"
 echo "Start time: $(date)"
 
-echo "Running with $NSLOTS threads"
+## DL files from a SRA list
 
 SAMPLELIST=listTest.txt
 ## SAMPLELIST=sraAccList1.txt
+
+## Dataset1
+/share/apps/genomics/sratoolkit.3.0.2/bin/prefetch --max-size 30GB --option-file $SAMPLELIST
 
 # Get the sample for this task ID
 SAMPLE=$(sed -n "${SGE_TASK_ID}p" $SAMPLELIST)
