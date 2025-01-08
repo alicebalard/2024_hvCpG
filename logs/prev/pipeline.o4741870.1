@@ -1,0 +1,51 @@
+Number of cores requested per task: 10 (must be >4 for trimming)
+Test: 12G 10nodes 72h
+**** Job pipeline.4741870 started at Tue 17 Dec 14:23:02 GMT 2024 ****
+Task ID: 1
+We work on sample SRR28532088
+File already exists: ../out/infoAllsamples_Pipeline.csv
+**** Start of step 1: Trim galore with automatic parameters Tue 17 Dec 14:23:02 GMT 2024 ****
+Files already trimmed.
+**** End of step 1: Tue 17 Dec 14:23:02 GMT 2024 ****
+Step 2: Measure the number of reads in the trimmed file → store in matrix
+Step 2 (calculate nbr reads) and step 3 (calculate BS conversion rate) already done before
+**** Start of step 4: Bismark: Align to GRCh38 -> Output BAM
+**** Start of step 4.1 Genome indexing...
+Genome already indexed
+**** End of step 4.1: Tue 17 Dec 14:23:02 GMT 2024 ****
+**** Start of step 4.2 Genome alignement with 10 threads...
+Alignement already done.
+**** End of step 4.2: Tue 17 Dec 14:23:02 GMT 2024 ****
+**** Start of step 4.3 Deduplication of the bam file...
+Deduplication already done.
+**** End of step 4.3: Tue 17 Dec 14:23:02 GMT 2024 ****
+4.4 Methylation extraction...
+
+Now testing Bismark result file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated.bam< for positional sorting (which would be bad...)	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.1
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.2
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.3
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.4
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.5
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.6
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.7
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.8
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.9
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.10
+
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.1.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.2.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.3.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.4.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.5.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.6.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.7.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.8.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.9.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/SRR28532088_pe.deduplicated_splitting_report.txt.10.mbias
+
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/CpG_OT_SRR28532088_pe.deduplicated.txt.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/CpG_OB_SRR28532088_pe.deduplicated.txt.gz
+
+**** End of step 4.4: Tue 17 Dec 18:30:28 GMT 2024 ****
+4.5 Generate HTML summary...
+**** End of step 4.5: Tue 17 Dec 18:37:40 GMT 2024 ****
+**** Job pipeline.4741870 finished at Tue 17 Dec 18:37:40 GMT 2024 ****

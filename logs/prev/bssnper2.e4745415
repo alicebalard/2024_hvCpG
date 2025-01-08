@@ -1,0 +1,18 @@
+bam: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/test.bam
+ref: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02Bismark/GRCh38/GCF_000001405.40_GRCh38.p14_genomic.fa.gz
+vcf: /test.vcf
+homref: /dev/null
+indelf: /dev/null
+minBaseQual: 13
+minCount: 1
+maxCount: 4294967295
+minHomFreq: 0.850000
+minHetFreq: 0.100000
+errorRate: 0.020000
+minMapQual: 13
+minAltCount: 2
+bufferSize: 1000
+assumeHomref: false
+homrefInVCF: false
+homrefAsRLE: false
+/opt/gridengine/default/spool/allen-606-5/job_scripts/4745415: line 22: 16645 Segmentation fault      (core dumped) bssnper2 $DEDUPBAM --ref $GENOME_DIR/GCF_000001405.40_GRCh38.p14_genomic.fa.gz --vcf $BBSSNPER2_OUTDIR/test.vcf

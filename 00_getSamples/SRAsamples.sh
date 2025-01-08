@@ -8,6 +8,8 @@
 #$ -e /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/logs/$JOB_NAME_$JOB_ID.err
 #$ -wd /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq
 
+## Jamie from cs: I've given your account access to a machine called 'little', you can ssh to it as you would a normal login node. There isn't anything special you need to do to leverage the extra bandwidth, and all your data should be accessible in the same locations as other login nodes. Please give it a go and let me know if you run into any issues.
+
 echo "Running on host: $(hostname)"
 echo "Start time: $(date)"
 
