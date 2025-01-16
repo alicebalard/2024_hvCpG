@@ -1,0 +1,29 @@
+Number of cores requested per task: 4 (must be >4 for trimming)
+Test: 5G 4nodes 40h
+**** Job runPipeline.4769445 started at Wed 15 Jan 16:29:23 GMT 2025 ****
+Task ID: 2
+Selected input file: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532090
+We work on sample SRR28532090
+File already exists: /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/data_out_01/infoAllsamples_Pipeline_5G4N.csv
+**** Start of step 1: Trim galore with automatic parameters Wed 15 Jan 16:29:23 GMT 2025 ****
+Run Trim Galore command, with fastQC on the trimmed files
+Analysis complete for SRR28532090_1_val_1.fq.gz
+Analysis complete for SRR28532090_2_val_2.fq.gz
+**** End of step 1: Wed 15 Jan 21:08:18 GMT 2025 ****
+Step 2: Measure the number of reads in the trimmed file → store in matrix
+**** End of step 2: Wed 15 Jan 21:33:27 GMT 2025 ****
+Step 3: Bisulfite conversion efficiency measure (BCREval) → store in matrix
+**** End of step 3: Wed 15 Jan 21:33:31 GMT 2025 ****
+**** Start of step 4: Bismark: Align to GRCh38 -> Output BAM
+**** Start of step 4.1 Genome indexing...
+Genome already indexed
+**** End of step 4.1: Wed 15 Jan 21:33:31 GMT 2025 ****
+**** Start of step 4.2 Genome alignement with 4 threads...
+Alignment done.
+**** End of step 4.2: Wed 15 Jan 21:33:33 GMT 2025 ****
+**** Start of step 4.3 Deduplication of the bam file...
+Deduplication done.
+**** End of step 4.3: Wed 15 Jan 21:33:33 GMT 2025 ****
+4.4 Methylation extraction...
+**** End of step 4.4: Wed 15 Jan 21:33:34 GMT 2025 ****
+**** Job runPipeline.4769445 finished at Wed 15 Jan 21:33:34 GMT 2025 ****
