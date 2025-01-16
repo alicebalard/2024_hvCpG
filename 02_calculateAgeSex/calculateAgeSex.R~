@@ -1,0 +1,33 @@
+## Age predictor
+
+
+install.packages("glmnet")
+
+R.version()
+
+getRversion()
+
+
+## Classify by sex:
+
+## https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-021-07675-2
+
+## 4345 sex-associated sites
+
+
+
+library("usethis")
+
+
+install.packages('BiocManager')
+
+BiocManager::install('wateRmelon')
+
+library(wateRmelon)
+
+# 3.5 Existing clocks included in the package
+# The MammalMethylClock package is equipped with built-in clocks designed for a diverse range of mammalian species and groups, spanning from rats, primates, and cetaceans to marsupials. To ensure accurate results, data should be obtained from the mammalian methylation array, and the “predictAge()” function should be used. A comprehensive list of built-in clocks and other pertinent information can be found in the “getClockDatabase()” function, and also on the software’s GitHub repository (https://github.com/jazoller96/mammalian-methyl-clocks/tree/main).
+
+install.packages("~/MammalMethylClock_1.0.0.tar.gz", repos = NULL, type = "source")
+
+
