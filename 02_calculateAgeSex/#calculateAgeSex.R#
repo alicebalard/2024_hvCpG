@@ -30,11 +30,13 @@ gr1 <- makeGRangesFromDataFrame(Homo_sapiens.hg38.HorvathMammalMethylChip40.v1, 
 
 head(gr1)
 
-df2 <- read.bismark(files = "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/SRR28532088_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz")
+df2 <- read.table("/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/test.cov") # unzipped and took the first 1000 positions 
 
-head(df2)
 
-names(df2) <- c("chr", "Cpos", "strand", "context", "methPerc", "methCount", "totalCount")
+#df2 <- read.bismark(files = "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/SRR28532088_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz", 
+
+
+names(df2) <- c("chr", "start", "end", "methPerc", "methCount", "totalCount")
 
 ## Horvath chips report C and G position, WGBS only C
 df2$start <- NA; df2$end <- NA
