@@ -6,16 +6,13 @@
 #$ -t 1-2
 #$ -tc 2
 #$ -pe smp 6 # Request N cores per task 
-#$ -l tscratch=1000G # request scratch space
-#$ -l h_rt=40:00:00
+#$ -l h_rt=60:00:00
 #$ -wd /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 #$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
 
-# Start resource monitoring in the background
-bash ~/monitor_resources.sh &
-echo "Number of cores requested per task: $NSLOTS"
-
 ## Runs in ~30h/sample with 6C and 17G
+
+## next step si ca marche: penser a un system pour launch 10/10 or 20/20 les samples avec tc
 
 ##############
 ##************
@@ -24,9 +21,20 @@ echo "Number of cores requested per task: $NSLOTS"
 ##############
 
 ## We make a temporary folder for all intermediate files that we delete at the end.
-mkdir -p /scratch0/abalard/TEMP.${JOB_ID}
-TEMP_OUTDIR="/scratch0/abalard/TEMP.${JOB_ID}"
+TEMP_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.${JOB_ID}"
+
+## TESTING:
+##TEMP_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.test"
+##NSLOTS=1
+##INPUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/test100"
+## end testing
+
+mkdir -p $TEMP_OUTDIR
 cd $TEMP_OUTDIR
+
+# Start resource monitoring in the background
+source ~/monitor_resources.sh & # source allows to use variables define in this script, in particular $TEMP_OUTDIR. Log stored in WGBS_human
+## NB: use only for 1-2 samples otherwise it's a massive log file
 
 # Create the files to loop over if it does not exist:
 if [ ! -e "$TEMP_OUTDIR/bysample_list_of_files.tmp" ]; then
@@ -48,7 +56,7 @@ echo "Selected input file: $INPUT"
 echo "We work on sample ${INPUT##*/}"
 
 ## We'll feed information to this table
-DATA_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/data_out_01/infoAllsamples_Pipeline.csv"
+DATA_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/infoAllsamples_Pipeline.csv"
 
 # Check if the file exists
 if [ ! -e "$DATA_TABLE_OUT" ]; then
@@ -71,31 +79,25 @@ echo "**** Start of step 1: Trim galore with automatic parameters $(date) ****"
 ## ~4h/sample for 4C 5G
 ## 4h30 to 5h30 with 17G 6C
 # Output directory
-OUTPUT_DIR_01="$TEMP_OUTDIR/01Trimmed_data"
+TRIMOM_OUTDIR="$TEMP_OUTDIR/01Trimmed_data"
 
 # Create output directory if it does not exist
-mkdir -p $OUTPUT_DIR_01
+mkdir -p $TRIMOM_OUTDIR
 
-## Need to be BEFORE the script
-TRIMMED_1="$OUTPUT_DIR_01/${INPUT##*/}_1_val_1.fq.gz"
-TRIMMED_2="$OUTPUT_DIR_01/${INPUT##*/}_2_val_2.fq.gz"
-FASTQC_1="$OUTPUT_DIR_01/${INPUT##*/}_1_val_1_fastqc.html"
-FASTQC_2="$OUTPUT_DIR_01/${INPUT##*/}_2_val_2_fastqc.html"
-
-if [ ! -f "$TRIMMED_1" ] || [ ! -f "$TRIMMED_2" ] || [ ! -f "$FASTQC_1" ] || [ ! -f "$FASTQC_2" ]; then
-    # source python 3.6.4 to run cutadapt 2.4
-    source /share/apps/source_files/python/python-3.6.4.source
-    # add FastQC to my path
-    export PATH=/share/apps/genomics/FastQC-0.11.9/:$PATH
-    # add pigz to my path
-    export PATH=/share/apps/pigz-2.6/:$PATH
-    echo "Run Trim Galore command, with fastQC on the trimmed files"
-    /share/apps/genomics/TrimGalore-0.6.7/trim_galore --fastqc --path_to_cutadapt /share/apps/genomics/cutadapt-2.5/bin/cutadapt --paired --trim1 --cores 1 --output_dir $OUTPUT_DIR_01 --no_report_file $INPUT_1 $INPUT_2  ## the help advise for 4 cores, but Ed Martin from CS advise that with pigz, 1 core is better on this system. Or we could use bgzip
-else
-    echo "Files already trimmed."
-fi
+# source python 3.6.4 to run cutadapt 2.4
+source /share/apps/source_files/python/python-3.6.4.source
+# add FastQC to my path
+export PATH=/share/apps/genomics/FastQC-0.11.9/:$PATH
+# add pigz to my path
+export PATH=/share/apps/pigz-2.6/:$PATH
+echo "Run Trim Galore command without fastqc"
+/share/apps/genomics/TrimGalore-0.6.7/trim_galore --path_to_cutadapt /share/apps/genomics/cutadapt-2.5/bin/cutadapt --paired --trim1 --cores 1 --output_dir $TRIMOM_OUTDIR --no_report_file $INPUT_1 $INPUT_2  ## the help advise for 4 cores, but Ed Martin from CS advise that with pigz, 1 core is better on this system. Or we could use bgzip
 
 echo "**** End of step 1: $(date) ****"
+
+## output:
+TRIMMED_1="$TRIMOM_OUTDIR/${INPUT##*/}_1_val_1.fq.gz"
+TRIMMED_2="$TRIMOM_OUTDIR/${INPUT##*/}_2_val_2.fq.gz"
 
 ############################################################
 ##********************************************************##
@@ -119,6 +121,9 @@ if ! grep -q "${INPUT##*/}," "$DATA_TABLE_OUT"; then
 
     # Construct the output string using parameter expansion
     echo "${INPUT##*/},${nbrReads},${CR}" >> "$DATA_TABLE_OUT"
+
+    ## rm temporary table
+    rm "$TEMP_OUTDIR/${INPUT##*/}.BCREval.out"
 
     ## Keep only unique rows, if we re-run the code on the same samples for debugging or so
     sort "$DATA_TABLE_OUT" | uniq > temp
@@ -172,6 +177,9 @@ fi
 echo "**** End of step 4.1: $(date) ****"
 
 echo "**** Start of step 4.2 Genome alignement with $NSLOTS threads..."
+
+## NB: this steps generates ~90G/samples of temporary files
+
 ### takes 13h/samples with 5 cores 12Gb
 ## crashes on 2 cores 7Gb
 ## crashes with 2 cores and 15Gb
@@ -180,59 +188,46 @@ echo "**** Start of step 4.2 Genome alignement with $NSLOTS threads..."
 
 # Bismark holds the reference genome in memory and in addition to that runs four parallel instances of Bowtie. The memory usage is dependent on the size of the reference genome. For a large eukaryotic genome (human or mouse) we experienced a typical memory usage of around 12GB. We thus recommend running Bismark on a machine with 5 CPU cores and at least 12 GB of RAM. The memory requirements of Bowtie 2 are somewhat larger (possibly to allow gapped alignments). When running Bismark using Bowtie 2 we therefore recommend a system with at least 5 cores and > 16GB of RAM.
 
-# Check if the alignement was done
-BAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.bam"
-if ! test -f "$BAM" ; then
-    $BISMARK/bismark --genome $GENOME_DIR --parallel $NSLOTS --path_to_bowtie2 $BOWTIE2 --output_dir $BISMARK_OUTDIR -1 $TRIMMED_1 -2 $TRIMMED_2
-    echo "Alignment done."
-else
-    echo "Alignement already done."
-fi
+$BISMARK/bismark --genome $GENOME_DIR --parallel $NSLOTS --gzip --path_to_bowtie2 $BOWTIE2 --temp_dir $BISMARK_OUTDIR --output_dir $BISMARK_OUTDIR -1 $TRIMMED_1 -2 $TRIMMED_2
+
 echo "**** End of step 4.2: $(date) ****"
 
-echo "**** Start of step 4.3 Deduplication of the bam file..."
-## 2.5h with 12G 10nodes 72h
-## 1.5-2h with 17G 6C
+## output:
+BAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.bam"
 
-# Run if deduplication was not done
-DEDUPBAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bam"
-if ! test -f "$DEDUPBAM" ; then
-    $BISMARK/deduplicate_bismark --bam $BAM --output_dir $BISMARK_OUTDIR
-    echo "Deduplication done."
-else
-    echo "Deduplication already done."
-fi
+## Rm trimmed files, not useful any longer (~ 30G/sample):
+rm -rf $TRIMOM_OUTDIR/*${INPUT##*/}*
+
+echo "**** Start of step 4.3 Deduplication of the bam file..."
+## Tests: 2.5h with 12G 10nodes 72h; 1.5-2h with 17G 6C
+
+$BISMARK/deduplicate_bismark --bam $BAM --output_dir $BISMARK_OUTDIR
+
 echo "**** End of step 4.3: $(date) ****"
 
-echo "4.4 Methylation extraction..."
-## 3h in 17G 6C
-## took 4h30 on 12G 10nodes
+## output:
+DEDUPBAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bam"
 
-METHCOV="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz"
+## Rm bam files, not useful any longer (~40G):
+rm $BAM
 
-if ! test -f "$METHCOV" ; then
-    $BISMARK/bismark_methylation_extractor --gzip --ignore_r2 2 -o $BISMARK_OUTDIR -parallel $NSLOTS --merge_non_CpG --bedGraph $DEDUPBAM
-    echo "Methylation called."
-else
-    echo "Methylation already called."
-fi
-## --ignore_r2 <int>        Ignore the first <int> bp from the 5' end of Read 2 of paired-end sequencing
-##                         results only. Since the first couple of bases in Read 2 of BS-Seq experiments
-##                         show a severe bias towards non-methylation as a result of end-repairing
-##                         sonicated fragments with unmethylated cytosines (see M-bias plot), it is
-##                         recommended that the first couple of bp of Read 2 are removed before
-##                         starting downstream analysis. Please see the section on M-bias plots in the
-##                         Bismark User Guide for more details.
-#
-## This will produce three methytlation output files:
-## CpG_context_SAMPLE_bismark_bt2.txt.gz
-## CHG_context_SAMPLE_bismark_bt2.txt.gz
-## CHH_context_SAMPLE_bismark_bt2.txt.gz
-## as well as a Bismark coverage file: SAMPLE_pe.deduplicated.bismark.cov.gz
+echo "Start of step 4.4: Methylation extraction $(date)"
+## Tests: 3h in 17G 6C; took 4h30 on 12G 10nodes
 
-## move the needed final file to SAN to keep it for further analyses
-cp $BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_PE_report.txt /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/
-cp $BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/
+$BISMARK/bismark_methylation_extractor --gzip --bedGraph --ignore_r2 2 -o $BISMARK_OUTDIR --genome_folder $GENOME_DIR --parallel $NSLOTS $DEDUPBAM
+## NB --bedGraph important option to get cov file
+
+METHCOV="${BISMARK_OUTDIR}/$(basename "${DEDUPBAM%.*}").bismark.cov.gz"
+
+## move the needed final files to SAN to keep it for further analyses
+mv $BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_PE_report.txt /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/
+mv $METHCOV /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/
+
+## redefine METHCOV
+METHCOV="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/$(basename "${DEDUPBAM%.*}").bismark.cov.gz"
+
+## Select 20X minimum coverage 
+less $METHCOV | awk '$5 + $6 >= 20' - | gzip > $METHCOV.20X.cov.gz
 
 echo "**** End of step 4.4: $(date) ****"
 
@@ -247,28 +242,44 @@ echo "**** End of step 4.4: $(date) ****"
 ## ~1h with 17G 6C
 
 echo "**** Start of sorting test bam file : $(date) ****" 
+
 ## The bam file needs to be sorted before bssnper2
-if ! test -f "$DEDUPBAM.sorted.bam" ; then
-    samtools sort -o $DEDUPBAM.sorted.bam --threads $NSLOTS $DEDUPBAM
-else
-    echo "Bam file already sorted."
-fi
-echo "**** End of sorting test bam file : $(date) ****"
+samtools sort -o $DEDUPBAM.sorted.bam --threads $NSLOTS $DEDUPBAM
 
 echo "**** Start of bssbper2 SNP call : $(date) ****" 
 BSSNPER2_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall/" # not a temporary file
 
-## run bssnper2 if not called yet
-if ! test -f "$BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf.gz" ; then
-    /home/abalard/bssnper2/bssnper2 $DEDUPBAM.sorted.bam --ref $GENOME_DIR/GCF_000001405.40_GRCh38.p14_genomic.fa --vcf $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
-    ## Compress and index vcf files
-    /share/apps/htslib-1.20/bgzip --threads $NSLOTS $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
-    /share/apps/htslib-1.20/tabix -p vcf --threads $NSLOTS $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf.gz
-else
-    echo "SNPs already called"
-fi
+## run bssnper2
+/home/abalard/bssnper2/bssnper2 $DEDUPBAM.sorted.bam --ref $GENOME_DIR/GCF_000001405.40_GRCh38.p14_genomic.fa --vcf $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
+
+rm $DEDUPBAM
+
+## Compress and index vcf files
+/share/apps/htslib-1.20/bgzip --threads $NSLOTS $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
+/share/apps/htslib-1.20/tabix -p vcf --threads $NSLOTS $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf.gz
 
 echo "**** End of bssbper2 : $(date) ****" 
+
+####################################################
+##************************************************##
+## STEP 6. prepare files to calculate age and sex ##
+##************************************************##
+####################################################
+
+cd /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/03AgeSex/
+
+## Horvath methylation array file:
+HORV="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/03AgeSex/Homo_sapiens.hg38.HorvathMammalMethylChip40.v1.bed"
+
+## Sample name:
+SAMPLE_HORV=$(echo $METHCOV | sed 's|.*/\([^_]*\)_.*|\1|')
+
+## Convert WGBS methylation call aligned to hg38 with Bismark to HorvathMammalMethylChip40:
+## print METHCOV, calculate end as start + 1, intersect with Horvath file
+less $METHCOV | cut -f1,2,3,4 | awk -F'\t' 'BEGIN{OFS="\t"} {$3=$3+1; print}' | /share/apps/genomics/bedtools-2.30.0/bin/bedtools intersect -a - -b $HORV -wb | cut -f1,2,3,4,8 > $SAMPLE_HORV.horv.bed
+
+## Call a R script to calculate age and fill in a table
+Rscript /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/02_calculateAgeSex/calculateAgeSex.R $SAMPLE_HORV.horv.bed ${INPUT##*/} $METHCOV
 
 ##############
 ##************
@@ -276,18 +287,16 @@ echo "**** End of bssbper2 : $(date) ****"
 ##**********##
 ##############
 
-## What is needed for age and sex determination? figure out before rm the files!
-
 ## rm raw data:
 # rm -rf /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/*${INPUT##*/}*
 
 ## Rm TEMP directory whenever the job exits, regardless of whether it finished successfully or not
 function finish {
-    rm -rf $OUTPUT_DIR_01/*${INPUT##*/}*
-    rm -rf $BISMARK_OUTDIR/*${INPUT##*/}*
-    rm -rf $BSSNPER2_OUTDIR/*${INPUT##*/}*
-}
-trap finish EXIT ERR INT TERM
+    rm -rf $TRIMOM_OUTDIR/*${INPUT##*/}*
+    rm -rf $BISMARK_OUTDIR/*${INPUT##*/}* # remove all bam and methylation called files
+    rm -rf $BSSNPER2_OUTDIR/*${INPUT##*/}* # remove the bssnper2 folder
+
+trap finish EXIT ERR INT TERM ## allows for cleanup operations or other final tasks to be performed regardless of how the script terminates
 
 ## Log the end of the job
 echo "**** Job $JOB_NAME.$JOB_ID finished at $(date) ****"
