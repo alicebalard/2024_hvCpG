@@ -1,0 +1,61 @@
+Running on host: abner-601-8.local
+Start time: Sun 16 Mar 20:02:24 GMT 2025
+samples list:
+SRR28532088
+SRR28532090
+SRR28532092
+SRR28532094
+SRR28532096
+SRR28532098
+SRR28532100
+SRR28532102
+SRR28532104
+SRR28532106
+SRR28532108
+SRR28532145
+SRR28532136
+SRR28532137
+SRR28532138
+SRR28532139
+SRR28532140
+SRR28532141
+SRR28532142
+SRR28532143
+Skipping SRR28532088: Files already exist.
+Skipping SRR28532090: Files already exist.
+Skipping SRR28532092: Files already exist.
+Skipping SRR28532094: Files already exist.
+Skipping SRR28532096: Files already exist.
+Skipping SRR28532098: Files already exist.
+Skipping SRR28532100: Files already exist.
+Skipping SRR28532102: Files already exist.
+Skipping SRR28532104: Files already exist.
+Skipping SRR28532106: Files already exist.
+Skipping SRR28532108: Files already exist.
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
