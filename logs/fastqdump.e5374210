@@ -1,0 +1,35 @@
+cat: SRR28532145: No such file or directory
+2025-03-16T20:02:27 fasterq-dump.3.0.2 err: fasterq-dump.c fastdump_csra() checking ouput-file '/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532145.fastq' -> RC(rcExe,rcFile,rcPacking,rcName,rcExists)
+fasterq-dump quit with error code 3
+cat: SRR28532136: Is a directory
+spots read      : 265,412,524
+reads read      : 530,825,048
+reads written   : 530,825,048
+cat: SRR28532137: Is a directory
+spots read      : 252,077,217
+reads read      : 504,154,434
+reads written   : 504,154,434
+cat: SRR28532138: Is a directory
+spots read      : 202,520,168
+reads read      : 405,040,336
+reads written   : 405,040,336
+cat: SRR28532139: Is a directory
+spots read      : 273,768,757
+reads read      : 547,537,514
+reads written   : 547,537,514
+cat: SRR28532140: Is a directory
+spots read      : 238,185,418
+reads read      : 476,370,836
+reads written   : 476,370,836
+cat: SRR28532141: Is a directory
+spots read      : 264,828,342
+reads read      : 529,656,684
+reads written   : 529,656,684
+cat: SRR28532142: Is a directory
+spots read      : 252,294,789
+reads read      : 504,589,578
+reads written   : 504,589,578
+cat: SRR28532143: Is a directory
+spots read      : 271,214,637
+reads read      : 542,429,274
+reads written   : 542,429,274

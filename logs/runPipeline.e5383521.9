@@ -1,0 +1,886 @@
+Proceeding with single-core trimming (user-defined)
+Path to Cutadapt set as: '/share/apps/genomics/cutadapt-2.5/bin/cutadapt' (user defined)
+Cutadapt seems to be working fine (tested command '/share/apps/genomics/cutadapt-2.5/bin/cutadapt --version')
+Cutadapt version: 2.4
+single-core operation.
+No quality encoding type selected. Assuming that the data provided uses Sanger encoded Phred scores (default)
+
+Output will be written into the directory: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/
+
+
+AUTO-DETECTING ADAPTER TYPE
+===========================
+Attempting to auto-detect adapter type from the first 1 million sequences of the first file (>> /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_1.fastq.gz <<)
+
+Found perfect matches for the following adapter sequences:
+Adapter type	Count	Sequence	Sequences analysed	Percentage
+Illumina	36351	AGATCGGAAGAGC	1000000	3.64
+smallRNA	0	TGGAATTCTCGG	1000000	0.00
+Nextera	0	CTGTCTCTTATA	1000000	0.00
+Using Illumina adapter for trimming (count: 36351). Second best hit was smallRNA (count: 0)
+
+
+SUMMARISING RUN PARAMETERS
+==========================
+Input filename: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_1.fastq.gz
+Trimming mode: paired-end
+Trim Galore version: 0.6.7
+Cutadapt version: 2.4
+Number of cores used for trimming: 1
+Quality Phred score cutoff: 20
+Quality encoding type selected: ASCII+33
+Adapter sequence: 'AGATCGGAAGAGC' (Illumina TruSeq, Sanger iPCR; auto-detected)
+Maximum trimming error rate: 0.1 (default)
+Minimum required adapter overlap (stringency): 1 bp
+Minimum required sequence length for both reads before a sequence pair gets removed: 20 bp
+All sequences will be trimmed by 1 bp on their 3' end to avoid problems with invalid paired-end alignments with Bowtie 1
+Output file(s) will be GZIP compressed
+
+Cutadapt seems to be fairly up-to-date (version 2.4). Setting -j 1
+Writing final adapter and quality trimmed output to SRR28532104_1_trimmed.fq.gz
+
+
+  >>> Now performing quality (cutoff '-q 20') and adapter trimming in a single pass for the adapter sequence: 'AGATCGGAAGAGC' from file /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_1.fastq.gz <<< 
+10000000 sequences processed
+20000000 sequences processed
+30000000 sequences processed
+40000000 sequences processed
+50000000 sequences processed
+60000000 sequences processed
+70000000 sequences processed
+80000000 sequences processed
+90000000 sequences processed
+100000000 sequences processed
+110000000 sequences processed
+120000000 sequences processed
+130000000 sequences processed
+140000000 sequences processed
+150000000 sequences processed
+160000000 sequences processed
+170000000 sequences processed
+180000000 sequences processed
+190000000 sequences processed
+200000000 sequences processed
+This is cutadapt 2.4 with Python 3.6.4
+Command line parameters: -j 1 -e 0.1 -q 20 -O 1 -a AGATCGGAAGAGC /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_1.fastq.gz
+Processing reads on 1 core in single-end mode ...
+Finished in 5637.48 s (28 us/read; 2.16 M reads/minute).
+
+=== Summary ===
+
+Total reads processed:             202,665,192
+Reads with adapters:                80,973,071 (40.0%)
+Reads written (passing filters):   202,665,192 (100.0%)
+
+Total basepairs processed: 30,602,443,992 bp
+Quality-trimmed:              44,237,101 bp (0.1%)
+Total written (filtered):  30,195,617,983 bp (98.7%)
+
+=== Adapter 1 ===
+
+Sequence: AGATCGGAAGAGC; Type: regular 3'; Length: 13; Trimmed: 80973071 times.
+
+No. of allowed errors:
+0-9 bp: 0; 10-13 bp: 1
+
+Bases preceding removed adapters:
+  A: 28.1%
+  C: 14.4%
+  G: 14.3%
+  T: 43.1%
+  none/other: 0.0%
+
+Overview of removed sequences
+length	count	expect	max.err	error counts
+1	50371242	50666298.0	0	50371242
+2	12428445	12666574.5	0	12428445
+3	4728155	3166643.6	0	4728155
+4	1787933	791660.9	0	1787933
+5	564201	197915.2	0	564201
+6	554481	49478.8	0	554481
+7	429996	12369.7	0	429996
+8	539574	3092.4	0	539574
+9	406931	773.1	0	403358 3573
+10	407237	193.3	1	384699 22538
+11	468281	48.3	1	426060 42221
+12	405608	12.1	1	381042 24566
+13	404590	3.0	1	376245 28345
+14	367456	3.0	1	338205 29251
+15	440048	3.0	1	409695 30353
+16	287757	3.0	1	266052 21705
+17	399187	3.0	1	360843 38344
+18	460521	3.0	1	437566 22955
+19	132692	3.0	1	123270 9422
+20	296342	3.0	1	278161 18181
+21	304023	3.0	1	285553 18470
+22	233343	3.0	1	222852 10491
+23	320029	3.0	1	300449 19580
+24	207885	3.0	1	188128 19757
+25	289657	3.0	1	273783 15874
+26	144780	3.0	1	138142 6638
+27	217684	3.0	1	203870 13814
+28	229778	3.0	1	214860 14918
+29	179534	3.0	1	164991 14543
+30	261619	3.0	1	252179 9440
+31	60896	3.0	1	57348 3548
+32	203009	3.0	1	192593 10416
+33	104673	3.0	1	97796 6877
+34	168966	3.0	1	157370 11596
+35	137842	3.0	1	132230 5612
+36	99985	3.0	1	94599 5386
+37	108471	3.0	1	104331 4140
+38	114749	3.0	1	107758 6991
+39	104621	3.0	1	99651 4970
+40	110789	3.0	1	104960 5829
+41	72050	3.0	1	69465 2585
+42	92721	3.0	1	88286 4435
+43	117280	3.0	1	110451 6829
+44	38900	3.0	1	36698 2202
+45	110666	3.0	1	106398 4268
+46	22672	3.0	1	21450 1222
+47	57127	3.0	1	54631 2496
+48	77750	3.0	1	73889 3861
+49	38466	3.0	1	36816 1650
+50	51176	3.0	1	48521 2655
+51	46585	3.0	1	43987 2598
+52	41856	3.0	1	39913 1943
+53	41818	3.0	1	39912 1906
+54	45728	3.0	1	42600 3128
+55	61346	3.0	1	58811 2535
+56	13457	3.0	1	12571 886
+57	44845	3.0	1	43063 1782
+58	33477	3.0	1	32249 1228
+59	14416	3.0	1	13521 895
+60	26289	3.0	1	25454 835
+61	10784	3.0	1	10153 631
+62	27438	3.0	1	26043 1395
+63	29505	3.0	1	28478 1027
+64	15016	3.0	1	14309 707
+65	9962	3.0	1	9360 602
+66	21802	3.0	1	20876 926
+67	20208	3.0	1	19245 963
+68	21895	3.0	1	20888 1007
+69	17160	3.0	1	16130 1030
+70	18350	3.0	1	17313 1037
+71	2022	3.0	1	1859 163
+72	3724	3.0	1	3526 198
+73	8670	3.0	1	8242 428
+74	10367	3.0	1	9809 558
+75	10496	3.0	1	9910 586
+76	10257	3.0	1	9686 571
+77	9563	3.0	1	9041 522
+78	9081	3.0	1	8570 511
+79	8926	3.0	1	8404 522
+80	8259	3.0	1	7809 450
+81	7977	3.0	1	7524 453
+82	7341	3.0	1	6948 393
+83	7043	3.0	1	6639 404
+84	6845	3.0	1	6455 390
+85	6284	3.0	1	5930 354
+86	6059	3.0	1	5704 355
+87	5823	3.0	1	5526 297
+88	5335	3.0	1	5013 322
+89	5177	3.0	1	4913 264
+90	4807	3.0	1	4554 253
+91	4763	3.0	1	4481 282
+92	4506	3.0	1	4263 243
+93	4393	3.0	1	4167 226
+94	4039	3.0	1	3823 216
+95	3966	3.0	1	3748 218
+96	3732	3.0	1	3508 224
+97	3545	3.0	1	3354 191
+98	3395	3.0	1	3218 177
+99	3341	3.0	1	3178 163
+100	3098	3.0	1	2935 163
+101	3012	3.0	1	2847 165
+102	2757	3.0	1	2614 143
+103	2919	3.0	1	2769 150
+104	2645	3.0	1	2507 138
+105	2633	3.0	1	2493 140
+106	2296	3.0	1	2187 109
+107	2367	3.0	1	2250 117
+108	2128	3.0	1	2018 110
+109	2079	3.0	1	1970 109
+110	1942	3.0	1	1852 90
+111	2014	3.0	1	1928 86
+112	1928	3.0	1	1847 81
+113	1914	3.0	1	1828 86
+114	1780	3.0	1	1693 87
+115	1735	3.0	1	1647 88
+116	1580	3.0	1	1494 86
+117	1531	3.0	1	1454 77
+118	1514	3.0	1	1449 65
+119	1474	3.0	1	1399 75
+120	1453	3.0	1	1399 54
+121	1347	3.0	1	1299 48
+122	1388	3.0	1	1354 34
+123	1192	3.0	1	1144 48
+124	1164	3.0	1	1117 47
+125	1035	3.0	1	1007 28
+126	935	3.0	1	904 31
+127	947	3.0	1	915 32
+128	772	3.0	1	729 43
+129	758	3.0	1	721 37
+130	648	3.0	1	631 17
+131	565	3.0	1	540 25
+132	510	3.0	1	488 22
+133	395	3.0	1	380 15
+134	335	3.0	1	312 23
+135	312	3.0	1	301 11
+136	232	3.0	1	213 19
+137	179	3.0	1	166 13
+138	174	3.0	1	159 15
+139	190	3.0	1	178 12
+140	141	3.0	1	127 14
+141	130	3.0	1	113 17
+142	161	3.0	1	147 14
+143	134	3.0	1	122 12
+144	135	3.0	1	126 9
+145	151	3.0	1	132 19
+146	239	3.0	1	218 21
+147	172	3.0	1	149 23
+148	105	3.0	1	77 28
+149	781	3.0	1	635 146
+150	750	3.0	1	581 169
+151	8804	3.0	1	6440 2364
+
+RUN STATISTICS FOR INPUT FILE: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_1.fastq.gz
+=============================================
+202665192 sequences processed in total
+The length threshold of paired-end sequences gets evaluated later on (in the validation step)
+
+
+SUMMARISING RUN PARAMETERS
+==========================
+Input filename: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_2.fastq.gz
+Trimming mode: paired-end
+Trim Galore version: 0.6.7
+Cutadapt version: 2.4
+Number of cores used for trimming: 1
+Quality Phred score cutoff: 20
+Quality encoding type selected: ASCII+33
+Adapter sequence: 'AGATCGGAAGAGC' (Illumina TruSeq, Sanger iPCR; auto-detected)
+Maximum trimming error rate: 0.1 (default)
+Minimum required adapter overlap (stringency): 1 bp
+Minimum required sequence length for both reads before a sequence pair gets removed: 20 bp
+All sequences will be trimmed by 1 bp on their 3' end to avoid problems with invalid paired-end alignments with Bowtie 1
+Output file(s) will be GZIP compressed
+
+Cutadapt seems to be fairly up-to-date (version 2.4). Setting -j -j 1
+Writing final adapter and quality trimmed output to SRR28532104_2_trimmed.fq.gz
+
+
+  >>> Now performing quality (cutoff '-q 20') and adapter trimming in a single pass for the adapter sequence: 'AGATCGGAAGAGC' from file /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_2.fastq.gz <<< 
+10000000 sequences processed
+20000000 sequences processed
+30000000 sequences processed
+40000000 sequences processed
+50000000 sequences processed
+60000000 sequences processed
+70000000 sequences processed
+80000000 sequences processed
+90000000 sequences processed
+100000000 sequences processed
+110000000 sequences processed
+120000000 sequences processed
+130000000 sequences processed
+140000000 sequences processed
+150000000 sequences processed
+160000000 sequences processed
+170000000 sequences processed
+180000000 sequences processed
+190000000 sequences processed
+200000000 sequences processed
+This is cutadapt 2.4 with Python 3.6.4
+Command line parameters: -j 1 -e 0.1 -q 20 -O 1 -a AGATCGGAAGAGC /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_2.fastq.gz
+Processing reads on 1 core in single-end mode ...
+Finished in 6063.30 s (30 us/read; 2.01 M reads/minute).
+
+=== Summary ===
+
+Total reads processed:             202,665,192
+Reads with adapters:               105,993,234 (52.3%)
+Reads written (passing filters):   202,665,192 (100.0%)
+
+Total basepairs processed: 30,602,443,992 bp
+Quality-trimmed:              73,923,512 bp (0.2%)
+Total written (filtered):  30,153,492,720 bp (98.5%)
+
+=== Adapter 1 ===
+
+Sequence: AGATCGGAAGAGC; Type: regular 3'; Length: 13; Trimmed: 105993234 times.
+
+No. of allowed errors:
+0-9 bp: 0; 10-13 bp: 1
+
+Bases preceding removed adapters:
+  A: 54.1%
+  C: 16.8%
+  G: 1.0%
+  T: 28.2%
+  none/other: 0.0%
+
+Overview of removed sequences
+length	count	expect	max.err	error counts
+1	92560295	50666298.0	0	92560295
+2	793329	12666574.5	0	793329
+3	676928	3166643.6	0	676928
+4	475447	791660.9	0	475447
+5	514480	197915.2	0	514480
+6	519287	49478.8	0	519287
+7	469177	12369.7	0	469177
+8	611136	3092.4	0	611136
+9	249527	773.1	0	248358 1169
+10	520711	193.3	1	468700 52011
+11	327789	48.3	1	295859 31930
+12	429015	12.1	1	374826 54189
+13	383257	3.0	1	335751 47506
+14	501942	3.0	1	435966 65976
+15	275739	3.0	1	247352 28387
+16	313152	3.0	1	279031 34121
+17	491642	3.0	1	440254 51388
+18	152882	3.0	1	129566 23316
+19	436226	3.0	1	386599 49627
+20	314501	3.0	1	282919 31582
+21	120967	3.0	1	107462 13505
+22	266117	3.0	1	236983 29134
+23	259462	3.0	1	231773 27689
+24	308732	3.0	1	270634 38098
+25	283657	3.0	1	257555 26102
+26	200064	3.0	1	178360 21704
+27	111666	3.0	1	98828 12838
+28	252104	3.0	1	229896 22208
+29	115920	3.0	1	104655 11265
+30	230115	3.0	1	210700 19415
+31	105903	3.0	1	94975 10928
+32	193223	3.0	1	174740 18483
+33	148391	3.0	1	136947 11444
+34	92624	3.0	1	83434 9190
+35	130314	3.0	1	117629 12685
+36	148257	3.0	1	131733 16524
+37	150169	3.0	1	139004 11165
+38	110868	3.0	1	103976 6892
+39	39318	3.0	1	34030 5288
+40	134666	3.0	1	125339 9327
+41	47044	3.0	1	42408 4636
+42	107548	3.0	1	99140 8408
+43	54897	3.0	1	50348 4549
+44	73396	3.0	1	67739 5657
+45	77948	3.0	1	70881 7067
+46	60610	3.0	1	55496 5114
+47	64779	3.0	1	60235 4544
+48	49909	3.0	1	46284 3625
+49	51082	3.0	1	46892 4190
+50	49254	3.0	1	46289 2965
+51	40490	3.0	1	37782 2708
+52	42021	3.0	1	39234 2787
+53	41818	3.0	1	38599 3219
+54	53340	3.0	1	50128 3212
+55	19707	3.0	1	18179 1528
+56	34478	3.0	1	31825 2653
+57	49434	3.0	1	46251 3183
+58	18120	3.0	1	16663 1457
+59	20374	3.0	1	19123 1251
+60	28777	3.0	1	26499 2278
+61	28842	3.0	1	27250 1592
+62	14736	3.0	1	13449 1287
+63	41376	3.0	1	38856 2520
+64	17034	3.0	1	15789 1245
+65	13235	3.0	1	12530 705
+66	9773	3.0	1	8930 843
+67	21541	3.0	1	20495 1046
+68	16124	3.0	1	15273 851
+69	13452	3.0	1	12556 896
+70	14847	3.0	1	13945 902
+71	14545	3.0	1	13738 807
+72	13714	3.0	1	12860 854
+73	17497	3.0	1	16696 801
+74	8749	3.0	1	8225 524
+75	5969	3.0	1	5576 393
+76	6251	3.0	1	5918 333
+77	8136	3.0	1	7701 435
+78	8241	3.0	1	7740 501
+79	8137	3.0	1	7671 466
+80	7693	3.0	1	7271 422
+81	7443	3.0	1	7053 390
+82	6960	3.0	1	6562 398
+83	6870	3.0	1	6483 387
+84	6573	3.0	1	6243 330
+85	6197	3.0	1	5846 351
+86	5900	3.0	1	5615 285
+87	5532	3.0	1	5259 273
+88	5080	3.0	1	4831 249
+89	4956	3.0	1	4717 239
+90	4732	3.0	1	4470 262
+91	4542	3.0	1	4314 228
+92	4369	3.0	1	4180 189
+93	4240	3.0	1	4006 234
+94	3896	3.0	1	3680 216
+95	3814	3.0	1	3609 205
+96	3623	3.0	1	3423 200
+97	3462	3.0	1	3244 218
+98	3404	3.0	1	3200 204
+99	3390	3.0	1	3192 198
+100	3185	3.0	1	2958 227
+101	2979	3.0	1	2792 187
+102	2691	3.0	1	2501 190
+103	2842	3.0	1	2634 208
+104	2572	3.0	1	2378 194
+105	2600	3.0	1	2385 215
+106	2307	3.0	1	2085 222
+107	2381	3.0	1	2133 248
+108	2184	3.0	1	1956 228
+109	2111	3.0	1	1861 250
+110	2037	3.0	1	1765 272
+111	2055	3.0	1	1770 285
+112	1923	3.0	1	1656 267
+113	1911	3.0	1	1597 314
+114	1820	3.0	1	1475 345
+115	1950	3.0	1	1520 430
+116	1873	3.0	1	1322 551
+117	2132	3.0	1	1309 823
+118	2442	3.0	1	1282 1160
+119	2850	3.0	1	1224 1626
+120	3552	3.0	1	1276 2276
+121	4487	3.0	1	1169 3318
+122	5988	3.0	1	1215 4773
+123	7343	3.0	1	1072 6271
+124	9533	3.0	1	1046 8487
+125	11489	3.0	1	975 10514
+126	13099	3.0	1	856 12243
+127	14646	3.0	1	850 13796
+128	16184	3.0	1	728 15456
+129	15730	3.0	1	714 15016
+130	13811	3.0	1	682 13129
+131	10310	3.0	1	657 9653
+132	6195	3.0	1	646 5549
+133	2762	3.0	1	670 2092
+134	1719	3.0	1	704 1015
+135	1614	3.0	1	723 891
+136	1692	3.0	1	716 976
+137	2131	3.0	1	724 1407
+138	1611	3.0	1	554 1057
+139	1280	3.0	1	473 807
+140	1165	3.0	1	377 788
+141	989	3.0	1	327 662
+142	938	3.0	1	295 643
+143	818	3.0	1	217 601
+144	745	3.0	1	184 561
+145	640	3.0	1	195 445
+146	529	3.0	1	232 297
+147	394	3.0	1	138 256
+148	145	3.0	1	29 116
+149	702	3.0	1	584 118
+150	172	3.0	1	103 69
+151	5076	3.0	1	4553 523
+
+RUN STATISTICS FOR INPUT FILE: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532104_2.fastq.gz
+=============================================
+202665192 sequences processed in total
+The length threshold of paired-end sequences gets evaluated later on (in the validation step)
+
+Validate paired-end files SRR28532104_1_trimmed.fq.gz and SRR28532104_2_trimmed.fq.gz
+file_1: SRR28532104_1_trimmed.fq.gz, file_2: SRR28532104_2_trimmed.fq.gz
+
+
+>>>>> Now validing the length of the 2 paired-end infiles: SRR28532104_1_trimmed.fq.gz and SRR28532104_2_trimmed.fq.gz <<<<<
+Writing validated paired-end Read 1 reads to SRR28532104_1_val_1.fq.gz
+Writing validated paired-end Read 2 reads to SRR28532104_2_val_2.fq.gz
+
+Total number of sequences analysed: 202665192
+
+Number of sequence pairs removed because at least one read was shorter than the length cutoff (20 bp): 58445 (0.03%)
+
+Deleting both intermediate output files SRR28532104_1_trimmed.fq.gz and SRR28532104_2_trimmed.fq.gz
+
+====================================================================================================
+
+Bowtie 2 seems to be working fine (tested command '/share/apps/genomics/bowtie2-2.4.1/bowtie2 --version' [2.4.1])
+Output format is BAM (default)
+Alignments will be written out in BAM format. Samtools found here: '/share/apps/genomics/samtools-1.9/bin/samtools'
+Reference genome folder provided is /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/	(absolute path is '/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/)'
+FastQ format assumed (by default)
+
+Input files to be analysed (in current folder '/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521'):
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz
+Library is assumed to be strand-specific (directional), alignments to strands complementary to the original top or bottom strands will be ignored (i.e. not performed!)
+Output will be written into the directory: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/
+
+Using temp directory: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark
+Temporary files will be written into the directory: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/
+Summary of all aligner options:	-q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500
+Running Bismark Parallel version. Number of parallel instances to be spawned: 6
+
+Current working directory is: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521
+
+Now reading in and storing sequence information of the genome specified in: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/
+
+
+Paired-end alignments will be performed
+=======================================
+
+The provided filenames for paired-end alignments are /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz
+
+Paired-end alignments will be performed
+=======================================
+
+The provided filenames for paired-end alignments are /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz
+
+Paired-end alignments will be performed
+=======================================
+
+The provided filenames for paired-end alignments are /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz
+
+Paired-end alignments will be performed
+=======================================
+
+The provided filenames for paired-end alignments are /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz
+
+Paired-end alignments will be performed
+=======================================
+
+The provided filenames for paired-end alignments are /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz
+
+Paired-end alignments will be performed
+=======================================
+
+The provided filenames for paired-end alignments are /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz for PID: 0 and offset 1 (sequences written out: 33767792)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.1.gz< as new in-file 1 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz<)
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz for PID: 0 and offset 4 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.4.gz< as new in-file 1 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz<)
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz for PID: 191986 and offset 6 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.6.gz< as new in-file 1 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz<)
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz for PID: 0 and offset 5 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.5.gz< as new in-file 1 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz<)
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz for PID: 0 and offset 3 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.3.gz< as new in-file 1 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz<)
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz for PID: 0 and offset 2 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.2.gz< as new in-file 1 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_1_val_1.fq.gz<)
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz for PID: 0 and offset 4 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.4.gz< as new in-file 2 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz<)
+Input files are in FastQ format
+Writing a C -> T converted version of the input file SRR28532104_1_val_1.fq.gz.temp.4.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.4.gz_C_to_T.fastq.gz
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz for PID: 0 and offset 5 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.5.gz< as new in-file 2 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz<)
+Input files are in FastQ format
+Writing a C -> T converted version of the input file SRR28532104_1_val_1.fq.gz.temp.5.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.5.gz_C_to_T.fastq.gz
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz for PID: 0 and offset 3 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.3.gz< as new in-file 2 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz<)
+Input files are in FastQ format
+Writing a C -> T converted version of the input file SRR28532104_1_val_1.fq.gz.temp.3.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.3.gz_C_to_T.fastq.gz
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz for PID: 0 and offset 1 (sequences written out: 33767792)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.1.gz< as new in-file 2 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz<)
+Input files are in FastQ format
+Writing a C -> T converted version of the input file SRR28532104_1_val_1.fq.gz.temp.1.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.1.gz_C_to_T.fastq.gz
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz for PID: 191986 and offset 6 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.6.gz< as new in-file 2 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz<)
+Input files are in FastQ format
+Writing a C -> T converted version of the input file SRR28532104_1_val_1.fq.gz.temp.6.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.6.gz_C_to_T.fastq.gz
+Finished subdividing /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz for PID: 0 and offset 2 (sequences written out: 33767791)
+
+Using the subset file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.2.gz< as new in-file 2 (instead of >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532104_2_val_2.fq.gz<)
+Input files are in FastQ format
+Writing a C -> T converted version of the input file SRR28532104_1_val_1.fq.gz.temp.2.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.2.gz_C_to_T.fastq.gz
+
+Created C -> T converted version of the FastQ file SRR28532104_1_val_1.fq.gz.temp.4.gz (33767791 sequences in total)
+
+Writing a G -> A converted version of the input file SRR28532104_2_val_2.fq.gz.temp.4.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.4.gz_G_to_A.fastq.gz
+
+Created C -> T converted version of the FastQ file SRR28532104_1_val_1.fq.gz.temp.3.gz (33767791 sequences in total)
+
+Writing a G -> A converted version of the input file SRR28532104_2_val_2.fq.gz.temp.3.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.3.gz_G_to_A.fastq.gz
+
+Created C -> T converted version of the FastQ file SRR28532104_1_val_1.fq.gz.temp.2.gz (33767791 sequences in total)
+
+Writing a G -> A converted version of the input file SRR28532104_2_val_2.fq.gz.temp.2.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.2.gz_G_to_A.fastq.gz
+
+Created C -> T converted version of the FastQ file SRR28532104_1_val_1.fq.gz.temp.5.gz (33767791 sequences in total)
+
+Writing a G -> A converted version of the input file SRR28532104_2_val_2.fq.gz.temp.5.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.5.gz_G_to_A.fastq.gz
+
+Created C -> T converted version of the FastQ file SRR28532104_1_val_1.fq.gz.temp.1.gz (33767792 sequences in total)
+
+Writing a G -> A converted version of the input file SRR28532104_2_val_2.fq.gz.temp.1.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.1.gz_G_to_A.fastq.gz
+
+Created C -> T converted version of the FastQ file SRR28532104_1_val_1.fq.gz.temp.6.gz (33767791 sequences in total)
+
+Writing a G -> A converted version of the input file SRR28532104_2_val_2.fq.gz.temp.6.gz to /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.6.gz_G_to_A.fastq.gz
+
+Created G -> A converted version of the FastQ file SRR28532104_2_val_2.fq.gz.temp.4.gz (33767791 sequences in total)
+
+Input files are SRR28532104_1_val_1.fq.gz.temp.4.gz_C_to_T.fastq.gz and SRR28532104_2_val_2.fq.gz.temp.4.gz_G_to_A.fastq.gz (FastQ)
+Now running 2 instances of Bowtie 2 against the bisulfite genome of /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/ with the specified options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500
+
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2CTgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.4.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.4.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --norc))
+Found first alignment:
+SRR28532104.4_A00740:346:HWTHFDSX2:1:1101:4218:1000_length=151/1	77	*	0	0	*	*	0	0	GGGTTTATGTTATTTTTTTGTTTTAGTTTTTTGAGTAGTTGGGATTATAGGTGTTTATTATTATGTTTGGTTAATTTTTTGTATTTTTGGTAGAGATAGGGTTTTATTATGTTAGAGGATGGTTTTGATTTTTTGATTTTGTGATTTTT	FFF:,FFFFFFFFF,FFFFFFFF:FFFFFF:FFFFFFFFFFFFFFFFFFFF,FFF::FFFF:FFFFFFFFF:FFFFFFFFFFF::FFFFFFFFF,FFF,FFFFFFFFFF:FF,::FFFF,F:FFFFFFFFFFFFFF,FFFFFFFFFFF:	YT:Z:UP
+SRR28532104.4_A00740:346:HWTHFDSX2:1:1101:4218:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAAAAAAACACTTTAAAAAACCAAAATAAAAAATCACAAAATCAAAAAATCAAAACCATCCTCTAACATAATAAAACCCTATCTCTACCAAAAATACAAAAAATTAACCAAACATAATAATAAACACCTATAATCCCAACTACTCAA	FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF	YT:Z:UP
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2GAgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.4.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.4.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --nofw))
+
+Created G -> A converted version of the FastQ file SRR28532104_2_val_2.fq.gz.temp.3.gz (33767791 sequences in total)
+
+Input files are SRR28532104_1_val_1.fq.gz.temp.3.gz_C_to_T.fastq.gz and SRR28532104_2_val_2.fq.gz.temp.3.gz_G_to_A.fastq.gz (FastQ)
+Now running 2 instances of Bowtie 2 against the bisulfite genome of /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/ with the specified options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500
+
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2CTgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.3.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.3.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --norc))
+Found first alignment:
+SRR28532104.3_A00740:346:HWTHFDSX2:1:1101:4092:1000_length=151/1	77	*	0	0	*	*	0	0	TTTTTATTATTTTTGTTATTTTTTTTTTTTTTTTTTTTTGTTTTTTTTTTTTTTTTTTAAGTTTTTTTATTTTTTTATTTTTTTTTATTTTTTTTGTTAAATGGTGGATTTTTTGGGTGTTTTTTTTAATTTTTTTAATTTTTTTTTATT	FF:FF:FFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFF,F:,FF:FFFFFFFFFFFFF,,:FFFF,,,:,FF,FF,FFFFFFF,,,:FFFFFFFFFF:F,F:FF:F,:F:,F:FFF:F,:,FFFF,,,FFF:FFF::FFF:F,FF:,FF	YT:Z:UP
+SRR28532104.3_A00740:346:HWTHFDSX2:1:1101:4092:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAAAACAAAATAAACAAAAAAAAAAAAATAAAAACAATACAAAAAAAAAAATTAAAACCTAAAACAAACAAAAAACTAACAAAAAAAATACTATATCCATAAACCAAAAAAAATATACCATAAAAAAAATTTTCAATAAATAAAAAAC	FFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFF,FFFFFFFFFFF,FFFFFFFF,FFFFF,FFFFF:FF:FF,FFFF,,F,:FFFFFFFFFF:,F:FF,:FFFFF:FFFFFF:FFFF:F:FFFFFF,:F:,F,:FF,F:FF,F:FF:F	YT:Z:UP
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2GAgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.3.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.3.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --nofw))
+Found first alignment:
+SRR28532104.3_A00740:346:HWTHFDSX2:1:1101:4092:1000_length=151/1	77	*	0	0	*	*	0	0	TTTTTATTATTTTTGTTATTTTTTTTTTTTTTTTTTTTTGTTTTTTTTTTTTTTTTTTAAGTTTTTTTATTTTTTTATTTTTTTTTATTTTTTTTGTTAAATGGTGGATTTTTTGGGTGTTTTTTTTAATTTTTTTAATTTTTTTTTATT	FF:FF:FFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFF,F:,FF:FFFFFFFFFFFFF,,:FFFF,,,:,FF,FF,FFFFFFF,,,:FFFFFFFFFF:F,F:FF:F,:F:,F:FFF:F,:,FFFF,,,FFF:FFF::FFF:F,FF:,FF	YT:Z:UP
+SRR28532104.3_A00740:346:HWTHFDSX2:1:1101:4092:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAAAACAAAATAAACAAAAAAAAAAAAATAAAAACAATACAAAAAAAAAAATTAAAACCTAAAACAAACAAAAAACTAACAAAAAAAATACTATATCCATAAACCAAAAAAAATATACCATAAAAAAAATTTTCAATAAATAAAAAAC	FFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFF,FFFFFFFFFFF,FFFFFFFF,FFFFF,FFFFF:FF:FF,FFFF,,F,:FFFFFFFFFF:,F:FF,:FFFFF:FFFFFF:FFFF:F:FFFFFF,:F:,F,:FF,F:FF,F:FF:F	YT:Z:UP
+Found first alignment:
+SRR28532104.4_A00740:346:HWTHFDSX2:1:1101:4218:1000_length=151/1	77	*	0	0	*	*	0	0	GGGTTTATGTTATTTTTTTGTTTTAGTTTTTTGAGTAGTTGGGATTATAGGTGTTTATTATTATGTTTGGTTAATTTTTTGTATTTTTGGTAGAGATAGGGTTTTATTATGTTAGAGGATGGTTTTGATTTTTTGATTTTGTGATTTTT	FFF:,FFFFFFFFF,FFFFFFFF:FFFFFF:FFFFFFFFFFFFFFFFFFFF,FFF::FFFF:FFFFFFFFF:FFFFFFFFFFF::FFFFFFFFF,FFF,FFFFFFFFFF:FF,::FFFF,F:FFFFFFFFFFFFFF,FFFFFFFFFFF:	YT:Z:UP
+SRR28532104.4_A00740:346:HWTHFDSX2:1:1101:4218:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAAAAAAACACTTTAAAAAACCAAAATAAAAAATCACAAAATCAAAAAATCAAAACCATCCTCTAACATAATAAAACCCTATCTCTACCAAAAATACAAAAAATTAACCAAACATAATAATAAACACCTATAATCCCAACTACTCAA	FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF	YT:Z:UP
+
+>>> Writing bisulfite mapping results to SRR28532104_1_val_1.fq.gz.temp.3.gz_bismark_bt2_pe.bam <<<
+
+
+>>> Writing bisulfite mapping results to SRR28532104_1_val_1.fq.gz.temp.4.gz_bismark_bt2_pe.bam <<<
+
+
+Created G -> A converted version of the FastQ file SRR28532104_2_val_2.fq.gz.temp.2.gz (33767791 sequences in total)
+
+Input files are SRR28532104_1_val_1.fq.gz.temp.2.gz_C_to_T.fastq.gz and SRR28532104_2_val_2.fq.gz.temp.2.gz_G_to_A.fastq.gz (FastQ)
+Now running 2 instances of Bowtie 2 against the bisulfite genome of /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/ with the specified options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500
+
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2CTgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.2.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.2.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --norc))
+
+Reading in the sequence files /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.3.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.3.gz
+
+Reading in the sequence files /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.4.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.4.gz
+
+Created G -> A converted version of the FastQ file SRR28532104_2_val_2.fq.gz.temp.5.gz (33767791 sequences in total)
+
+Input files are SRR28532104_1_val_1.fq.gz.temp.5.gz_C_to_T.fastq.gz and SRR28532104_2_val_2.fq.gz.temp.5.gz_G_to_A.fastq.gz (FastQ)
+Now running 2 instances of Bowtie 2 against the bisulfite genome of /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/ with the specified options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500
+
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2CTgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.5.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.5.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --norc))
+Found first alignment:
+SRR28532104.2_A00740:346:HWTHFDSX2:1:1101:3441:1000_length=151/1	77	*	0	0	*	*	0	0	AGGAATATTATATTAATAAAATGTTAAGTTATGTGTTAATTTATTTAAATATTGGGTGTGTATAAGGTATTTAGTTTGGTTTTAAAGTATATATATGTAGAATTAGAATTAGATTTTTTTTGTTTTTGAGAAGTTTAAAGTGAGGTTTAG	FFFFFFFF:FFFF:F,FFFF,FFFF:FFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFF:FFFFFFFF:F,:FFFFFFFFFFFFFF:FF:FFFFF::FFF,FFFFFFFF:FFFFFFFFF,FFFFFFFFFFF:FFFFFFFFFFFFFFF:FFF	YT:Z:UP
+SRR28532104.2_A00740:346:HWTHFDSX2:1:1101:3441:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAATATCATCTTCTACATTCAAACCTTTTCCATCTCATACCTTTAAAACCCCATAACATTTACTTATATTATATACCTCACTAAACCTCACTTTAAACTTCTCAAAAACAAAAAAAATCTAATTCTAATTCTACATATATATACTTT	FFFF:FFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,FFFFFFFFFF	YT:Z:UP
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2GAgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.2.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.2.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --nofw))
+Found first alignment:
+SRR28532104.5_A00740:346:HWTHFDSX2:1:1101:5068:1000_length=151/1	99	NC_000004.12_CT_converted	82036422	40	111M	=	82036423	112	TTGTTTTTAGGTTATAGTAGATATTTGATAAATGTTTGTTAGATTAGTGTATGAAGAGTGATATGGATAAAAAGAAAGGTATAAATTTAAGAAAGAATTTGTAGGAGTTTT	F,FFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF	AS:i:-6	XN:i:0	XM:i:1	XO:i:0	XG:i:0	NM:i:1	MD:Z:109A1	YS:i:-6	YT:Z:CP
+SRR28532104.5_A00740:346:HWTHFDSX2:1:1101:5068:1000_length=151/2	147	NC_000004.12_CT_converted	82036423	40	111M	=	82036422	-112	TGTTTTTAGGTTATAGTAGATATTTGATAAATGTTTGTTAGATTAGTGTATGAAGAGTGATATGGATAAAAAGAAAGGTATAAATTTAAGAAAGAATTTGTAGGAGTTTTT	FFFFF:F:FFFFFFFFFFFFFFFFFFFFFFFFF:FFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFF:FFFFFFFFFFFFFF	AS:i:-6	XN:i:0	XM:i:1	XO:i:0	XG:i:0	NM:i:1	MD:Z:108A2	YS:i:-6	YT:Z:CP
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2GAgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.5.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.5.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --nofw))
+Found first alignment:
+SRR28532104.2_A00740:346:HWTHFDSX2:1:1101:3441:1000_length=151/1	83	NC_000001.11_GA_converted	59179329	24	150M	=	59179247	-232	CTAAACCTCACTTTAAACTTCTCAAAAACAAAAAAAATCTAATTCTAATTCTACATATATATACTTTAAAACCAAACTAAATACCTTATACACACCCAATATTTAAATAAATTAACACATAACTTAACATTTTATTAATATAATATTCCT	FFF:FFFFFFFFFFFFFFF:FFFFFFFFFFF,FFFFFFFFF:FFFFFFFF,FFF::FFFFF:FF:FFFFFFFFFFFFFF:,F:FFFFFFFF:FFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFF:FFFF,FFFF,F:FFFF:FFFFFFFF	AS:i:-6	XN:i:0	XM:i:1	XO:i:0	XG:i:0	NM:i:1	MD:Z:115T34	YS:i:-12	YT:Z:CP
+SRR28532104.2_A00740:346:HWTHFDSX2:1:1101:3441:1000_length=151/2	163	NC_000001.11_GA_converted	59179247	24	149M	=	59179329	232	AAAAATATCATCTTCTACATTCAAACCTTTTCCATCTCATACCTTTAAAACCCCATAACATTTACTTATATTATATACCTCACTAAACCTCACTTTAAACTTCTCAAAAACAAAAAAAATCTAATTCTAATTCTACATATATATACTTT	FFFF:FFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,FFFFFFFFFF	AS:i:-12	XN:i:0	XM:i:2	XO:i:0	XG:i:0	NM:i:2	MD:Z:0T0C147	YS:i:-6	YT:Z:CP
+
+>>> Writing bisulfite mapping results to SRR28532104_1_val_1.fq.gz.temp.2.gz_bismark_bt2_pe.bam <<<
+
+
+Reading in the sequence files /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.2.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.2.gz
+Found first alignment:
+SRR28532104.5_A00740:346:HWTHFDSX2:1:1101:5068:1000_length=151/1	77	*	0	0	*	*	0	0	TTGTTTTTAGGTTATAGTAGATATTTGATAAATGTTTGTTAGATTAGTGTATGAAGAGTGATATGGATAAAAAGAAAGGTATAAATTTAAGAAAGAATTTGTAGGAGTTTT	F,FFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF	YT:Z:UP
+SRR28532104.5_A00740:346:HWTHFDSX2:1:1101:5068:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAACTCCTACAAATTCTTTCTTAAATTTATACCTTTCTTTTTATCCATATCACTCTTCATACACTAATCTAACAAACATTTATCAAATATCTACTATAACCTAAAAACA	FFFFFFFFFFFFFF:FFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFF:FFFFFFFFFFFFFFFFFFFFFFFFF:F:FFFFF	YT:Z:UP
+
+>>> Writing bisulfite mapping results to SRR28532104_1_val_1.fq.gz.temp.5.gz_bismark_bt2_pe.bam <<<
+
+
+Reading in the sequence files /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.5.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.5.gz
+
+Created G -> A converted version of the FastQ file SRR28532104_2_val_2.fq.gz.temp.1.gz (33767792 sequences in total)
+
+Input files are SRR28532104_1_val_1.fq.gz.temp.1.gz_C_to_T.fastq.gz and SRR28532104_2_val_2.fq.gz.temp.1.gz_G_to_A.fastq.gz (FastQ)
+Now running 2 instances of Bowtie 2 against the bisulfite genome of /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/ with the specified options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500
+
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2CTgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.1.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.1.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --norc))
+Found first alignment:
+SRR28532104.1_A00740:346:HWTHFDSX2:1:1101:1796:1000_length=151/1	77	*	0	0	*	*	0	0	GAGAAGTTTTTAAATGATTTGATGGAGTTGAAAATTATGGTATGAGAATTATTTGATGAATGTATAAGTTTTAGTAGTTGATTTGATTAATGGGAAGAAAGGGTATTAGTGATTGAAGATTAAATAAATGAAATGAAGTGAGAAAAGTT	FFF,FFFFFFFFFF,:FFFFF:FFFFFFFFFFFF:FFFFFFFFFFFFF,FFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFF:FFFFFF,FFF,FFFFFFFFFF:FFF:::FFFF:FF:FFFFFFFFFFFFF:FF:FFFFFFFF,F,	YT:Z:UP
+SRR28532104.1_A00740:346:HWTHFDSX2:1:1101:1796:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAAAATTTTTCTATAAACTTTTCTCACTTCATTTCATTTATTTAATCTTCAATCACTAATACCCTTTCTTCCCATTAATCAAATCAACTACTAAAACTTATACATTCATCAAATAATTCTCATACCATAATTTTCAACTCCATCACAT	FFFFFFFFFFFFFFFFFFF,FFF,FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,FFFFFF:FFF:FFFFFFFFFFF,FFF:F:FFF,FFFFFFFF:FFFFF:FFFFFF,FFF,:,FFF:FFF:,:FFF,FF	YT:Z:UP
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2GAgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.1.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.1.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --nofw))
+Found first alignment:
+SRR28532104.1_A00740:346:HWTHFDSX2:1:1101:1796:1000_length=151/1	77	*	0	0	*	*	0	0	GAGAAGTTTTTAAATGATTTGATGGAGTTGAAAATTATGGTATGAGAATTATTTGATGAATGTATAAGTTTTAGTAGTTGATTTGATTAATGGGAAGAAAGGGTATTAGTGATTGAAGATTAAATAAATGAAATGAAGTGAGAAAAGTT	FFF,FFFFFFFFFF,:FFFFF:FFFFFFFFFFFF:FFFFFFFFFFFFF,FFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFF:FFFFFF,FFF,FFFFFFFFFF:FFF:::FFFF:FF:FFFFFFFFFFFFF:FF:FFFFFFFF,F,	YT:Z:UP
+SRR28532104.1_A00740:346:HWTHFDSX2:1:1101:1796:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAAAATTTTTCTATAAACTTTTCTCACTTCATTTCATTTATTTAATCTTCAATCACTAATACCCTTTCTTCCCATTAATCAAATCAACTACTAAAACTTATACATTCATCAAATAATTCTCATACCATAATTTTCAACTCCATCACAT	FFFFFFFFFFFFFFFFFFF,FFF,FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,FFFFFF:FFF:FFFFFFFFFFF,FFF:F:FFF,FFFFFFFF:FFFFF:FFFFFF,FFF,:,FFF:FFF:,:FFF,FF	YT:Z:UP
+
+>>> Writing bisulfite mapping results to SRR28532104_1_val_1.fq.gz.temp.1.gz_bismark_bt2_pe.bam <<<
+
+
+Reading in the sequence files /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.1.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.1.gz
+Chromosomal sequence could not be extracted for	SRR28532104.72068_A00740:346:HWTHFDSX2:1:1101:25355:30467_length=151	NT_187427.1	1
+
+Created G -> A converted version of the FastQ file SRR28532104_2_val_2.fq.gz.temp.6.gz (33767791 sequences in total)
+
+Input files are SRR28532104_1_val_1.fq.gz.temp.6.gz_C_to_T.fastq.gz and SRR28532104_2_val_2.fq.gz.temp.6.gz_G_to_A.fastq.gz (FastQ)
+Now running 2 instances of Bowtie 2 against the bisulfite genome of /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/ with the specified options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500
+
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2CTgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.6.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.6.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --norc))
+Found first alignment:
+SRR28532104.6_A00740:346:HWTHFDSX2:1:1101:5339:1000_length=151/1	99	NC_000007.14_CT_converted	3364927	42	149M	=	3364954	176	TATTGATTTTTTTTATTAGTATTTTTAGTTTTTAGTATATGAGTTTTGTATATGTTTTGGTAGTTTTATATTTAAGAATTTAATTTTTTTTGGAGTGATTGTAAGTAGTATTGTATTTTAAATTTTGGTGTTAGTGTGTTTATTGTTAG	FF,:F:FFFFFFF:FFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,F:FFFFFFFFFF,FFFFFFF:FFFFFFFFFFF:FF:FFFFFFFFF:FFFFFFFF:FFFF	AS:i:0	XN:i:0	XM:i:0	XO:i:0	XG:i:0	NM:i:0	MD:Z:149	YS:i:-6	YT:Z:CP
+SRR28532104.6_A00740:346:HWTHFDSX2:1:1101:5339:1000_length=151/2	147	NC_000007.14_CT_converted	3364954	42	149M	=	3364927	-176	GTTTTTAGTATATGAGTTTTGTATATGTTTTGGTAGTTTTATATTTAAGAATTTAATTTTTTTTGGAGTGATTGTAAGTAGTATTGTATTTTAAATTTTGGTGTTAGTGTGTTTATTGTTAGTATATAGGAGTTTTTATTTTATTTTTT	F:FFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF	AS:i:-6	XN:i:0	XM:i:1	XO:i:0	XG:i:0	NM:i:1	MD:Z:144A4	YS:i:0	YT:Z:CP
+Now starting a Bowtie 2 paired-end alignment for CTread1GAread2GAgenome (reading in sequences from /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.6.gz_C_to_T.fastq.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.6.gz_G_to_A.fastq.gz, with the options: -q --score-min L,0,-0.2 --ignore-quals --no-mixed --no-discordant --dovetail --maxins 500 --nofw))
+Found first alignment:
+SRR28532104.6_A00740:346:HWTHFDSX2:1:1101:5339:1000_length=151/1	77	*	0	0	*	*	0	0	TATTGATTTTTTTTATTAGTATTTTTAGTTTTTAGTATATGAGTTTTGTATATGTTTTGGTAGTTTTATATTTAAGAATTTAATTTTTTTTGGAGTGATTGTAAGTAGTATTGTATTTTAAATTTTGGTGTTAGTGTGTTTATTGTTAG	FF,:F:FFFFFFF:FFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,F:FFFFFFFFFF,FFFFFFF:FFFFFFFFFFF:FF:FFFFFFFFF:FFFFFFFF:FFFF	YT:Z:UP
+SRR28532104.6_A00740:346:HWTHFDSX2:1:1101:5339:1000_length=151/2	141	*	0	0	*	*	0	0	AAAAAATAAAATAAAAACTCCTATATACTAACAATAAACACACTAACACCAAAATTTAAAATACAATACTACTTACAATCACTCCAAAAAAAATTAAATTCTTAAATATAAAACTACCAAAACATATACAAAACTCATATACTAAAAAC	FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FFFFFFFFFFFF:F	YT:Z:UP
+
+>>> Writing bisulfite mapping results to SRR28532104_1_val_1.fq.gz.temp.6.gz_bismark_bt2_pe.bam <<<
+
+
+Reading in the sequence files /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_1_val_1.fq.gz.temp.6.gz and /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532104_2_val_2.fq.gz.temp.6.gz
+Chromosomal sequence could not be extracted for	SRR28532104.4401117_A00740:346:HWTHFDSX2:1:1148:10899:31955_length=151	NT_187364.1	1
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.12202386_A00740:346:HWTHFDSX2:1:1254:29930:33379_length=151	NT_187364.1	1
+Processed 2000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.29814946_A00740:346:HWTHFDSX2:1:1509:2672:28980_length=151	NT_187591.1	55985
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.31955973_A00740:346:HWTHFDSX2:1:1533:1461:7780_length=151	NC_012920.1	1
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.47661617_A00740:346:HWTHFDSX2:1:2148:6533:13275_length=151	NT_187502.1	198590
+Processed 8000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.51886923_A00740:346:HWTHFDSX2:1:2215:6379:32330_length=151	NC_012920.1	16420
+Processed 9000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.57156295_A00740:346:HWTHFDSX2:1:2271:23050:34366_length=151	NT_187458.1	1503
+Processed 10000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.62562359_A00740:346:HWTHFDSX2:1:2351:22055:29575_length=151	NT_187476.1	996
+Processed 11000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.75159104_A00740:346:HWTHFDSX2:1:2529:24912:21026_length=151	NC_012920.1	16422
+Chromosomal sequence could not be extracted for	SRR28532104.75875088_A00740:346:HWTHFDSX2:1:2537:7907:9204_length=151	NC_012920.1	16420
+Processed 13000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.79169641_A00740:346:HWTHFDSX2:1:2571:31060:31234_length=151	NC_012920.1	1
+Chromosomal sequence could not be extracted for	SRR28532104.81309094_A00740:346:HWTHFDSX2:1:2616:17526:35227_length=151	NT_187457.1	5653
+Processed 14000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.89140084_A00740:346:HWTHFDSX2:2:1122:11704:33473_length=151	NT_187438.1	3106
+Chromosomal sequence could not be extracted for	SRR28532104.89149641_A00740:346:HWTHFDSX2:2:1123:9986:1219_length=151	NT_187438.1	3106
+Processed 15000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.91765744_A00740:346:HWTHFDSX2:2:1150:16911:32972_length=151	NT_187364.1	66714
+Chromosomal sequence could not be extracted for	SRR28532104.94101379_A00740:346:HWTHFDSX2:2:1175:18394:18881_length=151	NT_187431.1	1
+Processed 16000000 sequence pairs so far
+Processed 16000000 sequence pairs so far
+Processed 16000000 sequence pairs so far
+Processed 16000000 sequence pairs so far
+Processed 16000000 sequence pairs so far
+Processed 16000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.97837636_A00740:346:HWTHFDSX2:2:1237:25373:20071_length=151	NT_187400.1	2
+Processed 17000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.111859496_A00740:346:HWTHFDSX2:2:1430:15374:21355_length=151	NT_187505.1	1
+Processed 19000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR28532104.122499933_A00740:346:HWTHFDSX2:2:1566:15926:29575_length=151	NT_187415.1	1895
+Processed 21000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 22000000 sequence pairs so far
+Processed 22000000 sequence pairs so far
+Processed 22000000 sequence pairs so far
+Processed 22000000 sequence pairs so far
+Processed 22000000 sequence pairs so far
+Processed 22000000 sequence pairs so far

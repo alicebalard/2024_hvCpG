@@ -3,15 +3,14 @@
 #$ -S /bin/bash
 #$ -l tmem=17G
 #$ -l h_vmem=17G
-#$ -t 1-2
-#$ -tc 2
+#$ -t 1-20
+#$ -tc 10 # 10 samples max in one go
 #$ -pe smp 6 # Request N cores per task 
-#$ -l h_rt=60:00:00
+#$ -l h_rt=240:00:00
 #$ -wd /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 #$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
 
 ## Runs in ~30h/sample with 6C and 17G
-
 ## next step si ca marche: penser a un system pour launch 10/10 or 20/20 les samples avec tc
 
 ##############
@@ -23,17 +22,11 @@
 ## We make a temporary folder for all intermediate files that we delete at the end.
 TEMP_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.${JOB_ID}"
 
-## TESTING:
-##TEMP_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.test"
-##NSLOTS=1
-##INPUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/test100"
-## end testing
-
 mkdir -p $TEMP_OUTDIR
 cd $TEMP_OUTDIR
 
 # Start resource monitoring in the background
-source ~/monitor_resources.sh & # source allows to use variables define in this script, in particular $TEMP_OUTDIR. Log stored in WGBS_human
+## source ~/monitor_resources.sh & # source allows to use variables define in this script, in particular $TEMP_OUTDIR. Log stored in WGBS_human
 ## NB: use only for 1-2 samples otherwise it's a massive log file
 
 # Create the files to loop over if it does not exist:
@@ -58,7 +51,7 @@ echo "We work on sample ${INPUT##*/}"
 ## We'll feed information to this table
 DATA_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/infoAllsamples_Pipeline.csv"
 
-# Check if the file exists
+# Check if the files exists
 if [ ! -e "$DATA_TABLE_OUT" ]; then
     # Create the file
     echo "Sample,Nbr_reads,BS_conversion_rate" > $DATA_TABLE_OUT
@@ -278,8 +271,15 @@ SAMPLE_HORV=$(echo $METHCOV | sed 's|.*/\([^_]*\)_.*|\1|')
 ## print METHCOV, calculate end as start + 1, intersect with Horvath file
 less $METHCOV | cut -f1,2,3,4 | awk -F'\t' 'BEGIN{OFS="\t"} {$3=$3+1; print}' | /share/apps/genomics/bedtools-2.30.0/bin/bedtools intersect -a - -b $HORV -wb | cut -f1,2,3,4,8 > $SAMPLE_HORV.horv.bed
 
+AGE_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/ageAllsamples_Pipeline.csv"
+SEX_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/sexAllsamples_Pipeline.csv"
+
 ## Call a R script to calculate age and fill in a table
-Rscript /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/02_calculateAgeSex/calculateAgeSex.R $SAMPLE_HORV.horv.bed ${INPUT##*/} $METHCOV
+Rscript /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/02_calculateAgeSex/calculateAgeSex.R $SAMPLE_HORV.horv.bed ${INPUT##*/} $METHCOV $AGE_TABLE_OUT $SEX_TABLE_OUT
+
+## Make sure that duplicates are removed
+sort $AGE_TABLE_OUT| uniq > temp ; cat temp > $AGE_TABLE_OUT
+sort $SEX_TABLE_OUT| uniq > temp ; cat temp > $SEX_TABLE_OUT
 
 ##############
 ##************
@@ -294,7 +294,7 @@ Rscript /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/02_calculateAg
 function finish {
     rm -rf $TRIMOM_OUTDIR/*${INPUT##*/}*
     rm -rf $BISMARK_OUTDIR/*${INPUT##*/}* # remove all bam and methylation called files
-    rm -rf $BSSNPER2_OUTDIR/*${INPUT##*/}* # remove the bssnper2 folder
+}
 
 trap finish EXIT ERR INT TERM ## allows for cleanup operations or other final tasks to be performed regardless of how the script terminates
 
