@@ -1,0 +1,8 @@
+**** Job runPipeline.5413655 started at Tue  1 Apr 20:13:39 BST 2025 ****
+Task ID: 11
+Selected input file: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532108
+We work on sample SRR28532108
+File already exists: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/infoAllsamples_Pipeline.csv
+Methcov has not been processed, run step 1 to 4: 
+**** Start of step 1: Trim galore with automatic parameters Tue  1 Apr 20:13:39 BST 2025 ****
+Run Trim Galore command without fastqc

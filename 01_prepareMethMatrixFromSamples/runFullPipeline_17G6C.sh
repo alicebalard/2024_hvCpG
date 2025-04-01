@@ -18,6 +18,7 @@
 ## Creates bysample_list_of_files.tmp to loop over [if it does not exist]
 ## Creates a DATA_TABLE_OUT called /04SampleInfos/infoAllsamples_Pipeline.csv [if it does not exist]
 
+######*********if METHCOV doesn't exist, run step 1 to 4*************
 ## Step 1 - Creates a TRIMOM_OUTDIR called TEMP/01Trimmed_data [if it does not exist]
 ### output[if TRIMMED_2 does not exist]:
 # TRIMMED_1="$TRIMOM_OUTDIR/${INPUT##*/}_1_val_1.fq.gz"
@@ -43,6 +44,7 @@
 # and $METHCOV.20X.cov.gz
 
 ## Step 5. SNP call with bssnper2
+## if vcf does not exist:
 ## Sort DEDUPBAM
 ## Create BSSNPER2_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall/" # not a temporary file
 ## run bssnper, outputs x2 in BSSNPER2_OUTDIR
@@ -100,6 +102,14 @@ else
     echo "File already exists: $DATA_TABLE_OUT"
 fi
 
+## Create output directories if they do not exist
+
+TRIMOM_OUTDIR="$TEMP_OUTDIR/01Trimmed_data"
+mkdir -p $TRIMOM_OUTDIR
+
+BISMARK_OUTDIR="$TEMP_OUTDIR/02Bismark"
+mkdir -p $BISMARK_OUTDIR
+
 #########################################################################
 ## An if statement to see if the file has already been (partly) processed
 
@@ -110,7 +120,7 @@ if [ -e "$METHCOV" ]; then
     echo "Methcov has already been processed, jump to step 5: "
 else
     echo "Methcov has not been processed, run step 1 to 4: "
-   
+    
     ######################
     ##********************
     ## STEP 1. Trimming ##
@@ -122,11 +132,6 @@ else
     ## ~5h/sample for 4C 10G
     ## ~4h/sample for 4C 5G
     ## 4h30 to 5h30 with 17G 6C
-    # Output directory
-    TRIMOM_OUTDIR="$TEMP_OUTDIR/01Trimmed_data"
-
-    # Create output directory if it does not exist
-    mkdir -p $TRIMOM_OUTDIR
 
     # source python 3.6.4 to run cutadapt 2.4
     source /share/apps/source_files/python/python-3.6.4.source
@@ -191,12 +196,6 @@ else
     #####################################################
 
     echo "**** Start of step 4: Bismark: Align to GRCh38 -> Output BAM"
-
-    ## Output directory:
-    BISMARK_OUTDIR="$TEMP_OUTDIR/02Bismark"
-
-    # Create output directory if it does not exist
-    mkdir -p $BISMARK_OUTDIR
 
     ## see manual at https://felixkrueger.github.io/Bismark/
 
@@ -294,6 +293,9 @@ fi
 ## STEP 5. bssnper2 SNP calling ##
 ##******************************##
 ##################################
+
+DEDUPBAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bam"
+
 ### Maria's paper: RM single nucleotide polymorphism (SNP)-related probes identified by Zhou et al. (48) that contain SNPs (MAF > 1%) that are within 5 bp of the CpG interrogation site and/or SNPs effecting probe hybridization
 
 ## bssnper2 code is from Noah Kessler
@@ -307,14 +309,16 @@ samtools sort -o $DEDUPBAM.sorted.bam --threads $NSLOTS $DEDUPBAM
 echo "**** Start of bssbper2 SNP call : $(date) ****" 
 BSSNPER2_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall/" # not a temporary file
 
-## run bssnper2
-/home/abalard/bssnper2/bssnper2 $DEDUPBAM.sorted.bam --ref $GENOME_DIR/GCF_000001405.40_GRCh38.p14_genomic.fa --vcf $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
-
-rm $DEDUPBAM
-
-## Compress and index vcf files
-/share/apps/htslib-1.20/bgzip --threads $NSLOTS $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
-/share/apps/htslib-1.20/tabix -p vcf --threads $NSLOTS $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf.gz
+if [ ! -e "$BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf" ]; then
+    ## run bssnper2
+    /home/abalard/bssnper2/bssnper2 $DEDUPBAM.sorted.bam --ref $GENOME_DIR/GCF_000001405.40_GRCh38.p14_genomic.fa --vcf $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
+    rm $DEDUPBAM
+    ## Compress and index vcf files
+    /share/apps/htslib-1.20/bgzip --threads $NSLOTS $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
+    /share/apps/htslib-1.20/tabix -p vcf --threads $NSLOTS $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf.gz
+else
+    echo "bssnper2 already ran on this sample"
+fi
 
 echo "**** End of bssbper2 : $(date) ****" 
 
