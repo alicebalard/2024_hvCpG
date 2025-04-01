@@ -1,19 +1,19 @@
-**** Job runPipeline.5383521 started at Tue 25 Mar 13:19:06 GMT 2025 ****
-Task ID: 14
-Selected input file: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532138
-We work on sample SRR28532138
+**** Job runPipeline.5383521 started at Wed 26 Mar 15:21:55 GMT 2025 ****
+Task ID: 17
+Selected input file: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532141
+We work on sample SRR28532141
 File already exists: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/infoAllsamples_Pipeline.csv
-**** Start of step 1: Trim galore with automatic parameters Tue 25 Mar 13:19:06 GMT 2025 ****
+**** Start of step 1: Trim galore with automatic parameters Wed 26 Mar 15:21:55 GMT 2025 ****
 Run Trim Galore command without fastqc
-**** End of step 1: Tue 25 Mar 15:09:42 GMT 2025 ****
+**** End of step 1: Wed 26 Mar 20:11:49 GMT 2025 ****
 Step 2: Measure the number of reads in the trimmed file → store in matrix
-**** End of step 2: Tue 25 Mar 15:16:18 GMT 2025 ****
+**** End of step 2: Wed 26 Mar 20:26:20 GMT 2025 ****
 Step 3: Bisulfite conversion efficiency measure (BCREval) → store in matrix
-**** End of step 3: Tue 25 Mar 16:45:21 GMT 2025 ****
+**** End of step 3: Thu 27 Mar 00:37:26 GMT 2025 ****
 **** Start of step 4: Bismark: Align to GRCh38 -> Output BAM
 **** Start of step 4.1 Genome indexing...
 Genome already indexed
-**** End of step 4.1: Tue 25 Mar 16:45:21 GMT 2025 ****
+**** End of step 4.1: Thu 27 Mar 00:37:26 GMT 2025 ****
 **** Start of step 4.2 Genome alignement with 6 threads...
 chr NC_000001.11 (248956422 bp)
 chr NT_187361.1 (175055 bp)
@@ -721,121 +721,121 @@ chr NT_187687.1 (170537 bp)
 chr NT_113949.2 (177381 bp)
 chr NC_012920.1 (16569 bp)
 
-Number of paired-end alignments with a unique best hit:	18196750
-Mapping efficiency:	53.9%
+Number of paired-end alignments with a unique best hit:	19826694
+Mapping efficiency:	44.9%
 
-Sequence pairs with no alignments under any condition:	13827567
-Sequence pairs did not map uniquely:	1720563
-Sequence pairs which were discarded because genomic sequence could not be extracted:	15
-
-Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-CT/GA/CT:	9106295	((converted) top strand)
-GA/CT/CT:	0	(complementary to (converted) top strand)
-GA/CT/GA:	0	(complementary to (converted) bottom strand)
-CT/GA/GA:	9090440	((converted) bottom strand)
-
-Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
-
-Number of paired-end alignments with a unique best hit:	18194495
-Mapping efficiency:	53.9%
-
-Sequence pairs with no alignments under any condition:	13831040
-Sequence pairs did not map uniquely:	1719346
-Sequence pairs which were discarded because genomic sequence could not be extracted:	10
-
-Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-CT/GA/CT:	9105110	((converted) top strand)
-GA/CT/CT:	0	(complementary to (converted) top strand)
-GA/CT/GA:	0	(complementary to (converted) bottom strand)
-CT/GA/GA:	9089375	((converted) bottom strand)
-
-Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
-
-Number of paired-end alignments with a unique best hit:	18195128
-Mapping efficiency:	53.9%
-
-Sequence pairs with no alignments under any condition:	13832360
-Sequence pairs did not map uniquely:	1717393
-Sequence pairs which were discarded because genomic sequence could not be extracted:	14
-
-Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-CT/GA/CT:	9108256	((converted) top strand)
-GA/CT/CT:	0	(complementary to (converted) top strand)
-GA/CT/GA:	0	(complementary to (converted) bottom strand)
-CT/GA/GA:	9086858	((converted) bottom strand)
-
-Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
-
-Number of paired-end alignments with a unique best hit:	18192764
-Mapping efficiency:	53.9%
-
-Sequence pairs with no alignments under any condition:	13830066
-Sequence pairs did not map uniquely:	1722050
+Sequence pairs with no alignments under any condition:	22377638
+Sequence pairs did not map uniquely:	1913856
 Sequence pairs which were discarded because genomic sequence could not be extracted:	12
 
 Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-CT/GA/CT:	9103364	((converted) top strand)
+CT/GA/CT:	9929798	((converted) top strand)
 GA/CT/CT:	0	(complementary to (converted) top strand)
 GA/CT/GA:	0	(complementary to (converted) bottom strand)
-CT/GA/GA:	9089388	((converted) bottom strand)
+CT/GA/GA:	9896884	((converted) bottom strand)
 
 Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
 
-Number of paired-end alignments with a unique best hit:	18197353
-Mapping efficiency:	53.9%
+Number of paired-end alignments with a unique best hit:	19825311
+Mapping efficiency:	44.9%
 
-Sequence pairs with no alignments under any condition:	13828013
-Sequence pairs did not map uniquely:	1719515
-Sequence pairs which were discarded because genomic sequence could not be extracted:	11
+Sequence pairs with no alignments under any condition:	22378169
+Sequence pairs did not map uniquely:	1914708
+Sequence pairs which were discarded because genomic sequence could not be extracted:	10
 
 Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-CT/GA/CT:	9105533	((converted) top strand)
+CT/GA/CT:	9930263	((converted) top strand)
 GA/CT/CT:	0	(complementary to (converted) top strand)
 GA/CT/GA:	0	(complementary to (converted) bottom strand)
-CT/GA/GA:	9091809	((converted) bottom strand)
+CT/GA/GA:	9895038	((converted) bottom strand)
 
 Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
 
-Number of paired-end alignments with a unique best hit:	18194713
-Mapping efficiency:	53.9%
+Number of paired-end alignments with a unique best hit:	19831816
+Mapping efficiency:	45.0%
 
-Sequence pairs with no alignments under any condition:	13829326
-Sequence pairs did not map uniquely:	1720841
+Sequence pairs with no alignments under any condition:	22373139
+Sequence pairs did not map uniquely:	1913234
 Sequence pairs which were discarded because genomic sequence could not be extracted:	9
 
 Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-CT/GA/CT:	9103808	((converted) top strand)
+CT/GA/CT:	9931620	((converted) top strand)
 GA/CT/CT:	0	(complementary to (converted) top strand)
 GA/CT/GA:	0	(complementary to (converted) bottom strand)
-CT/GA/GA:	9090896	((converted) bottom strand)
+CT/GA/GA:	9900187	((converted) bottom strand)
 
 Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
 
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.1.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_2_val_2.fq.gz.temp.1.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.2.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_2_val_2.fq.gz.temp.2.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.3.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_2_val_2.fq.gz.temp.3.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.4.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_2_val_2.fq.gz.temp.4.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.5.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_2_val_2.fq.gz.temp.5.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.6.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_2_val_2.fq.gz.temp.6.gz	
+Number of paired-end alignments with a unique best hit:	19830903
+Mapping efficiency:	44.9%
 
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.1.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.2.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.3.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.4.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.5.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1.fq.gz.temp.6.gz_bismark_bt2_pe.bam	
-
-Number of paired-end alignments with a unique best hit:	109171203
-Mapping efficiency:	53.9%
-
-Sequence pairs with no alignments under any condition:	82978372
-Sequence pairs did not map uniquely:	10319708
-Sequence pairs which were discarded because genomic sequence could not be extracted:	71
+Sequence pairs with no alignments under any condition:	22375366
+Sequence pairs did not map uniquely:	1911919
+Sequence pairs which were discarded because genomic sequence could not be extracted:	10
 
 Number of sequence pairs with unique best (first) alignment came from the bowtie output:
-CT/GA/CT:	54632366	((converted) top strand)
+CT/GA/CT:	9929641	((converted) top strand)
 GA/CT/CT:	0	(complementary to (converted) top strand)
 GA/CT/GA:	0	(complementary to (converted) bottom strand)
-CT/GA/GA:	54538766	((converted) bottom strand)
+CT/GA/GA:	9901252	((converted) bottom strand)
 
 Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
 
-SRR28532138_1_val_1.fq.gz.temp.1.gz_bismark_bt2_PE_report.txt	SRR28532138_1_val_1.fq.gz.temp.2.gz_bismark_bt2_PE_report.txt	SRR28532138_1_val_1.fq.gz.temp.3.gz_bismark_bt2_PE_report.txt	SRR28532138_1_val_1.fq.gz.temp.4.gz_bismark_bt2_PE_report.txt	SRR28532138_1_val_1.fq.gz.temp.5.gz_bismark_bt2_PE_report.txt	SRR28532138_1_val_1.fq.gz.temp.6.gz_bismark_bt2_PE_report.txt	
+Number of paired-end alignments with a unique best hit:	19825096
+Mapping efficiency:	44.9%
 
-**** End of step 4.2: Wed 26 Mar 08:05:38 GMT 2025 ****
+Sequence pairs with no alignments under any condition:	22377816
+Sequence pairs did not map uniquely:	1915276
+Sequence pairs which were discarded because genomic sequence could not be extracted:	8
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	9929001	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	9896087	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+Number of paired-end alignments with a unique best hit:	19830222
+Mapping efficiency:	44.9%
+
+Sequence pairs with no alignments under any condition:	22377874
+Sequence pairs did not map uniquely:	1910092
+Sequence pairs which were discarded because genomic sequence could not be extracted:	13
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	9928687	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	9901522	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.1.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_2_val_2.fq.gz.temp.1.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.2.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_2_val_2.fq.gz.temp.2.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.3.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_2_val_2.fq.gz.temp.3.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.4.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_2_val_2.fq.gz.temp.4.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.5.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_2_val_2.fq.gz.temp.5.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.6.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_2_val_2.fq.gz.temp.6.gz	
+
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.1.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.2.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.3.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.4.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.5.gz_bismark_bt2_pe.bam	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1.fq.gz.temp.6.gz_bismark_bt2_pe.bam	
+
+Number of paired-end alignments with a unique best hit:	118970042
+Mapping efficiency:	44.9%
+
+Sequence pairs with no alignments under any condition:	134260002
+Sequence pairs did not map uniquely:	11479085
+Sequence pairs which were discarded because genomic sequence could not be extracted:	62
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	59579010	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	59390970	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+SRR28532141_1_val_1.fq.gz.temp.1.gz_bismark_bt2_PE_report.txt	SRR28532141_1_val_1.fq.gz.temp.2.gz_bismark_bt2_PE_report.txt	SRR28532141_1_val_1.fq.gz.temp.3.gz_bismark_bt2_PE_report.txt	SRR28532141_1_val_1.fq.gz.temp.4.gz_bismark_bt2_PE_report.txt	SRR28532141_1_val_1.fq.gz.temp.5.gz_bismark_bt2_PE_report.txt	SRR28532141_1_val_1.fq.gz.temp.6.gz_bismark_bt2_PE_report.txt	
+
+**** End of step 4.2: Fri 28 Mar 11:06:52 GMT 2025 ****
 **** Start of step 4.3 Deduplication of the bam file...
 
-Now testing Bismark result file /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.bam for positional sorting (which would be bad...)	skipping header line:	@HD	VN:1.0	SO:unsorted
+Now testing Bismark result file /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.bam for positional sorting (which would be bad...)	skipping header line:	@HD	VN:1.0	SO:unsorted
 skipping header line:	@SQ	SN:NC_000001.11	LN:248956422
 skipping header line:	@SQ	SN:NT_187361.1	LN:175055
 skipping header line:	@SQ	SN:NT_187362.1	LN:32032
@@ -1541,32 +1541,32 @@ skipping header line:	@SQ	SN:NT_187686.1	LN:215732
 skipping header line:	@SQ	SN:NT_187687.1	LN:170537
 skipping header line:	@SQ	SN:NT_113949.2	LN:177381
 skipping header line:	@SQ	SN:NC_012920.1	LN:16569
-skipping header line:	@PG	ID:Bismark	VN:v0.22.3	CL:"bismark --genome /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38 --parallel 6 --gzip --path_to_bowtie2 /share/apps/genomics/bowtie2-2.4.1/ --temp_dir /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark --output_dir /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark -1 /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532138_1_val_1.fq.gz -2 /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532138_2_val_2.fq.gz"
-**** End of step 4.3: Wed 26 Mar 09:46:27 GMT 2025 ****
-Start of step 4.4: Methylation extraction Wed 26 Mar 09:46:36 GMT 2025
+skipping header line:	@PG	ID:Bismark	VN:v0.22.3	CL:"bismark --genome /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38 --parallel 6 --gzip --path_to_bowtie2 /share/apps/genomics/bowtie2-2.4.1/ --temp_dir /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark --output_dir /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark -1 /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532141_1_val_1.fq.gz -2 /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/01Trimmed_data/SRR28532141_2_val_2.fq.gz"
+**** End of step 4.3: Fri 28 Mar 14:10:57 GMT 2025 ****
+Start of step 4.4: Methylation extraction Fri 28 Mar 14:11:03 GMT 2025
 
-Now testing Bismark result file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated.bam< for positional sorting (which would be bad...)	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.1
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.2
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.3
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.4
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.5
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.6
+Now testing Bismark result file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated.bam< for positional sorting (which would be bad...)	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.1
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.2
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.3
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.4
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.5
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.6
 
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.1.mbias
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.2.mbias
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.3.mbias
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.4.mbias
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.5.mbias
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532138_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.6.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.1.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.2.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.3.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.4.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.5.mbias
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/SRR28532141_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.6.mbias
 
-/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/CpG_OT_SRR28532138_1_val_1_bismark_bt2_pe.deduplicated.txt.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/CpG_OB_SRR28532138_1_val_1_bismark_bt2_pe.deduplicated.txt.gz
+/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/CpG_OT_SRR28532141_1_val_1_bismark_bt2_pe.deduplicated.txt.gz	/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP.5383521/02Bismark/CpG_OB_SRR28532141_1_val_1_bismark_bt2_pe.deduplicated.txt.gz
 
-**** End of step 4.4: Wed 26 Mar 12:56:36 GMT 2025 ****
-**** Start of sorting test bam file : Wed 26 Mar 12:56:36 GMT 2025 ****
-**** Start of bssbper2 SNP call : Wed 26 Mar 13:21:56 GMT 2025 ****
-**** End of bssbper2 : Wed 26 Mar 15:34:17 GMT 2025 ****
+**** End of step 4.4: Fri 28 Mar 22:17:35 GMT 2025 ****
+**** Start of sorting test bam file : Fri 28 Mar 22:17:50 GMT 2025 ****
+**** Start of bssbper2 SNP call : Sat 29 Mar 00:32:47 GMT 2025 ****
+**** End of bssbper2 : Sat 29 Mar 03:36:38 GMT 2025 ****
 [1] "age calculated"
 [1] "age saved"
 [1] "sex calculated"
 [1] "sex saved"
-**** Job runPipeline.5383521 finished at Wed 26 Mar 15:55:10 GMT 2025 ****
+**** Job runPipeline.5383521 finished at Sat 29 Mar 04:02:53 GMT 2025 ****
