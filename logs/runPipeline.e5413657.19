@@ -1,0 +1,25 @@
+[E::hts_open_format] Failed to open file /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR28532143_1_val_1_bismark_bt2_pe.deduplicated.bam
+samtools sort: can't open "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR28532143_1_val_1_bismark_bt2_pe.deduplicated.bam": No such file or directory
+bam: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR28532143_1_val_1_bismark_bt2_pe.deduplicated.bam.sorted.bam
+ref: /GCF_000001405.40_GRCh38.p14_genomic.fa
+vcf: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall//SRR28532143_1_val_1_bismark_bt2_pe.deduplicated.bam.vcf
+homref: /dev/null
+indelf: /dev/null
+minBaseQual: 13
+minCount: 1
+maxCount: 4294967295
+minHomFreq: 0.850000
+minHetFreq: 0.100000
+errorRate: 0.020000
+minMapQual: 13
+minAltCount: 2
+bufferSize: 1000
+assumeHomref: false
+homrefInVCF: false
+homrefAsRLE: false
+[E::hts_open_format] Failed to open file "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR28532143_1_val_1_bismark_bt2_pe.deduplicated.bam.sorted.bam" : No such file or directory
+[E::fai_build3_core] Failed to open the file /GCF_000001405.40_GRCh38.p14_genomic.fa
+Unable to load FastA index for reference.
+rm: cannot remove ‘/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR28532143_1_val_1_bismark_bt2_pe.deduplicated.bam’: No such file or directory
+[bgzip] No such file or directory: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall//SRR28532143_1_val_1_bismark_bt2_pe.deduplicated.bam.vcf
+[tabix] the index file exists. Please use '-f' to overwrite.

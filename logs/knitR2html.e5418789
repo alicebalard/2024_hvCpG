@@ -1,0 +1,67 @@
+
+
+processing file: hvCpG_arrays.spin.Rmd
+Error in `geom_density()`:
+! Problem while computing aesthetics.
+ℹ Error occurred in the 1st layer.
+Caused by error in `FUN()`:
+! object 'Vector' not found
+Backtrace:
+     ▆
+  1. ├─rmarkdown::render(...)
+  2. │ └─knitr::knit(knit_input, knit_output, envir = envir, quiet = quiet)
+  3. │   └─knitr:::process_file(text, output)
+  4. │     ├─xfun:::handle_error(...)
+  5. │     ├─base::withCallingHandlers(...)
+  6. │     └─knitr:::process_group(group)
+  7. │       └─knitr:::call_block(x)
+  8. │         └─knitr:::block_exec(params)
+  9. │           └─knitr:::eng_r(options)
+ 10. │             ├─knitr:::in_input_dir(...)
+ 11. │             │ └─knitr:::in_dir(input_dir(), expr)
+ 12. │             └─knitr (local) evaluate(...)
+ 13. │               └─evaluate::evaluate(...)
+ 14. │                 ├─base::withRestarts(...)
+ 15. │                 │ └─base (local) withRestartList(expr, restarts)
+ 16. │                 │   ├─base (local) withOneRestart(withRestartList(expr, restarts[-nr]), restarts[[nr]])
+ 17. │                 │   │ └─base (local) doWithOneRestart(return(expr), restart)
+ 18. │                 │   └─base (local) withRestartList(expr, restarts[-nr])
+ 19. │                 │     └─base (local) withOneRestart(expr, restarts[[1L]])
+ 20. │                 │       └─base (local) doWithOneRestart(return(expr), restart)
+ 21. │                 ├─evaluate:::with_handlers(...)
+ 22. │                 │ ├─base::eval(call)
+ 23. │                 │ │ └─base::eval(call)
+ 24. │                 │ └─base::withCallingHandlers(...)
+ 25. │                 └─watcher$print_value(ev$value, ev$visible, envir)
+ 26. │                   ├─base::withVisible(handle_value(handler, value, visible, envir))
+ 27. │                   └─evaluate:::handle_value(handler, value, visible, envir)
+ 28. │                     └─handler$value(value, visible)
+ 29. │                       └─knitr (local) fun(x, options = options)
+ 30. │                         ├─base::withVisible(knit_print(x, ...))
+ 31. │                         ├─knitr::knit_print(x, ...)
+ 32. │                         └─knitr:::knit_print.default(x, ...)
+ 33. │                           └─knitr::normal_print(x)
+ 34. │                             ├─base::print(x)
+ 35. │                             └─ggplot2:::print.ggplot(x)
+ 36. │                               ├─ggplot2::ggplot_build(x)
+ 37. │                               └─ggplot2:::ggplot_build.ggplot(x)
+ 38. │                                 └─ggplot2:::by_layer(...)
+ 39. │                                   ├─rlang::try_fetch(...)
+ 40. │                                   │ ├─base::tryCatch(...)
+ 41. │                                   │ │ └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 42. │                                   │ │   └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 43. │                                   │ │     └─base (local) doTryCatch(return(expr), name, parentenv, handler)
+ 44. │                                   │ └─base::withCallingHandlers(...)
+ 45. │                                   └─ggplot2 (local) f(l = layers[[i]], d = data[[i]])
+ 46. │                                     └─l$compute_aesthetics(d, plot)
+ 47. │                                       └─ggplot2 (local) compute_aesthetics(..., self = self)
+ 48. │                                         └─base::lapply(aesthetics, eval_tidy, data = data, env = env)
+ 49. │                                           └─rlang (local) FUN(X[[i]], ...)
+ 50. └─base::.handleSimpleError(...)
+ 51.   └─rlang (local) h(simpleError(msg, call))
+ 52.     └─handlers[[1L]](cnd)
+ 53.       └─cli::cli_abort(...)
+ 54.         └─rlang::abort(...)
+
+Quitting from lines 169-244 [unnamed-chunk-4] (hvCpG_arrays.spin.Rmd)
+Execution halted

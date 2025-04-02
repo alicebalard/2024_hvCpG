@@ -9,6 +9,7 @@ library(dplyr)
 library(data.table)
 library(matrixStats)
 library(ggplot2)
+library(reshape2)
 
 ## Files untared from Maria's datasets folder
 folder_path <- "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/arrays_human/30datasetsMaria"
@@ -91,7 +92,7 @@ print(paste0("We both have ", length(intersect(as.character(cpg_counts_full$cpgs
 
 #' ## Part 3: identify hvCpGs based on a sd multiplicative factor lambda
 #'
-#' 3.1. Test different lambda to reach the same proportion of CpGs than Maria
+#' ### 3.1. Test different lambda to reach the same proportion of CpGs than Maria
 
 ## We fix some parameters:
 thr = 0.65 ## is a CpG hv in at least 65% of datasets?
@@ -156,41 +157,84 @@ ggplot(result_df, aes(x=lambda, y=phvCpG)) +
     ylab("p(hvCpG)") +
     theme_minimal()
 
-#' 3.2. Calculate lambda directly
+#' ### 3.2. Calculate lambda directly
 
 ## Within each dataset k, calculate the median sd of all CpG j
 
-all_sd_k <- sapply(rds_list_mat, function(k){
+all_sd_jk <- sapply(rds_list_mat, function(k){
     ## Scale
     k = log2(k/(1-k))
 
     get_sd_k <- function(k){
-        ## Calculate the row (=per CpG j) sd
-        sd_j <- rowSds(k, na.rm = T)
-        ## Calculate the median sd in dataset k 
-        return(median(sd_j, na.rm = T))
+        ## Calculate a vector of the row (=per CpG j) sd
+        return(rowSds(k, na.rm = T))
     }
+    ## Return a vector of sds, in a list for each dataset 
     return(get_sd_k(k))
 })
 
-## Get the top 5%, compare with the median and the mean                                                                                                                                
-mean(all_sd_k)
+## Plot:
+df_long <- melt(all_sd_jk, variable.name = "Vector", value.name = "SDs")
 
-median(all_sd_k)                                                                                                                                                                        
-top_5_percent <- quantile(all_sd_k, 0.95)
+## Plot distributions of all vectors on the same graph
+ggplot(df_long, aes(x = SDs, color = L1)) +
+    geom_density() +
+    labs(title = "Distribution of SDs accross datasets",
+         x = "SDs",
+         y = "Density") +
+    theme_minimal() +
+    theme(legend.position = "none")
 
-## plot sd_k distribution
-ggplot(data.frame(all_sd_k=all_sd_k), aes(x=all_sd_k)) +
-    geom_density() + 
-    geom_vline(xintercept = top_5_percent, col = "red")+
-    theme_bw()
+## Calculate lambda per dataset
+lambdas = sapply(all_sd_jk, function(x){quantile(x, 0.95, na.rm=T)/median(x, na.rm=T)})
 
-lambda = top_5_percent/median(all_sd_k)
+lambdas
 
-print(paste0("In Maria's analysis, lambda = ", round(lambda,2)))
+mean(lambdas)
+
+median(lambdas)
+
+# Plot distributions of all vectors on the same graph
+ggplot(data.frame(lambda=lambdas, dataset=names(lambdas)),
+       aes(x = lambdas)) +
+    geom_histogram() +
+    geom_density() +
+    labs(title = "Distribution of lambda accross datasets",
+         x = "lambdas",
+         y = "Density") +
+    theme_minimal() +
+    theme(legend.position = "none")
+
+##all_sd_k <- sapply(rds_list_mat, function(k){
+##    ## Scale
+##    k = log2(k/(1-k))
+##
+##    get_sd_k <- function(k){
+##        ## Calculate the row (=per CpG j) sd
+##        sd_j <- rowSds(k, na.rm = T)
+##        ## Calculate the median sd in dataset k 
+##        return(median(sd_j, na.rm = T))
+##    }
+##    return(get_sd_k(k))
+##})
+##
+#### Get the top 5%, compare with the median and the mean                                                                                                                                
+##mean(all_sd_k)
+##
+##median(all_sd_k)                                                                                                                                                                        
+##top_5_percent <- quantile(all_sd_k, 0.95)
+##
+#### plot sd_k distribution
+##ggplot(data.frame(all_sd_k=all_sd_k), aes(x=all_sd_k)) +
+##    geom_density() + 
+##    geom_vline(xintercept = top_5_percent, col = "red")+
+##    theme_bw()
+##
+##lambda = top_5_percent/median(all_sd_k)
+##
+##print(paste0("In Maria's analysis, lambda = ", round(lambda,2)))
 
 #' ## Part 4. Maximum likelihood analysis
-
 #' The equation is:
 #' \deqn{log(P(M_j)) &= \sum_{i=1}^{n} log \biggl(\sum_{Z_j=0,1}\biggl(\sum_{Z_{j,k}=0,1}P(M_{i,j}|Z_{j,k})\times P(Z_{j,k}|Z_j) \biggl)\times P(Z_j)\biggl)}
 
@@ -212,8 +256,8 @@ rm(rds_list_mat)
 ## })
 ## 
 ## saveRDS(rds_list_mat, "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/arrays_human/rds_list_27_TESTtop100.RDS")
-rds_list_mat_preprocessed <- readRDS("/SAN/ghlab/pophistory/Alice/hvCpG_project/data/arrays_human/rds_list_27_TESTtop100.RDS")
-common_cpgs <- unique(unlist(lapply(rds_list_mat_preprocessed, rownames)))
+## rds_list_mat_preprocessed <- readRDS("/SAN/ghlab/pophistory/Alice/hvCpG_project/data/arrays_human/rds_list_27_TESTtop100.RDS")
+## common_cpgs <- unique(unlist(lapply(rds_list_mat_preprocessed, rownames)))
 ## ********** Test: reduce to the first 100 CpGs for all dataset (to rm after test!**********)
     
 scaled_list_mat <- lapply(rds_list_mat_preprocessed, function(k){
@@ -280,7 +324,7 @@ Pr_Zj <- function(Zj, alpha){
 }
 
 ## alpha is the parameter we want to estimate
-getLogLikData <- function(j, lambda = 1.4, p0 = 0.95, p1 = 0.65, alpha = 0.1){ 
+getLogLikData <- function(j, lambda = 3, p0 = 0.95, p1 = 0.65, alpha = 0.1){ 
         ## all the is per dataset
         allInds <- function(j){
             sapply(names(scaled_list_mat), function(k) {
@@ -311,72 +355,6 @@ getLogLikData <- function(j, lambda = 1.4, p0 = 0.95, p1 = 0.65, alpha = 0.1){
 ## loglik for one CpG
 getLogLikData(common_cpgs[1])
 
-## loglik for all data: run for all background CpGs
-sum(sapply(common_cpgs, function(j){
-    getLogLikData(j)
-}))
+## Next step: optim to find alpha. One or multiple y calculated before. Are CpGs with the top 5% alpha the hvCpGs found by Maria?
 
-
-
-
-
-            
-        
-
-        
-
-    
-    
-
-
-
-
-
-
-sum(sapply(c(0,1), function(Zj) {
-    sum(sapply(c(0,1), function(Zjk) {
-        Pr_Mij_given_Zjk(i = 1, j = common_cpgs[1], k = names_datasets[1], Zjk = Zjk) *
-            Pr_Zjk_given_Zj(Zj = Zj, Zjk = Zjk) * Pr_Zjk_given_Zj(Zj = Zj, Zjk = Zjk)})
-        ) *
-        Pr_Zj(Zj)}
-    )
-    )
-
-
-    
-      
-
-
-
-
-
-
-
-
-
-## Get a list of matrices for each CpG j
-get_Matj_list <- function(j){
-    ## Step 1: Safely extract rows (returns NULL for matrices without the row)
-    extracted_rows <- lapply(matrix_list, function(m) {
-        if (target_row %in% rownames(m)) {
-            m[target_row, , drop = FALSE]
-        } else {
-            NULL
-        }
-    })
-    ## Step 2: Remove NULL entries from the list
-    result <- Filter(Negate(is.null), extracted_rows)
-    return(result)
-}
-
-Matj_list <- sapply(common_cpgs, function(x) get_Matj_list(matrix_list=scaled_list_mat, target_row=x))
-
-## On each element (a list of matrices for CpG j), calculate log(Pr(Mj))
-sapply(Matj_list, function(k){get_mu_k(k)})
-
-(Pr_Mij_given_Zjk(Mij, Zjk) * Pr_Zjk_given_Zj(Zj, Zjk))
-
-## log(P(M(j))=sum{i=1:n}(log(sum{Zj=0,1}(sum{Zj,k=0,1}(P(M(i,j)|Z(j,k)) x P(Z(j,k)|Z(j))) x P(Z(j)))))
-
-#' ## Conclusion
 #' The analysis is complete.

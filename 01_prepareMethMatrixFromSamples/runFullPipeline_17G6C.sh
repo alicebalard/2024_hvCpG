@@ -309,7 +309,7 @@ samtools sort -o $DEDUPBAM.sorted.bam --threads $NSLOTS $DEDUPBAM
 echo "**** Start of bssbper2 SNP call : $(date) ****" 
 BSSNPER2_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall/" # not a temporary file
 
-if [ ! -e "$BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf" ]; then
+if [ ! -e "$BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf.gz" ]; then
     ## run bssnper2
     /home/abalard/bssnper2/bssnper2 $DEDUPBAM.sorted.bam --ref $GENOME_DIR/GCF_000001405.40_GRCh38.p14_genomic.fa --vcf $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
     rm $DEDUPBAM
@@ -327,6 +327,8 @@ echo "**** End of bssbper2 : $(date) ****"
 ## STEP 6. Calculate age and sex ##
 ##*******************************##
 ###################################
+
+##METHCOV20=$(less "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz.20X.cov.gz")
 
 ##cd /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/03AgeSex/
 ##
