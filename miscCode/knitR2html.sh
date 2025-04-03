@@ -1,8 +1,8 @@
 #!/bin/bash
 #$ -N knitR2html
 #$ -S /bin/bash
-#$ -l tmem=15G
-#$ -l h_vmem=15G
+#$ -l tmem=20G
+#$ -l h_vmem=20G
 #$ -l h_rt=01:00:00
 #$ -wd /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 

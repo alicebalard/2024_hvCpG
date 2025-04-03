@@ -1,17 +1,16 @@
-#' ---
-#' title: "Analysis Report: Identify hvCpGs in arrays"
-#' author: "Alice Balard"
-#' date: "`r Sys.Date()`"
-#' output: html_document
-#' ---
+---
+title: "Analysis Report: Identify hvCpGs in arrays"
+author: "Alice Balard"
+date: "`r Sys.Date()`"
+output: html_document
+---
 
+```{r}
 library(dplyr)
 library(data.table)
 library(matrixStats)
 library(ggplot2)
 library(reshape2)
-memory.limit(size=4095)
-
 
 ## Files untared from Maria's datasets folder
 folder_path <- "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/arrays_human/30datasetsMaria"
@@ -60,10 +59,11 @@ for (i in 1:length(rds_list_mat)){
 
 ## so far (before adding 3 datasets and proper data prep) I have an array of CpGs covered:
 print(paste0("We consider ", length(common_cpgs), " CpGs (in Maria's paper: array background 406 306 CpGs covered in at least 15 of the 30 datasets used in this study)"))
-## [1] "We consider 397531 CpGs (in Maria's paper: array background 406 306 CpGs covered in at least 15 of the 30 datasets used in this study)"
+```
 
-#' ## Part 2: identify hvCpGs based on thresholds (reproduce Maria's results)
+## Part 2: identify hvCpGs based on thresholds (reproduce Maria's results)
 
+```{r}
 ## Within each dataset, calculate the CpGs variance, and keep the top 5%
 filtered_matrices <- lapply(rds_list_mat, function(mat) {
                                         # Step 1: Calculate row variances
@@ -88,18 +88,17 @@ cpg_counts_full <- cpg_counts_full[cpg_counts_full$all_cpgs_top >= 0.65*cpg_coun
 
 MariasCpGs <- read.csv("/SAN/ghlab/pophistory/Alice/hvCpG_project/data/arrays_human/4143hvCpGMaria_list.txt")
 print(paste0("Maria detected ", length(MariasCpGs$CpG), " hvCpGs (NB: 3 more datasets in LSHTM)"))
-## [1] "Maria detected 4143 hvCpGs (NB: 3 more datasets in LSHTM)"
 
 print(paste0("We detected ", nrow(cpg_counts_full), " hvCpGs"))
-##[1] "We detected 4074 hvCpGs"
 
 print(paste0("We both have ", length(intersect(as.character(cpg_counts_full$cpgs), MariasCpGs$CpG))," hvCpGs in common"))
-## [1] "We both have 3603 hvCpGs in common"
+```
 
-#' ## Part 3: identify hvCpGs based on a sd multiplicative factor lambda
-#'
-#' ### 3.1. Test different lambda to reach the same proportion of CpGs than Maria
+## Part 3: identify hvCpGs based on a sd multiplicative factor lambda
 
+### 3.1. Test different lambda to reach the same proportion of CpGs than Maria
+
+```{r}
 ## We fix some parameters:
 thr = 0.65 ## is a CpG hv in at least 65% of datasets?
 ## p(Zk=1|Z=1)
@@ -145,8 +144,7 @@ findLamba <- function(lambda, thr = 0.65){
     data.frame(lambda=lambda, phvCpG=length(hv) / length(common_cpgs))
 }
 
-print(paste0("Maria's results:p(hvCpG) = ", round(4143/406306, 3)))
-## [1] "Maria's results:p(hvCpG) = 0.010"
+print(paste0("Maria's results:p(hvCpG) = ", 4143/406306))
 
 print("my results:")
 
@@ -163,9 +161,11 @@ ggplot(result_df, aes(x=lambda, y=phvCpG)) +
     xlab("lambda") +
     ylab("p(hvCpG)") +
     theme_minimal()
+```
 
-#' ### 3.2. Calculate lambda directly
+### 3.2. Calculate lambda directly
 
+```{r}
 ## Within each dataset k, calculate the median sd of all CpG j
 
 all_sd_jk <- sapply(rds_list_mat, function(k){
@@ -240,11 +240,13 @@ ggplot(data.frame(lambda=lambdas, dataset=names(lambdas)),
 ##lambda = top_5_percent/median(all_sd_k)
 ##
 ##print(paste0("In Maria's analysis, lambda = ", round(lambda,2)))
+```
 
-#' ## Part 4. Maximum likelihood analysis
-#' The equation is:
-#' \deqn{log(P(M_j)) &= \sum_{i=1}^{n} log \biggl(\sum_{Z_j=0,1}\biggl(\sum_{Z_{j,k}=0,1}P(M_{i,j}|Z_{j,k})\times P(Z_{j,k}|Z_j) \biggl)\times P(Z_j)\biggl)}
+## Part 4. Maximum likelihood analysis
+The equation is:
+\deqn{log(P(M_j)) &= \sum_{i=1}^{n} log \biggl(\sum_{Z_j=0,1}\biggl(\sum_{Z_{j,k}=0,1}P(M_{i,j}|Z_{j,k})\times P(Z_{j,k}|Z_j) \biggl)\times P(Z_j)\biggl)}
 
+```{r}
 ## Maximum likelihood analysis
 ## log(P(M(j))=sum{i=1:n}(log(sum{Zj=0,1}(sum{Zj,k=0,1}(P(M(i,j)|Z(j,k)) x P(Z(j,k)|Z(j))) x P(Z(j)))))
 
@@ -363,5 +365,6 @@ getLogLikData <- function(j, lambda = 3, p0 = 0.95, p1 = 0.65, alpha = 0.1){
 getLogLikData(common_cpgs[1])
 
 ## Next step: optim to find alpha. One or multiple y calculated before. Are CpGs with the top 5% alpha the hvCpGs found by Maria?
+```
 
-#' The analysis is complete.
+The analysis is complete.

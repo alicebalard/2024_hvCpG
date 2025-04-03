@@ -10,8 +10,6 @@ library(data.table)
 library(matrixStats)
 library(ggplot2)
 library(reshape2)
-memory.limit(size=4095)
-
 
 ## Files untared from Maria's datasets folder
 folder_path <- "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/arrays_human/30datasetsMaria"
@@ -60,7 +58,6 @@ for (i in 1:length(rds_list_mat)){
 
 ## so far (before adding 3 datasets and proper data prep) I have an array of CpGs covered:
 print(paste0("We consider ", length(common_cpgs), " CpGs (in Maria's paper: array background 406 306 CpGs covered in at least 15 of the 30 datasets used in this study)"))
-## [1] "We consider 397531 CpGs (in Maria's paper: array background 406 306 CpGs covered in at least 15 of the 30 datasets used in this study)"
 
 #' ## Part 2: identify hvCpGs based on thresholds (reproduce Maria's results)
 
@@ -88,13 +85,10 @@ cpg_counts_full <- cpg_counts_full[cpg_counts_full$all_cpgs_top >= 0.65*cpg_coun
 
 MariasCpGs <- read.csv("/SAN/ghlab/pophistory/Alice/hvCpG_project/data/arrays_human/4143hvCpGMaria_list.txt")
 print(paste0("Maria detected ", length(MariasCpGs$CpG), " hvCpGs (NB: 3 more datasets in LSHTM)"))
-## [1] "Maria detected 4143 hvCpGs (NB: 3 more datasets in LSHTM)"
 
 print(paste0("We detected ", nrow(cpg_counts_full), " hvCpGs"))
-##[1] "We detected 4074 hvCpGs"
 
 print(paste0("We both have ", length(intersect(as.character(cpg_counts_full$cpgs), MariasCpGs$CpG))," hvCpGs in common"))
-## [1] "We both have 3603 hvCpGs in common"
 
 #' ## Part 3: identify hvCpGs based on a sd multiplicative factor lambda
 #'
@@ -145,8 +139,7 @@ findLamba <- function(lambda, thr = 0.65){
     data.frame(lambda=lambda, phvCpG=length(hv) / length(common_cpgs))
 }
 
-print(paste0("Maria's results:p(hvCpG) = ", round(4143/406306, 3)))
-## [1] "Maria's results:p(hvCpG) = 0.010"
+print(paste0("Maria's results:p(hvCpG) = ", 4143/406306))
 
 print("my results:")
 
