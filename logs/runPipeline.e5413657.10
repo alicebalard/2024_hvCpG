@@ -1,5 +1,6 @@
 Bowtie 2 seems to be working fine (tested command '/share/apps/genomics/bowtie2-2.4.1/bowtie2 --version' [2.4.1])
 Output format is BAM (default)
+<<<<<<< HEAD
 Alignments will be written out in BAM format. Samtools found here: '/share/apps/genomics/samtools-1.9/bin/samtools'
 Reference genome folder provided is /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/	(absolute path is '/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38/)'
 FastQ format assumed (by default)
@@ -2413,3 +2414,5 @@ Processed lines: 68500000
 Processed lines: 68500000
 Processed lines: 68500000
 Processed lines: 68500000
+=======
+>>>>>>> 817221b90ff0ddae2513e5ea2ba2deb472980c30
