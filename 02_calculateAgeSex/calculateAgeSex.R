@@ -2,17 +2,42 @@
 ## A.Balard ##
 ## Jan 2025 ##
 
-## Retrieve arguments from the bash calling file:
-args <- commandArgs(trailingOnly=TRUE)
-sample_horvbed <- read.table(args[1])
-sample_name <- args[2]
-methcov <- args[3]
-filepath_age <- args[4]
-filepath_sex <- args[5]
-
+### Retrieve arguments from the bash calling file:
+#args <- commandArgs(trailingOnly=TRUE)
+#sample_horvbed <- read.table(args[1])
+#sample_name <- args[2]
+#methcov <- args[3]
+#filepath_age <- args[4]
+#filepath_sex <- args[5]
+#
 ## Before installing R packages on the CS UCL cluster, run:
 ## scl enable devtoolset-9 bash
 ## This uses the good gcc
+# library("IlluminaHumanMethylation450kanno.ilmn12.hg19")
+
+###################################
+## Run on a list of files (tbc)
+
+## Select only coverage >=20 (to tweak)
+WGBS <-read.table(gzfile("/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/SRR28532098_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz.20X.cov.gz"))
+names(WGBS) <- c("chr", "start", "stop", "percMeth", "mC", "C")
+
+## Convert to beta values
+WGBS$beta_values <- WGBS$percMeth / 100
+
+# Map genomic positions to mammalian array probes
+# (Requires annotation file from Mammalian Methylation Consortium)
+annot <- read.csv("MammalianMethylationArrayAnnotation.csv")
+
+
+## Conversion WGBS methylation from hg38 to hg19:
+
+## Conversion WGBS into 450k array:
+
+
+
+
+
 library(tidyverse)
 library(dplyr)
 library(MammalMethylClock)
@@ -61,6 +86,9 @@ if (refNeeded){
 
     write.table(unique(na.omit(df1)), "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/03AgeSex/Homo_sapiens.hg38.HorvathMammalMethylChip40.v1.bed", sep = "\t", quote = F, row.names = F, col.names = F)
 }
+
+read.table("/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/03AgeSex/Homo_sapiens.hg38.HorvathMammalMethylChip40.v1.bed")
+
 
 ## 2. calculate age 
 dfAge <- data.frame(CGid=sample_horvbed$V5,
