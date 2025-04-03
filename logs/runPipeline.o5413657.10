@@ -14,6 +14,7 @@ Genome already indexed
 **** End of step 4.1: Tue  1 Apr 20:23:40 BST 2025 ****
 **** Start of step 4.2 Genome alignement with 6 threads...
 Run Trim Galore command without fastqc
+<<<<<<< HEAD
 chr NC_000001.11 (248956422 bp)
 chr NT_187361.1 (175055 bp)
 chr NT_187362.1 (32032 bp)
@@ -1545,3 +1546,5 @@ skipping header line:	@PG	ID:Bismark	VN:v0.22.3	CL:"bismark --genome /SAN/ghlab/
 Start of step 4.4: Methylation extraction Thu  3 Apr 05:55:12 BST 2025
 
 Now testing Bismark result file >/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR28532106_1_val_1_bismark_bt2_pe.deduplicated.bam< for positional sorting (which would be bad...)	
+=======
+>>>>>>> 817221b90ff0ddae2513e5ea2ba2deb472980c30

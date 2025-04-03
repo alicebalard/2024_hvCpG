@@ -309,7 +309,11 @@ samtools sort -o $DEDUPBAM.sorted.bam --threads $NSLOTS $DEDUPBAM
 echo "**** Start of bssbper2 SNP call : $(date) ****" 
 BSSNPER2_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall/" # not a temporary file
 
+<<<<<<< HEAD
 if [ ! -e "$BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf.gz" ]; then
+=======
+if [ ! -e "$BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf" ]; then
+>>>>>>> 817221b90ff0ddae2513e5ea2ba2deb472980c30
     ## run bssnper2
     /home/abalard/bssnper2/bssnper2 $DEDUPBAM.sorted.bam --ref $GENOME_DIR/GCF_000001405.40_GRCh38.p14_genomic.fa --vcf $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
     rm $DEDUPBAM
@@ -328,8 +332,11 @@ echo "**** End of bssbper2 : $(date) ****"
 ##*******************************##
 ###################################
 
+<<<<<<< HEAD
 ##METHCOV20=$(less "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz.20X.cov.gz")
 
+=======
+>>>>>>> 817221b90ff0ddae2513e5ea2ba2deb472980c30
 ##cd /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/03AgeSex/
 ##
 #### Horvath methylation array file:
