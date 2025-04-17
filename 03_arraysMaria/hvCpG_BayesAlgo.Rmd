@@ -285,11 +285,11 @@ mu_jk_list <- get_mu_jk_list(scaled_list_mat)
 sigma_k_list <- get_sigma_k_list(scaled_list_mat)
 
 getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list,
-                                       j, lambda_start, p0, p1, alpha) {
+                                       j, lambda_vector, p0, p1, alpha) {
   # Precompute all necessary values upfront
-  lambda_vector <- setNames(rep(1.9, length(scaled_list_mat)), names(scaled_list_mat))
+  lambda_vector <- setNames(lambda_vector, names(scaled_list_mat))
   datasets <- names(scaled_list_mat)
-  log_P_Mj <- 0 ## initialisation
+  log_P_Mj <- 0 ## initialise
   
   # Precompute probability matrices
   p0p1_mat <- matrix(c(p0, 1-p0, 1-p1, p1), nrow=2, byrow=TRUE)
@@ -381,7 +381,7 @@ getLogLik_oneCpG_optimized(scaled_list_mat,
                            mu_jk_list, 
                            sigma_k_list,
                            j = common_cpgs[[1]], 
-                           lambda_start = 1.9,
+                           lambda_vector = rep(1.9, length(scaled_list_mat)),
                            p0 = 0.95, p1 = 0.65, alpha = 0.01) # -1399.875
 ```
 
@@ -394,16 +394,12 @@ https://www.magesblog.com/post/2013-03-12-how-to-use-optim-in-r/
 ## We optimise over the parameter alpha, and specify everything else
 # Wrapper for optimize: alpha is the first argument
 loglik_alpha <- function(alpha, scaled_list_mat, mu_jk_list, sigma_k_list, j, lambda_vector, p0, p1) {
-  getLogLik_oneCpG(
-    scaled_list_mat = scaled_list_mat,
-    mu_jk_list = mu_jk_list,
-    sigma_k_list = sigma_k_list,
-    j = j,
-    lambda_vector = lambda_vector,
-    p0 = p0,
-    p1 = p1,
-    alpha = alpha
-  )
+  getLogLik_oneCpG_optimized(scaled_list_mat, 
+                             mu_jk_list, 
+                             sigma_k_list,
+                             j = common_cpgs[[1]], 
+                             lambda_start = 1.9,
+                             p0 = 0.95, p1 = 0.65, alpha = 0.01) # -1399.875
 }
 
 result <- optimize(
@@ -424,62 +420,6 @@ result <- optimize(
 
 cat("Optimal alpha:", result$maximum, "\n")
 cat("Maximum log-likelihood:", result$objective, "\n")
-```
-
-## Optimise over multiple parameters:
-
-Let the parameter vector be:
-* par[1] = alpha
-* par[2:(K+1)] = lambda_vector (one lambda per dataset)
-
-```{r, eval=FALSE}
-# K is the number of datasets
-K <- length(filtered_list_mat)
-
-# Wrapper function for optim
-loglik_wrapper <- function(par, scaled_list_mat, mu_jk_list, sigma_k_list, j, p0, p1) {
-  alpha <- par[1]
-  lambda_vector <- par[2:(K+1)]
-  # Negative log-likelihood for minimization
-  -getLogLik_oneCpG(
-    scaled_list_mat = scaled_list_mat,
-    mu_jk_list = mu_jk_list,
-    sigma_k_list = sigma_k_list,
-    j = j,
-    lambda_vector = lambda_vector,
-    p0 = p0,
-    p1 = p1,
-    alpha = alpha
-  )
-}
-
-# Initial values
-init_alpha <- 0.01
-init_lambda <- rep(1.9, K)
-init_par <- c(init_alpha, init_lambda)
-
-# Optionally, set bounds (e.g., alpha > 0, lambda > 0)
-lower_bounds <- c(1e-5, rep(0.1, K))
-upper_bounds <- c(1, rep(10, K))
-
-result <- optim(
-  par = init_par,
-  fn = loglik_wrapper,
-  scaled_list_mat = scaled_list_mat,
-  mu_jk_list = mu_jk_list,
-  sigma_k_list = sigma_k_list,
-  j = common_cpgs[[1]],
-  p0 = 0.95,
-  p1 = 0.65,
-  method = "L-BFGS-B", # allows box constraints
-  lower = lower_bounds,
-  upper = upper_bounds
-)
-
-optimal_alpha <- result$par[1]
-optimal_lambda_vector <- result$par[2:(K+1)]
-cat("Optimal alpha:", optimal_alpha, "\n")
-cat("Optimal lambda_vector:", optimal_lambda_vector, "\n")
 ```
 
 # The analysis is complete.
