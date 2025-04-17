@@ -1,0 +1,490 @@
+---
+title: "hvCpG_BayesAlgo"
+author: "Alice Balard"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(data.table)
+library(matrixStats)
+library(ggplot2)
+library(reshape2)
+library(ggrepel)
+```
+
+# Data prep 
+
+```{r}
+##########################################################################################
+## LSHTM: Maria’s data that she used for the hvCpG paper can be accessed from ing-p5 here:
+# /mnt/old_user_accounts/p3/maria/PhD/Data/datasets/
+#   
+# Her hvCpG scripts are here:
+# /mnt/old_user_accounts/p3/maria/PhD/Projects/hvCpGs/Scripts/
+
+MariasCpGs <- read.csv("~/2024_hvCpG/Derakhshan2022_ST5_hvCpG.txt")
+
+folder1 <- "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
+folder1 <- normalizePath("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/")
+rds_files1 <- list.files(path = folder1, pattern = "\\.RDS$", full.names = TRUE)
+
+# Read all .rds files into a list and convert each to a matrix
+rds_list_mat1 <- lapply(rds_files1, function(file) {
+  as.matrix(readRDS(file))
+})
+## Name the list elements by file names (without extensions)
+names(rds_list_mat1) <- gsub("\\.RDS$", "", basename(rds_files1))
+
+rds_list_mat2 <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/TCGA/TCGA_BMIQ_age_sex_PC_adjusted_OUTLIERS_REMOVED_round2.RDS")
+rds_list_mat2 <- lapply(rds_list_mat2, function(x) {
+  as.matrix(x)
+})
+
+rds_list_mat <- c(rds_list_mat1, rds_list_mat2)
+rm(rds_list_mat1,rds_list_mat2)
+```
+
+# Reproduce Maria’s results
+Maria’s paper: We defined an hvCpG in the following way:
+
+1. in 65% of datasets in which the CpG is covered (following quality control), it has methylation variance in the top 5% of all (non-removed) CpGs.
+2. is covered in at least 15 of the 30 datasets.
+
+## Part 1: preprocessing
+
+```{r}
+all_cpgs <- unlist(lapply(rds_list_mat, rownames))
+cpg_counts <- table(all_cpgs)
+common_cpgs <- names(cpg_counts[cpg_counts >= 15])
+
+# Keep only the array background
+filtered_list_mat <- lapply(rds_list_mat, function(mat) {
+  mat[rownames(mat) %in% common_cpgs, ]
+})
+
+rm(all_cpgs, rds_list_mat)
+```
+
+## Part 2: identify hvCpGs based on thresholds (reproduce Maria's results)
+
+```{r part2_repromaria}
+## Within each dataset, calculate the CpGs variance, and keep the top 5%
+filtered_matrices <- lapply(filtered_list_mat, function(mat) {
+  # Step 1: Calculate row variances
+  row_variances <- rowVars(mat, na.rm = T)
+  # Step 2: Find the threshold for the top 5% variances
+  threshold <- quantile(row_variances, probs = 0.95)
+  # Step 3: Subset the matrix to keep only rows with variance above the threshold
+  mat[row_variances > threshold, , drop = FALSE]
+})
+
+## Select hvCpG as top 5% CpG covered in >= 65% of the ds
+all_cpgs_top <- unlist(lapply(filtered_matrices, rownames))
+cpg_counts_top <- table(all_cpgs_top)
+
+cpg_counts <- data.frame(cpg_counts) %>% dplyr::rename("cpgs"="all_cpgs", "all_cpgs"="Freq")
+cpg_counts_top <- data.frame(cpg_counts_top) %>% dplyr::rename("cpgs"="all_cpgs_top", "all_cpgs_top"="Freq")
+
+cpg_counts_full <- merge(cpg_counts, cpg_counts_top)
+
+hvCpGs_1 <- cpg_counts_full[cpg_counts_full$all_cpgs_top >= 0.647*cpg_counts_full$all_cpgs, , drop = FALSE]
+
+## hvCpGs_1[!hvCpGs_1$cpgs %in% MariasCpGs$CpG,] --> not clear why not detected
+```
+
+Maria detected `r length(MariasCpGs$CpG)` hvCpGs. I detected `r length(unique(hvCpGs_1$cpgs))` hvCpGs.
+We both have `r length(intersect(as.character(hvCpGs_1$cpgs), MariasCpGs$CpG))` hvCpGs in common.
+
+### Tests
+Maria detected 4143 hvCpGs. 
+* with > 65%, I detected 4269 hvCpGs. We both have 4048 hvCpGs in common.
+* with >= 64.7%, I detected 4377 hvCpGs. We both have 4143 hvCpGs in common.
+* with >= 64.8%, I detected 4339 hvCpGs. We both have 4113 hvCpGs in common.
+
+# Part 3. Identify hvCpGs based on a sd multiplicative factor lambda
+
+The proportion of CpGs than Maria found hvCpGs is p(hvCpG) = `r round(4143/406306, 4)*100`%.
+
+## Calculate lambda 
+
+Within each dataset k, calculate the median sd of all CpG j
+
+```{r}
+all_sd_jk <- sapply(filtered_list_mat, function(k){
+  
+  ## Scale
+  k = log2(k/(1-k))
+  
+  get_sd_k <- function(k){
+    ## Calculate a vector of the row (=per CpG j) sd
+    return(rowSds(k, na.rm = T))
+  }
+  ## Return a vector of sds, in a list for each dataset 
+  return(get_sd_k(k))
+})
+
+## Plot:
+df_long <- reshape2::melt(all_sd_jk, variable.name = "Vector", value.name = "SDs")
+
+## Plot distributions of all vectors on the same graph
+ggplot(df_long, aes(x = SDs, color = L1)) +
+  geom_density() +
+  labs(title = "Distribution of SDs accross datasets",
+       x = "SDs",
+       y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_x_sqrt()
+
+## Calculate lambda per dataset
+lambdas = sapply(all_sd_jk, function(x){quantile(x, 0.95, na.rm=T)/median(x, na.rm=T)})
+
+lambdas
+
+# Histogram with kernel density
+ggplot(data.frame(lambda=lambdas, dataset=names(lambdas)),
+       aes(x = lambdas)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 colour = 1, fill = "white", binwidth = .1) +
+  geom_density(lwd = 1, colour = 4,
+               fill = 4, alpha = 0.25)+
+  theme_minimal() +
+  geom_vline(xintercept = median(lambdas), col = "red")
+
+median(lambdas) #1.878303
+```
+
+Which datasets have a higher lambda, and why? 
+
+```{r}
+df = data.frame(nind=sapply(filtered_list_mat, ncol),
+                dataset=names(filtered_list_mat),
+                lambda=lambdas, 
+                tissue = sapply(strsplit(names(filtered_list_mat), "_"), `[`, 1),
+                ethnicity=sapply(strsplit(names(filtered_list_mat), "_"), `[`, 2)) %>%
+  mutate(dataset=ifelse(dataset %in% c("Blood_Cauc", "Blood_Hisp"), "Blood_Cauc_Hisp", dataset)) %>% 
+  mutate(dataset=ifelse(dataset %in% c("Blood_Mexican", "Blood_PuertoRican "), "Blood_Mex_PuertoRican ", dataset)) %>% 
+  mutate(dataset=ifelse(dataset %in% c("CD4+_Estonian", "CD8+_Estonian"), "CD4+_CD8+_Estonian", dataset)) %>% 
+  mutate(dataset=ifelse(dataset %in% c("Saliva_Hisp", "Saliva_Cauc"), "Saliva_Hisp_Cauc", dataset))
+
+ggplot(data = df,
+       aes(x=lambda, y=nind))+
+  geom_smooth(method = "lm")+
+  geom_point()+
+  geom_label_repel(aes(label = dataset, fill=dataset), size= 2, alpha=.8, max.overlaps = 25)+
+  theme_bw()+theme(legend.position = "none")+
+  scale_x_log10()
+```
+
+```{r}
+## Emphasize the outliers
+df_long$col = "grey"
+df_long$col[df_long$L1 %in% "BulkFrontalCortex"] <- "red"
+
+ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
+  geom_density(data = df_long[!df_long$L1 %in% "BulkFrontalCortex",], alpha = .5) +
+  geom_density(data = df_long[df_long$L1 %in% "BulkFrontalCortex",], alpha = .6) +
+  scale_fill_manual(values = c("grey", "red"))+
+  labs(title = "Distribution of SDs accross datasets",subtitle = "Red=BulkFrontalCortex",
+       x = "SDs",
+       y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_x_sqrt()
+```
+
+```{r}
+## Emphasize the outliers
+df_long$col = "grey"
+df_long$col[df_long$L1 %in% "Blood_Cauc"] <- "red"
+
+ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
+  geom_density(data = df_long[!df_long$L1 %in% "Blood_Cauc",], alpha = .5) +
+  geom_density(data = df_long[df_long$L1 %in% "Blood_Cauc",], alpha = .6) +
+  scale_fill_manual(values = c("grey", "red"))+
+  labs(title = "Distribution of SDs accross datasets",subtitle = "Red=Blood_Cauc",
+       x = "SDs",
+       y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_x_sqrt()
+```
+
+```{r}
+## Emphasize the outlier
+df_long$col = "grey"
+df_long$col[df_long$L1 %in% "Blood_Hisp"] <- "red"
+
+ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
+  geom_density(data = df_long[!df_long$L1 %in% "Blood_Hisp",], alpha = .5) +
+  geom_density(data = df_long[df_long$L1 %in% "Blood_Hisp",], alpha = .6) +
+  scale_fill_manual(values = c("grey", "red"))+
+  labs(title = "Distribution of SDs accross datasets",subtitle = "Red=Blood_Hisp",
+       x = "SDs",
+       y = "Density") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_x_sqrt()
+```
+
+# Part 4. Maximum likelihood analysis
+
+The equation is:
+
+$$
+\log\left(P(M_j)\right) = \sum_{i=1}^{n} \log\left( \sum_{Z_j=0}^{1} \left( \sum_{Z_{j,k}=0}^{1} P(M_{i,j} \mid Z_{j,k}) \times P(Z_{j,k} \mid Z_j) \right) \times P(Z_j) \right)
+$$
+
+## Functions to calculate different parameters of the datasets:
+
+These functions take as imput "our_list_datasets", a list of matrices containing our datasets
+
+It outputs
+* scaled_list_mat: a list of scaled matrices
+* mu_jk: named list for each dataset of vectors containing the mean methylation for each CpG j
+* sigma_k: named list for each dataset of elements = the median sd for all CpGs
+
+```{r}
+get_scaled_list_mat <- function(our_list_datasets){
+  lapply(our_list_datasets, function(k){ ## Scale all the datasets in list
+    k = log2(k/(1-k))
+  })
+}
+
+get_mu_jk_list <- function(scaled_list_mat){
+  lapply(scaled_list_mat, function(k){rowMeans(k, na.rm = T)}) ## list of mean methylation for each CpG j in all datasets
+}
+
+get_sigma_k_list <- function(scaled_list_mat){
+  lapply(scaled_list_mat, function(k){
+    sd_j <- rowSds(k, na.rm = T)  ## Calculate the row (=per CpG j) sd
+    return(median(sd_j, na.rm = T))  ## Calculate the median sd in dataset k 
+  })
+}
+```
+
+## Likelihood function for a given CpG j
+
+The arguments are:
+* listMat: a list of matrices, i.e. our datasets
+
+For the function to optimise itself:
+* j: a CpG (default=first CpG)
+* lambda_vector: a vector of lambda, one per dataset (multiplicative factor of the sd_k for hvCpG)
+* p0: proba of true negative
+* p1: proba of true positive
+* alpha: probability of a CpG site to be a hvCpG
+
+```{r loglik_faster}
+## Prepare our data in general environment:
+scaled_list_mat <- get_scaled_list_mat(filtered_list_mat)
+mu_jk_list <- get_mu_jk_list(scaled_list_mat)
+sigma_k_list <- get_sigma_k_list(scaled_list_mat)
+
+getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list,
+                                       j, lambda_start, p0, p1, alpha) {
+  # Precompute all necessary values upfront
+  lambda_vector <- setNames(rep(1.9, length(scaled_list_mat)), names(scaled_list_mat))
+  datasets <- names(scaled_list_mat)
+  log_P_Mj <- 0 ## initialisation
+  
+  # Precompute probability matrices
+  p0p1_mat <- matrix(c(p0, 1-p0, 1-p1, p1), nrow=2, byrow=TRUE)
+  
+  proba_hvCpG_vec <- c(1-alpha, alpha)
+  
+  for (k in datasets) {
+    
+    # 1. SAFE ROW INDEXING
+    row_idx <- which(rownames(scaled_list_mat[[k]]) == j)
+    if (length(row_idx) == 0) next  # Skip missing CpGs
+    
+    # 2. SAFE VALUE EXTRACTION
+    Mij_vals <- tryCatch({
+      scaled_list_mat[[k]][row_idx, ]
+    }, error = function(e) numeric(0))
+    
+    # Remove NAs and check length
+    Mij_vals <- Mij_vals[!is.na(Mij_vals)]
+    if (length(Mij_vals) == 0) next
+    
+    # 3. MISSING VALUE HANDLING FOR MU
+    mu_jk <- mu_jk_list[[k]][j]
+    if (is.na(mu_jk)) {
+      warning(paste("Missing mu_jk for", j, "in dataset", k))
+      next
+    }
+    
+    # 4. SAFE STANDARD DEVIATION
+    sd_k <- sigma_k_list[[k]]
+    if (is.na(sd_k) || sd_k <= 0) {
+      warning(paste("Invalid sd_k for dataset", k))
+      next
+    }
+    
+    # 5. LAMBDA VALIDATION
+    lambda_k <- lambda_vector[k]
+    if (is.na(lambda_k) || lambda_k <= 0) {
+      warning(paste("Invalid lambda_k for dataset", k))
+      next
+    }
+    
+    # 6. VECTORIZED CALCULATIONS WITH CHECKS
+    sd_values <- c(sd_k, lambda_k * sd_k)
+    if (any(is.na(sd_values)) || any(sd_values <= 0)) {
+      warning(paste("Invalid sd_values for", j, "in dataset", k))
+      next
+    }
+    
+    # 7. PROBABILITY CALCULATIONS: proba(M(i,j) knowing Z(j,k) 0 or 1)
+    # a matrix of 2 columns (sd or lambda sd), one row per individual
+    norm_probs <- tryCatch({
+      matrix(c(
+        dnorm(Mij_vals, mu_jk, sd_values[1]),
+        dnorm(Mij_vals, mu_jk, sd_values[2])
+      ), ncol=2)
+      
+    }, error = function(e) {
+      warning(paste("DNORM error for", j, "in dataset", k))
+      matrix(1, nrow=length(Mij_vals), ncol=2)  # Fallback to neutral values
+    })
+    
+    # 8. ARRAY OPERATIONS: double the previous matrix to create two, for Zj=0 or 1
+    zjk_probs <- array(dim = c(length(Mij_vals), 2, 2))
+    for (zjk in 0:1) {
+      zjk_probs[,,zjk+1] <- cbind(norm_probs[, zjk+1] * p0p1_mat[zjk+1, 1], 
+                                  norm_probs[, zjk+1] * p0p1_mat[zjk+1, 2])
+    }
+    
+    # 9. LOGSUMEXP IMPLEMENTATION
+    # Sum columns across depth dimension
+    col_sums <- apply(zjk_probs, c(1,3), sum)  # Nx2 matrix (sums per row per matrix)
+    
+    # Multiply columns proba_hvCpG_vec and sum, then log, then sum for all individuals
+    dataset_loglik <- sum(log(rowSums(col_sums %*% proba_hvCpG_vec)))
+    
+    if (!is.finite(dataset_loglik)) {
+      warning(paste("Non-finite loglik for", j, "in dataset", k))
+      dataset_loglik <- 0  # Neutral value for problematic calculations
+    }
+    
+    log_P_Mj <- log_P_Mj + dataset_loglik
+  }
+  return(log_P_Mj)
+}
+
+## loglik for one CpG
+getLogLik_oneCpG_optimized(scaled_list_mat, 
+                           mu_jk_list, 
+                           sigma_k_list,
+                           j = common_cpgs[[1]], 
+                           lambda_start = 1.9,
+                           p0 = 0.95, p1 = 0.65, alpha = 0.01) # -1399.875
+```
+
+
+## Optim to find alpha
+
+https://www.magesblog.com/post/2013-03-12-how-to-use-optim-in-r/
+
+```{r, eval=FALSE}
+## We optimise over the parameter alpha, and specify everything else
+# Wrapper for optimize: alpha is the first argument
+loglik_alpha <- function(alpha, scaled_list_mat, mu_jk_list, sigma_k_list, j, lambda_vector, p0, p1) {
+  getLogLik_oneCpG(
+    scaled_list_mat = scaled_list_mat,
+    mu_jk_list = mu_jk_list,
+    sigma_k_list = sigma_k_list,
+    j = j,
+    lambda_vector = lambda_vector,
+    p0 = p0,
+    p1 = p1,
+    alpha = alpha
+  )
+}
+
+result <- optimize(
+  f = loglik_alpha,
+  interval = c(0.0001, 0.5),
+  maximum = TRUE,  # because you want to maximize log-likelihood
+  scaled_list_mat = scaled_list_mat,
+  mu_jk_list = mu_jk_list,
+  sigma_k_list = sigma_k_list,
+  j = common_cpgs[[1]],
+  lambda_vector = rep(1.9, length(filtered_list_mat)),
+  p0 = 0.95,
+  p1 = 0.65
+)
+
+# Error in sum(sapply(names_datasets, function(k) { : 
+#   invalid 'type' (list) of argument
+
+cat("Optimal alpha:", result$maximum, "\n")
+cat("Maximum log-likelihood:", result$objective, "\n")
+```
+
+## Optimise over multiple parameters:
+
+Let the parameter vector be:
+* par[1] = alpha
+* par[2:(K+1)] = lambda_vector (one lambda per dataset)
+
+```{r, eval=FALSE}
+# K is the number of datasets
+K <- length(filtered_list_mat)
+
+# Wrapper function for optim
+loglik_wrapper <- function(par, scaled_list_mat, mu_jk_list, sigma_k_list, j, p0, p1) {
+  alpha <- par[1]
+  lambda_vector <- par[2:(K+1)]
+  # Negative log-likelihood for minimization
+  -getLogLik_oneCpG(
+    scaled_list_mat = scaled_list_mat,
+    mu_jk_list = mu_jk_list,
+    sigma_k_list = sigma_k_list,
+    j = j,
+    lambda_vector = lambda_vector,
+    p0 = p0,
+    p1 = p1,
+    alpha = alpha
+  )
+}
+
+# Initial values
+init_alpha <- 0.01
+init_lambda <- rep(1.9, K)
+init_par <- c(init_alpha, init_lambda)
+
+# Optionally, set bounds (e.g., alpha > 0, lambda > 0)
+lower_bounds <- c(1e-5, rep(0.1, K))
+upper_bounds <- c(1, rep(10, K))
+
+result <- optim(
+  par = init_par,
+  fn = loglik_wrapper,
+  scaled_list_mat = scaled_list_mat,
+  mu_jk_list = mu_jk_list,
+  sigma_k_list = sigma_k_list,
+  j = common_cpgs[[1]],
+  p0 = 0.95,
+  p1 = 0.65,
+  method = "L-BFGS-B", # allows box constraints
+  lower = lower_bounds,
+  upper = upper_bounds
+)
+
+optimal_alpha <- result$par[1]
+optimal_lambda_vector <- result$par[2:(K+1)]
+cat("Optimal alpha:", optimal_alpha, "\n")
+cat("Optimal lambda_vector:", optimal_lambda_vector, "\n")
+```
+
+# The analysis is complete.
+
+
+
+
+
