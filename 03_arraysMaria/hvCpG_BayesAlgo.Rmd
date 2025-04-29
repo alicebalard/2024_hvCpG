@@ -44,7 +44,17 @@ rds_list_mat2 <- lapply(rds_list_mat2, function(x) {
 })
 
 rds_list_mat <- c(rds_list_mat1, rds_list_mat2)
-rm(rds_list_mat1,rds_list_mat2)
+
+# Keep only the array background (covered in 15 datasets out of 30)
+all_cpgs <- unlist(lapply(rds_list_mat, rownames))
+cpg_counts <- table(all_cpgs)
+common_cpgs <- names(cpg_counts[cpg_counts >= 15])
+
+filtered_list_mat <- lapply(rds_list_mat, function(mat) {
+  mat[rownames(mat) %in% common_cpgs, ]
+})
+
+rm(rds_list_mat1,rds_list_mat2, rds_list_mat)
 ```
 
 # Reproduce Maria’s results
@@ -53,58 +63,50 @@ Maria’s paper: We defined an hvCpG in the following way:
 1. in 65% of datasets in which the CpG is covered (following quality control), it has methylation variance in the top 5% of all (non-removed) CpGs.
 2. is covered in at least 15 of the 30 datasets.
 
-## Part 1: preprocessing
-
-```{r}
-all_cpgs <- unlist(lapply(rds_list_mat, rownames))
-cpg_counts <- table(all_cpgs)
-common_cpgs <- names(cpg_counts[cpg_counts >= 15])
-
-# Keep only the array background
-filtered_list_mat <- lapply(rds_list_mat, function(mat) {
-  mat[rownames(mat) %in% common_cpgs, ]
-})
-
-rm(all_cpgs, rds_list_mat)
-```
-
-## Part 2: identify hvCpGs based on thresholds (reproduce Maria's results)
-
-```{r part2_repromaria}
+```{r Maria}
 ## Within each dataset, calculate the CpGs variance, and keep the top 5%
-filtered_matrices <- lapply(filtered_list_mat, function(mat) {
+top5pcvar <- lapply(filtered_list_mat, function(mat) {
   # Step 1: Calculate row variances
-  row_variances <- rowVars(mat, na.rm = T)
-  # Step 2: Find the threshold for the top 5% variances
-  threshold <- quantile(row_variances, probs = 0.95)
-  # Step 3: Subset the matrix to keep only rows with variance above the threshold
-  mat[row_variances > threshold, , drop = FALSE]
+  row_variances = rowVars(mat, na.rm = T)
+  df = data.frame(var=row_variances, cpg=names(row_variances))
+  # Step 2
+  top = top_n(df, as.integer(0.05*nrow(df)), var) ## slightly different than quantile cause keep ties
+  return(top)
 })
 
-## Select hvCpG as top 5% CpG covered in >= 65% of the ds
-all_cpgs_top <- unlist(lapply(filtered_matrices, rownames))
-cpg_counts_top <- table(all_cpgs_top)
+## CpGs in the top 5% variance:
+cpg_counts_top <- table(unlist(lapply(top5pcvar, rownames))) %>%
+  data.frame() %>% dplyr::rename("cpgs"="Var1", "all_cpgs_top5pc"="Freq")
 
-cpg_counts <- data.frame(cpg_counts) %>% dplyr::rename("cpgs"="all_cpgs", "all_cpgs"="Freq")
-cpg_counts_top <- data.frame(cpg_counts_top) %>% dplyr::rename("cpgs"="all_cpgs_top", "all_cpgs_top"="Freq")
+## all covered CpGs:
+cpg_counts <- table(unlist(lapply(filtered_list_mat, rownames))) %>%
+  data.frame() %>% dplyr::rename("cpgs"="Var1", "all_cpgs"="Freq")
 
-cpg_counts_full <- merge(cpg_counts, cpg_counts_top)
+## Both:
+cpg_counts_full <- merge(cpg_counts, cpg_counts_top, all.x = T)
+rm(cpg_counts, cpg_counts_top)
 
-hvCpGs_1 <- cpg_counts_full[cpg_counts_full$all_cpgs_top >= 0.647*cpg_counts_full$all_cpgs, , drop = FALSE]
+## in 65% of datasets in which the CpG is covered (following quality control), it has methylation variance in the top 5% of all (non-removed) CpGs:
+hvCpGs_maria <- na.omit(cpg_counts_full[cpg_counts_full$all_cpgs_top5pc/cpg_counts_full$all_cpgs >= 0.65,])
 
-## hvCpGs_1[!hvCpGs_1$cpgs %in% MariasCpGs$CpG,] --> not clear why not detected
+## rounding, to mimick Maria's approach
+hvCpGs_maria <- na.omit(cpg_counts_full[round(cpg_counts_full$all_cpgs_top5pc/cpg_counts_full$all_cpgs, 2) >= 0.65,])
 ```
 
-Maria detected `r length(MariasCpGs$CpG)` hvCpGs. I detected `r length(unique(hvCpGs_1$cpgs))` hvCpGs.
-We both have `r length(intersect(as.character(hvCpGs_1$cpgs), MariasCpGs$CpG))` hvCpGs in common.
+Maria detected `r length(MariasCpGs$CpG)` hvCpGs. I detected `r length(hvCpGs_maria$cpgs)` hvCpGs.
+We both have `r length(intersect(hvCpGs_maria$cpgs, MariasCpGs$CpG))` hvCpGs in common.
 
-### Tests
-Maria detected 4143 hvCpGs. 
-* with > 65%, I detected 4269 hvCpGs. We both have 4048 hvCpGs in common.
-* with >= 64.7%, I detected 4377 hvCpGs. We both have 4143 hvCpGs in common.
-* with >= 64.8%, I detected 4339 hvCpGs. We both have 4113 hvCpGs in common.
+```{r investigate_diff, include = FALSE}
+## my cpgs not found by Maria (N=234)
+length(setdiff(hvCpGs_maria$cpgs, MariasCpGs$CpG)) 
 
-# Part 3. Identify hvCpGs based on a sd multiplicative factor lambda
+head(cpg_counts_full[cpg_counts_full$cpgs %in% setdiff(hvCpGs_maria$cpgs, MariasCpGs$CpG),])
+
+lapply(cpg_counts_full[cpg_counts_full$cpgs %in% setdiff(hvCpGs_maria$cpgs, MariasCpGs$CpG),], function(x){heatmap(x)})
+
+```
+
+# Identify hvCpGs based on a sd multiplicative factor lambda
 
 The proportion of CpGs than Maria found hvCpGs is p(hvCpG) = `r round(4143/406306, 4)*100`%.
 
@@ -112,7 +114,7 @@ The proportion of CpGs than Maria found hvCpGs is p(hvCpG) = `r round(4143/40630
 
 Within each dataset k, calculate the median sd of all CpG j
 
-```{r}
+```{r calcLambdas}
 all_sd_jk <- sapply(filtered_list_mat, function(k){
   
   ## Scale
@@ -142,8 +144,11 @@ ggplot(df_long, aes(x = SDs, color = L1)) +
 ## Calculate lambda per dataset
 lambdas = sapply(all_sd_jk, function(x){quantile(x, 0.95, na.rm=T)/median(x, na.rm=T)})
 
-lambdas
+names(lambdas) <- gsub(".95%", "", names(lambdas))
+```
 
+
+```{r}
 # Histogram with kernel density
 ggplot(data.frame(lambda=lambdas, dataset=names(lambdas)),
        aes(x = lambdas)) +
@@ -230,7 +235,7 @@ ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
   scale_x_sqrt()
 ```
 
-# Part 4. Maximum likelihood analysis
+# Maximum likelihood analysis
 
 The equation is:
 
@@ -285,14 +290,26 @@ mu_jk_list <- get_mu_jk_list(scaled_list_mat)
 sigma_k_list <- get_sigma_k_list(scaled_list_mat)
 
 getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list,
-                                       j, lambda_vector, p0, p1, alpha) {
-  # Precompute all necessary values upfront
+                                       j, p0, p1, alpha, ...) {
+  # Capture all additional arguments passed via '...'
+  lambda_vector <- unlist(list(...))
+  
+  # Ensure the number of lambda parameters matches scaled_list_mat's length
+  n_lambda <- length(scaled_list_mat)
+  
+  if (length(lambda_vector) != n_lambda) {
+    stop("Number of lambda arguments must match length(scaled_list_mat)")
+  }
+  
+  # Assign names lambda1, lambda2, ... (for clarity)
   lambda_vector <- setNames(lambda_vector, names(scaled_list_mat))
+  
+  # Precompute all necessary values upfront
   datasets <- names(scaled_list_mat)
   log_P_Mj <- 0 ## initialise
   
   # Precompute probability matrices
-  p0p1_mat <- matrix(c(p0, 1-p0, 1-p1, p1), nrow=2, byrow=TRUE)
+  p0p1_mat <- matrix(c(p0, 1-p1, 1-p0, p1), nrow=2, byrow=TRUE)
   
   proba_hvCpG_vec <- c(1-alpha, alpha)
   
@@ -346,7 +363,6 @@ getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list
         dnorm(Mij_vals, mu_jk, sd_values[1]),
         dnorm(Mij_vals, mu_jk, sd_values[2])
       ), ncol=2)
-      
     }, error = function(e) {
       warning(paste("DNORM error for", j, "in dataset", k))
       matrix(1, nrow=length(Mij_vals), ncol=2)  # Fallback to neutral values
@@ -355,24 +371,42 @@ getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list
     # 8. ARRAY OPERATIONS: double the previous matrix to create two, for Zj=0 or 1
     zjk_probs <- array(dim = c(length(Mij_vals), 2, 2))
     for (zjk in 0:1) {
-      zjk_probs[,,zjk+1] <- cbind(norm_probs[, zjk+1] * p0p1_mat[zjk+1, 1], 
+      zjk_probs[,,zjk+1] <- cbind(norm_probs[, zjk+1] * p0p1_mat[zjk+1, 1],
                                   norm_probs[, zjk+1] * p0p1_mat[zjk+1, 2])
     }
+    # zjk_probs[,,1] <- cbind(norm_probs[, 1] * p0p1_mat[1, 1], ## M with sd_k * p0
+    #                             norm_probs[, 1] * p0p1_mat[1, 2])## M with sd_k * 1-p1
+    # zjk_probs[,,2] <- cbind(norm_probs[, 2] * p0p1_mat[2, 1],## M with lambda_k * sd_k * 1-p0
+    #                             norm_probs[, 2] * p0p1_mat[2, 2])## M with lambda_k * sd_k * p1
     
     # 9. LOGSUMEXP IMPLEMENTATION
     # Sum columns across depth dimension
-    col_sums <- apply(zjk_probs, c(1,3), sum)  # Nx2 matrix (sums per row per matrix)
-    
+    col_sums <- apply(zjk_probs, c(1,3), sum)  # c(1,3) applies the function sum to both rows (1) and the third dimension (3)
+    # apply(X, c(1,3), sum) = X[,1,] + X[,2,] + X[,3,] = sum of the columns within each row and third dim level
+    ## for us, does row sum of
+    ## [(M with sd_k * p0) + (M with sd_k * 1-p1)] +
+    ## [(M with lambda_k * sd_k * 1-p0) + (M with lambda_k * sd_k * p1)]
+    ## Which corresponds to:
+    ## P(Mj|Zjk=0) * P(Zjk=0|Zj=0) + P(Mj|Zjk=0) * P(Zjk=0|Zj=1) +
+    ## P(Mj|Zjk=1) * P(Zjk=1|Zj=0) + P(Mj|Zjk=1) * P(Zjk=1|Zj=1)
     # Multiply columns proba_hvCpG_vec and sum, then log, then sum for all individuals
-    dataset_loglik <- sum(log(rowSums(col_sums %*% proba_hvCpG_vec)))
+    
+    ## How to handle log(0)? We replace -Inf by the next lowest value
+    dataset_loglik <- sum(
+      ifelse(log(rowSums(col_sums %*% proba_hvCpG_vec))==-Inf,
+             min(log(rowSums(col_sums %*% proba_hvCpG_vec))[
+               log(rowSums(col_sums %*% proba_hvCpG_vec)) > -10E100]),
+             log(rowSums(col_sums %*% proba_hvCpG_vec))))
     
     if (!is.finite(dataset_loglik)) {
       warning(paste("Non-finite loglik for", j, "in dataset", k))
       dataset_loglik <- 0  # Neutral value for problematic calculations
     }
-    
+    # cat("Dataset log likelihood:\n")
+    # print(dataset_loglik)
     log_P_Mj <- log_P_Mj + dataset_loglik
   }
+  # cat("Sum of all datasets log likelihood:\n")
   return(log_P_Mj)
 }
 
@@ -381,45 +415,182 @@ getLogLik_oneCpG_optimized(scaled_list_mat,
                            mu_jk_list, 
                            sigma_k_list,
                            j = common_cpgs[[1]], 
-                           lambda_vector = rep(1.9, length(scaled_list_mat)),
-                           p0 = 0.95, p1 = 0.65, alpha = 0.01) # -1399.875
+                           p0 = 0.95, p1 = 0.65, alpha = 0.01,
+                           setNames(rep(1.9, length(scaled_list_mat)), paste0("lambda", 1:length(scaled_list_mat)))) # -527.2023
 ```
 
+## Examine weird values 
+
+The transformation lead to weird values:
+
+```{r investigate_weird_transfo}
+filtered_list_mat$Blood_Hisp[rownames(filtered_list_mat$Blood_Hisp) %in% "cg23089912",1:10]
+scaled_list_mat$Blood_Hisp[rownames(scaled_list_mat$Blood_Hisp) %in% "cg23089912",1:10]
+
+test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
+test[rownames(test) %in% "cg23089912",5:10]
+
+test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
+test[rownames(test) %in% "cg23089912",5:10]
+# GSM1870986
+# 0.00000000000000001124546 --> give extreme value in scaling, and p dnorm=0
+```
+
+The zero in 8h sample was weirdly transformed. The cleaned values are very different from the original. Is that expected? 
+
+## Loglik for all CpGs
+
+```{r loglik_all}
+set.seed(1234)
+testCpGs <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 1000),
+              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 1000))
+
+
+logLikData <- sapply(testCpGs,
+                     function(x){
+                       getLogLik_oneCpG_optimized(scaled_list_mat, 
+                                                  mu_jk_list, 
+                                                  sigma_k_list,
+                                                  j = x, 
+                                                  lambda_vector = rep(1.9, length(scaled_list_mat)),
+                                                  p0 = 0.95, p1 = 0.65, alpha = 0.01)
+                     })
+## ~ 1sec/CpG. Should be ~100h/full dataset
+
+hist(logLikData, breaks = 100)
+
+ggplot(data.frame(logLik=logLikData, 
+                  CpG=names(logLikData), 
+                  Marias_results = ifelse(names(logLikData) %in% MariasCpGs$CpG, "hvCpG in Maria's study", "not picked up by Maria")),
+       aes(x=CpG, y=logLik, fill = Marias_results)) +
+  geom_point(pch=21, size = 3, alpha = .8) + scale_fill_manual(values = c("red", "grey"))+
+  theme_bw() + theme(axis.text.x = element_blank()) +
+  ylab("log likelihood of the data for a given CpG")
+```
 
 ## Optim to find alpha
 
 https://www.magesblog.com/post/2013-03-12-how-to-use-optim-in-r/
 
-```{r, eval=FALSE}
+```{r}
 ## We optimise over the parameter alpha, and specify everything else
-# Wrapper for optimize: alpha is the first argument
-loglik_alpha <- function(alpha, scaled_list_mat, mu_jk_list, sigma_k_list, j, lambda_vector, p0, p1) {
-  getLogLik_oneCpG_optimized(scaled_list_mat, 
-                             mu_jk_list, 
-                             sigma_k_list,
-                             j = common_cpgs[[1]], 
-                             lambda_start = 1.9,
-                             p0 = 0.95, p1 = 0.65, alpha = 0.01) # -1399.875
+
+## nb: first argument of getLogLik_oneCpG_optimized must be a vector of parameters over which optimisation takes place
+# Modify fun2optim to handle lambda_vector extraction
+fun2optim <- function(par, scaled_list_mat, mu_jk_list, sigma_k_list, j) {
+  # print(par) ## to follow, if needed debug 
+  
+  # Extract alpha, p1, p0
+  p0 <- par["p0"]
+  p1 <- par["p1"]
+  alpha <- par["alpha"]
+  
+  # Extract lambdas in order (lambda1, lambda2, ...)
+  lambda_indices <- grep("^lambda\\d+$", names(par))
+  lambda_vector <- par[lambda_indices]
+  
+  getLogLik_oneCpG_optimized(scaled_list_mat = scaled_list_mat,
+                             mu_jk_list = mu_jk_list,
+                             sigma_k_list = sigma_k_list,
+                             j = j, 
+                             p0 = p0, p1 = p1, alpha = alpha,
+                             lambda_vector)
 }
 
-result <- optimize(
-  f = loglik_alpha,
-  interval = c(0.0001, 0.5),
-  maximum = TRUE,  # because you want to maximize log-likelihood
-  scaled_list_mat = scaled_list_mat,
-  mu_jk_list = mu_jk_list,
-  sigma_k_list = sigma_k_list,
-  j = common_cpgs[[1]],
-  lambda_vector = rep(1.9, length(filtered_list_mat)),
-  p0 = 0.95,
-  p1 = 0.65
-)
+## Check:
+getLogLik_oneCpG_optimized(scaled_list_mat = scaled_list_mat, 
+                           mu_jk_list = mu_jk_list, 
+                           sigma_k_list = sigma_k_list,
+                           j = common_cpgs[[1]], 
+                           p0 = 0.95, p1 = 0.65, alpha = 0.01,
+                           setNames(rep(1.9, length(scaled_list_mat)), paste0("lambda", 1:length(scaled_list_mat)))) 
+# -527.2023
 
-# Error in sum(sapply(names_datasets, function(k) { : 
-#   invalid 'type' (list) of argument
+fun2optim(par = c(p0 = 0.95, p1 = 0.65, alpha = 0.01,
+                  setNames(rep(1.9, length(scaled_list_mat)), paste0("lambda", 1:length(scaled_list_mat)))),
+          scaled_list_mat = scaled_list_mat, 
+          mu_jk_list = mu_jk_list, 
+          sigma_k_list = sigma_k_list,
+          j = common_cpgs[[1]]) 
+# -527.2023
+```
 
-cat("Optimal alpha:", result$maximum, "\n")
-cat("Maximum log-likelihood:", result$objective, "\n")
+## Over multiple CpGs
+
+```{r}
+runOptim1CpG <- function(CpG,
+                         par_init=c(alpha = 0.02, p1 = 0.65, p0 = 0.95,# Define initial parameters (including lambdas)
+                                    setNames(rep(1.9, length(scaled_list_mat)), 
+                                             paste0("lambda", 1:length(scaled_list_mat)))),
+                         par_lower=c(alpha = 0.01, p1 = 0.60, p0 = 0.90,
+                                     setNames(rep(1, length(scaled_list_mat)), 
+                                              paste0("lambda", 1:length(scaled_list_mat)))),
+                         par_upper=c(alpha = 0.9, p1 = 0.70, p0 = 1,
+                                     setNames(rep(5, length(scaled_list_mat)), 
+                                              paste0("lambda", 1:length(scaled_list_mat))))){
+  # Run optimization
+  resOpt <- optim(
+    par = par_init,
+    fn = fun2optim,
+    scaled_list_mat = lapply(scaled_list_mat, head),
+    mu_jk_list = mu_jk_list,
+    sigma_k_list = sigma_k_list,
+    j = CpG,
+    method = "L-BFGS-B",
+    lower = par_lower,
+    upper = par_upper,
+    control = list(
+      fnscale = -1, # to maximise
+      maxit = 2000,  # Default is only 100
+      factr = 1e-10,  # Tighter tolerance
+      lmm = 100  # More history for BFGS
+    )  )
+  
+  return(resOpt$par)
+}
+
+
+
+results <- lapply(common_cpgs[1:2], runOptim1CpG)
+names(results)=common_cpgs[1:2]
+my_matrix <- do.call(rbind, results)
+rownames(my_matrix) <- names(results)
+heatmap(my_matrix)
+
+
+results <- lapply(common_cpgs[1:10], runOptim1CpG)
+names(results)=common_cpgs[1:10]
+my_matrix <- do.call(rbind, results)
+rownames(my_matrix) <- names(results)
+heatmap(my_matrix)
+
+set.seed(123)
+testCpGs <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 1000),
+              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 1000))
+
+results <- lapply(testCpGs[1:2], runOptim1CpG)
+names(results)=testCpGs[1:2]
+my_matrix <- do.call(rbind, results)
+rownames(my_matrix) <- names(results)
+heatmap(my_matrix)
+```
+
+## Test on 2000 randomly selected CpG, half of them identified as hvCpG by Maria:
+
+```{r}
+set.seed(123)
+testCpGs <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 100),
+              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 100))
+
+results <- lapply(testCpGs, runOptim1CpG)
+names(results)=testCpGs
+my_matrix <- do.call(rbind, results)
+rownames(my_matrix) <- names(results)
+heatmap(my_matrix)
+```
+
+```{r}
+
 ```
 
 # The analysis is complete.
