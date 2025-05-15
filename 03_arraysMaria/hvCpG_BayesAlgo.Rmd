@@ -96,16 +96,6 @@ hvCpGs_maria <- na.omit(cpg_counts_full[round(cpg_counts_full$all_cpgs_top5pc/cp
 Maria detected `r length(MariasCpGs$CpG)` hvCpGs. I detected `r length(hvCpGs_maria$cpgs)` hvCpGs.
 We both have `r length(intersect(hvCpGs_maria$cpgs, MariasCpGs$CpG))` hvCpGs in common.
 
-```{r investigate_diff, include = FALSE}
-## my cpgs not found by Maria (N=234)
-length(setdiff(hvCpGs_maria$cpgs, MariasCpGs$CpG)) 
-
-head(cpg_counts_full[cpg_counts_full$cpgs %in% setdiff(hvCpGs_maria$cpgs, MariasCpGs$CpG),])
-
-lapply(cpg_counts_full[cpg_counts_full$cpgs %in% setdiff(hvCpGs_maria$cpgs, MariasCpGs$CpG),], function(x){heatmap(x)})
-
-```
-
 # Identify hvCpGs based on a sd multiplicative factor lambda
 
 The proportion of CpGs than Maria found hvCpGs is p(hvCpG) = `r round(4143/406306, 4)*100`%.
@@ -143,10 +133,8 @@ ggplot(df_long, aes(x = SDs, color = L1)) +
 
 ## Calculate lambda per dataset
 lambdas = sapply(all_sd_jk, function(x){quantile(x, 0.95, na.rm=T)/median(x, na.rm=T)})
-
 names(lambdas) <- gsub(".95%", "", names(lambdas))
 ```
-
 
 ```{r}
 # Histogram with kernel density
@@ -269,6 +257,16 @@ get_sigma_k_list <- function(scaled_list_mat){
     return(median(sd_j, na.rm = T))  ## Calculate the median sd in dataset k 
   })
 }
+
+get_lambda_k_list <- function(scaled_list_mat) {
+  # Calculate row SDs for each dataset matrix
+  all_sd_jk <- sapply(scaled_list_mat, matrixStats::rowSds, na.rm = TRUE)
+  # Compute lambda values (95th percentile / median) for each dataset
+  lambdas <- sapply(all_sd_jk, \(x) quantile(x, 0.95, na.rm = TRUE) / median(x, na.rm = TRUE))
+  # Clean names and return
+  names(lambdas) <- gsub(".95%", "", names(lambdas))
+  return(lambdas)
+}
 ```
 
 ## Likelihood function for a given CpG j
@@ -278,7 +276,7 @@ The arguments are:
 
 For the function to optimise itself:
 * j: a CpG (default=first CpG)
-* lambda_vector: a vector of lambda, one per dataset (multiplicative factor of the sd_k for hvCpG)
+* lambdas: a vector of lambda, one per dataset (multiplicative factor of the sd_k for hvCpG)
 * p0: proba of true negative
 * p1: proba of true positive
 * alpha: probability of a CpG site to be a hvCpG
@@ -288,21 +286,15 @@ For the function to optimise itself:
 scaled_list_mat <- get_scaled_list_mat(filtered_list_mat)
 mu_jk_list <- get_mu_jk_list(scaled_list_mat)
 sigma_k_list <- get_sigma_k_list(scaled_list_mat)
+lambdas <- get_lambda_k_list(scaled_list_mat)
 
 getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list,
-                                       j, p0, p1, alpha, ...) {
-  # Capture all additional arguments passed via '...'
-  lambda_vector <- unlist(list(...))
+                                       j, p0, p1, alpha, lambdas) {
   
   # Ensure the number of lambda parameters matches scaled_list_mat's length
-  n_lambda <- length(scaled_list_mat)
-  
-  if (length(lambda_vector) != n_lambda) {
+  if (length(lambdas) != length(scaled_list_mat)) {
     stop("Number of lambda arguments must match length(scaled_list_mat)")
   }
-  
-  # Assign names lambda1, lambda2, ... (for clarity)
-  lambda_vector <- setNames(lambda_vector, names(scaled_list_mat))
   
   # Precompute all necessary values upfront
   datasets <- names(scaled_list_mat)
@@ -325,7 +317,7 @@ getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list
     }, error = function(e) numeric(0))
     
     # Remove NAs and check length
-    Mij_vals <- Mij_vals[!is.na(Mij_vals)]
+    Mij_vals <- na.omit(Mij_vals)
     if (length(Mij_vals) == 0) next
     
     # 3. MISSING VALUE HANDLING FOR MU
@@ -343,7 +335,7 @@ getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list
     }
     
     # 5. LAMBDA VALIDATION
-    lambda_k <- lambda_vector[k]
+    lambda_k <- lambdas[k]
     if (is.na(lambda_k) || lambda_k <= 0) {
       warning(paste("Invalid lambda_k for dataset", k))
       next
@@ -392,21 +384,25 @@ getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list
     # Multiply columns proba_hvCpG_vec and sum, then log, then sum for all individuals
     
     ## How to handle log(0)? We replace -Inf by the next lowest value
-    dataset_loglik <- sum(
-      ifelse(log(rowSums(col_sums %*% proba_hvCpG_vec))==-Inf,
-             min(log(rowSums(col_sums %*% proba_hvCpG_vec))[
-               log(rowSums(col_sums %*% proba_hvCpG_vec)) > -10E100]),
-             log(rowSums(col_sums %*% proba_hvCpG_vec))))
+      
+    # Debugging corner START
+    # print(sum(log(rowSums(col_sums %*% proba_hvCpG_vec))))
+    # Debugging corner END
     
+    dataset_loglik <- sum(log(rowSums(col_sums %*% proba_hvCpG_vec)))
+    
+    # dataset_loglik <- sum(
+    #   ifelse(log(rowSums(col_sums %*% proba_hvCpG_vec))==-Inf,
+    #          min(log(rowSums(col_sums %*% proba_hvCpG_vec))[
+    #            log(rowSums(col_sums %*% proba_hvCpG_vec)) > -10E100]),
+    #          log(rowSums(col_sums %*% proba_hvCpG_vec))))
+
     if (!is.finite(dataset_loglik)) {
       warning(paste("Non-finite loglik for", j, "in dataset", k))
       dataset_loglik <- 0  # Neutral value for problematic calculations
     }
-    # cat("Dataset log likelihood:\n")
-    # print(dataset_loglik)
     log_P_Mj <- log_P_Mj + dataset_loglik
   }
-  # cat("Sum of all datasets log likelihood:\n")
   return(log_P_Mj)
 }
 
@@ -416,7 +412,45 @@ getLogLik_oneCpG_optimized(scaled_list_mat,
                            sigma_k_list,
                            j = common_cpgs[[1]], 
                            p0 = 0.95, p1 = 0.65, alpha = 0.01,
-                           setNames(rep(1.9, length(scaled_list_mat)), paste0("lambda", 1:length(scaled_list_mat)))) # -527.2023
+                           lambdas) # -421.0793
+
+getLogLik_oneCpG_optimized(scaled_list_mat, 
+                           mu_jk_list, 
+                           sigma_k_list,
+                           j = common_cpgs[[1]], 
+                           p0 = 0.95, p1 = 0.65, alpha = 0.01,
+                           lambdas) # -421.0793
+```
+
+## What are the CpGs with weird loglik?
+
+```{r weirdCpG}
+# res <- sapply(common_cpgs[1:1000], function(X) {
+#   getLogLik_oneCpG_optimized(scaled_list_mat, 
+#                            mu_jk_list, 
+#                            sigma_k_list,
+#                            j = X, 
+#                            p0 = 0.95, p1 = 0.65, alpha = 0.01,
+#                            lambdas)
+#   })
+
+# Warning: Non-finite loglik for cg00039385 in dataset PBMC_AfricanAmericanWarning: Non-finite loglik for cg00040013 in dataset PBMC_AfricanAmerican
+
+getLogLik_oneCpG_optimized(scaled_list_mat, 
+                           mu_jk_list, 
+                           sigma_k_list,
+                           j = "cg00039385", 
+                           p0 = 0.95, p1 = 0.65, alpha = 0.01,
+                           lambdas)
+
+raw = readRDS(paste0("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/", datasetName))
+transfo = readRDS(paste0("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/",datasetName, ".RDS"))
+
+datasetName = "PBMC_AfricanAmerican"
+CpG = "cg00039385"
+
+list(raw = raw[rownames(raw) %in% CpG,],
+     transfoMaria = transfo[rownames(transfo) %in% CpG,])
 ```
 
 ## Examine weird values 
@@ -430,6 +464,7 @@ scaled_list_mat$Blood_Hisp[rownames(scaled_list_mat$Blood_Hisp) %in% "cg23089912
 test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
 test[rownames(test) %in% "cg23089912",5:10]
 
+
 test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
 test[rownames(test) %in% "cg23089912",5:10]
 # GSM1870986
@@ -442,20 +477,22 @@ The zero in 8h sample was weirdly transformed. The cleaned values are very diffe
 
 ```{r loglik_all}
 set.seed(1234)
-testCpGs <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 1000),
+testCpGs20 <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 10),
+              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 10))
+testCpGs200 <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 100),
+              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 100))
+testCpGs2000 <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 1000),
               sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 1000))
 
-
-logLikData <- sapply(testCpGs,
+logLikData <- sapply(testCpGs2000,
                      function(x){
                        getLogLik_oneCpG_optimized(scaled_list_mat, 
                                                   mu_jk_list, 
                                                   sigma_k_list,
                                                   j = x, 
-                                                  lambda_vector = rep(1.9, length(scaled_list_mat)),
+                                                  lambdas = lambdas,
                                                   p0 = 0.95, p1 = 0.65, alpha = 0.01)
                      })
-## ~ 1sec/CpG. Should be ~100h/full dataset
 
 hist(logLikData, breaks = 100)
 
@@ -476,122 +513,96 @@ https://www.magesblog.com/post/2013-03-12-how-to-use-optim-in-r/
 ## We optimise over the parameter alpha, and specify everything else
 
 ## nb: first argument of getLogLik_oneCpG_optimized must be a vector of parameters over which optimisation takes place
-# Modify fun2optim to handle lambda_vector extraction
-fun2optim <- function(par, scaled_list_mat, mu_jk_list, sigma_k_list, j) {
-  # print(par) ## to follow, if needed debug 
-  
-  # Extract alpha, p1, p0
-  p0 <- par["p0"]
-  p1 <- par["p1"]
+fun2optim <- function(par, scaled_list_mat, mu_jk_list, sigma_k_list, j, p0, p1, lambdas) {
+  # Extract alpha
   alpha <- par["alpha"]
-  
-  # Extract lambdas in order (lambda1, lambda2, ...)
-  lambda_indices <- grep("^lambda\\d+$", names(par))
-  lambda_vector <- par[lambda_indices]
-  
   getLogLik_oneCpG_optimized(scaled_list_mat = scaled_list_mat,
                              mu_jk_list = mu_jk_list,
                              sigma_k_list = sigma_k_list,
-                             j = j, 
+                             j = j,
                              p0 = p0, p1 = p1, alpha = alpha,
-                             lambda_vector)
+                             lambdas = lambdas)
 }
 
 ## Check:
 getLogLik_oneCpG_optimized(scaled_list_mat = scaled_list_mat, 
-                           mu_jk_list = mu_jk_list, 
-                           sigma_k_list = sigma_k_list,
-                           j = common_cpgs[[1]], 
-                           p0 = 0.95, p1 = 0.65, alpha = 0.01,
-                           setNames(rep(1.9, length(scaled_list_mat)), paste0("lambda", 1:length(scaled_list_mat)))) 
-# -527.2023
-
-fun2optim(par = c(p0 = 0.95, p1 = 0.65, alpha = 0.01,
-                  setNames(rep(1.9, length(scaled_list_mat)), paste0("lambda", 1:length(scaled_list_mat)))),
-          scaled_list_mat = scaled_list_mat, 
-          mu_jk_list = mu_jk_list, 
-          sigma_k_list = sigma_k_list,
-          j = common_cpgs[[1]]) 
-# -527.2023
+                           mu_jk_list = mu_jk_list, sigma_k_list = sigma_k_list,
+                           j = common_cpgs[[1]], p0 = 0.95, p1 = 0.65, alpha = 0.01,
+                           lambdas = lambdas) ==
+  fun2optim(par = c(alpha = 0.01), scaled_list_mat = scaled_list_mat, 
+            mu_jk_list = mu_jk_list, sigma_k_list = sigma_k_list,
+            j = common_cpgs[[1]], p0 = 0.95, p1 = 0.65, lambdas = lambdas) 
 ```
 
-## Over multiple CpGs
+## Optimisation over multiple CpGs
 
 ```{r}
 runOptim1CpG <- function(CpG,
-                         par_init=c(alpha = 0.02, p1 = 0.65, p0 = 0.95,# Define initial parameters (including lambdas)
-                                    setNames(rep(1.9, length(scaled_list_mat)), 
-                                             paste0("lambda", 1:length(scaled_list_mat)))),
-                         par_lower=c(alpha = 0.01, p1 = 0.60, p0 = 0.90,
-                                     setNames(rep(1, length(scaled_list_mat)), 
-                                              paste0("lambda", 1:length(scaled_list_mat)))),
-                         par_upper=c(alpha = 0.9, p1 = 0.70, p0 = 1,
-                                     setNames(rep(5, length(scaled_list_mat)), 
-                                              paste0("lambda", 1:length(scaled_list_mat))))){
+                         par_init=c(alpha = 0.5),
+                         par_lower=c(alpha = 0), 
+                         par_upper=c(alpha = 1)){
   # Run optimization
   resOpt <- optim(
     par = par_init,
     fn = fun2optim,
-    scaled_list_mat = lapply(scaled_list_mat, head),
+    scaled_list_mat = scaled_list_mat,
     mu_jk_list = mu_jk_list,
     sigma_k_list = sigma_k_list,
-    j = CpG,
+    j = CpG, p0 = 0.95, p1 = 0.65, lambdas = lambdas,
     method = "L-BFGS-B",
     lower = par_lower,
     upper = par_upper,
-    control = list(
-      fnscale = -1, # to maximise
-      maxit = 2000,  # Default is only 100
-      factr = 1e-10,  # Tighter tolerance
-      lmm = 100  # More history for BFGS
-    )  )
+    control = list(fnscale = -1)) # to maximise
   
   return(resOpt$par)
 }
 
-
-
-results <- lapply(common_cpgs[1:2], runOptim1CpG)
-names(results)=common_cpgs[1:2]
-my_matrix <- do.call(rbind, results)
-rownames(my_matrix) <- names(results)
-heatmap(my_matrix)
-
-
-results <- lapply(common_cpgs[1:10], runOptim1CpG)
-names(results)=common_cpgs[1:10]
-my_matrix <- do.call(rbind, results)
-rownames(my_matrix) <- names(results)
-heatmap(my_matrix)
-
-set.seed(123)
-testCpGs <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 1000),
-              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 1000))
-
-results <- lapply(testCpGs[1:2], runOptim1CpG)
-names(results)=testCpGs[1:2]
-my_matrix <- do.call(rbind, results)
-rownames(my_matrix) <- names(results)
-heatmap(my_matrix)
+getAllOptimAlpha <- function(cpgvec){
+  res = lapply(cpgvec, runOptim1CpG)
+  names(res)=cpgvec
+  my_matrix <- do.call(rbind, res)
+  rownames(my_matrix) <- names(res)
+  return(my_matrix)
+}
 ```
 
-## Test on 2000 randomly selected CpG, half of them identified as hvCpG by Maria:
+## Run the optimisation on a set of CpGs:
 
 ```{r}
-set.seed(123)
-testCpGs <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 100),
-              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 100))
+system.time(res_allOptimAlpha <- getAllOptimAlpha(cpgvec = testCpGs20))
+## 1795.180 sec for 200 CpGs
+## 400000 *1795.180/200/60/60/24 ## 40 days to run all at this rate
 
-results <- lapply(testCpGs, runOptim1CpG)
-names(results)=testCpGs
-my_matrix <- do.call(rbind, results)
-rownames(my_matrix) <- names(results)
-heatmap(my_matrix)
+ggplot(data.frame(alpha=res_allOptimAlpha, 
+                  CpG=rownames(res_allOptimAlpha), 
+                  Previous.results = ifelse(rownames(res_allOptimAlpha) %in% MariasCpGs$CpG, "hvCpG in Maria's study", "not picked up by Maria")),
+       aes(x=CpG, y=alpha, fill = Previous.results)) +
+  geom_point(pch=21, size = 3, alpha = .8) + scale_fill_manual(values = c("red", "grey"))+
+  theme_bw() + theme(axis.text.x = element_blank()) +
+  ylab("Probability alpha of being a hvCpG")
 ```
 
 ```{r}
-
+library(parallel)
+detectCores()
 ```
+
+# Notes:
+
+lambdas are defined based on a 5% threshold, even if alpha is not. How to not hardcode them? MCMC on lambda? Link with alpha?
+
+```{r, eval=FALSE}
+get_lambda_k_list <- function(scaled_list_mat) {
+  # Calculate row SDs for each dataset matrix
+  all_sd_jk <- sapply(scaled_list_mat, matrixStats::rowSds, na.rm = TRUE)
+  # Compute lambda values (95th percentile / median) for each dataset
+  lambdas <- sapply(all_sd_jk, \(x) quantile(x, 0.95, na.rm = TRUE) / median(x, na.rm = TRUE))
+  # Clean names and return
+  names(lambdas) <- gsub(".95%", "", names(lambdas))
+  return(lambdas)
+}
+```
+
 
 # The analysis is complete.
 
