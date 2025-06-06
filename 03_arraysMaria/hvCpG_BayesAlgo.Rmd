@@ -1,5 +1,5 @@
 ---
-title: "hvCpG_BayesAlgo"
+title: "hvCpG_BayesAlgo_exploration"
 author: "Alice Balard"
 date: '`r Sys.Date()`'
 output: html_document
@@ -55,6 +55,13 @@ filtered_list_mat <- lapply(rds_list_mat, function(mat) {
 })
 
 rm(rds_list_mat1,rds_list_mat2, rds_list_mat)
+
+## Input data for our algorithm needs to be in the format:
+# filtered_list_mat$Blood_Cauc %>% head
+#            GSM1870951  GSM1870952  GSM1870953 GSM1870954 GSM1870955  GSM1870956 GSM1870957
+# cg00000957 0.88650894 0.873786294 0.905683210 0.89756560 0.93243437 0.934731380 0.90938323
+# cg00001349 0.88900837 0.849494403 0.899719641 0.83146357 0.85704137 0.872804810 0.91467193
+# cg00001583 0.06226518 0.059181490 0.050006552 0.07168150 0.04283758 0.044865908 0.03723361
 ```
 
 # Reproduce Maria’s results
@@ -384,7 +391,7 @@ getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list
     # Multiply columns proba_hvCpG_vec and sum, then log, then sum for all individuals
     
     ## How to handle log(0)? We replace -Inf by the next lowest value
-      
+    
     # Debugging corner START
     # print(sum(log(rowSums(col_sums %*% proba_hvCpG_vec))))
     # Debugging corner END
@@ -396,7 +403,7 @@ getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list
     #          min(log(rowSums(col_sums %*% proba_hvCpG_vec))[
     #            log(rowSums(col_sums %*% proba_hvCpG_vec)) > -10E100]),
     #          log(rowSums(col_sums %*% proba_hvCpG_vec))))
-
+    
     if (!is.finite(dataset_loglik)) {
       warning(paste("Non-finite loglik for", j, "in dataset", k))
       dataset_loglik <- 0  # Neutral value for problematic calculations
@@ -443,11 +450,11 @@ getLogLik_oneCpG_optimized(scaled_list_mat,
                            p0 = 0.95, p1 = 0.65, alpha = 0.01,
                            lambdas)
 
-raw = readRDS(paste0("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/", datasetName))
-transfo = readRDS(paste0("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/",datasetName, ".RDS"))
-
 datasetName = "PBMC_AfricanAmerican"
 CpG = "cg00039385"
+
+raw = readRDS(paste0("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/", datasetName))
+transfo = readRDS(paste0("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/",datasetName, ".RDS"))
 
 list(raw = raw[rownames(raw) %in% CpG,],
      transfoMaria = transfo[rownames(transfo) %in% CpG,])
@@ -464,7 +471,6 @@ scaled_list_mat$Blood_Hisp[rownames(scaled_list_mat$Blood_Hisp) %in% "cg23089912
 test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
 test[rownames(test) %in% "cg23089912",5:10]
 
-
 test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
 test[rownames(test) %in% "cg23089912",5:10]
 # GSM1870986
@@ -478,13 +484,13 @@ The zero in 8h sample was weirdly transformed. The cleaned values are very diffe
 ```{r loglik_all}
 set.seed(1234)
 testCpGs20 <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 10),
-              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 10))
+                sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 10))
 testCpGs200 <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 100),
-              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 100))
+                 sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 100))
 testCpGs2000 <- c(sample(common_cpgs[common_cpgs %in% MariasCpGs$CpG], 1000),
-              sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 1000))
+                  sample(common_cpgs[!common_cpgs %in% MariasCpGs$CpG], 1000))
 
-logLikData <- sapply(testCpGs2000,
+logLikData <- sapply(testCpGs200,
                      function(x){
                        getLogLik_oneCpG_optimized(scaled_list_mat, 
                                                   mu_jk_list, 
@@ -557,6 +563,13 @@ runOptim1CpG <- function(CpG,
   return(resOpt$par)
 }
 
+system.time(res <- runOptim1CpG(CpG = testCpGs200[1]))
+# user  system elapsed 
+#  5.373   0.353   5.776 
+res
+
+## Run the optimisation on a set of CpGs:
+
 getAllOptimAlpha <- function(cpgvec){
   res = lapply(cpgvec, runOptim1CpG)
   names(res)=cpgvec
@@ -564,12 +577,8 @@ getAllOptimAlpha <- function(cpgvec){
   rownames(my_matrix) <- names(res)
   return(my_matrix)
 }
-```
 
-## Run the optimisation on a set of CpGs:
-
-```{r}
-system.time(res_allOptimAlpha <- getAllOptimAlpha(cpgvec = testCpGs20))
+system.time(res_allOptimAlpha <- getAllOptimAlpha(cpgvec = testCpGs200))
 ## 1795.180 sec for 200 CpGs
 ## 400000 *1795.180/200/60/60/24 ## 40 days to run all at this rate
 
@@ -580,11 +589,6 @@ ggplot(data.frame(alpha=res_allOptimAlpha,
   geom_point(pch=21, size = 3, alpha = .8) + scale_fill_manual(values = c("red", "grey"))+
   theme_bw() + theme(axis.text.x = element_blank()) +
   ylab("Probability alpha of being a hvCpG")
-```
-
-```{r}
-library(parallel)
-detectCores()
 ```
 
 # Notes:
@@ -605,8 +609,3 @@ get_lambda_k_list <- function(scaled_list_mat) {
 
 
 # The analysis is complete.
-
-
-
-
-
