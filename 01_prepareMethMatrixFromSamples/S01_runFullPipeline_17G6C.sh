@@ -3,66 +3,34 @@
 #$ -S /bin/bash
 #$ -l tmem=17G
 #$ -l h_vmem=17G
-#$ -t 1-20
-#$ -tc 10 # 10 samples max in one go
+#$ -t 1-40
 #$ -pe smp 6 # Request N cores per task 
 #$ -l h_rt=240:00:00
-#$ -wd /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
+#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 #$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
 
 ## Runs in ~30h/sample with 6C and 17G
 
-#### What this script does:
+CODEDIR="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG"
+DATADIR="/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human"
 
-## Creates a TEMP_OUTDIR called TEMP [if it does not exist]
-## Creates bysample_list_of_files.tmp to loop over [if it does not exist]
-## Creates a DATA_TABLE_OUT called /04SampleInfos/infoAllsamples_Pipeline.csv [if it does not exist]
+## Step 1 - Creates a TRIMOM_OUTDIR called TEMP/01Trimmed_data. Output: TRIMMED_1="$TRIMOM_OUTDIR/${INPUT##*/}_1_val_1.fq.gz"; TRIMMED_2="$TRIMOM_OUTDIR/${INPUT##*/}_2_val_2.fq.gz"
 
-######*********if METHCOV doesn't exist, run step 1 to 4*************
-## Step 1 - Creates a TRIMOM_OUTDIR called TEMP/01Trimmed_data [if it does not exist]
-### output[if TRIMMED_2 does not exist]:
-# TRIMMED_1="$TRIMOM_OUTDIR/${INPUT##*/}_1_val_1.fq.gz"
-# TRIMMED_2="$TRIMOM_OUTDIR/${INPUT##*/}_2_val_2.fq.gz"
+## Step 2 & 3: Fill in DATA_TABLE_OUT ($CODEDIR/01_prepareMethMatrixFromSamples/infoAllsamples_Pipeline.csv) with nbr reads and BS conversion rate
 
-## Step 2 & 3
-## Fill in DATA_TABLE_OUT with nbr reads and BS conversion rate [if sampled not already present in the tale]
+## Step 4: Methylation extraction 
+## 4.2. Align. output: BAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.bam"
+## 4.3. Deduplicated BAM. output: DEDUPBAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bam"
+## 4.4. Methylation extraction. output: METHCOV="$DATADIR/01Methcall/$(basename "${DEDUPBAM%.*}").bismark.cov.gz" and $METHCOV.20X.cov.gz
 
-## Step 4 - Creates BISMARK_OUTDIR called $TEMP_OUTDIR/02Bismark [if it does not exist]
-## 4.2. Align
-### output[if BAM does not exist]:
-# BAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.bam"
-## *** rm TRIMMED_1 and TRIMMED_2
+## Step 5. SNP call with bssnper2; Create BSSNPER2_OUTDIR="$DATADIR/02SNPcall/"
 
-## 4.3. Deduplicated BAM, output
-### output:
-# DEDUPBAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bam"
-## *** rm BAM
-
-## 4.4. Methylation extraction
-### output:
-# METHCOV="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/$(basename "${DEDUPBAM%.*}").bismark.cov.gz"
-# and $METHCOV.20X.cov.gz
-
-## Step 5. SNP call with bssnper2
-## if vcf does not exist:
-## Sort DEDUPBAM
-## Create BSSNPER2_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall/" # not a temporary file
-## run bssnper, outputs x2 in BSSNPER2_OUTDIR
-## rm DEDUPBAM
-
-## Step 6. Calculate age and sex
-## Based on METHCOV, call a R script to calculate age and sex and add it to:
-## AGE_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/ageAllsamples_Pipeline.csv"
-## SEX_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/sexAllsamples_Pipeline.csv"
-
-##############
 ##************
 ## START UP ##
 ##**********##
-##############
 
 ## We make a temporary folder for all intermediate files that we delete at the end.
-TEMP_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/TEMP"
+TEMP_OUTDIR="$DATADIR/TEMP"
 
 mkdir -p $TEMP_OUTDIR
 cd $TEMP_OUTDIR
@@ -74,7 +42,7 @@ cd $TEMP_OUTDIR
 # Create the files to loop over if it does not exist:
 if [ ! -e "$TEMP_OUTDIR/bysample_list_of_files.tmp" ]; then
     ## NB: input files must be named filename_1.fastq.gz and filename_2.fastq.gz
-    ls -1 /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/*_1.fastq.gz > $TEMP_OUTDIR/list_of_files.tmp
+    ls -1 $DATADIR/00RawFastq/*_1.fastq.gz > $TEMP_OUTDIR/list_of_files.tmp
     sed 's/_1.fastq.gz$//' $TEMP_OUTDIR/list_of_files.tmp > $TEMP_OUTDIR/bysample_list_of_files.tmp
 fi
 
@@ -91,7 +59,7 @@ echo "Selected input file: $INPUT"
 echo "We work on sample ${INPUT##*/}"
 
 ## We'll feed information to this table
-DATA_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/infoAllsamples_Pipeline.csv"
+DATA_TABLE_OUT="$CODEDIR/01_prepareMethMatrixFromSamples/infoAllsamples_Pipeline.csv"
 
 # Check if the files exists
 if [ ! -e "$DATA_TABLE_OUT" ]; then
@@ -114,24 +82,19 @@ mkdir -p $BISMARK_OUTDIR
 ## An if statement to see if the file has already been (partly) processed
 
 ## if METHCOV does not exist, then only run steps 1 to 4
-METHCOV="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz"
+METHCOV="$DATADIR/01Methcall/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz"
 
 if [ -e "$METHCOV" ]; then
     echo "Methcov has already been processed, jump to step 5: "
 else
     echo "Methcov has not been processed, run step 1 to 4: "
     
-    ######################
     ##********************
     ## STEP 1. Trimming ##
     ##********************
-    ######################
 
     echo "**** Start of step 1: Trim galore with automatic parameters $(date) ****" 
-    ## ~6h/sample with 1 thread, 5Gb
-    ## ~5h/sample for 4C 10G
-    ## ~4h/sample for 4C 5G
-    ## 4h30 to 5h30 with 17G 6C
+    ## ~6h/sample with 1 thread, 5Gb; ~5h/sample for 4C 10G; ~4h/sample for 4C 5G; 4h30 to 5h30 with 17G 6C
 
     # source python 3.6.4 to run cutadapt 2.4
     source /share/apps/source_files/python/python-3.6.4.source
@@ -154,11 +117,9 @@ else
     TRIMMED_1="$TRIMOM_OUTDIR/${INPUT##*/}_1_val_1.fq.gz"
     TRIMMED_2="$TRIMOM_OUTDIR/${INPUT##*/}_2_val_2.fq.gz"
 
-    ############################################################
     ##********************************************************##
     ## STEP 2 & 3. Calculate nbr reads and BS conversion rate ##
     ##********************************************************##
-    ############################################################
 
     ## Check if the file was already processed for nbr reads and BS rate
     if ! grep -q "${INPUT##*/}," "$DATA_TABLE_OUT"; then
@@ -169,7 +130,7 @@ else
 	echo "**** End of step 2: $(date) ****"
 
 	echo "Step 3: Bisulfite conversion efficiency measure (BCREval) → store in matrix" ### Takes ~1.5h with 5G and 10 cores (but no parallelisation here)
-	python /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/01_prepareMethMatrixFromSamples/BCReval.py -n 8 -i "$TRIMMED_1" -o "$TEMP_OUTDIR/${INPUT##*/}.BCREval.out"
+	python $CODEDIR/01_prepareMethMatrixFromSamples/BCReval.py -n 8 -i "$TRIMMED_1" -o "$TEMP_OUTDIR/${INPUT##*/}.BCREval.out"
 
 	## Save the Conversion ratio (CR)
 	CR=$(cat "$TEMP_OUTDIR/${INPUT##*/}.BCREval.out" | awk '{sum = $(NF-2) + $(NF-1) + $NF; mean = sum / 3; result = 1 - mean; printf "%.4f\n", result}')
@@ -189,14 +150,11 @@ else
 	echo "Step 2 (calculate nbr reads) and step 3 (calculate BS conversion rate) already done before" 
     fi
 
-    #####################################################
     ##*************************************************##
     ## STEP 4. Bismark alignement and methylation call ##
     ##*************************************************##
-    #####################################################
 
     echo "**** Start of step 4: Bismark: Align to GRCh38 -> Output BAM"
-
     ## see manual at https://felixkrueger.github.io/Bismark/
 
     BISMARK="/share/apps/genomics/Bismark-0.22.3"
@@ -205,7 +163,7 @@ else
     # add samtools to my path
     export PATH=/share/apps/genomics/samtools-1.9/bin/:$PATH
 
-    GENOME_DIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/GRCh38"
+    GENOME_DIR="$DATADIR/GRCh38"
 
     ## in GRCh38 folder: wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GCF_000001405.40_GRCh38.p14_genomic.fna.gz
     ## rename for Bismark: mv GRCh38/GCF_000001405.40_GRCh38.p14_genomic.fna.gz GRCh38/GCF_000001405.40_GRCh38.p14_genomic.fa.gz  
@@ -228,12 +186,7 @@ else
     echo "**** Start of step 4.2 Genome alignement with $NSLOTS threads..."
 
     ## NB: this steps generates ~90G/samples of temporary files
-
-    ### takes 13h/samples with 5 cores 12Gb
-    ## crashes on 2 cores 7Gb
-    ## crashes with 2 cores and 15Gb
-    ## takes 24 to 32h/samples with 4 cores 15Gb
-    ## 18-19h with 17G 6C
+    ### takes 13h/samples with 5 cores 12Gb; crashes on 2 cores 7Gb; crashes with 2 cores and 15Gb;  takes 24 to 32h/samples with 4 cores 15Gb; 18-19h with 17G 6C
 
     # Bismark holds the reference genome in memory and in addition to that runs four parallel instances of Bowtie. The memory usage is dependent on the size of the reference genome. For a large eukaryotic genome (human or mouse) we experienced a typical memory usage of around 12GB. We thus recommend running Bismark on a machine with 5 CPU cores and at least 12 GB of RAM. The memory requirements of Bowtie 2 are somewhat larger (possibly to allow gapped alignments). When running Bismark using Bowtie 2 we therefore recommend a system with at least 5 cores and > 16GB of RAM.
 
@@ -275,11 +228,11 @@ else
     METHCOV="${BISMARK_OUTDIR}/$(basename "${DEDUPBAM%.*}").bismark.cov.gz"
 
     ## move the needed final files to SAN to keep it for further analyses
-    mv $BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_PE_report.txt /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/
-    mv $METHCOV /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/
+    mv $BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_PE_report.txt $DATADIR/01Methcall/
+    mv $METHCOV $DATADIR/01Methcall/
 
     ## redefine METHCOV
-    METHCOV="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/$(basename "${DEDUPBAM%.*}").bismark.cov.gz"
+    METHCOV="$DATADIR/01Methcall/$(basename "${DEDUPBAM%.*}").bismark.cov.gz"
 
     ## Select 20X minimum coverage 
     less $METHCOV | awk '$5 + $6 >= 20' - | gzip > $METHCOV.20X.cov.gz
@@ -287,12 +240,10 @@ else
     echo "**** End of step 4.4: $(date) ****"
 
 fi
-    
-##################################
+
 ##******************************##
 ## STEP 5. bssnper2 SNP calling ##
 ##******************************##
-##################################
 
 DEDUPBAM="$BISMARK_OUTDIR/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bam"
 
@@ -307,13 +258,9 @@ echo "**** Start of sorting test bam file : $(date) ****"
 samtools sort -o $DEDUPBAM.sorted.bam --threads $NSLOTS $DEDUPBAM
 
 echo "**** Start of bssbper2 SNP call : $(date) ****" 
-BSSNPER2_OUTDIR="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/02SNPcall/" # not a temporary file
+BSSNPER2_OUTDIR="$DATADIR/02SNPcall/" # not a temporary file
 
-<<<<<<< HEAD
 if [ ! -e "$BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf.gz" ]; then
-=======
-if [ ! -e "$BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf" ]; then
->>>>>>> 817221b90ff0ddae2513e5ea2ba2deb472980c30
     ## run bssnper2
     /home/abalard/bssnper2/bssnper2 $DEDUPBAM.sorted.bam --ref $GENOME_DIR/GCF_000001405.40_GRCh38.p14_genomic.fa --vcf $BSSNPER2_OUTDIR/${DEDUPBAM##*/}.vcf
     rm $DEDUPBAM
@@ -326,47 +273,9 @@ fi
 
 echo "**** End of bssbper2 : $(date) ****" 
 
-###################################
-##*******************************##
-## STEP 6. Calculate age and sex ##
-##*******************************##
-###################################
-
-<<<<<<< HEAD
-##METHCOV20=$(less "/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/01Methcall/${INPUT##*/}_1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz.20X.cov.gz")
-
-=======
->>>>>>> 817221b90ff0ddae2513e5ea2ba2deb472980c30
-##cd /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/03AgeSex/
-##
-#### Horvath methylation array file:
-##HORV="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/03AgeSex/Homo_sapiens.hg38.HorvathMammalMethylChip40.v1.bed"
-##
-#### Sample name:
-##SAMPLE_HORV=$(echo $METHCOV | sed 's|.*/\([^_]*\)_.*|\1|')
-##
-#### Convert WGBS methylation call aligned to hg38 with Bismark to HorvathMammalMethylChip40:
-#### print METHCOV, calculate end as start + 1, intersect with Horvath file
-##less $METHCOV | cut -f1,2,3,4 | awk -F'\t' 'BEGIN{OFS="\t"} {$3=$3+1; print}' | /share/apps/genomics/bedtools-2.30.0/bin/bedtools intersect -a - -b $HORV -wb | cut -f1,2,3,4,8 > $SAMPLE_HORV.horv.bed
-##
-##AGE_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/ageAllsamples_Pipeline.csv"
-##SEX_TABLE_OUT="/SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/sexAllsamples_Pipeline.csv"
-##
-#### Call a R script to calculate age and fill in a table
-##Rscript /SAN/ghlab/pophistory/Alice/hvCpG_project/code/2024_hvCpG/02_calculateAgeSex/calculateAgeSex.R $SAMPLE_HORV.horv.bed ${INPUT##*/} $METHCOV $AGE_TABLE_OUT $SEX_TABLE_OUT
-##
-#### Make sure that duplicates are removed
-##sort $AGE_TABLE_OUT| uniq > temp ; cat temp > $AGE_TABLE_OUT
-##sort $SEX_TABLE_OUT| uniq > temp ; cat temp > $SEX_TABLE_OUT
-
-##############
 ##************
 ## CLEAN UP ##
 ##**********##
-##############
-
-## rm raw data:
-# rm -rf /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/*${INPUT##*/}*
 
 ## Rm TEMP directory whenever the job exits, regardless of whether it finished successfully or not
 function finish {
