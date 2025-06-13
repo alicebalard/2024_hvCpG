@@ -3,7 +3,7 @@
 ## Hosted on LSHTM server of Matt Silver
 
 ## On Maria
-MariasCpGs <- read.csv("~/2024_hvCpG/Derakhshan2022_ST5_hvCpG.txt")
+MariasCpGs <- read.csv("~/2024_hvCpG/03_prepDatasetsMaria/Derakhshan2022_ST5_hvCpG.txt")
 
 folder1 <- "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
 folder1 <- normalizePath("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/")

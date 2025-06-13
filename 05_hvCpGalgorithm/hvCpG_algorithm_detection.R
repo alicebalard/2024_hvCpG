@@ -2,14 +2,6 @@
 ## Alice Balard
 ## June 2025
 
-## Arguments:
-which="MariaArrays"
-NCORES=10
-analysisName="test200_NM"
-optimMeth="Nelder-Mead"
-# analysisName="test200_LBB"
-# optimMeth="L-BFGS-B"
-
 ## Input data for our algorithm needs to be in the format list of dataframes:
 # filtered_list_mat$Blood_Cauc %>% head
 #            GSM1870951  GSM1870952  GSM1870953 GSM1870954 GSM1870955  GSM1870956 GSM1870957
@@ -35,17 +27,15 @@ rm(packages, to_install)
 
 ## Option 1. Maria's data (Hosted on LSHTM server of Matt Silver)
 if (which == "MariaArrays"){
-  setwd("/home/alice/2024_hvCpG/04_hvCpGalgorithm//")
-  source("dataprep_MariaArrays.R")
+  source("/home/alice/2024_hvCpG/03_prepDatasetsMaria/dataprep_MariaArrays.R")
   my_list_mat <- Maria_filtered_list_mat; rm(Maria_filtered_list_mat)
   cpgnames <- unique(unlist(sapply(my_list_mat, row.names)))
   cpgnames <- cpgnames[order(cpgnames)]
 }
 
-## Option 2. Atlas data (Hosted on UCL cs server)
+## Option 2. Atlas data (Hosted on UCL cs server; NB need high ram to read!)
 if (which == "Atlas"){
-  setwd("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/")
-  atlas_Robj <- readRDS("listDatasetsLoyfer2023.RDS")
+  atlas_Robj <- readRDS("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/listDatasetsLoyfer2023.RDS")
   my_list_mat <- atlas_Robj$data
   cpgnames <- atlas_Robj$cpg_names
   metadata <- atlas_Robj$metadata
@@ -99,7 +89,7 @@ get_lambda_k_list <- function(scaled_list_mat) {
 #   * my_list_mat: a list of matrices, i.e. our datasets
 # 
 # For the function to optimise itself:
-#   * j: a CpG (default=first CpG)
+# * j: a CpG (default=first CpG)
 # * lambdas: a vector of lambda, one per dataset (multiplicative factor of the sd_k for hvCpG)
 # * p0: proba of true negative
 # * p1: proba of true positive
@@ -257,28 +247,26 @@ fun2optim_logit <- function(theta, scaled_list_mat, mu_jk_list, sigma_k_list, j,
 }
 
 ## Optimisation over multiple CpGs
-if (optimMeth=="Nelder-Mead"){
-  runOptim1CpG <- function(CpG,
-                           par_init = 0){  # initial theta
+runOptim1CpG <- function(CpG, optimMeth, p0){  
+  if (optimMeth=="Nelder-Mead"){
+    par_init = 0 # initial theta
     resOpt <- optim(
       par = par_init,
       fn = fun2optim_logit,
       scaled_list_mat = scaled_list_mat,
       mu_jk_list = mu_jk_list,
       sigma_k_list = sigma_k_list,
-      j = CpG, p0 = 0.95, p1 = 0.65, lambdas = lambdas,
+      j = CpG, p0 = p0, p1 = 0.65, lambdas = lambdas,
       method = "Nelder-Mead",
       control = list(fnscale = -1)  # to maximize
     )
     # Convert back to alpha for output
     alpha_hat <- 1 / (1 + exp(-resOpt$par))
     return(alpha_hat)
-  }
-} else if (optimMeth=="L-BFGS-B"){
-  runOptim1CpG <- function(CpG,
-                           par_init=c(alpha = 0.5),
-                           par_lower=c(alpha = 0), 
-                           par_upper=c(alpha = 1)){
+  } else if (optimMeth=="L-BFGS-B"){
+    par_init=c(alpha = 0.5)
+    par_lower=c(alpha = 0)
+    par_upper=c(alpha = 1)
     # Run optimization
     resOpt <- optim(
       par = par_init,
@@ -286,32 +274,23 @@ if (optimMeth=="Nelder-Mead"){
       scaled_list_mat = scaled_list_mat,
       mu_jk_list = mu_jk_list,
       sigma_k_list = sigma_k_list,
-      j = CpG, p0 = 0.95, p1 = 0.65, lambdas = lambdas,
+      j = CpG, p0 = p0, p1 = 0.65, lambdas = lambdas,
       method = "L-BFGS-B",
       lower = par_lower,
       upper = par_upper,
       control = list(fnscale = -1)) # to maximise
-    
     return(resOpt$par)
   }
 }
 
 ## Run the optimisation on a set of CpGs:
-getAllOptimAlpha_parallel <- function(cpgvec, NCORES) {
-  res <- mclapply(cpgvec, runOptim1CpG, mc.cores = NCORES)
+getAllOptimAlpha_parallel <- function(cpgvec, optimMeth, NCORES, p0) {
+  res <- mclapply(cpgvec, runOptim1CpG, mc.cores = NCORES, optimMeth = optimMeth, p0 = p0)
   names(res) <- cpgvec
   my_matrix <- do.call(rbind, res)
   rownames(my_matrix) <- names(res)
   return(my_matrix)
 }
-
-testCpGs200 <- c(sample(cpgnames[cpgnames %in% MariasCpGs$CpG], 100),
-                 sample(cpgnames[!cpgnames %in% MariasCpGs$CpG], 100))
-
-res_allOptimAlphapar <- getAllOptimAlpha_parallel(cpgvec = testCpGs200, NCORES=NCORES)
-
-save(res_allOptimAlphapar, cpgnames, MariasCpGs, 
-     file = paste0("results", analysisName, ".RDA"))
 
 # Notes:
 ## lambdas are defined based on a 5% threshold, even if alpha is not. How to not hardcode them? MCMC on lambda? Link with alpha?

@@ -25,7 +25,7 @@ library(ggrepel)
 # Her hvCpG scripts are here:
 # /mnt/old_user_accounts/p3/maria/PhD/Projects/hvCpGs/Scripts/
 
-source("/home/alice/2024_hvCpG/04_hvCpGalgorithm/dataprep_MariaArrays.R")
+source("/home/alice/2024_hvCpG/03_prepDatasetsMaria/dataprep_MariaArrays.R")
 my_list_mat <- Maria_filtered_list_mat; rm(Maria_filtered_list_mat)
 cpgnames <- unique(unlist(sapply(my_list_mat, row.names)))
 cpgnames <- cpgnames[order(cpgnames)]
@@ -226,31 +226,141 @@ The zero in 8h sample was weirdly transformed. The cleaned values are very diffe
 
 ## Optimisation over multiple CpGs
 
+Run on LSHTM server (need to be outside of RStudio): 
+source("run_hvCpGdetection.R") ## for different parameters
+
+### "Nelder-Mead" or "L-BFGS-B" optimisation method?
+
 ```{r}
-## Run on LSHTM server:
-## source("hvCpG_algorithm_detection.R") ## for different parameters
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_NM_test3000_0.95.RDA")
+results_NM_test3000_0.95 <- result %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
+  dplyr::rename(alpha_NM_0.95=".")
 
-load("/home/alice/2024_hvCpG/04_hvCpGalgorithm/resultstest200_LBB.RDA")
-res200_LBB <- res_allOptimAlphapar 
-p1 <- ggplot(data.frame(alpha=res200_LBB, 
-                        CpG=rownames(res200_LBB), 
-                        Previous.results = ifelse(rownames(res200_LBB) %in% MariasCpGs$CpG, "hvCpG in Maria's study", "not picked up by Maria")),
-             aes(x=CpG, y=alpha, fill = Previous.results)) +
-  geom_point(pch=21, size = 3, alpha = .8) + scale_fill_manual(values = c("red", "grey"))+
-  theme_bw() + theme(axis.text.x = element_blank()) +
-  ylab("Probability alpha of being a hvCpG - L-BFGS-B optimisation")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_LB_test3000_0.95.RDA")
+results_LB_test3000_0.95 <- result %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
+  dplyr::rename(alpha_LB_0.95="alpha")
 
-load("/home/alice/2024_hvCpG/04_hvCpGalgorithm/resultstest200_NM.RDA")
-res200_NM <- res_allOptimAlphapar 
-p2 <- ggplot(data.frame(alpha=res200_NM, 
-                        CpG=rownames(res200_NM), 
-                        Previous.results = ifelse(rownames(res200_NM) %in% MariasCpGs$CpG, "hvCpG in Maria's study", "not picked up by Maria")),
-             aes(x=CpG, y=alpha, fill = Previous.results)) +
-  geom_point(pch=21, size = 3, alpha = .8) + scale_fill_manual(values = c("red", "grey"))+
-  theme_bw() + theme(axis.text.x = element_blank()) +
-  ylab("Probability alpha of being a hvCpG - Nelder-Mead optimisation")
+merge(results_NM_test3000_0.95, results_LB_test3000_0.95, by = "CpG") -> results_test3000_0.95
+results_test3000_0.95 %>% mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
+                                                           "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% ggplot(aes(x=alpha_LB_0.95, y=alpha_NM_0.95, fill = Previous.results)) +
+  geom_abline(slope = 1) +
+  geom_point(pch=21, size = 3, alpha = .8) +
+  theme_bw()
+```
 
-cowplot::plot_grid(p1,p2, ncol = 1)
+Some CpGs have an alpha of 0 for LBB algorithm and different alpha for NM
+
+```{r}
+results_test3000_0.95[round(results_test3000_0.95$alpha_NM_0.95, 1) != round(results_test3000_0.95$alpha_LB_0.95, 1),] %>% mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% melt() %>%
+  ggplot(aes(x=CpG, y=value, fill = variable)) +
+  geom_point(pch=21, size = 3, alpha = .8) +
+  facet_grid(Previous.results~.) + theme_bw() + theme(axis.text.x = element_blank())
+```
+
+The probability of zero seems to be an artefact of the "L-BFGS-B" optimisation method, so we choose "Nelder-Mead".
+
+## Test different p0
+
+```{r}
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_NM_test3000_0.80.RDA")
+results_NM_test3000_0.80 <- result %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
+  dplyr::rename(alpha_NM_0.80=".")
+
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_NM_test3000_0.99.RDA")
+results_NM_test3000_0.99 <- result %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
+  dplyr::rename(alpha_NM_0.99=".")
+
+merge(merge(results_NM_test3000_0.80, results_NM_test3000_0.99), results_NM_test3000_0.95) %>%
+  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
+                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
+  melt() %>%
+  mutate(p0 = sub(".*_", "", variable)) %>%
+  ggplot(aes(x=CpG, y=value, fill = Previous.results)) +
+  geom_point(pch=21, size = 2, alpha = .5) + 
+  scale_fill_manual(values = c("pink","black")) +
+  ylab("alpha (probability of being a hvCpG)") +
+  facet_grid(.~p0) + theme_bw() + theme(axis.text.x = element_blank()) 
+
+merge(merge(results_NM_test3000_0.80, results_NM_test3000_0.99), results_NM_test3000_0.95) %>%
+  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
+                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
+  melt() %>%
+  mutate(p0 = sub(".*_", "", variable)) %>%
+  ggplot(aes(x = factor(p0), y = value, fill = Previous.results)) +
+  geom_point(
+    pch = 21, alpha = .2,
+    position = position_jitterdodge(
+      jitter.width = 0.2,  # Horizontal jitter amount
+      dodge.width = 0.8     # Must match boxplot dodge width
+    )
+  ) +
+  geom_boxplot(position = position_dodge(width = 0.8), alpha = .5) +
+  scale_fill_manual(values = c("pink", "grey")) +
+  xlab("p0 (probability of true negative)") +
+  ylab("alpha (probability of being a hvCpG)") +
+  theme_bw()
+```
+
+P0=0.95 sounds fine, not much improvement by taking 0.99
+
+## What are the hvCpGs of Maria that I found with a very low probability of being a hvCpG with my approach?
+
+```{r}
+source("../03_prepDatasetsMaria/dataprep_MariaArrays.R")
+
+getplotfewCpG <-function(myvec, title){
+  listToTest <- lapply(Maria_filtered_list_mat, function(df) df[row.names(df) %in% myvec, , drop = FALSE])
+  # Combine the list into one data frame
+  mylist <- lapply(lapply(listToTest, as.data.frame), tibble::rownames_to_column, var = "CpG")
+  # Combine all into one long data frame
+  long_df <- bind_rows(mylist, .id = "Dataset")
+  # Pivot to long format: one row per CpG/sample/tissue
+  df_long <- na.omit(long_df %>%
+                       tidyr::pivot_longer(
+                         cols = -c(Dataset, CpG),
+                         names_to = "Sample",
+                         values_to = "Value"
+                       ))
+  
+  # Plot with color by source data frame
+  ggplot(df_long, aes(x = Dataset, y = Value, color = Dataset)) +
+    geom_point() +
+    theme_bw() + theme(legend.position = "none") + facet_grid(.~CpG) +
+    ggtitle(title)+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 5))  
+}
+
+myvec1 <- results_NM_test3000_0.95 %>%
+  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
+                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
+  arrange(., alpha_NM_0.95) %>%
+  filter(Previous.results %in% "1500 hvCpG in Maria's study") %>% head(n=3) %>% select(CpG) %>%
+  unlist()
+getplotfewCpG(myvec1, "Maria's hvCpG with the 3 lowest probabilities to be one in Alice's")
+
+myvec2 <- results_NM_test3000_0.95 %>%
+  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
+                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
+  arrange(., desc(alpha_NM_0.95)) %>%
+  filter(Previous.results %in% "1500 hvCpG in Maria's study") %>% head(n=3) %>% select(CpG) %>%
+  unlist()
+getplotfewCpG(myvec2, "Maria's hvCpG with the 3 highest probabilities to be one in Alice's")
+
+myvec3 <- results_NM_test3000_0.95 %>%
+  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
+                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
+  arrange(., desc(alpha_NM_0.95)) %>%
+  filter(!Previous.results %in% "1500 hvCpG in Maria's study") %>% head(n=3) %>% select(CpG) %>%
+  unlist()
+getplotfewCpG(myvec3, "CpG not detected by Maria as hvCpG, with the 3 highest probabilities to be one in Alice's")
+
+myvec4 <- results_NM_test3000_0.95 %>%
+  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
+                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
+  arrange(., alpha_NM_0.95) %>%
+  filter(!Previous.results %in% "1500 hvCpG in Maria's study") %>% head(n=3) %>% select(CpG) %>%
+  unlist()
+getplotfewCpG(myvec4, "CpG not detected by Maria as hvCpG, with the 3 lowest probabilities to be one in Alice's")
 ```
 
 # Notes:
