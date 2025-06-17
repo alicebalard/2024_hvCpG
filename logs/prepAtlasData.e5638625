@@ -1,0 +1,4 @@
+Error: cannot allocate vector of size 112.2 Mb
+Execution halted
+Warning message:
+system call failed: Cannot allocate memory 

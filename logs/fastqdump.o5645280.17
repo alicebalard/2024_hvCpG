@@ -1,0 +1,6 @@
+Running on host: skinner.local
+Start time: Fri  6 Jun 18:48:52 BST 2025
+Processing sample: SRR8117432
+Run fasterq-dump for the sample: SRR8117432
+Gzip both forward and reverse samples:
+Remove SRA folder

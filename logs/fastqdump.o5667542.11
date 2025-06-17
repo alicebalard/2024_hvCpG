@@ -1,0 +1,6 @@
+Running on host: dusty.local
+Start time: Fri 13 Jun 14:09:18 BST 2025
+Processing sample: SRR17509873
+Run fasterq-dump for the sample: SRR17509873
+Gzip both forward and reverse samples:
+Remove SRA folder
