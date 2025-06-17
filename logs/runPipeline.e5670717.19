@@ -714,3 +714,4 @@ Reading in the sequence files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_hu
 Reading in the sequence files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046847_1_val_1.fq.gz.temp.1.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046847_2_val_2.fq.gz.temp.1.gz
 
 Reading in the sequence files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046847_1_val_1.fq.gz.temp.2.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046847_2_val_2.fq.gz.temp.2.gz
+Chromosomal sequence could not be extracted for	SRR15046847.4252483_4252483_length=150	NC_012920.1	1
