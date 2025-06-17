@@ -1,0 +1,66 @@
+Running on host: dusty.local
+Start time: Thu  5 Jun 17:55:58 BST 2025
+samples list:
+SRR8117410
+SRR8117411
+SRR8117412
+SRR8117413
+SRR8117414
+SRR8117415
+SRR8117416
+SRR8117417
+SRR8117419
+SRR8117421
+SRR8117423
+SRR8117425
+SRR8117426
+SRR8117428
+SRR8117430
+SRR8117431
+SRR8117432
+SRR8117433
+SRR8117434
+SRR8117435
+SRR8117446
+SRR8117447
+SRR8117448
+SRR8117449
+SRR8117450
+SRR8117451
+SRR8117452
+SRR8117453
+SRR8117454
+SRR8117455
+SRR8117456
+SRR8117457
+SRR8117458
+SRR8117459
+SRR8117460
+SRR8117461
+SRR8117462
+SRR8117463
+SRR8117464
+SRR8117465
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:
+Remove SRA folder
+Run fasterq-dump for the sample:
+Gzip both forward and reverse samples:

@@ -1,0 +1,6 @@
+Running on host: saunders-608-5.local
+Start time: Fri 13 Jun 22:58:38 BST 2025
+Processing sample: SRR15046832
+Run fasterq-dump for the sample: SRR15046832
+Gzip both forward and reverse samples:
+Remove SRA folder

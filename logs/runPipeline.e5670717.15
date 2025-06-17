@@ -1,0 +1,501 @@
+Proceeding with single-core trimming (user-defined)
+Path to Cutadapt set as: '/share/apps/genomics/cutadapt-2.5/bin/cutadapt' (user defined)
+Cutadapt seems to be working fine (tested command '/share/apps/genomics/cutadapt-2.5/bin/cutadapt --version')
+Cutadapt version: 2.4
+single-core operation.
+No quality encoding type selected. Assuming that the data provided uses Sanger encoded Phred scores (default)
+
+Output will be written into the directory: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/01Trimmed_data/
+
+
+AUTO-DETECTING ADAPTER TYPE
+===========================
+Attempting to auto-detect adapter type from the first 1 million sequences of the first file (>> /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_1.fastq.gz <<)
+
+Found perfect matches for the following adapter sequences:
+Adapter type	Count	Sequence	Sequences analysed	Percentage
+Illumina	79980	AGATCGGAAGAGC	1000000	8.00
+smallRNA	0	TGGAATTCTCGG	1000000	0.00
+Nextera	0	CTGTCTCTTATA	1000000	0.00
+Using Illumina adapter for trimming (count: 79980). Second best hit was smallRNA (count: 0)
+
+
+SUMMARISING RUN PARAMETERS
+==========================
+Input filename: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_1.fastq.gz
+Trimming mode: paired-end
+Trim Galore version: 0.6.7
+Cutadapt version: 2.4
+Number of cores used for trimming: 1
+Quality Phred score cutoff: 20
+Quality encoding type selected: ASCII+33
+Adapter sequence: 'AGATCGGAAGAGC' (Illumina TruSeq, Sanger iPCR; auto-detected)
+Maximum trimming error rate: 0.1 (default)
+Minimum required adapter overlap (stringency): 1 bp
+Minimum required sequence length for both reads before a sequence pair gets removed: 20 bp
+All sequences will be trimmed by 1 bp on their 3' end to avoid problems with invalid paired-end alignments with Bowtie 1
+Output file(s) will be GZIP compressed
+
+Cutadapt seems to be fairly up-to-date (version 2.4). Setting -j 1
+Writing final adapter and quality trimmed output to SRR15046843_1_trimmed.fq.gz
+
+
+  >>> Now performing quality (cutoff '-q 20') and adapter trimming in a single pass for the adapter sequence: 'AGATCGGAAGAGC' from file /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_1.fastq.gz <<< 
+10000000 sequences processed
+20000000 sequences processed
+30000000 sequences processed
+40000000 sequences processed
+50000000 sequences processed
+60000000 sequences processed
+70000000 sequences processed
+80000000 sequences processed
+90000000 sequences processed
+100000000 sequences processed
+110000000 sequences processed
+120000000 sequences processed
+130000000 sequences processed
+140000000 sequences processed
+150000000 sequences processed
+160000000 sequences processed
+170000000 sequences processed
+180000000 sequences processed
+190000000 sequences processed
+200000000 sequences processed
+210000000 sequences processed
+220000000 sequences processed
+230000000 sequences processed
+This is cutadapt 2.4 with Python 3.6.4
+Command line parameters: -j 1 -e 0.1 -q 20 -O 1 -a AGATCGGAAGAGC /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_1.fastq.gz
+Processing reads on 1 core in single-end mode ...
+Finished in 4841.18 s (20 us/read; 2.97 M reads/minute).
+
+=== Summary ===
+
+Total reads processed:             239,491,527
+Reads with adapters:               102,070,431 (42.6%)
+Reads written (passing filters):   239,491,527 (100.0%)
+
+Total basepairs processed: 35,923,729,050 bp
+Quality-trimmed:              35,877,512 bp (0.1%)
+Total written (filtered):  34,390,140,687 bp (95.7%)
+
+=== Adapter 1 ===
+
+Sequence: AGATCGGAAGAGC; Type: regular 3'; Length: 13; Trimmed: 102070431 times.
+
+No. of allowed errors:
+0-9 bp: 0; 10-13 bp: 1
+
+Bases preceding removed adapters:
+  A: 25.1%
+  C: 22.2%
+  G: 13.0%
+  T: 39.6%
+  none/other: 0.1%
+
+Overview of removed sequences
+length	count	expect	max.err	error counts
+1	55494619	59872881.8	0	55494619
+2	13661850	14968220.4	0	13661850
+3	5209854	3742055.1	0	5209854
+4	2441988	935513.8	0	2441988
+5	808943	233878.4	0	808943
+6	720911	58469.6	0	720911
+7	700646	14617.4	0	700646
+8	729465	3654.4	0	729465
+9	678420	913.6	0	675101 3319
+10	646748	228.4	1	623285 23463
+11	691508	57.1	1	648114 43394
+12	636149	14.3	1	610986 25163
+13	580320	3.6	1	559345 20975
+14	602270	3.6	1	565736 36534
+15	554562	3.6	1	530910 23652
+16	564797	3.6	1	526813 37984
+17	557247	3.6	1	522813 34434
+18	504473	3.6	1	484562 19911
+19	446134	3.6	1	427059 19075
+20	464968	3.6	1	444956 20012
+21	447687	3.6	1	427049 20638
+22	413005	3.6	1	397689 15316
+23	420337	3.6	1	399512 20825
+24	405184	3.6	1	378570 26614
+25	372842	3.6	1	356933 15909
+26	346879	3.6	1	333339 13540
+27	344097	3.6	1	329452 14645
+28	318473	3.6	1	306544 11929
+29	323268	3.6	1	304968 18300
+30	290999	3.6	1	281268 9731
+31	269950	3.6	1	259917 10033
+32	266484	3.6	1	257536 8948
+33	258272	3.6	1	246504 11768
+34	254604	3.6	1	245633 8971
+35	231990	3.6	1	219985 12005
+36	201917	3.6	1	195097 6820
+37	204792	3.6	1	197647 7145
+38	200876	3.6	1	193146 7730
+39	181674	3.6	1	175982 5692
+40	167190	3.6	1	161189 6001
+41	166877	3.6	1	161364 5513
+42	160115	3.6	1	155162 4953
+43	164221	3.6	1	156095 8126
+44	127564	3.6	1	123353 4211
+45	198679	3.6	1	193632 5047
+46	52809	3.6	1	50927 1882
+47	109690	3.6	1	107039 2651
+48	119945	3.6	1	116148 3797
+49	95010	3.6	1	92538 2472
+50	97867	3.6	1	94260 3607
+51	98647	3.6	1	94886 3761
+52	87694	3.6	1	85407 2287
+53	77672	3.6	1	75841 1831
+54	80444	3.6	1	77734 2710
+55	80576	3.6	1	78357 2219
+56	62561	3.6	1	60862 1699
+57	73231	3.6	1	71486 1745
+58	62411	3.6	1	60838 1573
+59	50006	3.6	1	48478 1528
+60	54978	3.6	1	54022 956
+61	39028	3.6	1	37982 1046
+62	49926	3.6	1	48536 1390
+63	54872	3.6	1	53805 1067
+64	36567	3.6	1	35774 793
+65	29830	3.6	1	28987 843
+66	40850	3.6	1	39948 902
+67	39543	3.6	1	38679 864
+68	46794	3.6	1	45642 1152
+69	36732	3.6	1	35630 1102
+70	59202	3.6	1	57659 1543
+71	4279	3.6	1	4007 272
+72	2824	3.6	1	2677 147
+73	9734	3.6	1	9510 224
+74	16498	3.6	1	16176 322
+75	18503	3.6	1	18108 395
+76	18605	3.6	1	18232 373
+77	17747	3.6	1	17337 410
+78	16416	3.6	1	16066 350
+79	15580	3.6	1	15219 361
+80	14813	3.6	1	14450 363
+81	13806	3.6	1	13496 310
+82	12675	3.6	1	12344 331
+83	12350	3.6	1	12045 305
+84	11448	3.6	1	11174 274
+85	11057	3.6	1	10751 306
+86	10225	3.6	1	9987 238
+87	9763	3.6	1	9519 244
+88	9263	3.6	1	9053 210
+89	9075	3.6	1	8880 195
+90	8618	3.6	1	8418 200
+91	7957	3.6	1	7777 180
+92	7620	3.6	1	7460 160
+93	7456	3.6	1	7316 140
+94	7003	3.6	1	6870 133
+95	6794	3.6	1	6646 148
+96	6605	3.6	1	6476 129
+97	6274	3.6	1	6145 129
+98	5970	3.6	1	5844 126
+99	5611	3.6	1	5503 108
+100	6091	3.6	1	5974 117
+101	5912	3.6	1	5805 107
+102	6945	3.6	1	6812 133
+103	7193	3.6	1	7069 124
+104	7529	3.6	1	7408 121
+105	7725	3.6	1	7588 137
+106	7992	3.6	1	7845 147
+107	7628	3.6	1	7487 141
+108	7439	3.6	1	7292 147
+109	7871	3.6	1	7717 154
+110	8539	3.6	1	8356 183
+111	10116	3.6	1	9881 235
+112	12731	3.6	1	12440 291
+113	16030	3.6	1	15600 430
+114	20182	3.6	1	19620 562
+115	25813	3.6	1	25229 584
+116	37270	3.6	1	36618 652
+117	50137	3.6	1	49455 682
+118	70718	3.6	1	69853 865
+119	102069	3.6	1	100928 1141
+120	134386	3.6	1	132923 1463
+121	157397	3.6	1	155753 1644
+122	152070	3.6	1	150477 1593
+123	156981	3.6	1	155436 1545
+124	156420	3.6	1	154989 1431
+125	130032	3.6	1	128734 1298
+126	107850	3.6	1	106899 951
+127	84796	3.6	1	84030 766
+128	68108	3.6	1	67438 670
+129	53011	3.6	1	52501 510
+130	37904	3.6	1	37550 354
+131	34861	3.6	1	34490 371
+132	34187	3.6	1	33773 414
+133	29833	3.6	1	29412 421
+134	25998	3.6	1	25517 481
+135	22583	3.6	1	21752 831
+136	24309	3.6	1	23743 566
+137	25150	3.6	1	24922 228
+138	31114	3.6	1	30837 277
+139	30052	3.6	1	29800 252
+140	29480	3.6	1	29213 267
+141	32194	3.6	1	31889 305
+142	14222	3.6	1	14043 179
+143	33786	3.6	1	33145 641
+144	17897	3.6	1	17138 759
+145	14327	3.6	1	11396 2931
+146	10378	3.6	1	7186 3192
+147	11852	3.6	1	10040 1812
+148	802697	3.6	1	726299 76398
+149	87560	3.6	1	80829 6731
+150	3717764	3.6	1	3513693 204071
+
+RUN STATISTICS FOR INPUT FILE: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_1.fastq.gz
+=============================================
+239491527 sequences processed in total
+The length threshold of paired-end sequences gets evaluated later on (in the validation step)
+
+
+SUMMARISING RUN PARAMETERS
+==========================
+Input filename: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_2.fastq.gz
+Trimming mode: paired-end
+Trim Galore version: 0.6.7
+Cutadapt version: 2.4
+Number of cores used for trimming: 1
+Quality Phred score cutoff: 20
+Quality encoding type selected: ASCII+33
+Adapter sequence: 'AGATCGGAAGAGC' (Illumina TruSeq, Sanger iPCR; auto-detected)
+Maximum trimming error rate: 0.1 (default)
+Minimum required adapter overlap (stringency): 1 bp
+Minimum required sequence length for both reads before a sequence pair gets removed: 20 bp
+All sequences will be trimmed by 1 bp on their 3' end to avoid problems with invalid paired-end alignments with Bowtie 1
+Output file(s) will be GZIP compressed
+
+Cutadapt seems to be fairly up-to-date (version 2.4). Setting -j -j 1
+Writing final adapter and quality trimmed output to SRR15046843_2_trimmed.fq.gz
+
+
+  >>> Now performing quality (cutoff '-q 20') and adapter trimming in a single pass for the adapter sequence: 'AGATCGGAAGAGC' from file /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_2.fastq.gz <<< 
+10000000 sequences processed
+20000000 sequences processed
+30000000 sequences processed
+40000000 sequences processed
+50000000 sequences processed
+60000000 sequences processed
+70000000 sequences processed
+80000000 sequences processed
+90000000 sequences processed
+100000000 sequences processed
+110000000 sequences processed
+120000000 sequences processed
+130000000 sequences processed
+140000000 sequences processed
+150000000 sequences processed
+160000000 sequences processed
+170000000 sequences processed
+180000000 sequences processed
+190000000 sequences processed
+200000000 sequences processed
+210000000 sequences processed
+220000000 sequences processed
+230000000 sequences processed
+This is cutadapt 2.4 with Python 3.6.4
+Command line parameters: -j 1 -e 0.1 -q 20 -O 1 -a AGATCGGAAGAGC /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_2.fastq.gz
+Processing reads on 1 core in single-end mode ...
+Finished in 5262.61 s (22 us/read; 2.73 M reads/minute).
+
+=== Summary ===
+
+Total reads processed:             239,491,527
+Reads with adapters:               132,163,899 (55.2%)
+Reads written (passing filters):   239,491,527 (100.0%)
+
+Total basepairs processed: 35,923,729,050 bp
+Quality-trimmed:              71,156,444 bp (0.2%)
+Total written (filtered):  34,448,370,067 bp (95.9%)
+
+=== Adapter 1 ===
+
+Sequence: AGATCGGAAGAGC; Type: regular 3'; Length: 13; Trimmed: 132163899 times.
+
+No. of allowed errors:
+0-9 bp: 0; 10-13 bp: 1
+
+Bases preceding removed adapters:
+  A: 53.7%
+  C: 16.7%
+  G: 2.1%
+  T: 27.6%
+  none/other: 0.0%
+
+Overview of removed sequences
+length	count	expect	max.err	error counts
+1	105117282	59872881.8	0	105117282
+2	1042340	14968220.4	0	1042340
+3	940450	3742055.1	0	940450
+4	826613	935513.8	0	826613
+5	767592	233878.4	0	767592
+6	691460	58469.6	0	691460
+7	729569	14617.4	0	729569
+8	792403	3654.4	0	792403
+9	503080	913.6	0	500031 3049
+10	681603	228.4	1	619967 61636
+11	609003	57.1	1	551612 57391
+12	636026	14.3	1	568190 67836
+13	580108	3.6	1	520642 59466
+14	639228	3.6	1	568211 71017
+15	498044	3.6	1	450518 47526
+16	523948	3.6	1	474444 49504
+17	617536	3.6	1	556646 60890
+18	377495	3.6	1	345634 31861
+19	545603	3.6	1	490697 54906
+20	455472	3.6	1	412864 42608
+21	379350	3.6	1	344347 35003
+22	408598	3.6	1	371828 36770
+23	398057	3.6	1	363079 34978
+24	468148	3.6	1	423944 44204
+25	423108	3.6	1	387941 35167
+26	287171	3.6	1	258562 28609
+27	274959	3.6	1	247819 27140
+28	339005	3.6	1	311901 27104
+29	269700	3.6	1	246134 23566
+30	321249	3.6	1	296134 25115
+31	238376	3.6	1	220968 17408
+32	268885	3.6	1	248327 20558
+33	255845	3.6	1	234406 21439
+34	258845	3.6	1	239951 18894
+35	241709	3.6	1	220777 20932
+36	407639	3.6	1	378750 28889
+37	299171	3.6	1	278881 20290
+38	89673	3.6	1	83430 6243
+39	114559	3.6	1	105807 8752
+40	91841	3.6	1	84234 7607
+41	131400	3.6	1	121196 10204
+42	248365	3.6	1	235703 12662
+43	83706	3.6	1	74411 9295
+44	282199	3.6	1	266927 15272
+45	175043	3.6	1	164987 10056
+46	45882	3.6	1	39663 6219
+47	170245	3.6	1	162774 7471
+48	28658	3.6	1	25181 3477
+49	77247	3.6	1	72608 4639
+50	27618	3.6	1	25142 2476
+51	43398	3.6	1	40444 2954
+52	20730	3.6	1	18329 2401
+53	76764	3.6	1	71841 4923
+54	113080	3.6	1	107749 5331
+55	34927	3.6	1	32080 2847
+56	66275	3.6	1	61485 4790
+57	133778	3.6	1	128574 5204
+58	38267	3.6	1	35525 2742
+59	31996	3.6	1	29256 2740
+60	108015	3.6	1	103711 4304
+61	35584	3.6	1	33645 1939
+62	13364	3.6	1	11604 1760
+63	73147	3.6	1	69176 3971
+64	119755	3.6	1	116035 3720
+65	29549	3.6	1	27930 1619
+66	31209	3.6	1	29580 1629
+67	21795	3.6	1	20784 1011
+68	7473	3.6	1	6790 683
+69	14440	3.6	1	13596 844
+70	17489	3.6	1	16655 834
+71	7153	3.6	1	6699 454
+72	4917	3.6	1	4517 400
+73	5331	3.6	1	4981 350
+74	5789	3.6	1	5328 461
+75	8035	3.6	1	7335 700
+76	12476	3.6	1	11538 938
+77	14230	3.6	1	13294 936
+78	14659	3.6	1	13855 804
+79	14301	3.6	1	13504 797
+80	13909	3.6	1	13124 785
+81	13090	3.6	1	12389 701
+82	12205	3.6	1	11480 725
+83	12703	3.6	1	11930 773
+84	11773	3.6	1	10948 825
+85	11730	3.6	1	11000 730
+86	10451	3.6	1	9824 627
+87	9751	3.6	1	9133 618
+88	9129	3.6	1	8622 507
+89	9078	3.6	1	8633 445
+90	8633	3.6	1	8166 467
+91	8201	3.6	1	7746 455
+92	8155	3.6	1	7769 386
+93	8168	3.6	1	7632 536
+94	7910	3.6	1	7481 429
+95	8073	3.6	1	7545 528
+96	8417	3.6	1	7735 682
+97	7719	3.6	1	7204 515
+98	7681	3.6	1	7126 555
+99	7798	3.6	1	7172 626
+100	7509	3.6	1	7006 503
+101	7441	3.6	1	6824 617
+102	7418	3.6	1	6867 551
+103	7796	3.6	1	6885 911
+104	7400	3.6	1	6921 479
+105	7736	3.6	1	7090 646
+106	7335	3.6	1	6863 472
+107	6932	3.6	1	6484 448
+108	6729	3.6	1	6141 588
+109	6794	3.6	1	6185 609
+110	7081	3.6	1	6415 666
+111	7950	3.6	1	7298 652
+112	9728	3.6	1	8754 974
+113	12132	3.6	1	11170 962
+114	16080	3.6	1	14909 1171
+115	22530	3.6	1	21400 1130
+116	31945	3.6	1	30572 1373
+117	44839	3.6	1	43033 1806
+118	64591	3.6	1	62424 2167
+119	94208	3.6	1	91278 2930
+120	129019	3.6	1	124140 4879
+121	157044	3.6	1	150547 6497
+122	164454	3.6	1	156724 7730
+123	188746	3.6	1	181466 7280
+124	161374	3.6	1	154626 6748
+125	156418	3.6	1	148383 8035
+126	128925	3.6	1	120872 8053
+127	97830	3.6	1	89730 8100
+128	88625	3.6	1	80331 8294
+129	97057	3.6	1	88256 8801
+130	55562	3.6	1	48189 7373
+131	59755	3.6	1	52905 6850
+132	57707	3.6	1	51382 6325
+133	43051	3.6	1	37280 5771
+134	37003	3.6	1	31918 5085
+135	26869	3.6	1	22126 4743
+136	28008	3.6	1	23523 4485
+137	29112	3.6	1	25431 3681
+138	32981	3.6	1	29874 3107
+139	31165	3.6	1	28535 2630
+140	30607	3.6	1	28253 2354
+141	32204	3.6	1	30090 2114
+142	14248	3.6	1	13093 1155
+143	32438	3.6	1	30874 1564
+144	16589	3.6	1	15538 1051
+145	11641	3.6	1	10809 832
+146	7600	3.6	1	6940 660
+147	15413	3.6	1	14089 1324
+148	777673	3.6	1	748573 29100
+149	86421	3.6	1	82107 4314
+150	2990580	3.6	1	2878278 112302
+
+RUN STATISTICS FOR INPUT FILE: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR15046843_2.fastq.gz
+=============================================
+239491527 sequences processed in total
+The length threshold of paired-end sequences gets evaluated later on (in the validation step)
+
+Validate paired-end files SRR15046843_1_trimmed.fq.gz and SRR15046843_2_trimmed.fq.gz
+file_1: SRR15046843_1_trimmed.fq.gz, file_2: SRR15046843_2_trimmed.fq.gz
+
+
+>>>>> Now validing the length of the 2 paired-end infiles: SRR15046843_1_trimmed.fq.gz and SRR15046843_2_trimmed.fq.gz <<<<<
+Writing validated paired-end Read 1 reads to SRR15046843_1_val_1.fq.gz
+Writing validated paired-end Read 2 reads to SRR15046843_2_val_2.fq.gz
+
+Total number of sequences analysed: 239491527
+
+Number of sequence pairs removed because at least one read was shorter than the length cutoff (20 bp): 5191411 (2.17%)
+
+Deleting both intermediate output files SRR15046843_1_trimmed.fq.gz and SRR15046843_2_trimmed.fq.gz
+
+====================================================================================================
+
