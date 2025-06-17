@@ -1,0 +1,6 @@
+Running on host: allen-606-18.local
+Start time: Sat 14 Jun 03:33:15 BST 2025
+Processing sample: SRR15046834
+Run fasterq-dump for the sample: SRR15046834
+Gzip both forward and reverse samples:
+Remove SRA folder
