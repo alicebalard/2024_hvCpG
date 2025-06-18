@@ -1,4 +1,4 @@
-## 4 June 2025
+## 17 June 2025
 ## Alice Balard
 ## Preparation of data from the article: https://www.nature.com/articles/s41586-022-05580-6#Sec35
 
@@ -19,69 +19,70 @@
 
 ## ❗Note: this uint8 format limits values to range [0,255]. In case a CpG site appears over 255 times in the raw data (e.g. bam), its representation is normalized to this range. For example, if site CpG100 appeared 510 times, from which 100 times it was methylated, the 100'th row will be (50, 255). We find it negligible for most cases, but if you find it important, use the lbeta format (wgbstools pat2beta --lbeta ARGS...)
 
-# Optimized version of prepAtlasData_Loyfer2023.R (no dataframes, too heavy)
+library(data.table)
+
 DIR <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/"
+OUTDIR <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets"
 
-## Read the CpG names (store once, use references)
-cpg_names_path <- paste0(DIR, "hg38CpGpos_Loyfer2023.txt")
-if(!exists("cpg_names")) {  # Only load if not already in memory
-  cpg_names <- readLines(cpg_names_path)
-}
+# Read CpG names (only once)
+cpg_names <- fread(paste0(DIR, "hg38CpGpos_Loyfer2023.txt"), header = FALSE)[[1]]
 
-## Read in metadata
-metadata <- read.csv(paste0(DIR, "SupTab1_Loyfer2023.csv"))
+# Read metadata as data.table for speed and efficiency
+metadata <- fread(paste0(DIR, "SupTab1_Loyfer2023.csv"))
+names(metadata) <- gsub(" ", ".", names(metadata))
+metadata <- metadata[, .SD[.N >= 3], by = Group]
 
-## Filter groups with ≥3 samples
-valid_groups <- names(which(table(metadata$Group) >= 3))
-metadata <- metadata[metadata$Group %in% valid_groups, ]
-
-## File handling
+# List all beta files
 files <- list.files(paste0(DIR, "betaFiles"), full.names = TRUE)
-sample_names <- as.character(sub(".*-", "", metadata$Sample.name))
+metadata[, file := files[match(sub(".*-", "", metadata$Sample.name), sub(".hg38.beta", "", sub(".*-", "", files)))]]
+metadata <- metadata[!is.na(file)]
 
-# Create sample-file mapping
-sample_file_map <- setNames(
-  lapply(sample_names, function(sname) {
-    f <- grep(sname, files, value = TRUE, fixed = TRUE)
-    if(length(f) == 1) f else NA
-  }),
-  sample_names
-)
-sample_file_map <- sample_file_map[!is.na(sample_file_map)]
-
-## Process files using matrix storage
-process_file <- function(file) {
+# Functions to read beta and coverage
+read_beta <- function(file) {
   file_size <- file.info(file)$size
-  content <- readBin(file, "integer", n = file_size, size = 1, signed = FALSE)
-  matrix(content, ncol = 2, byrow = TRUE)
+  raw <- readBin(file, "integer", n = file_size, size = 1, signed = FALSE)
+  mat <- matrix(raw, ncol = 2, byrow = TRUE)
+  beta <- mat[,1] / mat[,2]
+  beta[is.nan(beta) | is.infinite(beta)] <- NA_real_
+  return(beta)
 }
 
-## Process files in batches per group
-final_output <- list()
-sample_groups <- metadata$Group[match(names(sample_file_map), sample_names)]
-
-df <- data.frame(sample = names(sample_file_map), group = sample_groups)
-
-for(current_group in unique(df$group)) {
-    group_samples <- df$sample[df$group %in% current_group]
-
-    ## Process samples in current group
-    group_data <- lapply(sample_file_map[group_samples], function(f) {
-        mat = process_file(f)
-        beta = mat[,1] / mat[,2]  # Calculate beta values
-        beta[beta == Inf] = NA
-        return(beta)
-    })
-
-    ## Convert to matrix (more memory efficient than data.frame)
-    group_matrix <- do.call(cbind, group_data)
-    dimnames(group_matrix) <- list(NULL, group_samples)  # No row names stored
-    final_output[[current_group]] <- group_matrix
+read_coverage <- function(file) {
+  file_size <- file.info(file)$size
+  raw <- readBin(file, "integer", n = file_size, size = 1, signed = FALSE)
+  mat <- matrix(raw, ncol = 2, byrow = TRUE)
+  return(mat[,2])
 }
 
-# Save optimized structure
-saveRDS(list(
-  data = final_output,
-  cpg_names = cpg_names,
-  metadata = metadata
-), file = paste0(DIR, "listDatasetsLoyfer2023.RDS"))
+# Process and save both beta and coverage matrices for each group
+for (grp in unique(metadata$Group)) {
+  group_samples <- metadata[Group == grp]
+  group_matrix <- do.call(
+    cbind,
+    lapply(group_samples$file, read_beta)
+  )
+  colnames(group_matrix) <- group_samples$Sample.name
+
+  coverage_matrix <- do.call(
+    cbind,
+    lapply(group_samples$file, read_coverage)
+  )
+  colnames(coverage_matrix) <- group_samples$Sample.name
+
+  # Save each group as its own RDS file (beta values)
+  saveRDS(
+    group_matrix,
+    file = file.path(OUTDIR, paste0("dataset_", grp, ".rds")),
+    compress = "xz"
+  )
+  # Save each group as its own RDS file (coverage values)
+  saveRDS(
+    coverage_matrix,
+    file = file.path(OUTDIR, paste0("coverage_", grp, ".rds")),
+    compress = "xz"
+  )
+}
+
+# Save cpg_names and metadata separately
+saveRDS(cpg_names, file = file.path(OUTDIR, "cpg_names.rds"), compress = "xz")
+saveRDS(metadata, file = file.path(OUTDIR, "metadata.rds"), compress = "xz")
