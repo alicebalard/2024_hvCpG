@@ -742,3 +742,568 @@ SRR15046839.5_5_length=150/2	141	*	0	0	*	*	0	0	NAAAAATAAAAATAACTATAACATTTTAAAAAA
 
 
 Reading in the sequence files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.5.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.5.gz
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Processed 1000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.8026849_8026849_length=150	NT_113793.3	3
+Processed 2000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.11669517_11669517_length=150	NT_187408.1	1
+Processed 2000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Processed 2000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.13875196_13875196_length=150	NT_187364.1	1
+Chromosomal sequence could not be extracted for	SRR15046839.14888578_14888578_length=150	NC_012920.1	1
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 3000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 4000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.34956054_34956054_length=150	NT_187436.1	6211
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Processed 5000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.33407574_33407574_length=150	NT_187495.1	1
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Processed 6000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.39534678_39534678_length=150	NC_012920.1	1
+Processed 7000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.43355822_43355822_length=150	NT_187364.1	1
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 7000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.52345833_52345833_length=150	NT_187447.1	2
+Processed 8000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 8000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 9000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.58479950_58479950_length=150	NC_012920.1	1
+Chromosomal sequence could not be extracted for	SRR15046839.58573017_58573017_length=150	NT_187452.1	4536
+Chromosomal sequence could not be extracted for	SRR15046839.59870471_59870471_length=150	NC_012920.1	16424
+Processed 11000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.65792177_65792177_length=150	NT_187506.1	150599
+Processed 10000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.61695966_61695966_length=150	NC_012920.1	16420
+Processed 10000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Processed 10000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.69792338_69792338_length=150	NT_187364.1	1
+Processed 12000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.65811380_65811380_length=150	NT_187506.1	150599
+Chromosomal sequence could not be extracted for	SRR15046839.66325023_66325023_length=150	NC_012920.1	16420
+Chromosomal sequence could not be extracted for	SRR15046839.66318576_66318576_length=150	NC_012920.1	16424
+Processed 11000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 11000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Processed 12000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.79371680_79371680_length=150	NC_012920.1	16421
+Processed 15000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.86755548_86755548_length=150	NC_012920.1	16424
+Processed 13000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 13000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.86209743_86209743_length=150	NT_187495.1	1
+Processed 16000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Processed 14000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.91966854_91966854_length=150	NT_187390.1	1
+Chromosomal sequence could not be extracted for	SRR15046839.91967228_91967228_length=150	NT_187390.1	1
+Chromosomal sequence could not be extracted for	SRR15046839.105585770_105585770_length=150	NC_012920.1	1
+Chromosomal sequence could not be extracted for	SRR15046839.93712086_93712086_length=150	NT_187380.1	172662
+Processed 15000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.93136761_93136761_length=150	NC_012920.1	16424
+Processed 16000000 sequence pairs so far
+Processed 15000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.110888758_110888758_length=150	NT_187448.1	1411
+Chromosomal sequence could not be extracted for	SRR15046839.96365386_96365386_length=150	NT_187453.1	1
+Processed 16000000 sequence pairs so far
+Processed 16000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.97535554_97535554_length=150	NT_187447.1	2
+Processed 18000000 sequence pairs so far
+Processed 16000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.101590709_101590709_length=150	NC_012920.1	1
+Processed 17000000 sequence pairs so far
+Processed 16000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Processed 17000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.113186873_113186873_length=150	NT_187391.1	1
+Processed 18000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Processed 18000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.116940798_116940798_length=150	NT_187464.1	1277
+Processed 18000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 19000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 22000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.127452398_127452398_length=150	NT_187428.1	1
+Processed 21000000 sequence pairs so far
+Processed 20000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.130105133_130105133_length=150	NC_012920.1	16422
+Chromosomal sequence could not be extracted for	SRR15046839.130822086_130822086_length=150	NT_187408.1	1
+Chromosomal sequence could not be extracted for	SRR15046839.131131764_131131764_length=150	NC_012920.1	2
+Processed 22000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 23000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 22000000 sequence pairs so far
+Processed 21000000 sequence pairs so far
+Processed 23000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.133418448_133418448_length=150	NT_187452.1	4541
+Processed 22000000 sequence pairs so far
+Processed 24000000 sequence pairs so far
+Processed 22000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.151942062_151942062_length=150	NC_012920.1	1
+Processed 23000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.149377190_149377190_length=150	NT_187421.1	1087
+Processed 22000000 sequence pairs so far
+Processed 24000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.142798692_142798692_length=150	NC_012920.1	16421
+Chromosomal sequence could not be extracted for	SRR15046839.151948045_151948045_length=150	NC_012920.1	1
+Processed 23000000 sequence pairs so far
+Processed 25000000 sequence pairs so far
+Processed 23000000 sequence pairs so far
+Processed 24000000 sequence pairs so far
+Processed 25000000 sequence pairs so far
+Processed 23000000 sequence pairs so far
+Processed 24000000 sequence pairs so far
+Processed 26000000 sequence pairs so far
+Processed 25000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.160193073_160193073_length=150	NC_012920.1	1
+Processed 24000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.147524110_147524110_length=150	NC_012920.1	2
+Chromosomal sequence could not be extracted for	SRR15046839.158273694_158273694_length=150	NC_012920.1	1
+Processed 26000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.155563786_155563786_length=150	NC_012920.1	16421
+Chromosomal sequence could not be extracted for	SRR15046839.155571341_155571341_length=150	NC_012920.1	16421
+Processed 24000000 sequence pairs so far
+Processed 25000000 sequence pairs so far
+Processed 26000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.163572025_163572025_length=150	NT_187495.1	1
+Processed 27000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.163802324_163802324_length=150	NC_012920.1	16424
+Processed 25000000 sequence pairs so far
+Processed 27000000 sequence pairs so far
+Processed 25000000 sequence pairs so far
+Processed 26000000 sequence pairs so far
+Processed 27000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.158257892_158257892_length=150	NC_012920.1	1
+Processed 28000000 sequence pairs so far
+Processed 26000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.163701751_163701751_length=150	NC_012920.1	1
+Processed 28000000 sequence pairs so far
+Processed 26000000 sequence pairs so far
+Processed 27000000 sequence pairs so far
+Processed 28000000 sequence pairs so far
+Processed 29000000 sequence pairs so far
+Processed 27000000 sequence pairs so far
+Processed 29000000 sequence pairs so far
+Processed 28000000 sequence pairs so far
+Processed 29000000 sequence pairs so far
+Processed 27000000 sequence pairs so far
+Processed 30000000 sequence pairs so far
+Processed 28000000 sequence pairs so far
+Processed 30000000 sequence pairs so far
+Processed 30000000 sequence pairs so far
+Processed 29000000 sequence pairs so far
+Processed 31000000 sequence pairs so far
+Processed 28000000 sequence pairs so far
+Processed 31000000 sequence pairs so far
+Processed 29000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.199596219_199596219_length=150	NT_187459.1	1
+Processed 31000000 sequence pairs so far
+Processed 30000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.201118215_201118215_length=150	NC_012920.1	1
+Processed 32000000 sequence pairs so far
+Processed 29000000 sequence pairs so far
+Processed 32000000 sequence pairs so far
+Processed 30000000 sequence pairs so far
+Processed 32000000 sequence pairs so far
+Processed 31000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.190421633_190421633_length=150	NC_012920.1	16424
+Chromosomal sequence could not be extracted for	SRR15046839.186681087_186681087_length=150	NC_012920.1	16424
+Processed 33000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.197389950_197389950_length=150	NC_012920.1	1
+Processed 30000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.193704693_193704693_length=150	NC_012920.1	1
+Processed 33000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.199384880_199384880_length=150	NT_187428.1	1
+Processed 31000000 sequence pairs so far
+Processed 33000000 sequence pairs so far
+Processed 32000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.213382556_213382556_length=150	NT_187459.1	1
+Processed 34000000 sequence pairs so far
+Processed 31000000 sequence pairs so far
+Processed 34000000 sequence pairs so far
+Processed 32000000 sequence pairs so far
+Processed 34000000 sequence pairs so far
+Processed 33000000 sequence pairs so far
+Processed 35000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.210164517_210164517_length=150	NC_012920.1	16421
+Processed 32000000 sequence pairs so far
+Processed 35000000 sequence pairs so far
+Processed 33000000 sequence pairs so far
+Processed 34000000 sequence pairs so far
+Processed 35000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.214041294_214041294_length=150	NC_012920.1	16424
+Processed 36000000 sequence pairs so far
+Processed 33000000 sequence pairs so far
+Processed 36000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.209329618_209329618_length=150	NT_187364.1	1
+Processed 34000000 sequence pairs so far
+Processed 35000000 sequence pairs so far
+Processed 36000000 sequence pairs so far
+Processed 37000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.229196086_229196086_length=150	NT_187448.1	1411
+Processed 34000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.229741514_229741514_length=150	NC_012920.1	1
+Processed 37000000 sequence pairs so far
+Processed 35000000 sequence pairs so far
+Processed 36000000 sequence pairs so far
+Processed 37000000 sequence pairs so far
+Processed 38000000 sequence pairs so far
+Processed 35000000 sequence pairs so far
+Processed 38000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.239624885_239624885_length=150	NT_187464.1	1277
+Processed 36000000 sequence pairs so far
+Processed 37000000 sequence pairs so far
+Processed 38000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.244655936_244655936_length=150	NT_187391.1	1
+Processed 39000000 sequence pairs so far
+Processed 36000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.235947407_235947407_length=150	NC_012920.1	1
+Processed 39000000 sequence pairs so far
+Processed 37000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.244988110_244988110_length=150	NC_012920.1	1
+Processed 39000000 sequence pairs so far
+Processed 38000000 sequence pairs so far
+Processed 40000000 sequence pairs so far
+Processed 37000000 sequence pairs so far
+Processed 40000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.238050809_238050809_length=150	NT_187421.1	1091
+Processed 38000000 sequence pairs so far
+Processed 40000000 sequence pairs so far
+Processed 39000000 sequence pairs so far
+Processed 41000000 sequence pairs so far
+Processed 38000000 sequence pairs so far
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31138568 (74.86%) aligned concordantly 0 times
+    9148059 (21.99%) aligned concordantly exactly 1 time
+    1309369 (3.15%) aligned concordantly >1 times
+25.14% overall alignment rate
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31172950 (74.94%) aligned concordantly 0 times
+    9155182 (22.01%) aligned concordantly exactly 1 time
+    1267864 (3.05%) aligned concordantly >1 times
+25.06% overall alignment rate
+Processed 41595996 sequences in total
+
+
+Successfully deleted the temporary files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.3.gz_C_to_T.fastq.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.3.gz_G_to_A.fastq.gz
+
+Final Alignment report
+======================
+Sequence pairs analysed in total:	41595996
+Final Cytosine Methylation Report
+=================================
+Total number of C's analysed:	1088479038
+
+Total methylated C's in CpG context:	27756978
+Total methylated C's in CHG context:	6287885
+Total methylated C's in CHH context:	26941628
+Total methylated C's in Unknown context:	910757
+
+Total unmethylated C's in CpG context:	22377162
+Total unmethylated C's in CHG context:	222507922
+Total unmethylated C's in CHH context:	782607463
+Total unmethylated C's in Unknown context:	1771435
+
+C methylated in CpG context:	55.4%
+C methylated in CHG context:	2.7%
+C methylated in CHH context:	3.3%
+C methylated in unknown context (CN or CHN):	34.0%
+
+
+Chromosomal sequence could not be extracted for	SRR15046839.243994937_243994937_length=150	NT_187499.1	1
+Processed 41000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.250395889_250395889_length=150	NT_187391.1	1
+Processed 39000000 sequence pairs so far
+Processed 41000000 sequence pairs so far
+Processed 40000000 sequence pairs so far
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31170004 (74.94%) aligned concordantly 0 times
+    9159020 (22.02%) aligned concordantly exactly 1 time
+    1266972 (3.05%) aligned concordantly >1 times
+25.06% overall alignment rate
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31144255 (74.87%) aligned concordantly 0 times
+    9142677 (21.98%) aligned concordantly exactly 1 time
+    1309064 (3.15%) aligned concordantly >1 times
+25.13% overall alignment rate
+Processed 41595996 sequences in total
+
+
+Successfully deleted the temporary files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.2.gz_C_to_T.fastq.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.2.gz_G_to_A.fastq.gz
+
+Final Alignment report
+======================
+Sequence pairs analysed in total:	41595996
+Final Cytosine Methylation Report
+=================================
+Total number of C's analysed:	1088237478
+
+Total methylated C's in CpG context:	27784282
+Total methylated C's in CHG context:	6286767
+Total methylated C's in CHH context:	26922394
+Total methylated C's in Unknown context:	908265
+
+Total unmethylated C's in CpG context:	22373613
+Total unmethylated C's in CHG context:	222496405
+Total unmethylated C's in CHH context:	782374017
+Total unmethylated C's in Unknown context:	1771058
+
+C methylated in CpG context:	55.4%
+C methylated in CHG context:	2.7%
+C methylated in CHH context:	3.3%
+C methylated in unknown context (CN or CHN):	33.9%
+
+
+Processed 39000000 sequence pairs so far
+41595995 reads; of these:
+  41595995 (100.00%) were paired; of these:
+    31167602 (74.93%) aligned concordantly 0 times
+    9162390 (22.03%) aligned concordantly exactly 1 time
+    1266003 (3.04%) aligned concordantly >1 times
+25.07% overall alignment rate
+41595995 reads; of these:
+  41595995 (100.00%) were paired; of these:
+    31141637 (74.87%) aligned concordantly 0 times
+    9145747 (21.99%) aligned concordantly exactly 1 time
+    1308611 (3.15%) aligned concordantly >1 times
+25.13% overall alignment rate
+Processed 41595995 sequences in total
+
+
+Successfully deleted the temporary files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.6.gz_C_to_T.fastq.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.6.gz_G_to_A.fastq.gz
+
+Final Alignment report
+======================
+Sequence pairs analysed in total:	41595995
+Final Cytosine Methylation Report
+=================================
+Total number of C's analysed:	1088554462
+
+Total methylated C's in CpG context:	27770529
+Total methylated C's in CHG context:	6284462
+Total methylated C's in CHH context:	26910613
+Total methylated C's in Unknown context:	910109
+
+Total unmethylated C's in CpG context:	22381776
+Total unmethylated C's in CHG context:	222511958
+Total unmethylated C's in CHH context:	782695124
+Total unmethylated C's in Unknown context:	1767465
+
+C methylated in CpG context:	55.4%
+C methylated in CHG context:	2.7%
+C methylated in CHH context:	3.3%
+C methylated in unknown context (CN or CHN):	34.0%
+
+
+Now waiting for all child processes to complete
+Processed 40000000 sequence pairs so far
+Processed 41000000 sequence pairs so far
+Processed 40000000 sequence pairs so far
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31172414 (74.94%) aligned concordantly 0 times
+    9157533 (22.02%) aligned concordantly exactly 1 time
+    1266049 (3.04%) aligned concordantly >1 times
+25.06% overall alignment rate
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31138798 (74.86%) aligned concordantly 0 times
+    9150105 (22.00%) aligned concordantly exactly 1 time
+    1307093 (3.14%) aligned concordantly >1 times
+25.14% overall alignment rate
+Processed 41595996 sequences in total
+
+
+Successfully deleted the temporary files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.4.gz_C_to_T.fastq.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.4.gz_G_to_A.fastq.gz
+
+Final Alignment report
+======================
+Sequence pairs analysed in total:	41595996
+Final Cytosine Methylation Report
+=================================
+Total number of C's analysed:	1088708063
+
+Total methylated C's in CpG context:	27788429
+Total methylated C's in CHG context:	6290293
+Total methylated C's in CHH context:	26935988
+Total methylated C's in Unknown context:	909570
+
+Total unmethylated C's in CpG context:	22383741
+Total unmethylated C's in CHG context:	222587431
+Total unmethylated C's in CHH context:	782722181
+Total unmethylated C's in Unknown context:	1768769
+
+C methylated in CpG context:	55.4%
+C methylated in CHG context:	2.7%
+C methylated in CHH context:	3.3%
+C methylated in unknown context (CN or CHN):	34.0%
+
+
+Processed 41000000 sequence pairs so far
+Chromosomal sequence could not be extracted for	SRR15046839.255087892_255087892_length=150	NC_012920.1	16421
+Processed 41000000 sequence pairs so far
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31170195 (74.94%) aligned concordantly 0 times
+    9157737 (22.02%) aligned concordantly exactly 1 time
+    1268064 (3.05%) aligned concordantly >1 times
+25.06% overall alignment rate
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31144585 (74.87%) aligned concordantly 0 times
+    9144773 (21.98%) aligned concordantly exactly 1 time
+    1306638 (3.14%) aligned concordantly >1 times
+25.13% overall alignment rate
+Processed 41595996 sequences in total
+
+
+Successfully deleted the temporary files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.1.gz_C_to_T.fastq.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.1.gz_G_to_A.fastq.gz
+
+Final Alignment report
+======================
+Sequence pairs analysed in total:	41595996
+Final Cytosine Methylation Report
+=================================
+Total number of C's analysed:	1088375223
+
+Total methylated C's in CpG context:	27779385
+Total methylated C's in CHG context:	6286870
+Total methylated C's in CHH context:	26945090
+Total methylated C's in Unknown context:	909063
+
+Total unmethylated C's in CpG context:	22393661
+Total unmethylated C's in CHG context:	222523146
+Total unmethylated C's in CHH context:	782447071
+Total unmethylated C's in Unknown context:	1768783
+
+C methylated in CpG context:	55.4%
+C methylated in CHG context:	2.7%
+C methylated in CHH context:	3.3%
+C methylated in unknown context (CN or CHN):	33.9%
+
+
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31170687 (74.94%) aligned concordantly 0 times
+    9157207 (22.01%) aligned concordantly exactly 1 time
+    1268102 (3.05%) aligned concordantly >1 times
+25.06% overall alignment rate
+41595996 reads; of these:
+  41595996 (100.00%) were paired; of these:
+    31140185 (74.86%) aligned concordantly 0 times
+    9147361 (21.99%) aligned concordantly exactly 1 time
+    1308450 (3.15%) aligned concordantly >1 times
+25.14% overall alignment rate
+Processed 41595996 sequences in total
+
+
+Successfully deleted the temporary files /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.5.gz_C_to_T.fastq.gz and /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.5.gz_G_to_A.fastq.gz
+
+Final Alignment report
+======================
+Sequence pairs analysed in total:	41595996
+Final Cytosine Methylation Report
+=================================
+Total number of C's analysed:	1088466771
+
+Total methylated C's in CpG context:	27778640
+Total methylated C's in CHG context:	6282981
+Total methylated C's in CHH context:	26929196
+Total methylated C's in Unknown context:	907617
+
+Total unmethylated C's in CpG context:	22374276
+Total unmethylated C's in CHG context:	222499764
+Total unmethylated C's in CHH context:	782601914
+Total unmethylated C's in Unknown context:	1768170
+
+C methylated in CpG context:	55.4%
+C methylated in CHG context:	2.7%
+C methylated in CHH context:	3.3%
+C methylated in unknown context (CN or CHN):	33.9%
+
+
+
+
+Right, cleaning up now...
+
+Deleting temporary sequence files...
+Now merging BAM files SRR15046839_1_val_1.fq.gz.temp.1.gz_bismark_bt2_pe.bam SRR15046839_1_val_1.fq.gz.temp.2.gz_bismark_bt2_pe.bam SRR15046839_1_val_1.fq.gz.temp.3.gz_bismark_bt2_pe.bam SRR15046839_1_val_1.fq.gz.temp.4.gz_bismark_bt2_pe.bam SRR15046839_1_val_1.fq.gz.temp.5.gz_bismark_bt2_pe.bam SRR15046839_1_val_1.fq.gz.temp.6.gz_bismark_bt2_pe.bam into >>> SRR15046839_1_val_1_bismark_bt2_pe.bam <<<
+Merging from file >> SRR15046839_1_val_1.fq.gz.temp.1.gz_bismark_bt2_pe.bam <<
