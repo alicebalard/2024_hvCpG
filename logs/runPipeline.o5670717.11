@@ -723,3 +723,95 @@ chr NT_187687.1 (170537 bp)
 chr NT_113949.2 (177381 bp)
 chr NC_012920.1 (16569 bp)
 
+Number of paired-end alignments with a unique best hit:	18156431
+Mapping efficiency:	43.6%
+
+Sequence pairs with no alignments under any condition:	21717857
+Sequence pairs did not map uniquely:	1721708
+Sequence pairs which were discarded because genomic sequence could not be extracted:	10
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	9077777	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	9078644	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+Number of paired-end alignments with a unique best hit:	18150285
+Mapping efficiency:	43.6%
+
+Sequence pairs with no alignments under any condition:	21721403
+Sequence pairs did not map uniquely:	1724308
+Sequence pairs which were discarded because genomic sequence could not be extracted:	8
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	9079704	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	9070573	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+Number of paired-end alignments with a unique best hit:	18158915
+Mapping efficiency:	43.7%
+
+Sequence pairs with no alignments under any condition:	21715050
+Sequence pairs did not map uniquely:	1722030
+Sequence pairs which were discarded because genomic sequence could not be extracted:	14
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	9082939	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	9075962	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+Number of paired-end alignments with a unique best hit:	18158282
+Mapping efficiency:	43.7%
+
+Sequence pairs with no alignments under any condition:	21717112
+Sequence pairs did not map uniquely:	1720602
+Sequence pairs which were discarded because genomic sequence could not be extracted:	19
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	9079095	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	9079168	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+Number of paired-end alignments with a unique best hit:	18153595
+Mapping efficiency:	43.6%
+
+Sequence pairs with no alignments under any condition:	21720331
+Sequence pairs did not map uniquely:	1722070
+Sequence pairs which were discarded because genomic sequence could not be extracted:	9
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	9079540	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	9074046	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+Number of paired-end alignments with a unique best hit:	18155163
+Mapping efficiency:	43.6%
+
+Sequence pairs with no alignments under any condition:	21717517
+Sequence pairs did not map uniquely:	1723316
+Sequence pairs which were discarded because genomic sequence could not be extracted:	11
+
+Number of sequence pairs with unique best (first) alignment came from the bowtie output:
+CT/GA/CT:	9078927	((converted) top strand)
+GA/CT/CT:	0	(complementary to (converted) top strand)
+GA/CT/GA:	0	(complementary to (converted) bottom strand)
+CT/GA/GA:	9076225	((converted) bottom strand)
+
+Number of alignments to (merely theoretical) complementary strands being rejected in total:	0
+
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.1.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.1.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.2.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.2.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.3.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.3.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.4.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.4.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.5.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.5.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_1_val_1.fq.gz.temp.6.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR15046839_2_val_2.fq.gz.temp.6.gz	
+

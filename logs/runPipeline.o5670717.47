@@ -1,0 +1,12 @@
+**** Job runPipeline.5670717 started at Wed 18 Jun 07:10:41 BST 2025 ****
+Task ID: 47
+Selected input file: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/00RawFastq/dataset3/SRR17509885
+We work on sample SRR17509885
+File already exists: /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/01_prepareMethMatrixFromSamples/infoAllsamples_Pipeline.csv
+Methcov has not been processed, run step 1 to 4: 
+**** Start of step 1: Trim galore with automatic parameters Wed 18 Jun 07:10:41 BST 2025 ****
+Run Trim Galore command without fastqc
+**** End of step 1: Wed 18 Jun 12:34:01 BST 2025 ****
+Step 2: Measure the number of reads in the trimmed file → store in matrix
+**** End of step 2: Wed 18 Jun 12:42:47 BST 2025 ****
+Step 3: Bisulfite conversion efficiency measure (BCREval) → store in matrix
