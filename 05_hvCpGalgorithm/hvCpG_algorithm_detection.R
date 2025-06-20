@@ -2,8 +2,10 @@
 ## Alice Balard
 ## June 2025
 
-## Input data for our algorithm needs to be in the format list of dataframes:
-# filtered_list_mat$Blood_Cauc %>% head
+## Input data for our algorithm needs to be "my_list_mat" in the format list of dataframes:
+
+
+## filtered_list_mat$Blood_Cauc %>% head
 #            GSM1870951  GSM1870952  GSM1870953 GSM1870954 GSM1870955  GSM1870956 GSM1870957
 # cg00000957 0.88650894 0.873786294 0.905683210 0.89756560 0.93243437 0.934731380 0.90938323
 # cg00001349 0.88900837 0.849494403 0.899719641 0.83146357 0.85704137 0.872804810 0.91467193
@@ -21,28 +23,6 @@ if(length(to_install)) install.packages(to_install)
 # Load all packages
 invisible(lapply(packages, library, character.only = TRUE))
 rm(packages, to_install)
-
-###############
-## Data load ##
-
-## Option 1. Maria's data (Hosted on LSHTM server of Matt Silver)
-if (which == "MariaArrays"){
-  source("/home/alice/2024_hvCpG/03_prepDatasetsMaria/dataprep_MariaArrays.R")
-  my_list_mat <- Maria_filtered_list_mat; rm(Maria_filtered_list_mat)
-  cpgnames <- unique(unlist(sapply(my_list_mat, row.names)))
-  cpgnames <- cpgnames[order(cpgnames)]
-}
-
-## Option 2. Atlas data (Hosted on UCL cs server; NB need high ram to read!)
-if (which == "Atlas"){
-  atlas_Robj <- readRDS("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/listDatasetsLoyfer2023.RDS")
-  my_list_mat <- atlas_Robj$data
-  cpgnames <- atlas_Robj$cpg_names
-  metadata <- atlas_Robj$metadata
-}
-
-## Option 3. WGBS on blood data
-## TBC
 
 ##############
 ## Run algo ##
