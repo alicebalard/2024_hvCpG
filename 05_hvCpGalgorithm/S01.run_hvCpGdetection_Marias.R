@@ -1,5 +1,8 @@
-## Arguments:
-which="MariaArrays"
+## Maria's data (Hosted on LSHTM server of Matt Silver)
+source("/home/alice/2024_hvCpG/03_prepDatasetsMaria/dataprep_MariaArrays.R")
+my_list_mat <- Maria_filtered_list_mat; rm(Maria_filtered_list_mat)
+cpgnames <- unique(unlist(sapply(my_list_mat, row.names)))
+cpgnames <- cpgnames[order(cpgnames)]
 
 cat(paste0("Prepare ", which, " dataset and source functions for optimisation:\n"))
 source("hvCpG_algorithm_detection.R")
