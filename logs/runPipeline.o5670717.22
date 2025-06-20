@@ -1566,3 +1566,5 @@ Now testing Bismark result file >/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS
 **** End of step 4.4: Wed 18 Jun 13:28:38 BST 2025 ****
 **** Start of sorting test bam file : Wed 18 Jun 13:28:38 BST 2025 ****
 **** Start of bssbper2 SNP call : Wed 18 Jun 13:49:51 BST 2025 ****
+**** End of bssbper2 : Wed 18 Jun 16:17:23 BST 2025 ****
+**** Job runPipeline.5670717 finished at Wed 18 Jun 16:17:23 BST 2025 ****

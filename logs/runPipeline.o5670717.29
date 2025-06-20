@@ -1547,4 +1547,24 @@ skipping header line:	@PG	ID:Bismark	VN:v0.22.3	CL:"bismark --genome /SAN/ghlab/
 **** End of step 4.3: Wed 18 Jun 14:56:29 BST 2025 ****
 Start of step 4.4: Methylation extraction Wed 18 Jun 14:56:37 BST 2025
 
-Now testing Bismark result file >/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated.bam< for positional sorting (which would be bad...)	
+Now testing Bismark result file >/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated.bam< for positional sorting (which would be bad...)	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.1
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.2
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.3
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.4
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.5
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.6
+
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.1.mbias
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.2.mbias
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.3.mbias
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.4.mbias
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.5.mbias
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/SRR17509867_1_val_1_bismark_bt2_pe.deduplicated_splitting_report.txt.6.mbias
+
+/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/CpG_OT_SRR17509867_1_val_1_bismark_bt2_pe.deduplicated.txt.gz	/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/TEMP/02Bismark/CpG_OB_SRR17509867_1_val_1_bismark_bt2_pe.deduplicated.txt.gz
+
+**** End of step 4.4: Wed 18 Jun 17:27:19 BST 2025 ****
+**** Start of sorting test bam file : Wed 18 Jun 17:27:19 BST 2025 ****
+**** Start of bssbper2 SNP call : Wed 18 Jun 17:48:43 BST 2025 ****
+**** End of bssbper2 : Wed 18 Jun 19:42:34 BST 2025 ****
+**** Job runPipeline.5670717 finished at Wed 18 Jun 19:42:34 BST 2025 ****
