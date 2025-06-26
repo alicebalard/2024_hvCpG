@@ -19,19 +19,26 @@ setwd("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/")
 ## Outputs cpgnames and my_list_mat:
 source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S02_recreateAtlas.R")
 my_list_mat <- recreateAtlas() ## 40 min with 100G needed
+
+length(my_list_mat)
+sapply(my_list_mat, ncol)
+
 rm(coverage_files, beta_files)
 
 ######################
 ## Launch algorithm ##
 ######################
 
-cat(paste0("Prepare ", which, " dataset and source functions for optimisation:\n"))
-source("hvCpG_algorithm_detection.R")
+cat("Prepare Atlas dataset and source functions for optimisation:\n")
+source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection.R")
 cat("Functions sourced.\n")
 
 ## Run algorithm on Atlas data:
 result <- getAllOptimAlpha_parallel(cpgvec = cpgnames, optimMeth="Nelder-Mead", NCORES=8, p0=0.95)
-save(result, test3000CpGsvec, MariasCpGs, file = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_NM_Atlas_0.95.RDA")
+
+saveRDS(result, file = "/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_NM_Atlas_0.95.RDS")
+
+cat("Run finished!")
 
 q()
 EOF
