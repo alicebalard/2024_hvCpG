@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 
 ## 4 June 2025
+=======
+## 17 June 2025
+>>>>>>> 61e00cb5c0e783e14750337e3825830f8551951e
 ## Alice Balard
 ## Preparation of data from the article: https://www.nature.com/articles/s41586-022-05580-6#Sec35
 
@@ -20,6 +24,7 @@
 
 ## ❗Note: this uint8 format limits values to range [0,255]. In case a CpG site appears over 255 times in the raw data (e.g. bam), its representation is normalized to this range. For example, if site CpG100 appeared 510 times, from which 100 times it was methylated, the 100'th row will be (50, 255). We find it negligible for most cases, but if you find it important, use the lbeta format (wgbstools pat2beta --lbeta ARGS...)
 
+<<<<<<< HEAD
 DIR="/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/"
 
 ## Read the CpG names
@@ -76,3 +81,77 @@ grouped_dfs <- lapply(grouped_samples, function(sample_list) {
 
 ## Save grouped_dfs in a RDS object for later
 saveRDS(grouped_dfs, file = paste0(DIR, "/listDatasetssLoyfer2023.RDS"))
+=======
+library(data.table)
+
+DIR <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/"
+OUTDIR <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets"
+
+## Read CpG names (only once)
+cpg_names <- fread(paste0(DIR, "hg38CpGpos_Loyfer2023.txt"), header = FALSE)[[1]]
+
+## Read metadata as data.table for speed and efficiency
+metadata <- fread(paste0(DIR, "SupTab1_Loyfer2023.csv"))
+names(metadata) <- gsub(" ", ".", names(metadata))
+
+## Select organs with at least 3 people
+metadata <- metadata[, .SD[.N >= 3], by = Group]
+
+## List all beta files
+files <- list.files(paste0(DIR, "betaFiles"), full.names = TRUE)
+metadata[, file := files[match(sub(".*-", "", metadata$Sample.name), sub(".hg38.beta", "", sub(".*-", "", files)))]]
+metadata <- metadata[!is.na(file)]
+
+## Functions to read beta and coverage
+read_beta <- function(file) {
+    file_size <- file.info(file)$size
+    raw <- readBin(file, "integer", n = file_size, size = 1, signed = FALSE)
+    mat <- matrix(raw, ncol = 2, byrow = TRUE)
+    beta <- mat[,1] / mat[,2]
+    beta[is.nan(beta) | is.infinite(beta)] <- NA_real_
+    return(beta)
+}
+
+read_coverage <- function(file) {
+    file_size <- file.info(file)$size
+    raw <- readBin(file, "integer", n = file_size, size = 1, signed = FALSE)
+    mat <- matrix(raw, ncol = 2, byrow = TRUE)
+    return(mat[,2])
+}
+
+## Process and save both beta and coverage matrices for each group
+for (grp in unique(metadata$Group)) {
+    coverage_file <- file.path(OUTDIR, paste0("coverage_", grp, ".rds"))
+    if (!file.exists(coverage_file)) {    
+        group_samples <- metadata[Group == grp]
+        group_matrix <- do.call(
+            cbind,
+            lapply(group_samples$file, read_beta)
+        )
+        colnames(group_matrix) <- group_samples$Sample.name
+
+        coverage_matrix <- do.call(
+            cbind,
+            lapply(group_samples$file, read_coverage)
+        )
+        colnames(coverage_matrix) <- group_samples$Sample.name
+
+        ## Save each group as its own RDS file (beta values)
+        saveRDS(
+            group_matrix,
+            file = file.path(OUTDIR, paste0("dataset_", grp, ".rds")),
+            compress = "xz"
+        )
+        ## Save each group as its own RDS file (coverage values)
+        saveRDS(
+            coverage_matrix,
+            file = file.path(OUTDIR, paste0("coverage_", grp, ".rds")),
+            compress = "xz"
+        )
+    }
+}
+
+## Save cpg_names and metadata separately
+saveRDS(cpg_names, file = file.path(OUTDIR, "cpg_names.rds"), compress = "xz")
+saveRDS(metadata, file = file.path(OUTDIR, "metadata.rds"), compress = "xz")
+>>>>>>> 61e00cb5c0e783e14750337e3825830f8551951e

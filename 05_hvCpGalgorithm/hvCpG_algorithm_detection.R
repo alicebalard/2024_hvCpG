@@ -2,8 +2,8 @@
 ## Alice Balard
 ## June 2025
 
-## Input data for our algorithm needs to be in the format list of dataframes:
-# filtered_list_mat$Blood_Cauc %>% head
+## Input data for our algorithm needs to be "my_list_mat" in the format list of dataframes:
+## filtered_list_mat$Blood_Cauc %>% head
 #            GSM1870951  GSM1870952  GSM1870953 GSM1870954 GSM1870955  GSM1870956 GSM1870957
 # cg00000957 0.88650894 0.873786294 0.905683210 0.89756560 0.93243437 0.934731380 0.90938323
 # cg00001349 0.88900837 0.849494403 0.899719641 0.83146357 0.85704137 0.872804810 0.91467193
@@ -22,28 +22,6 @@ if(length(to_install)) install.packages(to_install)
 invisible(lapply(packages, library, character.only = TRUE))
 rm(packages, to_install)
 
-###############
-## Data load ##
-
-## Option 1. Maria's data (Hosted on LSHTM server of Matt Silver)
-if (which == "MariaArrays"){
-  source("/home/alice/2024_hvCpG/03_prepDatasetsMaria/dataprep_MariaArrays.R")
-  my_list_mat <- Maria_filtered_list_mat; rm(Maria_filtered_list_mat)
-  cpgnames <- unique(unlist(sapply(my_list_mat, row.names)))
-  cpgnames <- cpgnames[order(cpgnames)]
-}
-
-## Option 2. Atlas data (Hosted on UCL cs server; NB need high ram to read!)
-if (which == "Atlas"){
-  atlas_Robj <- readRDS("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/listDatasetsLoyfer2023.RDS")
-  my_list_mat <- atlas_Robj$data
-  cpgnames <- atlas_Robj$cpg_names
-  metadata <- atlas_Robj$metadata
-}
-
-## Option 3. WGBS on blood data
-## TBC
-
 ##############
 ## Run algo ##
 
@@ -57,31 +35,36 @@ if (which == "Atlas"){
 # * mu_jk: named list for each dataset of vectors containing the mean methylation for each CpG j
 # * sigma_k: named list for each dataset of elements = the median sd for all CpGs
 
-get_scaled_list_mat <- function(our_list_datasets){
-  lapply(our_list_datasets, function(k){ ## Scale all the datasets in list
-    k = log2(k/(1-k))
+get_scaled_list_mat_chunked <- function(our_list_datasets, chunk_size = 1e6) {
+  lapply(our_list_datasets, function(k) {
+    k <- pmin(pmax(k, 1e-6), 1 - 1e-6)  # Clamp to avoid Inf
+    n <- nrow(k)
+    res <- matrix(NA_real_, nrow = n, ncol = ncol(k))
+    for (i in seq(1, n, by = chunk_size)) {
+      idx <- i:min(i + chunk_size - 1, n)
+      res[idx, ] <- log2(k[idx, ] / (1 - k[idx, ]))
+    }
+    res
   })
 }
 
-get_mu_jk_list <- function(scaled_list_mat){
-  lapply(scaled_list_mat, function(k){rowMeans(k, na.rm = T)}) ## list of mean methylation for each CpG j in all datasets
+get_mu_jk_list <- function(scaled_list_mat) {
+  lapply(scaled_list_mat, matrixStats::rowMeans2, na.rm = TRUE) ## from matrixstat, more efficient
 }
 
-get_sigma_k_list <- function(scaled_list_mat){
-  lapply(scaled_list_mat, function(k){
-    sd_j <- rowSds(k, na.rm = T)  ## Calculate the row (=per CpG j) sd
-    return(median(sd_j, na.rm = T))  ## Calculate the median sd in dataset k 
+## Calculate the row (=per CpG j) sd then calculate the median sd in dataset k  
+get_sigma_k_list <- function(scaled_list_mat) {
+  lapply(scaled_list_mat, function(k) {
+    median(matrixStats::rowSds(k, na.rm = TRUE), na.rm = TRUE)
   })
 }
 
+## Calculate row SDs for each dataset matrix, compute lambda values (95th percentile / median) for each dataset
 get_lambda_k_list <- function(scaled_list_mat) {
-  # Calculate row SDs for each dataset matrix
-  all_sd_jk <- sapply(scaled_list_mat, matrixStats::rowSds, na.rm = TRUE)
-  # Compute lambda values (95th percentile / median) for each dataset
-  lambdas <- sapply(all_sd_jk, \(x) quantile(x, 0.95, na.rm = TRUE) / median(x, na.rm = TRUE))
-  # Clean names and return
-  names(lambdas) <- gsub(".95%", "", names(lambdas))
-  return(lambdas)
+  sapply(scaled_list_mat, function(k) {
+    sd_vals <- matrixStats::rowSds(k, na.rm = TRUE)
+    quantile(sd_vals, 0.95, na.rm = TRUE) / median(sd_vals, na.rm = TRUE)
+  })
 }
 
 ## Likelihood function for a given CpG j
@@ -96,7 +79,7 @@ get_lambda_k_list <- function(scaled_list_mat) {
 # * alpha: probability of a CpG site to be a hvCpG
 
 ## Prepare our data in general environment:
-scaled_list_mat <- get_scaled_list_mat(my_list_mat)
+scaled_list_mat <- get_scaled_list_mat_chunked(my_list_mat)
 mu_jk_list <- get_mu_jk_list(scaled_list_mat)
 sigma_k_list <- get_sigma_k_list(scaled_list_mat)
 lambdas <- get_lambda_k_list(scaled_list_mat)
