@@ -37,31 +37,36 @@ rm(packages, to_install)
 # * mu_jk: named list for each dataset of vectors containing the mean methylation for each CpG j
 # * sigma_k: named list for each dataset of elements = the median sd for all CpGs
 
-get_scaled_list_mat <- function(our_list_datasets){
-  lapply(our_list_datasets, function(k){ ## Scale all the datasets in list
-    k = log2(k/(1-k))
+get_scaled_list_mat_chunked <- function(our_list_datasets, chunk_size = 1e6) {
+  lapply(our_list_datasets, function(k) {
+    k <- pmin(pmax(k, 1e-6), 1 - 1e-6)  # Clamp to avoid Inf
+    n <- nrow(k)
+    res <- matrix(NA_real_, nrow = n, ncol = ncol(k))
+    for (i in seq(1, n, by = chunk_size)) {
+      idx <- i:min(i + chunk_size - 1, n)
+      res[idx, ] <- log2(k[idx, ] / (1 - k[idx, ]))
+    }
+    res
   })
 }
 
-get_mu_jk_list <- function(scaled_list_mat){
-  lapply(scaled_list_mat, function(k){rowMeans(k, na.rm = T)}) ## list of mean methylation for each CpG j in all datasets
+get_mu_jk_list <- function(scaled_list_mat) {
+  lapply(scaled_list_mat, matrixStats::rowMeans2, na.rm = TRUE) ## from matrixstat, more efficient
 }
 
-get_sigma_k_list <- function(scaled_list_mat){
-  lapply(scaled_list_mat, function(k){
-    sd_j <- rowSds(k, na.rm = T)  ## Calculate the row (=per CpG j) sd
-    return(median(sd_j, na.rm = T))  ## Calculate the median sd in dataset k 
+## Calculate the row (=per CpG j) sd then calculate the median sd in dataset k  
+get_sigma_k_list <- function(scaled_list_mat) {
+  lapply(scaled_list_mat, function(k) {
+    median(matrixStats::rowSds(k, na.rm = TRUE), na.rm = TRUE)
   })
 }
 
+## Calculate row SDs for each dataset matrix, compute lambda values (95th percentile / median) for each dataset
 get_lambda_k_list <- function(scaled_list_mat) {
-  # Calculate row SDs for each dataset matrix
-  all_sd_jk <- sapply(scaled_list_mat, matrixStats::rowSds, na.rm = TRUE)
-  # Compute lambda values (95th percentile / median) for each dataset
-  lambdas <- sapply(all_sd_jk, \(x) quantile(x, 0.95, na.rm = TRUE) / median(x, na.rm = TRUE))
-  # Clean names and return
-  names(lambdas) <- gsub(".95%", "", names(lambdas))
-  return(lambdas)
+  sapply(scaled_list_mat, function(k) {
+    sd_vals <- matrixStats::rowSds(k, na.rm = TRUE)
+    quantile(sd_vals, 0.95, na.rm = TRUE) / median(sd_vals, na.rm = TRUE)
+  })
 }
 
 ## Likelihood function for a given CpG j
@@ -76,7 +81,7 @@ get_lambda_k_list <- function(scaled_list_mat) {
 # * alpha: probability of a CpG site to be a hvCpG
 
 ## Prepare our data in general environment:
-scaled_list_mat <- get_scaled_list_mat(my_list_mat)
+scaled_list_mat <- get_scaled_list_mat_chunked(my_list_mat)
 mu_jk_list <- get_mu_jk_list(scaled_list_mat)
 sigma_k_list <- get_sigma_k_list(scaled_list_mat)
 lambdas <- get_lambda_k_list(scaled_list_mat)
