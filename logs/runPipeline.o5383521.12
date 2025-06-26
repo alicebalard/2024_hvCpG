@@ -1,7 +1,0 @@
-**** Job runPipeline.5383521 started at Fri 21 Mar 18:36:17 GMT 2025 ****
-Task ID: 12
-Selected input file: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/00RawFastq/SRR28532136
-We work on sample SRR28532136
-File already exists: /SAN/ghlab/pophistory/Alice/hvCpG_project/data/WGBS_human/04SampleInfos/infoAllsamples_Pipeline.csv
-**** Start of step 1: Trim galore with automatic parameters Fri 21 Mar 18:36:17 GMT 2025 ****
-Run Trim Galore command without fastqc
