@@ -7,12 +7,8 @@ output: html_document
 
 ```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
-library(dplyr)
-library(data.table)
-library(matrixStats)
-library(ggplot2)
-library(reshape2)
-library(ggrepel)
+invisible(lapply(c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2", "ggrepel", "pROC", "stringr", "tibble", "viridis"),
+                 library, character.only = TRUE))
 ```
 
 # Data prep 
@@ -25,7 +21,7 @@ library(ggrepel)
 # Her hvCpG scripts are here:
 # /mnt/old_user_accounts/p3/maria/PhD/Projects/hvCpGs/Scripts/
 
-source("/home/alice/2024_hvCpG/03_prepDatasetsMaria/dataprep_MariaArrays.R")
+source("../03_prepDatasetsMaria/dataprep_MariaArrays.R")
 my_list_mat <- Maria_filtered_list_mat; rm(Maria_filtered_list_mat)
 cpgnames <- unique(unlist(sapply(my_list_mat, row.names)))
 cpgnames <- cpgnames[order(cpgnames)]
@@ -227,17 +223,17 @@ The zero in 8h sample was weirdly transformed. The cleaned values are very diffe
 ## Optimisation over multiple CpGs
 
 Run on LSHTM server (need to be outside of RStudio): 
-source("run_hvCpGdetection.R") ## for different parameters
+source("S01_run_hvCpGdetection_Marias.R") ## for different datasets
 
 ### "Nelder-Mead" or "L-BFGS-B" optimisation method?
 
 ```{r}
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_NM_test3000_0.95.RDA")
-results_NM_test3000_0.95 <- result %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
+## TO DO load the good one when have ran (to run after the apply)
+
+results_NM_test3000_0.95 <- readRDS("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_Nelder-Mead_my_list_mat_Mariads_test3000CpGsvec_0.95.RDS") %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
   dplyr::rename(alpha_NM_0.95=".")
 
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_LB_test3000_0.95.RDA")
-results_LB_test3000_0.95 <- result %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
+results_LB_test3000_0.95 <- readRDS("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_L-BFGS-B_my_list_mat_Mariads_test3000CpGsvec_0.95.RDS") %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
   dplyr::rename(alpha_LB_0.95="alpha")
 
 merge(results_NM_test3000_0.95, results_LB_test3000_0.95, by = "CpG") -> results_test3000_0.95
@@ -259,108 +255,87 @@ results_test3000_0.95[round(results_test3000_0.95$alpha_NM_0.95, 1) != round(res
 
 The probability of zero seems to be an artefact of the "L-BFGS-B" optimisation method, so we choose "Nelder-Mead".
 
-## Test different p0
+## ROC curves to define p0 and p1 matching Maria's approach
+
+$$
+p0 = P(Z_{j,k}=0 \mid Z_j=0) \\
+p1 = P(Z_{j,k}=1 \mid Z_j=1)
+$$
+p1 = 0.65 in Maria's approach (to be a hvCpG, it needs to be hypervariable in >65% of the datasets)
 
 ```{r}
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_NM_test3000_0.80.RDA")
-results_NM_test3000_0.80 <- result %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
-  dplyr::rename(alpha_NM_0.80=".")
+# List all result files
+files <- list.files(
+  "resultsDir",
+  pattern = "^results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_.*\\.RData$",
+  full.names = TRUE
+)
 
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_NM_test3000_0.99.RDA")
-results_NM_test3000_0.99 <- result %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
-  dplyr::rename(alpha_NM_0.99=".")
+# Initialize containers
+auc_results <- data.frame(p0 = numeric(), p1 = numeric(), AUC = numeric())
+roc_list <- list()
 
-merge(merge(results_NM_test3000_0.80, results_NM_test3000_0.99), results_NM_test3000_0.95) %>%
-  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
-                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
-  melt() %>%
-  mutate(p0 = sub(".*_", "", variable)) %>%
-  ggplot(aes(x=CpG, y=value, fill = Previous.results)) +
-  geom_point(pch=21, size = 2, alpha = .5) + 
-  scale_fill_manual(values = c("pink","black")) +
-  ylab("alpha (probability of being a hvCpG)") +
-  facet_grid(.~p0) + theme_bw() + theme(axis.text.x = element_blank()) 
-
-merge(merge(results_NM_test3000_0.80, results_NM_test3000_0.99), results_NM_test3000_0.95) %>%
-  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
-                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
-  melt() %>%
-  mutate(p0 = sub(".*_", "", variable)) %>%
-  ggplot(aes(x = factor(p0), y = value, fill = Previous.results)) +
-  geom_point(
-    pch = 21, alpha = .2,
-    position = position_jitterdodge(
-      jitter.width = 0.2,  # Horizontal jitter amount
-      dodge.width = 0.8     # Must match boxplot dodge width
-    )
-  ) +
-  geom_boxplot(position = position_dodge(width = 0.8), alpha = .5) +
-  scale_fill_manual(values = c("pink", "grey")) +
-  xlab("p0 (probability of true negative)") +
-  ylab("alpha (probability of being a hvCpG)") +
-  theme_bw()
-```
-
-P0=0.95 sounds fine, not much improvement by taking 0.99
-
-## What are the hvCpGs of Maria that I found with a very low probability of being a hvCpG with my approach?
-
-```{r}
-source("../03_prepDatasetsMaria/dataprep_MariaArrays.R")
-
-getplotfewCpG <-function(myvec, title){
-  listToTest <- lapply(Maria_filtered_list_mat, function(df) df[row.names(df) %in% myvec, , drop = FALSE])
-  # Combine the list into one data frame
-  mylist <- lapply(lapply(listToTest, as.data.frame), tibble::rownames_to_column, var = "CpG")
-  # Combine all into one long data frame
-  long_df <- bind_rows(mylist, .id = "Dataset")
-  # Pivot to long format: one row per CpG/sample/tissue
-  df_long <- na.omit(long_df %>%
-                       tidyr::pivot_longer(
-                         cols = -c(Dataset, CpG),
-                         names_to = "Sample",
-                         values_to = "Value"
-                       ))
+for (file in files) {
+  # Correct: load the current file
+  loaded_obj_name <- load(file)
+  result_obj <- get(loaded_obj_name)
   
-  # Plot with color by source data frame
-  ggplot(df_long, aes(x = Dataset, y = Value, color = Dataset)) +
-    geom_point() +
-    theme_bw() + theme(legend.position = "none") + facet_grid(.~CpG) +
-    ggtitle(title)+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 5))  
+  # Correct: match p0 and p1 from the **file name**, not the object!
+  p_str <- str_match(file, "_(\\d+(?:_\\d+)?)p0_(\\d+(?:_\\d+)?)p1")[, 2:3]
+  p0 <- as.numeric(gsub("_", ".", p_str[1]))
+  p1 <- as.numeric(gsub("_", ".", p_str[2]))
+  label <- paste0("p0=", p0, ", p1=", p1)
+  
+  df <- as.data.frame(result_obj) %>%
+    rownames_to_column("CpG")
+  
+  # Always rename first column to `alpha`
+  colnames(df)[2] <- "alpha"
+  
+  # True/false labels
+  alpha_vector <- df$alpha
+  truth_vector <- ifelse(df$CpG %in% MariasCpGs$CpG, 1, 0)
+  
+  # ROC + AUC
+  roc_obj <- roc(response = truth_vector, predictor = alpha_vector, quiet = TRUE)
+  auc_val <- as.numeric(auc(roc_obj))
+  
+  # Store AUC summary
+  auc_results <- rbind(auc_results, data.frame(p0 = p0, p1 = p1, AUC = auc_val))
+  
+  # Store ROC curve
+  roc_df <- coords(roc_obj, x = "all", ret = c("sensitivity", "specificity"), transpose = FALSE)
+  roc_df <- mutate(roc_df, FPR = 1 - specificity, TPR = sensitivity, label = label)
+  roc_list[[label]] <- roc_df
 }
 
-myvec1 <- results_NM_test3000_0.95 %>%
-  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
-                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
-  arrange(., alpha_NM_0.95) %>%
-  filter(Previous.results %in% "1500 hvCpG in Maria's study") %>% head(n=3) %>% select(CpG) %>%
-  unlist()
-getplotfewCpG(myvec1, "Maria's hvCpG with the 3 lowest probabilities to be one in Alice's")
+# Combine all ROC curves
+all_roc_df <- bind_rows(roc_list)
 
-myvec2 <- results_NM_test3000_0.95 %>%
-  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
-                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
-  arrange(., desc(alpha_NM_0.95)) %>%
-  filter(Previous.results %in% "1500 hvCpG in Maria's study") %>% head(n=3) %>% select(CpG) %>%
-  unlist()
-getplotfewCpG(myvec2, "Maria's hvCpG with the 3 highest probabilities to be one in Alice's")
+p_roc <- ggplot(all_roc_df, aes(x = FPR, y = TPR, color = label)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, linetype = "dashed") +
+  labs(title = "ROC Curves for Different (p0, p1) Settings",
+       x = "1 - Specificity (FPR)",
+       y = "Sensitivity (TPR)",
+       color = "Parameters") +
+  guides(color = guide_legend(ncol = 2)) +
+  theme_bw()
 
-myvec3 <- results_NM_test3000_0.95 %>%
-  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
-                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
-  arrange(., desc(alpha_NM_0.95)) %>%
-  filter(!Previous.results %in% "1500 hvCpG in Maria's study") %>% head(n=3) %>% select(CpG) %>%
-  unlist()
-getplotfewCpG(myvec3, "CpG not detected by Maria as hvCpG, with the 3 highest probabilities to be one in Alice's")
+# ==== HEATMAP OF AUCs ====
+best <- auc_results %>% arrange(desc(AUC)) %>% slice(1)
 
-myvec4 <- results_NM_test3000_0.95 %>%
-  mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
-                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% 
-  arrange(., alpha_NM_0.95) %>%
-  filter(!Previous.results %in% "1500 hvCpG in Maria's study") %>% head(n=3) %>% select(CpG) %>%
-  unlist()
-getplotfewCpG(myvec4, "CpG not detected by Maria as hvCpG, with the 3 lowest probabilities to be one in Alice's")
+p_heatmap <- ggplot(auc_results, aes(x = p0, y = p1, fill = AUC)) +
+  geom_tile(color = "white") +
+  geom_point(data = best, aes(x = p0, y = p1), color = "red", size = 4) +
+  geom_text(data = best, aes(label = paste0("Best AUC=", round(AUC, 3))), vjust = -1, color = "red") +
+  scale_fill_viridis_c(option = "plasma") +
+  labs(title = "AUC Heatmap by (p0, p1)", x = "p0", y = "p1") +
+  theme_minimal()
+
+# ==== SHOW BOTH PLOTS ====
+print(p_roc)
+print(p_heatmap)
 ```
 
 # Notes:
