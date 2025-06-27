@@ -2,8 +2,8 @@
 ## Alice Balard
 ## June 2025
 
-## Input data for our algorithm needs to be "my_list_mat" in the format list of dataframes:
-## filtered_list_mat$Blood_Cauc %>% head
+## Input data for our algorithm needs to be in the format list of dataframes:
+# filtered_list_mat$Blood_Cauc %>% head
 #            GSM1870951  GSM1870952  GSM1870953 GSM1870954 GSM1870955  GSM1870956 GSM1870957
 # cg00000957 0.88650894 0.873786294 0.905683210 0.89756560 0.93243437 0.934731380 0.90938323
 # cg00001349 0.88900837 0.849494403 0.899719641 0.83146357 0.85704137 0.872804810 0.91467193
@@ -35,36 +35,31 @@ rm(packages, to_install)
 # * mu_jk: named list for each dataset of vectors containing the mean methylation for each CpG j
 # * sigma_k: named list for each dataset of elements = the median sd for all CpGs
 
-get_scaled_list_mat_chunked <- function(our_list_datasets, chunk_size = 1e6) {
-  lapply(our_list_datasets, function(k) {
-    k <- pmin(pmax(k, 1e-6), 1 - 1e-6)  # Clamp to avoid Inf
-    n <- nrow(k)
-    res <- matrix(NA_real_, nrow = n, ncol = ncol(k))
-    for (i in seq(1, n, by = chunk_size)) {
-      idx <- i:min(i + chunk_size - 1, n)
-      res[idx, ] <- log2(k[idx, ] / (1 - k[idx, ]))
-    }
-    res
+get_scaled_list_mat <- function(our_list_datasets){
+  lapply(our_list_datasets, function(k){ ## Scale all the datasets in list
+    k = log2(k/(1-k))
   })
 }
 
-get_mu_jk_list <- function(scaled_list_mat) {
-  lapply(scaled_list_mat, matrixStats::rowMeans2, na.rm = TRUE) ## from matrixstat, more efficient
+get_mu_jk_list <- function(scaled_list_mat){
+  lapply(scaled_list_mat, function(k){rowMeans(k, na.rm = T)}) ## list of mean methylation for each CpG j in all datasets
 }
 
-## Calculate the row (=per CpG j) sd then calculate the median sd in dataset k  
-get_sigma_k_list <- function(scaled_list_mat) {
-  lapply(scaled_list_mat, function(k) {
-    median(matrixStats::rowSds(k, na.rm = TRUE), na.rm = TRUE)
+get_sigma_k_list <- function(scaled_list_mat){
+  lapply(scaled_list_mat, function(k){
+    sd_j <- rowSds(k, na.rm = T)  ## Calculate the row (=per CpG j) sd
+    return(median(sd_j, na.rm = T))  ## Calculate the median sd in dataset k 
   })
 }
 
-## Calculate row SDs for each dataset matrix, compute lambda values (95th percentile / median) for each dataset
 get_lambda_k_list <- function(scaled_list_mat) {
-  sapply(scaled_list_mat, function(k) {
-    sd_vals <- matrixStats::rowSds(k, na.rm = TRUE)
-    quantile(sd_vals, 0.95, na.rm = TRUE) / median(sd_vals, na.rm = TRUE)
-  })
+  # Calculate row SDs for each dataset matrix
+  all_sd_jk <- sapply(scaled_list_mat, matrixStats::rowSds, na.rm = TRUE)
+  # Compute lambda values (95th percentile / median) for each dataset
+  lambdas <- sapply(all_sd_jk, \(x) quantile(x, 0.95, na.rm = TRUE) / median(x, na.rm = TRUE))
+  # Clean names and return
+  names(lambdas) <- gsub(".95%", "", names(lambdas))
+  return(lambdas)
 }
 
 ## Likelihood function for a given CpG j
@@ -224,7 +219,7 @@ fun2optim_logit <- function(theta, scaled_list_mat, mu_jk_list, sigma_k_list, j,
 }
 
 ## Optimisation over multiple CpGs
-runOptim1CpG <- function(CpG, optimMeth, p0){  
+runOptim1CpG <- function(CpG, optimMeth, p0, p1){  
   if (optimMeth=="Nelder-Mead"){
     par_init = 0 # initial theta
     resOpt <- optim(
@@ -233,7 +228,7 @@ runOptim1CpG <- function(CpG, optimMeth, p0){
       scaled_list_mat = scaled_list_mat,
       mu_jk_list = mu_jk_list,
       sigma_k_list = sigma_k_list,
-      j = CpG, p0 = p0, p1 = 0.65, lambdas = lambdas,
+      j = CpG, p0 = p0, p1 = p1, lambdas = lambdas,
       method = "Nelder-Mead",
       control = list(fnscale = -1)  # to maximize
     )
@@ -251,7 +246,7 @@ runOptim1CpG <- function(CpG, optimMeth, p0){
       scaled_list_mat = scaled_list_mat,
       mu_jk_list = mu_jk_list,
       sigma_k_list = sigma_k_list,
-      j = CpG, p0 = p0, p1 = 0.65, lambdas = lambdas,
+      j = CpG, p0 = p0, p1 = p1, lambdas = lambdas,
       method = "L-BFGS-B",
       lower = par_lower,
       upper = par_upper,
@@ -261,18 +256,24 @@ runOptim1CpG <- function(CpG, optimMeth, p0){
 }
 
 ## Run the optimisation on a set of CpGs:
-getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0) {
+getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0, p1) {
     ## Prepare our data in general environment:
     scaled_list_mat = get_scaled_list_mat_chunked(my_list_mat)
     mu_jk_list = get_mu_jk_list(scaled_list_mat)
     sigma_k_list = get_sigma_k_list(scaled_list_mat)
     lambdas = get_lambda_k_list(scaled_list_mat)
     ## Run detection algorithm
-    res = mclapply(cpgvec, runOptim1CpG, mc.cores = NCORES, optimMeth = optimMeth, p0 = p0)
+    res = mclapply(cpgvec, runOptim1CpG, mc.cores = NCORES, optimMeth = optimMeth, p0 = p0, p1 = p1)
     names(res) = cpgvec
     my_matrix = do.call(rbind, res)
     rownames(my_matrix) = names(res)
     return(my_matrix)
+}
+
+runAndSave <- function(my_list_mat, cpgvec, resultDir, optimMeth, NCORES, p0, p1){
+    result = getAllOptimAlpha_parallel(my_list_mat, cpgvec, optimMeth=optimMeth, NCORES=NCORES, p0=p0, p1=p1)
+    saveRDS(result, file = paste0(resultDir, "results_", optimMeth, "_", deparse(substitute(my_list_mat)),
+                                  "_", deparse(substitute(cpgvec)), "_", as.character(p0), ".RDS"))
 }
 
 # Notes:
