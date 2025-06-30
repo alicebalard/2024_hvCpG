@@ -7,8 +7,11 @@ output: html_document
 
 ```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
-invisible(lapply(c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2", "ggrepel", "pROC", "stringr", "tibble", "viridis"),
-                 library, character.only = TRUE))
+invisible(lapply(
+  c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2",
+    "ggrepel", "pROC", "stringr", "tibble", "viridis", "ggridges"),
+  function(pkg) suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+))
 ```
 
 # Data prep 
@@ -230,15 +233,16 @@ source("S01_run_hvCpGdetection_Marias.R") ## for different datasets
 ```{r}
 ## TO DO load the good one when have ran (to run after the apply)
 
-results_NM_test3000_0.95 <- readRDS("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_Nelder-Mead_my_list_mat_Mariads_test3000CpGsvec_0.95.RDS") %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
-  dplyr::rename(alpha_NM_0.95=".")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1.RData")
+A <- results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1 %>% data.frame %>% tibble::rownames_to_column("CpG") %>% dplyr::rename(alpha_NM_0.95="alpha_hat")
 
-results_LB_test3000_0.95 <- readRDS("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_L-BFGS-B_my_list_mat_Mariads_test3000CpGsvec_0.95.RDS") %>% data.frame %>% tibble::rownames_to_column("CpG") %>% 
-  dplyr::rename(alpha_LB_0.95="alpha")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_L_BFGS_B_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1.RData")
+B <- results_L_BFGS_B_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1 %>% 
+  data.frame %>% tibble::rownames_to_column("CpG") %>% dplyr::rename(alpha_LB_0.95="alpha_hat")
 
-merge(results_NM_test3000_0.95, results_LB_test3000_0.95, by = "CpG") -> results_test3000_0.95
-results_test3000_0.95 %>% mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, 
-                                                           "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% ggplot(aes(x=alpha_LB_0.95, y=alpha_NM_0.95, fill = Previous.results)) +
+merge(A, B, by = "CpG") -> results_test3000_0.95
+results_test3000_0.95 %>% mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, 
+                                                  "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% ggplot(aes(x=alpha_LB_0.95, y=alpha_NM_0.95, fill = ishvCpG)) +
   geom_abline(slope = 1) +
   geom_point(pch=21, size = 3, alpha = .8) +
   theme_bw()
@@ -247,10 +251,10 @@ results_test3000_0.95 %>% mutate(Previous.results = ifelse(CpG %in% MariasCpGs$C
 Some CpGs have an alpha of 0 for LBB algorithm and different alpha for NM
 
 ```{r}
-results_test3000_0.95[round(results_test3000_0.95$alpha_NM_0.95, 1) != round(results_test3000_0.95$alpha_LB_0.95, 1),] %>% mutate(Previous.results = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% melt() %>%
+results_test3000_0.95[round(results_test3000_0.95$alpha_NM_0.95, 1) != round(results_test3000_0.95$alpha_LB_0.95, 1),] %>% mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>% melt() %>%
   ggplot(aes(x=CpG, y=value, fill = variable)) +
   geom_point(pch=21, size = 3, alpha = .8) +
-  facet_grid(Previous.results~.) + theme_bw() + theme(axis.text.x = element_blank())
+  facet_grid(ishvCpG~.) + theme_bw() + theme(axis.text.x = element_blank())
 ```
 
 The probability of zero seems to be an artefact of the "L-BFGS-B" optimisation method, so we choose "Nelder-Mead".
@@ -319,8 +323,8 @@ p_roc <- ggplot(all_roc_df, aes(x = FPR, y = TPR, color = label)) +
        x = "1 - Specificity (FPR)",
        y = "Sensitivity (TPR)",
        color = "Parameters") +
-  guides(color = guide_legend(ncol = 2)) +
-  theme_bw()
+  # guides(color = guide_legend(ncol = 3)) +
+  theme_bw() + theme(legend.position = "none")
 
 # ==== HEATMAP OF AUCs ====
 best <- auc_results %>% arrange(desc(AUC)) %>% slice(1)
@@ -337,6 +341,50 @@ p_heatmap <- ggplot(auc_results, aes(x = p0, y = p1, fill = AUC)) +
 print(p_roc)
 print(p_heatmap)
 ```
+
+Conclusion: p0 (true negative) is quite low in Maria's data (0.45)
+
+```{r}
+results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_45p0_0_6p1 %>% 
+  data.frame %>% tibble::rownames_to_column("CpG") %>% 
+  mutate(ishvCpG = ifelse(
+    CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
+  melt() %>%
+  ggplot(aes(x = value, y = ishvCpG, fill = ..x..)) +
+  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01) +
+  scale_fill_viridis(name = "alpha", option = "C") + theme_bw() +
+  theme(axis.title.y = element_blank())+
+  labs(title = 'Probability alpha of being hypervariable in my algorithm')
+```
+
+# Subset Maria's data following Atlas data structure (less N/dataset) to check power of detection in Atlas data:                           
+
+```{r}
+load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1.RData")
+
+data.frame(results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1,
+           results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_45p0_0_65p1) %>%
+  tibble::rownames_to_column("CpG") %>%
+  mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
+  dplyr::rename(alpha_mimicAtlas = alpha_hat, alpha_normalDS = alpha_hat.1) %>% 
+  ggplot(aes(x = alpha_normalDS, y = alpha_mimicAtlas)) +
+  geom_point(aes(fill=ishvCpG), pch =21, size =3, alpha = .3) + 
+  geom_abline(slope = 1, linetype = "dashed") + theme_bw() +
+  ggtitle(label = "p0=0.45, p1=0.60")
+
+load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1.RData")
+
+data.frame(results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1,
+           results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1) %>%
+  tibble::rownames_to_column("CpG") %>%
+  mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
+  dplyr::rename(alpha_mimicAtlas = alpha_hat, alpha_normalDS = alpha_hat.1) %>% 
+  ggplot(aes(x = alpha_normalDS, y = alpha_mimicAtlas)) +
+  geom_point(aes(fill=ishvCpG), pch =21, size =3, alpha = .3) + 
+  geom_abline(slope = 1, linetype = "dashed") + theme_bw() +
+  ggtitle(label = "p0=0.95, p1=0.65")
+```
+
 
 # Notes:
 
