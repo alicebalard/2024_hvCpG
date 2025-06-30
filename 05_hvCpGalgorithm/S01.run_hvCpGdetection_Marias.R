@@ -37,7 +37,7 @@ runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = test3000CpGsvec,
 ## We choose Nelder-Mead, as L-BFGS-B produces weird zero values (see Rmd plots).
 
 ## Vary p0 true negative and p1 true positive:
-params <- seq(0.5, 1, 0.05)
+params <- seq(0.4, 1, 0.05)
 grid <- expand.grid(p0 = params, p1 = params)
 
 apply(grid, 1, function(row) {
@@ -96,16 +96,12 @@ for (i in seq_len(n_matrices)) {
 sapply(my_list_mat_Mariads_mimicAtlas, ncol)
 
 ## Run the algorithm on the reduced matrices: will we manage to find them?
-cat(paste0("Prepare Maria's dataset and source functions for optimisation:\n"))
-source("05_hvCpGalgorithm/hvCpG_algorithm_detection_v1.R")
-cat("Functions sourced.\n")
-
 runAndSave(
   my_list_mat = my_list_mat_Mariads_mimicAtlas,
   cpgvec = test3000CpGsvec,
   optimMeth = "Nelder-Mead",
   NCORES = 8,
-  p0 = 0.95,
-  p1 = 0.65,
+  p0 = 0.45,
+  p1 = 0.6,
   resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/"
 )
