@@ -4,6 +4,7 @@
 #$ -l tmem=50G
 #$ -l h_vmem=50G
 #$ -l h_rt=24:00:00
+#$ -pe smp 8 # Request 8 cores
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
 
@@ -13,6 +14,9 @@ Rscript --vanilla - << 'EOF'
 
 library(future)
 library(future.apply)
+
+## Allow larger globals
+options(future.globals.maxSize = 2 * 1024^3)  # 2GB
 
 plan(multisession, workers = 8)
 
@@ -36,18 +40,27 @@ coverage_files_named <- setNames(coverage_files, get_group(coverage_files))
 total_cpgs <- length(cpgnames)
 n_chunks <- ceiling(total_cpgs / chunk_size)
 
+# Pre-index to avoid sending cpgnames
+rownames_list <- lapply(groups, function(grp) {
+  list(
+    beta = beta_files_named[[grp]],
+    coverage = coverage_files_named[[grp]]
+  )
+})
+names(rownames_list) <- groups
+
 for (chunk_idx in seq_len(n_chunks)) {
   idx_start <- (chunk_idx - 1) * chunk_size + 1
   idx_end <- min(chunk_idx * chunk_size, total_cpgs)
-  rows_chunk <- cpgnames[idx_start:idx_end]
+  rows_chunk <- idx_start:idx_end
 
   message(sprintf("Processing chunk %d/%d: rows %d-%d",
                   chunk_idx, n_chunks, idx_start, idx_end))
 
-  # 1️⃣ Get logical vectors for each group: TRUE if row passes filter
   chunk_pass_matrix <- future_lapply(groups, function(grp) {
-    beta_mat <- readRDS(beta_files_named[[grp]])
-    coverage_mat <- readRDS(coverage_files_named[[grp]])
+    beta_mat <- readRDS(rownames_list[[grp]]$beta)
+    coverage_mat <- readRDS(rownames_list[[grp]]$coverage)
+
     rownames(beta_mat) <- cpgnames
     rownames(coverage_mat) <- cpgnames
 
@@ -62,7 +75,6 @@ for (chunk_idx in seq_len(n_chunks)) {
     keep_rows
   })
 
-  # 2️⃣ Combine: keep rows passing in ≥ half groups
   pass_counts <- Reduce(`+`, chunk_pass_matrix)
   final_keep_rows <- pass_counts >= length(groups) / 2
   rows_final <- rows_chunk[final_keep_rows]
@@ -75,10 +87,10 @@ for (chunk_idx in seq_len(n_chunks)) {
     next
   }
 
-  # 3️⃣ For each group, pull final rows only
   chunk_group_list <- future_lapply(groups, function(grp) {
-    beta_mat <- readRDS(beta_files_named[[grp]])
-    coverage_mat <- readRDS(coverage_files_named[[grp]])
+    beta_mat <- readRDS(rownames_list[[grp]]$beta)
+    coverage_mat <- readRDS(rownames_list[[grp]]$coverage)
+
     rownames(beta_mat) <- cpgnames
     rownames(coverage_mat) <- cpgnames
 
@@ -103,6 +115,7 @@ for (chunk_idx in seq_len(n_chunks)) {
 }
 
 message("✅✅✅ All chunked processing done.")
+
 EOF
 
 echo "Done!"
