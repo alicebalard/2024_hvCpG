@@ -231,12 +231,10 @@ source("S01_run_hvCpGdetection_Marias.R") ## for different datasets
 ### "Nelder-Mead" or "L-BFGS-B" optimisation method?
 
 ```{r}
-## TO DO load the good one when have ran (to run after the apply)
-
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1.RData")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1.RData")
 A <- results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1 %>% data.frame %>% tibble::rownames_to_column("CpG") %>% dplyr::rename(alpha_NM_0.95="alpha_hat")
 
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_L_BFGS_B_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1.RData")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_L_BFGS_B_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1.RData")
 B <- results_L_BFGS_B_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1 %>% 
   data.frame %>% tibble::rownames_to_column("CpG") %>% dplyr::rename(alpha_LB_0.95="alpha_hat")
 
@@ -270,7 +268,7 @@ p1 = 0.65 in Maria's approach (to be a hvCpG, it needs to be hypervariable in >6
 ```{r}
 # List all result files
 files <- list.files(
-  "resultsDir",
+  "resultsDir/Mariads",
   pattern = "^results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_.*\\.RData$",
   full.names = TRUE
 )
@@ -360,7 +358,7 @@ results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_45p0_0_6p1 %>%
 # Subset Maria's data following Atlas data structure (less N/dataset) to check power of detection in Atlas data:                           
 
 ```{r}
-load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1.RData")
+load("resultsDir/Mariads/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1.RData")
 
 data.frame(results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1,
            results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_45p0_0_65p1) %>%
@@ -372,7 +370,7 @@ data.frame(results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_
   geom_abline(slope = 1, linetype = "dashed") + theme_bw() +
   ggtitle(label = "p0=0.45, p1=0.60")
 
-load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1.RData")
+load("resultsDir/Mariads/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1.RData")
 
 data.frame(results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1,
            results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1) %>%

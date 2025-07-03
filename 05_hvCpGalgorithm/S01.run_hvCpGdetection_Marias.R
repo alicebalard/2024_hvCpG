@@ -30,10 +30,10 @@ test3000CpGsvec <- c(sub1500$hvCpG_name, sub1500$controlCpG_name)
 
 ## Nelder-Mead or L-BFGS-B?
 runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = test3000CpGsvec,
-           optimMeth="Nelder-Mead", NCORES=8, p0=0.95, p1=0.65, resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/")
+           optimMeth="Nelder-Mead", NCORES=8, p0=0.95, p1=0.65, resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/")
 
 runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = test3000CpGsvec,
-           optimMeth="L-BFGS-B", NCORES=8, p0=0.95, p1=0.65, resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/")
+           optimMeth="L-BFGS-B", NCORES=8, p0=0.95, p1=0.65, resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/")
 ## We choose Nelder-Mead, as L-BFGS-B produces weird zero values (see Rmd plots).
 
 ## Vary p0 true negative and p1 true positive:
@@ -48,12 +48,12 @@ apply(grid, 1, function(row) {
         NCORES = 8,
         p0 = as.numeric(row["p0"]),
         p1 = as.numeric(row["p1"]),
-        resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/"
+        resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/"
     )
 })
 
 ## On Rstudio
-## myres <- readRDS("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/results_Nelder-Mead_minitest_0.95.RDS")
+## myres <- readRDS("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Nelder-Mead_minitest_0.95.RDS")
 ## head(myres)
 ## nrow(myres)
 
@@ -103,5 +103,5 @@ runAndSave(
   NCORES = 8,
   p0 = 0.45,
   p1 = 0.6,
-  resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/"
+  resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/"
 )
