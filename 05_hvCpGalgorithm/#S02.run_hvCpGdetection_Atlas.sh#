@@ -1,18 +1,16 @@
 #!/bin/bash
 #$ -N runhvCpGAtlas
 #$ -S /bin/bash
-#$ -pe smp 16
-#$ -l tmem=4G
-#$ -l h_vmem=4G
-#$ -l h_rt=100:00:00
-#$ -m abe ## Send an email if abort, begins or end
-#$ -M alice.cam.balard@gmail.com
+#$ -pe smp 8
+#$ -l tmem=10G
+#$ -l h_vmem=10G
+#$ -l h_rt=24:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 #$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
 
 R --vanilla <<EOF
 
-myNthreads=16 ## specify here
+myNthreads=8 ## specify here
 
 ## Atlas data was preprocessed in 04/S02 and cut in chunks of 500k CpG
 ## Filter: CpGs with at least 20 coverage in at least 3 individuals and at least half of the datasets
@@ -34,7 +32,7 @@ chunk_data <- readRDS(file_path)
 cpgnames <- unique(unlist(sapply(chunk_data, row.names)))
 cpgnames <- cpgnames[order(cpgnames)]
 
-#### test subset: 8 cores, 10Gb/core 2h30 for 50k pos
+#### test subset
 ### Take first 50,000 CpG names
 ##cpg_subset <- cpgnames[1:50000]
 ##chunk_data_subset <- lapply(
@@ -48,8 +46,6 @@ cpgnames <- cpgnames[order(cpgnames)]
 system.time(runAndSave(my_list_mat = chunk_data, cpgvec = cpgnames,
            optimMeth="Nelder-Mead", NCORES=myNthreads, p0=0.95, p1=0.65, 
 resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
-
-message("Done!")
 
 q()
 EOF

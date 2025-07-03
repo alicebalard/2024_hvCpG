@@ -1,0 +1,108 @@
+⏭️  Chunk 1/59 already exists. Skipping.
+⏭️  Chunk 2/59 already exists. Skipping.
+⏭️  Chunk 3/59 already exists. Skipping.
+⏭️  Chunk 4/59 already exists. Skipping.
+⏭️  Chunk 5/59 already exists. Skipping.
+⏭️  Chunk 6/59 already exists. Skipping.
+⏭️  Chunk 7/59 already exists. Skipping.
+⏭️  Chunk 8/59 already exists. Skipping.
+⏭️  Chunk 9/59 already exists. Skipping.
+⏭️  Chunk 10/59 already exists. Skipping.
+⏭️  Chunk 11/59 already exists. Skipping.
+⏭️  Chunk 12/59 already exists. Skipping.
+⏭️  Chunk 13/59 already exists. Skipping.
+⏭️  Chunk 14/59 already exists. Skipping.
+⏭️  Chunk 15/59 already exists. Skipping.
+⏭️  Chunk 16/59 already exists. Skipping.
+⏭️  Chunk 17/59 already exists. Skipping.
+⏭️  Chunk 18/59 already exists. Skipping.
+⏭️  Chunk 19/59 already exists. Skipping.
+⏭️  Chunk 20/59 already exists. Skipping.
+Processing chunk 21/59: rows 10000001-10500000
+➡️ 474582 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0021.rds
+Processing chunk 22/59: rows 10500001-11000000
+➡️ 457086 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0022.rds
+Processing chunk 23/59: rows 11000001-11500000
+➡️ 419484 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0023.rds
+Processing chunk 24/59: rows 11500001-12000000
+➡️ 446181 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0024.rds
+Processing chunk 25/59: rows 12000001-12500000
+➡️ 452965 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0025.rds
+Processing chunk 26/59: rows 12500001-13000000
+➡️ 429432 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0026.rds
+Processing chunk 27/59: rows 13000001-13500000
+➡️ 472571 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0027.rds
+Processing chunk 28/59: rows 13500001-14000000
+➡️ 465684 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0028.rds
+Processing chunk 29/59: rows 14000001-14500000
+➡️ 378895 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0029.rds
+Processing chunk 30/59: rows 14500001-15000000
+➡️ 457723 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0030.rds
+Processing chunk 31/59: rows 15000001-15500000
+➡️ 435945 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0031.rds
+Processing chunk 32/59: rows 15500001-16000000
+➡️ 460770 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0032.rds
+Processing chunk 33/59: rows 16000001-16500000
+➡️ 450561 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0033.rds
+Processing chunk 34/59: rows 16500001-17000000
+➡️ 430525 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0034.rds
+Processing chunk 35/59: rows 17000001-17500000
+➡️ 460087 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0035.rds
+Processing chunk 36/59: rows 17500001-18000000
+➡️ 470342 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0036.rds
+Processing chunk 37/59: rows 18000001-18500000
+➡️ 436495 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0037.rds
+Processing chunk 38/59: rows 18500001-19000000
+➡️ 474496 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0038.rds
+Processing chunk 39/59: rows 19000001-19500000
+➡️ 433255 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0039.rds
+Processing chunk 40/59: rows 19500001-20000000
+➡️ 429928 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0040.rds
+Processing chunk 41/59: rows 20000001-20500000
+➡️ 472879 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0041.rds
+Processing chunk 42/59: rows 20500001-21000000
+➡️ 398489 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0042.rds
+Processing chunk 43/59: rows 21000001-21500000
+➡️ 466280 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0043.rds
+Processing chunk 44/59: rows 21500001-22000000
+➡️ 442336 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0044.rds
+Processing chunk 45/59: rows 22000001-22500000
+➡️ 393559 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0045.rds
+Processing chunk 46/59: rows 22500001-23000000
+➡️ 453542 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0046.rds
+Processing chunk 47/59: rows 23000001-23500000
+➡️ 382226 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0047.rds
+Processing chunk 48/59: rows 23500001-24000000
+➡️ 455133 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0048.rds
+Processing chunk 49/59: rows 24000001-24500000
+➡️ 388374 CpGs pass in ≥ half groups for this chunk.
+✅ Saved: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks//filtered_chunk_0049.rds
+Processing chunk 50/59: rows 24500001-25000000
