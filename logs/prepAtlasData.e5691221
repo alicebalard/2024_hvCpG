@@ -1,4 +1,0 @@
-Error in match(Sample.name, sub(".*-", "", files)) : 
-  object 'Sample.name' not found
-Calls: [ -> [.data.table -> eval -> eval -> match
-Execution halted
