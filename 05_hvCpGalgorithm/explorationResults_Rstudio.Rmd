@@ -278,7 +278,13 @@ auc_results <- data.frame(p0 = numeric(), p1 = numeric(), AUC = numeric())
 roc_list <- list()
 
 for (file in files) {
-  # Correct: load the current file
+  # Skip empty (zero-byte) files
+  if (file.info(file)$size == 0) {
+    warning("Skipping empty file: ", basename(file))
+    next
+  }
+  
+  # load the current file
   loaded_obj_name <- load(file)
   result_obj <- get(loaded_obj_name)
   
@@ -315,7 +321,7 @@ for (file in files) {
 all_roc_df <- bind_rows(roc_list)
 
 p_roc <- ggplot(all_roc_df, aes(x = FPR, y = TPR, color = label)) +
-  geom_line(size = 1) +
+  geom_line(linewidth = 1) +
   geom_abline(slope = 1, linetype = "dashed") +
   labs(title = "ROC Curves for Different (p0, p1) Settings",
        x = "1 - Specificity (FPR)",
