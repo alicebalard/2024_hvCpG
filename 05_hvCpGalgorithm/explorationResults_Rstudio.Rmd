@@ -278,7 +278,13 @@ auc_results <- data.frame(p0 = numeric(), p1 = numeric(), AUC = numeric())
 roc_list <- list()
 
 for (file in files) {
-  # Correct: load the current file
+  # Skip empty (zero-byte) files
+  if (file.info(file)$size == 0) {
+    warning("Skipping empty file: ", basename(file))
+    next
+  }
+  
+  # load the current file
   loaded_obj_name <- load(file)
   result_obj <- get(loaded_obj_name)
   
@@ -315,7 +321,7 @@ for (file in files) {
 all_roc_df <- bind_rows(roc_list)
 
 p_roc <- ggplot(all_roc_df, aes(x = FPR, y = TPR, color = label)) +
-  geom_line(size = 1) +
+  geom_line(linewidth = 1) +
   geom_abline(slope = 1, linetype = "dashed") +
   labs(title = "ROC Curves for Different (p0, p1) Settings",
        x = "1 - Specificity (FPR)",
@@ -342,47 +348,95 @@ print(p_heatmap)
 
 Conclusion: p0 (true negative) is quite low in Maria's data (0.45)
 
-```{r}
-results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_45p0_0_6p1 %>% 
-  data.frame %>% tibble::rownames_to_column("CpG") %>% 
-  mutate(ishvCpG = ifelse(
-    CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
-  melt() %>%
-  ggplot(aes(x = value, y = ishvCpG, fill = ..x..)) +
-  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01) +
-  scale_fill_viridis(name = "alpha", option = "C") + theme_bw() +
-  theme(axis.title.y = element_blank())+
-  labs(title = 'Probability alpha of being hypervariable in my algorithm')
-```
-
 # Subset Maria's data following Atlas data structure (less N/dataset) to check power of detection in Atlas data:                           
 
+3 tries for (p0, p1): 
+* c(0.45, 0.6): best AUC, closest to Maria's data; low specificity and mid sensitivity                                                                  * c(0.95, 0.65): our original idea, high specificity but mid sensitivity                                                                                * c(0.9, 0.9): high specificity and sensitivity       
+
 ```{r}
-load("resultsDir/Mariads/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1.RData")
-
-data.frame(results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1,
-           results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_45p0_0_65p1) %>%
-  tibble::rownames_to_column("CpG") %>%
-  mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
-  dplyr::rename(alpha_mimicAtlas = alpha_hat, alpha_normalDS = alpha_hat.1) %>% 
-  ggplot(aes(x = alpha_normalDS, y = alpha_mimicAtlas)) +
-  geom_point(aes(fill=ishvCpG), pch =21, size =3, alpha = .3) + 
-  geom_abline(slope = 1, linetype = "dashed") + theme_bw() +
-  ggtitle(label = "p0=0.45, p1=0.60")
-
-load("resultsDir/Mariads/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1.RData")
-
-data.frame(results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1,
-           results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_95p0_0_65p1) %>%
-  tibble::rownames_to_column("CpG") %>%
-  mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
-  dplyr::rename(alpha_mimicAtlas = alpha_hat, alpha_normalDS = alpha_hat.1) %>% 
-  ggplot(aes(x = alpha_normalDS, y = alpha_mimicAtlas)) +
-  geom_point(aes(fill=ishvCpG), pch =21, size =3, alpha = .3) + 
-  geom_abline(slope = 1, linetype = "dashed") + theme_bw() +
-  ggtitle(label = "p0=0.95, p1=0.65")
+makeMyPlots <-function(p0p1){
+  df1 = get(paste0("results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_", p0p1))
+  df2 = get(paste0("results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_", p0p1))
+  
+  p_str = str_match(p0p1, "(\\d+_\\d+)p0_(\\d+_\\d+)p1")[, 2:3]
+  p0 = gsub("_", ".", p_str[1])
+  p1 = gsub("_", ".", p_str[2])
+  label = paste0("p0=", p0, ", p1=", p1)
+  
+  plot1 = data.frame(df1, df2) %>%
+    tibble::rownames_to_column("CpG") %>%
+    mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
+    dplyr::rename(alpha_normalDS = alpha_hat, alpha_mimicAtlas = alpha_hat.1) %>% 
+    ggplot(aes(x = alpha_normalDS, y = alpha_mimicAtlas)) +
+    geom_point(aes(fill=ishvCpG), pch =21, size =3, alpha = .3) + 
+    geom_abline(slope = 1, linetype = "dashed") + theme_bw() +
+    ggtitle(label = label)
+  
+  # === 1) Prepare the ORIGINAL ===
+  df_original = df1 %>%
+    data.frame() %>%
+    tibble::rownames_to_column("CpG") %>%
+    mutate(ishvCpG = ifelse(
+      CpG %in% MariasCpGs$CpG,
+      "1500 hvCpG in Maria's study",
+      "1500 mQTL matching controls"
+    ),
+    source = "original") %>%
+    melt()
+  
+  # === 2) Prepare the MIMIC ===
+  df_mimic = df2 %>%
+    data.frame() %>%
+    tibble::rownames_to_column("CpG") %>%
+    mutate(ishvCpG = ifelse(
+      CpG %in% MariasCpGs$CpG,
+      "1500 hvCpG in Maria's study",
+      "1500 mQTL matching controls"
+    ),
+    source = "mimicAtlas") %>%
+    melt()
+  
+  # === 3) Combine ===
+  df_combined = bind_rows(df_original, df_mimic)
+  
+  # === 4) Plot ===
+  plot2 = ggplot(df_combined, aes(x = value, y = ishvCpG, fill = ..x..)) +
+    geom_density_ridges_gradient(scale = 3, rel_min_height = .01) +
+    facet_wrap(~source, ncol = 1) +
+    scale_fill_viridis(name = "alpha", option = "C") +
+    theme_bw() +
+    theme(axis.title.y = element_blank()) +
+    labs(title = "Probability alpha of being hypervariable in my algorithm",
+         subtitle = "Original data of Maria vs mimic Atlas structure")
+  
+  print(plot1)
+  print(plot2)
+}
 ```
 
+
+## 1. low specificity and mid sensitivity (p0=0.45 and p1=0.6)
+### best AUC, my algorithm with the closest proximity to Maria's approach)
+
+```{r}
+load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1.RData")
+makeMyPlots(p0p1 = "0_45p0_0_6p1")
+```
+
+## 2. high specificity and mid sensitivity (p0=0.95 and p1=0.65)
+### high true negative rate, i.e. high specificity)
+
+```{r}
+load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1.RData")
+makeMyPlots(p0p1 = "0_95p0_0_65p1")
+```
+
+## 3. high specificity and sensitivity (p0=0.9 and p1=0.9)
+
+```{r}
+load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_9p0_0_9p1.RData")
+makeMyPlots(p0p1 = "0_9p0_0_9p1")
+```
 
 # Notes:
 
