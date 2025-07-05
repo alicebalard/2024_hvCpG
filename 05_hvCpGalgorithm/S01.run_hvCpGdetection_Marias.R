@@ -96,12 +96,25 @@ for (i in seq_len(n_matrices)) {
 sapply(my_list_mat_Mariads_mimicAtlas, ncol)
 
 ## Run the algorithm on the reduced matrices: will we manage to find them?
-runAndSave(
-  my_list_mat = my_list_mat_Mariads_mimicAtlas,
-  cpgvec = test3000CpGsvec,
-  optimMeth = "Nelder-Mead",
-  NCORES = 8,
-  p0 = 0.45,
-  p1 = 0.6,
-  resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/"
-)
+
+## Define your fixed list of (p0, p1) pairs
+my_p_combinations <- list(c(0.45, 0.6),## best AUC, closest to Maria's data; low specificity and mid sensitivity
+                          c(0.95, 0.65), ## my original idea, high specificity but mid sensitivity
+                          c(0.9, 0.9)) ## high specificity and sensitivity
+# Loop over each pair
+for (pair in my_p_combinations) {
+  p0_val <- pair[1]
+  p1_val <- pair[2]
+
+  message(sprintf("Running for p0 = %.2f | p1 = %.2f", p0_val, p1_val))
+
+  runAndSave(
+    my_list_mat = my_list_mat_Mariads_mimicAtlas,
+    cpgvec = test3000CpGsvec,
+    optimMeth = "Nelder-Mead",
+    NCORES = 8,
+    p0 = p0_val,
+    p1 = p1_val,
+    resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/"
+  )
+}

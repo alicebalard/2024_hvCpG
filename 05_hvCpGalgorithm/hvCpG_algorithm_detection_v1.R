@@ -175,12 +175,6 @@ getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list
         
         dataset_loglik <- sum(log(rowSums(col_sums %*% proba_hvCpG_vec)))
         
-        ## dataset_loglik <- sum(
-        ##   ifelse(log(rowSums(col_sums %*% proba_hvCpG_vec))==-Inf,
-        ##          min(log(rowSums(col_sums %*% proba_hvCpG_vec))[
-        ##            log(rowSums(col_sums %*% proba_hvCpG_vec)) > -10E100]),
-        ##          log(rowSums(col_sums %*% proba_hvCpG_vec))))
-        
         if (!is.finite(dataset_loglik)) {
             warning(paste("Non-finite loglik for", j, "in dataset", k))
             dataset_loglik <- 0  ## Neutral value for problematic calculations
@@ -223,8 +217,9 @@ fun2optim <- function(par, scaled_list_mat, mu_jk_list, sigma_k_list,
 runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
                          lambdas, optimMeth, p0, p1) {
   if (optimMeth == "Nelder-Mead") {
-    par_init <- 0  # theta
-    resOpt <- optim(
+##      par_init <- 0  # theta
+      par_init <- -9.2  # theta for alpha = 0.0001
+      resOpt <- optim(
       par = par_init,
       fn = fun2optim_logit,
       scaled_list_mat = scaled_list_mat,
@@ -232,13 +227,13 @@ runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
       sigma_k_list = sigma_k_list,
       j = CpG, p0 = p0, p1 = p1, lambdas = lambdas,
       method = "Nelder-Mead",
-      control = list(fnscale = -1)
+      control = list(fnscale = -1) ## maximize instead of minimize
     )
     alpha_hat <- 1 / (1 + exp(-resOpt$par))  # back-transform
     return(alpha_hat)
 
   } else if (optimMeth == "L-BFGS-B") {
-    par_init <- c(alpha = 0.5)
+    par_init <- c(alpha = 0)
     par_lower <- c(alpha = 0)
     par_upper <- c(alpha = 1)
     resOpt <- optim(
@@ -255,49 +250,47 @@ runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
     )
     return(resOpt$par)
   } else {
-    stop("Unknown optimization method: ", optimMeth)
+      stop("Unknown optimization method: ", optimMeth)
   }
 }
 
 getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0, p1) {
-  # Prepare data inside the function
-  scaled_list_mat <- scale_my_list(my_list_mat)
-  mu_jk_list <- calc_mu_jk(scaled_list_mat)
-  sigma_k_list <- calc_sigma_k(scaled_list_mat)
-  lambdas <- calc_lambdas(scaled_list_mat)
-  message("Inputs prepared")
-  # Use safe wrapper with tryCatch
-  safe_run <- function(CpG) {
-    tryCatch(
-      runOptim1CpG(
-        CpG,
-        scaled_list_mat = scaled_list_mat,
-        mu_jk_list = mu_jk_list,
-        sigma_k_list = sigma_k_list,
-        lambdas = lambdas,
-        optimMeth = optimMeth,
-        p0 = p0,
-        p1 = p1
-      ),
-      error = function(e) {
-        message(sprintf("CpG %s failed: %s", CpG, e$message))
-        NA_real_
-      }
-    )
-  }
+                                        # Prepare data inside the function
+    scaled_list_mat <- scale_my_list(my_list_mat)
+    mu_jk_list <- calc_mu_jk(scaled_list_mat)
+    sigma_k_list <- calc_sigma_k(scaled_list_mat)
+    lambdas <- calc_lambdas(scaled_list_mat)
+    message("Inputs prepared")
+                                        # Use safe wrapper with tryCatch
+    safe_run <- function(CpG) {
+        tryCatch(
+            runOptim1CpG(
+                CpG,
+                scaled_list_mat = scaled_list_mat,
+                mu_jk_list = mu_jk_list,
+                sigma_k_list = sigma_k_list,
+                lambdas = lambdas,
+                optimMeth = optimMeth,
+                p0 = p0,
+                p1 = p1
+            ),
+            error = function(e) {
+            message(sprintf("CpG %s failed: %s", CpG, e$message))
+            NA_real_
+        }
+        )
+    }
 
-  # Run in parallel
-  res <- mclapply(cpgvec, safe_run, mc.cores = NCORES)
+    ## Run in parallel
+    res <- mclapply(cpgvec, safe_run, mc.cores = NCORES, mc.preschedule = FALSE, mc.allow.fatal = TRUE)
 
-  # Make sure length is same
-  names(res) <- cpgvec
+    ## Make sure length is same
+    names(res) <- cpgvec
 
-  # Convert to matrix (safely)
-  my_matrix <- matrix(unlist(res), ncol = 1)
-  rownames(my_matrix) <- names(res)
-  colnames(my_matrix) <- "alpha_hat"
-
-  return(my_matrix)
+    my_matrix <- matrix(unlist(res), ncol = 1)
+    rownames(my_matrix) <- names(res)
+    colnames(my_matrix) <- "alpha_hat"
+    return(my_matrix)    
 }
 
 ## Top-level: run & save results
