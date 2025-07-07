@@ -282,7 +282,7 @@ getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0
     }
 
     ## Run in parallel
-    res <- mclapply(cpgvec, safe_run, mc.cores = NCORES, mc.preschedule = FALSE, mc.allow.fatal = TRUE)
+    res <- mclapply(cpgvec, safe_run, mc.cores = NCORES, mc.preschedule = FALSE)
 
     ## Make sure length is same
     names(res) <- cpgvec
