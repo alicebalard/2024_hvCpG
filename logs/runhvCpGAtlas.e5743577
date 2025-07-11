@@ -1,0 +1,39 @@
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+
+Attaching package: ‘matrixStats’
+
+The following object is masked from ‘package:dplyr’:
+
+    count
+
+
+Attaching package: ‘reshape2’
+
+The following objects are masked from ‘package:data.table’:
+
+    dcast, melt
+
+Inputs prepared
+Saving to file: /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/results_Nelder_Mead_chunk_data_subset100k_cpg_subset_0_95p0_0_65p1.RData
+Saved successfully.
+Warning message:
+In mclapply(cpgvec, safe_run, mc.cores = NCORES, mc.preschedule = FALSE,  :
+  100000 function calls resulted in an error
+Done!
