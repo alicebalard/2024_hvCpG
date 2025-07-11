@@ -2,8 +2,6 @@
 ## Data prep Maria datasets ##
 ## Hosted on LSHTM server of Matt Silver
 
-library(dplyr)
-
 ## On Maria
 MariasCpGs <- read.csv("~/2024_hvCpG/03_prepDatasetsMaria/Derakhshan2022_ST5_hvCpG.txt")
 
@@ -30,26 +28,27 @@ all_cpgs <- unlist(lapply(rds_list_mat, rownames))
 cpg_counts <- table(all_cpgs)
 common_cpgs <- names(cpg_counts[cpg_counts >= 15])
 
-my_list_mat_Mariads <- lapply(rds_list_mat, function(mat) {
+Maria_filtered_list_mat <- lapply(rds_list_mat, function(mat) {
   mat[rownames(mat) %in% common_cpgs, ]
 })
 
-cpgnames <- unique(unlist(sapply(my_list_mat_Mariads, row.names)))
-cpgnames <- cpgnames[order(cpgnames)]
+rm(rds_list_mat1,rds_list_mat2, rds_list_mat, common_cpgs,cpg_counts,all_cpgs, folder1, rds_files1)
 
-## Load mQTL-matched controls
-cistrans_GoDMC_hvCpG_matched_control <- 
-  read.table("~/2024_hvCpG/03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
+library(rhdf5)
 
-table(cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% MariasCpGs$CpG)
-cpgnames[cpgnames %in% cistrans_GoDMC_hvCpG_matched_control$hvCpG_name] %>% length
-cpgnames[cpgnames %in% cistrans_GoDMC_hvCpG_matched_control$controlCpG_name]  %>% length
+# Save each matrix as an HDF5 file with CpG names
+output_folder <- "~/outputHDF5_temp"
 
-sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control[
-  cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpgnames &
-    cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpgnames,]
+dir.create(output_folder, showWarnings = FALSE)
 
-rm(rds_list_mat1,rds_list_mat2, rds_list_mat, common_cpgs, cpg_counts,all_cpgs, folder1, rds_files1, 
-   cistrans_GoDMC_hvCpG_matched_control)
-
-message("This script loads: \nMariasCpGs: list of hvCpG from Derakhshan2022 (ST5)\nmy_list_mat_Mariads: list of datasets\ncpgnames: all the cpgs covered in the datasets after filtration\nsub_cistrans_GoDMC_hvCpG_matched_control: cpgnames and matching mQTL controls (if exist)")
+for (name in names(Maria_filtered_list_mat)) {
+  mat <- Maria_filtered_list_mat[[name]]
+  file <- file.path(output_folder, paste0(name, "_matrix.h5"))
+  
+  h5createFile(file)
+  h5write(mat, file, "beta_matrix")
+  h5write(rownames(mat), file, "cpg_names")
+  h5write(colnames(mat), file, "sample_names")
+  
+  cat("✅ Saved:", file, "\n")
+}

@@ -1,0 +1,68 @@
+Number of slots allocated: 16
+
+R version 4.2.1 (2022-06-23) -- "Funny-Looking Kid"
+Copyright (C) 2022 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> myNthreads <- as.integer(Sys.getenv("NSLOTS"))
+> cat("Number of threads inside R:", myNthreads, "\n")
+Number of threads inside R: 16 
+> 
+> ## Atlas data was preprocessed in 04/S02 and cut in chunks of 500k CpG
+> ## Filter: CpGs with at least 20 coverage in at least 3 individuals and at least half of the datasets
+> input_dir <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks/"
+> 
+> ## Source the function:
+> source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v1.R")
+> 
+> #########################
+> ## test ## **************
+> chunk_idx <- 1
+> 
+> ## Build filename (must match your sprintf format!)
+> file_path <- file.path(input_dir, sprintf("filtered_chunk_%04d.rds", chunk_idx))
+> 
+> ## Load it
+> chunk_data <- readRDS(file_path)
+> 
+> cpgnames <- unique(unlist(sapply(chunk_data, row.names)))
+> cpgnames <- cpgnames[order(cpgnames)]
+> 
+> #### test subset 50k: 8 cores, 10Gb/core 2h30 for 50k pos
+> #### test subset 50k: 12 cores, 10Gb/core: 30min
+> #### test subset 100k: 16 cores, 5Gb/core:
+> 
+> ### Take first 100,000 CpG names
+> cpg_subset <- cpgnames[1:100000]
+> chunk_data_subset100k <- lapply(
++   chunk_data,
++  function(mat) {
++     rows_to_keep <- intersect(rownames(mat), cpg_subset)
++     mat[rows_to_keep, , drop = FALSE]
++   }
++ )
+> 
+> system.time(runAndSave(my_list_mat = chunk_data_subset100k, cpgvec = cpg_subset,
++            optimMeth="Nelder-Mead", NCORES=myNthreads, p0=0.95, p1=0.65, 
++ resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
+    user   system  elapsed 
+1310.715 9150.375 4223.508 
+> 
+> message("Done!")
+> 
+> q()
