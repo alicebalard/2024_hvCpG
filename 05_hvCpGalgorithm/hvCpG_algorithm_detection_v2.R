@@ -28,40 +28,6 @@ rm(packages, to_install)
 # Maximum likelihood analysis
 ## The equation is: $$ \log\left(P(M_j)\right) = \sum_{i=1}^{n} \log\left( \sum_{Z_j=0}^{1} \left( \sum_{Z_{j,k}=0}^{1} P(M_{i,j} \mid Z_{j,k}) \times P(Z_{j,k} \mid Z_j) \right) \times P(Z_j) \right) $$
 
-## Functions to calculate different parameters of the datasets:
-## These functions take as imput a list of matrices containing our datasets
-# It outputs
-# * scaled_list_mat: a list of scaled matrices
-# * mu_jk: named list for each dataset of vectors containing the mean methylation for each CpG j
-# * sigma_k: named list for each dataset of elements = the median sd for all CpGs
-
-scale_my_list <- function(our_list_datasets){
-  lapply(our_list_datasets, function(k){ ## Scale all the datasets in list
-    k = log2(k/(1-k))
-  })
-}
-
-calc_mu_jk <- function(scaled_list_mat){
-  lapply(scaled_list_mat, function(k){rowMeans(k, na.rm = T)}) ## list of mean methylation for each CpG j in all datasets
-}
-
-calc_sigma_k <- function(scaled_list_mat){
-  lapply(scaled_list_mat, function(k){
-    sd_j <- rowSds(k, na.rm = T)  ## Calculate the row (=per CpG j) sd
-    return(median(sd_j, na.rm = T))  ## Calculate the median sd in dataset k 
-  })
-}
-
-calc_lambdas <- function(scaled_list_mat) {
-    ## Calculate row SDs for each dataset matrix
-    all_sd_jk <- sapply(scaled_list_mat, matrixStats::rowSds, na.rm = TRUE)
-    ## Compute lambda values (95th percentile / median) for each dataset
-    lambdas <- sapply(all_sd_jk, \(x) quantile(x, 0.95, na.rm = TRUE) / median(x, na.rm = TRUE))
-    ## Clean names and return
-    names(lambdas) <- gsub(".95%", "", names(lambdas))
-    return(lambdas)
-}
-
 ## Likelihood function for a given CpG j
 ## The arguments are:
 ##   * my_list_mat: a list of matrices, i.e. our datasets
@@ -225,6 +191,40 @@ runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
   }
 }
 
+## Functions to calculate different parameters of the datasets:
+## These functions take as imput a list of matrices containing our datasets
+# It outputs
+# * scaled_list_mat: a list of scaled matrices
+# * mu_jk: named list for each dataset of vectors containing the mean methylation for each CpG j
+# * sigma_k: named list for each dataset of elements = the median sd for all CpGs
+
+scale_my_list <- function(our_list_datasets){
+  lapply(our_list_datasets, function(k){ ## Scale all the datasets in list
+    k = log2(k/(1-k))
+  })
+}
+
+calc_mu_jk <- function(scaled_list_mat){
+  lapply(scaled_list_mat, function(k){rowMeans(k, na.rm = T)}) ## list of mean methylation for each CpG j in all datasets
+}
+
+calc_sigma_k <- function(scaled_list_mat){
+  lapply(scaled_list_mat, function(k){
+    sd_j <- rowSds(k, na.rm = T)  ## Calculate the row (=per CpG j) sd
+    return(median(sd_j, na.rm = T))  ## Calculate the median sd in dataset k 
+  })
+}
+
+calc_lambdas <- function(scaled_list_mat) {
+    ## Calculate row SDs for each dataset matrix
+    all_sd_jk <- sapply(scaled_list_mat, matrixStats::rowSds, na.rm = TRUE)
+    ## Compute lambda values (95th percentile / median) for each dataset
+    lambdas <- sapply(all_sd_jk, \(x) quantile(x, 0.95, na.rm = TRUE) / median(x, na.rm = TRUE))
+    ## Clean names and return
+    names(lambdas) <- gsub(".95%", "", names(lambdas))
+    return(lambdas)
+}
+
 getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0, p1) {
     message("🚀 Scaling datasets...")
     scaled_list_mat <- scale_my_list(my_list_mat)
@@ -243,20 +243,30 @@ getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0
         })
 
         mu_jk_values <- sapply(mu_jk_list, function(mu) mu[CpG])
-        sigma_k_values <- sapply(sigma_k_list, function(sigma) sigma[CpG])
-
         return(list(CpG = CpG, scaled_list_mat = scaled_row_list,
-                    mu_jk_list = mu_jk_values, sigma_k_list = sigma_k_values))
+                    mu_jk_list = mu_jk_values))
     })
 
     ##  2️⃣ Then define a lightweight worker:
     safe_run <- function(job) {
+        CpG = job$CpG        
         tryCatch({
+            ## Extract slices
+            scaled_row_list <- lapply(scaled_list_mat, function(mat) {
+                row_idx <- which(rownames(mat) == CpG)
+                if (length(row_idx) == 0) return(NULL)
+                mat[row_idx, , drop = FALSE]
+            })
+
+            mu_jk_values <- lapply(mu_jk_list, function(mu) {
+                mu[CpG]
+            })
+
             runOptim1CpG(
-                CpG = job$CpG,
-                scaled_list_mat = job$scaled_list_mat,
-                mu_jk_list = job$mu_jk_list,
-                sigma_k_list = job$sigma_k_list,
+                CpG = CpG,
+                scaled_list_mat = scaled_row_list,
+                mu_jk_list = mu_jk_values,
+                sigma_k_list = sigma_k_list,
                 lambdas = lambdas,
                 optimMeth = optimMeth,
                 p0 = p0,
@@ -268,6 +278,7 @@ getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0
             NA_real_
         })
     }
+
     ## 3️⃣ Now run only the small slices in parallel:
     message("✅ Inputs ready. Running parallel optimization...")
     res <- mclapply(job_list, safe_run, mc.cores = NCORES, mc.preschedule = FALSE)
@@ -281,39 +292,39 @@ getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0
 
 ## Top-level: run & save results
 runAndSave <- function(my_list_mat, cpgvec, resultDir, optimMeth, NCORES, p0, p1) {
-  # Generate a safe object name
-  var_mylist <- deparse(substitute(my_list_mat))
-  var_cpgvec <- deparse(substitute(cpgvec))
-  obj_name <- paste0(
-    "results_", optimMeth, "_",
-    var_mylist, "_",
-    var_cpgvec, "_",
-    p0, "p0_", p1, "p1"
-  )
-  obj_name <- gsub("[^[:alnum:]_]", "_", obj_name)
+    ## Generate a safe object name
+    var_mylist <- deparse(substitute(my_list_mat))
+    var_cpgvec <- deparse(substitute(cpgvec))
+    obj_name <- paste0(
+        "results_", optimMeth, "_",
+        var_mylist, "_",
+        var_cpgvec, "_",
+        p0, "p0_", p1, "p1"
+    )
+    obj_name <- gsub("[^[:alnum:]_]", "_", obj_name)
 
-  # Ensure directory ends with /
-  if (!grepl("/$", resultDir)) resultDir <- paste0(resultDir, "/")
-  if (!dir.exists(resultDir)) stop("Result directory does not exist: ", resultDir)
+    ## Ensure directory ends with /
+    if (!grepl("/$", resultDir)) resultDir <- paste0(resultDir, "/")
+    if (!dir.exists(resultDir)) stop("Result directory does not exist: ", resultDir)
 
-  file_name <- paste0(resultDir, obj_name, ".RData")
+    file_name <- paste0(resultDir, obj_name, ".RData")
 
-  # Check if file exists first
-  if (file.exists(file_name)) {
-    message("File already exists: ", file_name)
-    message("Skipping run to avoid overwriting.")
-    return(invisible(NULL))
-  }
+    ## Check if file exists first
+    if (file.exists(file_name)) {
+        message("File already exists: ", file_name)
+        message("Skipping run to avoid overwriting.")
+        return(invisible(NULL))
+    }
 
-  # Run only if file does not exist
-  result <- getAllOptimAlpha_parallel(
-    my_list_mat, cpgvec, optimMeth = optimMeth, NCORES = NCORES, p0 = p0, p1 = p1
-  )
+    ## Run only if file does not exist
+    result <- getAllOptimAlpha_parallel(
+        my_list_mat, cpgvec, optimMeth = optimMeth, NCORES = NCORES, p0 = p0, p1 = p1
+    )
 
-  # Assign to global env so user has it
-  assign(obj_name, result, envir = .GlobalEnv)
-
-  message("Saving to file: ", file_name)
-  save(list = obj_name, file = file_name, envir = .GlobalEnv)
-  message("💾 Result saved successfully.")
+    ## Assign to global env so user has it
+    assign(obj_name, result, envir = .GlobalEnv)
+   
+    message("Saving to file: ", file_name)
+    save(list = obj_name, file = file_name, envir = .GlobalEnv)
+    message("💾 Result saved successfully.")
 }

@@ -1,56 +1,69 @@
 ###########
 ## NB: this script has to run on R outside of Rstudio, for compatibility issues with parallelisation
 
+## Specific libPath for R --vanilla
+.libPaths(c(
+  "/opt/R/packages/lib_4.4.1",
+  "/home/alice/R/x86_64-pc-linux-gnu-library/4.4",
+  "/usr/lib/R/library"
+))
+
 setwd("/home/alice/2024_hvCpG/")
 
 ## Maria's data (Hosted on LSHTM server of Matt Silver)
 source("03_prepDatasetsMaria/dataprep_MariaArrays.R")
-my_list_mat_Mariads <- Maria_filtered_list_mat; rm(Maria_filtered_list_mat)
-cpgnames <- unique(unlist(sapply(my_list_mat_Mariads, row.names)))
-cpgnames <- cpgnames[order(cpgnames)]
 
-cat(paste0("Prepare Maria's dataset and source functions for optimisation:\n"))
+cat(paste0("Prepare Maria's dataset and source functions (v1) for optimisation:\n"))
 source("05_hvCpGalgorithm/hvCpG_algorithm_detection_v1.R")
 cat("Functions sourced.\n")
 
-## Load mQTL-matched controls
-cistrans_GoDMC_hvCpG_matched_control <- read.table("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
-
-table(cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% MariasCpGs$CpG)
-cpgnames[cpgnames %in% cistrans_GoDMC_hvCpG_matched_control$hvCpG_name] %>% length
-cpgnames[cpgnames %in% cistrans_GoDMC_hvCpG_matched_control$controlCpG_name]  %>% length
+## Set up my number of threads
+myNthreads=50
 
 ##########################################################################
-## Part 1. Run hvCpG on 1500 hvCpG from Maria and matched mQTL controls ##
+## Part 1. Run hvCpG on 3453 hvCpG from Maria and matched mQTL controls ##
 ##########################################################################
-
-set.seed(123)
-sub1500 <- cistrans_GoDMC_hvCpG_matched_control[sample(1:nrow(cistrans_GoDMC_hvCpG_matched_control), 1500), ]
-test3000CpGsvec <- c(sub1500$hvCpG_name, sub1500$controlCpG_name)
+hvCpGandControls <- c(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, 
+                     sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name)
 
 ## Nelder-Mead or L-BFGS-B?
-runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = test3000CpGsvec,
-           optimMeth="Nelder-Mead", NCORES=8, p0=0.95, p1=0.65, resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/")
+runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = hvCpGandControls,
+           optimMeth="Nelder-Mead", NCORES=myNthreads, p0=0.95, p1=0.65, 
+           resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/")
 
-runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = test3000CpGsvec,
-           optimMeth="L-BFGS-B", NCORES=8, p0=0.95, p1=0.65, resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/")
+runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = hvCpGandControls,
+           optimMeth="L-BFGS-B", NCORES=myNthreads, p0=0.95, p1=0.65, 
+           resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/")
 ## We choose Nelder-Mead, as L-BFGS-B produces weird zero values (see Rmd plots).
 
-## Vary p0 true negative and p1 true positive:
+library(foreach)
+library(doParallel)
+
+# Number of *parallel tasks* (each task uses 5 cores)
+NWORKERS <- 10
+
+cl <- makeCluster(NWORKERS)
+registerDoParallel(cl)
+
+# Your grid
 params <- seq(0.4, 1, 0.05)
 grid <- expand.grid(p0 = params, p1 = params)
 
-apply(grid, 1, function(row) {
-    runAndSave(
-        my_list_mat = my_list_mat_Mariads,
-        cpgvec = test3000CpGsvec,
-        optimMeth = "Nelder-Mead",
-        NCORES = 8,
-        p0 = as.numeric(row["p0"]),
-        p1 = as.numeric(row["p1"]),
-        resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/"
-    )
-})
+# No need to assign to `results` — just run for side effects
+foreach(i = 1:nrow(grid), .packages = packages) %dopar% {
+  row <- grid[i, ]
+  runAndSave(
+    my_list_mat = my_list_mat_Mariads,
+    cpgvec = hvCpGandControls,
+    optimMeth = "Nelder-Mead",
+    NCORES = 5,
+    p0 = row$p0,
+    p1 = row$p1,
+    resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/"
+  )
+}
+
+stopCluster(cl)
 
 ## On Rstudio
 ## myres <- readRDS("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Nelder-Mead_minitest_0.95.RDS")
@@ -112,9 +125,9 @@ for (pair in my_p_combinations) {
     my_list_mat = my_list_mat_Mariads_mimicAtlas,
     cpgvec = test3000CpGsvec,
     optimMeth = "Nelder-Mead",
-    NCORES = 8,
+    NCORES = myNthreads,
     p0 = p0_val,
     p1 = p1_val,
-    resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/"
+    resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/"
   )
 }
