@@ -1,25 +1,18 @@
-#!/bin/bash
-#$ -N runhvCpGAtlas
-#$ -S /bin/bash
-#$ -pe smp 16
-#$ -l tmem=4G
-#$ -l h_vmem=4G
-#$ -l h_rt=100:00:00
-#$ -m abe ## Send an email if abort, begins or end
-#$ -M alice.cam.balard@gmail.com
-#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
-#$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
+NSLOTS=10
+
+echo "Number of slots allocated: $NSLOTS"
 
 R --vanilla <<EOF
 
-myNthreads=16 ## specify here
+myNthreads <- as.integer(Sys.getenv("NSLOTS"))
+cat("Number of threads inside R:", myNthreads, "\n")
 
 ## Atlas data was preprocessed in 04/S02 and cut in chunks of 500k CpG
 ## Filter: CpGs with at least 20 coverage in at least 3 individuals and at least half of the datasets
 input_dir <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks/"
 
 ## Source the function:
-source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v1.R")
+source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R")
 
 #########################
 ## test ## **************
@@ -34,20 +27,27 @@ chunk_data <- readRDS(file_path)
 cpgnames <- unique(unlist(sapply(chunk_data, row.names)))
 cpgnames <- cpgnames[order(cpgnames)]
 
-#### test subset: 8 cores, 10Gb/core 2h30 for 50k pos
-### Take first 50,000 CpG names
-##cpg_subset <- cpgnames[1:50000]
-##chunk_data_subset <- lapply(
-##  chunk_data,
-##  function(mat) {
-##    rows_to_keep <- intersect(rownames(mat), cpg_subset)
-##    mat[rows_to_keep, , drop = FALSE]
-##  }
-##)
+#### test subset 50k: 8 cores, 10Gb/core 2h30 for 50k pos
+#### test subset 50k: 12 cores, 10Gb/core: 30min (must have bugged) ou 2h20?
+#### test all 500k: 12 cores, 10Gb/core
 
-system.time(runAndSave(my_list_mat = chunk_data, cpgvec = cpgnames,
+### Take first 50 CpG names
+cpg_subset <- cpgnames[1:50]
+chunk_data_subset50 <- lapply(
+  chunk_data,
+ function(mat) {
+    rows_to_keep <- intersect(rownames(mat), cpg_subset)
+    mat[rows_to_keep, , drop = FALSE]
+  }
+)
+
+system.time(runAndSave(my_list_mat = chunk_data_subset50, cpgvec = cpg_subset,
            optimMeth="Nelder-Mead", NCORES=myNthreads, p0=0.95, p1=0.65, 
 resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
+
+#system.time(runAndSave(my_list_mat = chunk_data, cpgvec = cpgnames,                                                                                                        
+#           optimMeth="Nelder-Mead", NCORES=myNthreads, p0=0.95, p1=0.65,                                                                                                               
+#resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))     
 
 message("Done!")
 
