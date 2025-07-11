@@ -17,84 +17,101 @@
 ## Short script to match hvCpGs to controls 
 library(dplyr)
 library(tidyverse)
-library(dplyr)
 library(meffil)
 
 # Julius homemade function:
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
-##############################################################################################################################################################################################################################################################################################################################################################
-##############################################################################################################################################################################################################################################################################################################################################################
-# Load Maria's hvCpGs - all names available from supplementary of: https://academic.oup.com/nar/article/50/12/6735/6609816?login=false
 setwd("/home/alice/2024_hvCpG/03_prepDatasetsMaria/") # set path
 
+## 🔍 1. Load hvCpG (Maria’s hyper-variable CpGs)
 hvCpGs_names.vec <- read.csv("~/2024_hvCpG/03_prepDatasetsMaria/Derakhshan2022_ST5_hvCpG.txt") %>%
-  select(cpg_name = CpG) %>%
+  dplyr::select(cpg_name = CpG) %>%
   pull(cpg_name)
 length(hvCpGs_names.vec) # 4143
 
-# load GoDMC summary statistics (http://mqtldb.godmc.org.uk/downloads)
+# 🧬 2. Load GoDMC summary‐level mQTL data
+# (http://mqtldb.godmc.org.uk/downloads) --> dl then rm after script run because large file
 ## NB: this is based on hg19
-load_GoDMC.df <- data.table::fread("~/assoc_meta_all.csv.gz") 
 
-GoDMC.df <- load_GoDMC.df %>% 
-  rename(cpg_name = cpg) %>% 
-  as.data.frame() %>% 
-  dplyr::filter(((cistrans == T & pval < 1e-8) | (cistrans == F & pval < 1e-14)) & 
-                  clumped == T)
+# ## Done in bash to avoid loading massive file in R:
+# zcat assoc_meta_all.csv.gz | awk -F, '
+# NR==1 {
+#   # Build header index map
+#   for (i=1; i<=NF; i++) {
+#     h = $i
+#     gsub(/^"|"$/, "", h)
+#     hdr[h] = i
+#   }
+#   print
+#   next
+# }
+# {
+#   clumped = $hdr["clumped"]
+#   cistrans = $hdr["cistrans"]
+#   pval     = $hdr["pval"]
+#   # Remove quotes
+#   gsub(/^"|"$/, "", clumped)
+#   gsub(/^"|"$/, "", cistrans)
+#   gsub(/^"|"$/, "", pval)
+#   p = pval + 0  # force numeric
+#   
+#   if (clumped == "TRUE" &&
+#      ((cistrans == "TRUE"  && p < 1e-8) ||
+#       (cistrans == "FALSE" && p < 1e-14)))
+#     print
+# }' > filtered_goDMC.csv
+#   
+filtered_goDMC <- read.csv("filtered_goDMC.csv")
 
-rm(load_GoDMC.df)
+table(hvCpGs_names.vec %in% filtered_goDMC$cpg)
 
-GoDMC.df.FULL <- GoDMC.df
-nrow(GoDMC.df.FULL) # 123568
+GoDMC.df.FULL <- filtered_goDMC
+nrow(GoDMC.df.FULL) # 271724
 
-# Here calculate the variance explained for every CpG from summary statistics. 
+# 📊 3. Compute variance explained per mQTL
+# Formula for variance explained: # 2 * MAF * (1 - MAF) * (beta^2) 
+# Labels each as “cis” or “trans"
+names(GoDMC.df.FULL)
 
-#Formula for variance explained: # 2 * MAF * (1 - MAF) * (beta^2) 
-GoDMC.df <- GoDMC.df.FULL %>% 
-  select(cpg_name, snp, beta_a1, pval, allele1, allele2, freq_a1, cistrans) %>% 
+GoDMC.df <- GoDMC.df.FULL %>%  
+  dplyr::select(cpg_name=cpg, snp, beta_a1, pval, allele1, allele2, freq_a1, cistrans) %>% 
   mutate(MAF = ifelse(freq_a1 < 0.5, freq_a1, 1-freq_a1)) %>%
   mutate(var_explained = 2 * MAF * (1 - MAF) * (beta_a1 ^ 2)) %>% 
   mutate(cistrans = ifelse(cistrans == F, "trans", "cis")) %>% 
-  select(cpg_name, snp, pval, var_explained, cistrans) 
+  dplyr::select(cpg_name, snp, pval, var_explained, cistrans) 
 
+# 🧮 4. Count QTL frequency per CpG
 # Here calculate the frequency of mQTL associations for each CpG site
 snp_freq_per_cpg.df <- GoDMC.df %>%
-  group_by(cpg_name, cistrans) %>%
-  summarise(snp_freq = n_distinct(snp)) %>%
+  dplyr::group_by(cpg_name, cistrans) %>%
+  dplyr::summarise(snp_freq = n_distinct(snp)) %>%
   ungroup() %>% 
   pivot_wider(names_from = cistrans, values_from = snp_freq, values_fill = list(snp_freq = 0)) %>% # if no snps for cis or trans make frequency 0
-  rename(cis_snp_freq = cis, trans_snp_freq = trans)
+  dplyr::rename(cis_snp_freq = cis, trans_snp_freq = trans)
 
-head(snp_freq_per_cpg.df, 10)
-
-# Now specifically select hvCpG CpGs. 
+# 🎯 5. Subset data for hvCpGs
 hvCpG_sumstats.df <- GoDMC.df %>% 
   filter(cpg_name %in% unique(hvCpGs_names.vec))
 
-length(unique(hvCpG_sumstats.df$cpg_name))
+length(unique(hvCpG_sumstats.df$cpg_name)) # 3722, like in Maria's paper = all good
 
+# 📏 6. Identify “potential controls”
 # here filter the GoDMC.df for controls that are not in the same cluster as hvCpGs, at least 10 kb away 
 
 #meffil::meffil.list.featuresets()
 annot_450k.df <- meffil::meffil.get.features("450k") %>% 
-  rename(cpg_name = name) %>% 
-  select(cpg_name, cpg_chr = chromosome, cpg_pos = position) %>% 
+  dplyr::rename(cpg_name = name) %>% 
+  dplyr::select(cpg_name, cpg_chr = chromosome, cpg_pos = position) %>% 
   mutate(cpg_chr = as.character(cpg_chr), 
          cpg_pos = as.numeric(cpg_pos))
-
 
 GoDMC.df <- GoDMC.df %>% 
   left_join(., annot_450k.df, by = "cpg_name")
 
 # check that all positions annotated - nrow should be 0, all correct
-GoDMC.df %>% 
-  filter(is.na(cpg_pos)) %>% 
-  nrow(.)
-
-GoDMC.df %>% 
-  filter(is.na(cpg_chr))  %>% 
-  nrow(.)
+GoDMC.df %>% filter(is.na(cpg_pos)) %>% nrow(.)
+GoDMC.df %>% filter(is.na(cpg_chr))  %>% nrow(.)
 
 GoDMC.df$cpg_clust <- bumphunter::clusterMaker(chr =GoDMC.df$cpg_chr, pos = GoDMC.df$cpg_pos,
                                                maxGap = 1e4, assumeSorted = F)
@@ -109,18 +126,27 @@ hvCpG_clust.vec <- GoDMC.df %>%
 potential_controls.df <- GoDMC.df %>% 
   filter(cpg_clust %!in% hvCpG_clust.vec) 
 
-length(unique(potential_controls.df$cpg_name)) # check number of potential controls: 76116
+length(unique(potential_controls.df$cpg_name)) # check number of potential controls: 154452
 length(intersect(potential_controls.df$cpg_name, hvCpGs_names.vec)) # no hvCpGs intersect potential controls 
 
-##  Join snp frequency 
+# 🔄 7. Join SNP frequency & variance info
+# Both hvCpGs and potential controls get their cis/trans SNP frequency and mean variance explained.
 hvCpG_sumstats.df <- hvCpG_sumstats.df %>% 
   inner_join(., snp_freq_per_cpg.df, by = "cpg_name") 
 
 potential_controls.df <- potential_controls.df %>% 
   inner_join(., snp_freq_per_cpg.df, by = "cpg_name") 
 
+## !!NEW!! verify that the pote
+
+# 🤝 8. Match each hvCpG to controls
 # For each hvCpG find eligible controls with the same cis and trans snp frequency - useful to check number of eligible controls based on 
 # snp frequency for each hvCpG. 
+# For each hvCpG:
+# 1. Filter controls that match exactly on cis/trans SNP counts,
+# 2. Further narrow to controls with mean variance explained (cis & trans) within ±0.005 of the hvCpG,
+# 3. If multiple are eligible, choose the one minimizing the total variance difference,
+# 4. Ensure each control is used only once (no repeats).
 
 # this will take a couple of seconds, can speed this up if want e.g. mclapply
 
@@ -156,7 +182,7 @@ hvCpG_sumstats.list <- hvCpG_sumstats.list[which(names(hvCpG_sumstats.list) %!in
 
 hvCpG_var_explained.mat <- hvCpG_sumstats.df %>% 
   group_by(cpg_name, cistrans) %>% 
-  summarize(meanvar = mean(var_explained, na.rm = T)) %>% 
+  dplyr::summarize(meanvar = mean(var_explained, na.rm = T)) %>% 
   ungroup()  %>%
   complete(cpg_name, cistrans = c("cis", "trans"), 
            fill = list(meanvar = 0)) %>% # if no snps for cis or trans make mean variance 0
@@ -166,7 +192,7 @@ hvCpG_var_explained.mat <- hvCpG_sumstats.df %>%
 
 controls_var_explained.mat <- potential_controls.df %>% 
   group_by(cpg_name, cistrans) %>% 
-  summarize(meanvar = mean(var_explained, na.rm = T)) %>% 
+  dplyr::summarize(meanvar = mean(var_explained, na.rm = T)) %>% 
   ungroup()  %>%
   complete(cpg_name, cistrans = c("cis", "trans"), 
            fill = list(meanvar = 0)) %>% # if no snps for cis or trans make mean variance 0
@@ -269,22 +295,22 @@ nr_hvCpGs_postmatch.value <- nrow(hvCpG_w_matched_control.df)
 
 # get number of hvCpGs that cannot be matched 
 hvCpG_loss.value <- nr_hvCpGs_postmatch.value - nr_hvCpGs_prematch.value
-hvCpG_loss.value
+hvCpG_loss.value # 77
 
-# check how many hvCpGs could be matched and number of controls - should be equal : 1644
+# check how many hvCpGs could be matched and number of controls - should be equal : 3644
 hvCpG_w_matched_control.df %>% 
   summarise(hvCpG_freq = n_distinct(hvCpG_name), 
             controlCpG_freq = n_distinct(controlCpG_name))
 
 # check the mqtl frequencies match 
 snp_per_cpg_controlmatch.df <- GoDMC.df %>% 
-  filter(cpg_name %in% c(hvCpG_w_matched_control.df$hvCpG_name,
+  dplyr::filter(cpg_name %in% c(hvCpG_w_matched_control.df$hvCpG_name,
                          hvCpG_w_matched_control.df$controlCpG_name)) %>%
   group_by(cpg_name, cistrans) %>%
-  summarise(snp_freq = n_distinct(snp)) %>%
+  dplyr::summarise(snp_freq = n_distinct(snp)) %>%
   ungroup() %>% 
   pivot_wider(names_from = cistrans, values_from = snp_freq, values_fill = list(snp_freq = 0)) %>% 
-  rename(cis_snp_freq = cis, trans_snp_freq = trans) %>% 
+  dplyr::rename(cis_snp_freq = cis, trans_snp_freq = trans) %>% 
   mutate(hvCpG_or_control = ifelse(cpg_name %in% hvCpG_w_matched_control.df$hvCpG_name, "hvCpG", 
                                    "controlCpG"), 
          total_snp_freq = cis_snp_freq + trans_snp_freq) %>% 
@@ -297,6 +323,7 @@ snp_per_cpg_controlmatch.df <- GoDMC.df %>%
          facet_label = factor(facet_label, 
                               levels = c("Total", "Cis", "Trans")))
 
+# 📊 9. Validate matching
 
 snp_per_cpg_controlmatch.df %>% 
   ggplot() + 
@@ -312,19 +339,19 @@ snp_per_cpg_controlmatch.df %>%
 # check that the cis and trans variances match --> it does!
 
 cistrans_meanvar.df <- GoDMC.df %>% 
-  filter(cpg_name %in% c(hvCpG_w_matched_control.df$hvCpG_name,
+  dplyr::filter(cpg_name %in% c(hvCpG_w_matched_control.df$hvCpG_name,
                          hvCpG_w_matched_control.df$controlCpG_name)) %>%
   group_by(cpg_name, cistrans) %>%
-  summarise(mean_var_explained = mean(var_explained, na.rm = T)) %>%
+  dplyr::summarise(mean_var_explained = mean(var_explained, na.rm = T)) %>%
   ungroup() %>% 
   pivot_wider(names_from = cistrans, values_from = mean_var_explained, values_fill = list(mean_var_explained = 0)) %>% 
-  rename(cis_meanvar = cis, trans_meanvar = trans) 
+  dplyr::rename(cis_meanvar = cis, trans_meanvar = trans) 
 
 all_meanvar.df <- GoDMC.df %>% 
-  filter(cpg_name %in% c(hvCpG_w_matched_control.df$hvCpG_name,
+  dplyr::filter(cpg_name %in% c(hvCpG_w_matched_control.df$hvCpG_name,
                          hvCpG_w_matched_control.df$controlCpG_name)) %>%
   group_by(cpg_name) %>%
-  summarise(all_meanvar_explained = mean(var_explained, na.rm = T)) %>%
+  dplyr::summarise(all_meanvar_explained = mean(var_explained, na.rm = T)) %>%
   ungroup() %>% 
   left_join(., cistrans_meanvar.df, by = "cpg_name") %>% 
   mutate(hvCpG_or_control = ifelse(cpg_name %in% hvCpG_w_matched_control.df$hvCpG_name, "hvCpG", 
@@ -344,7 +371,7 @@ all_meanvar.df <- GoDMC.df %>%
 all_meanvar.df %>% 
   ggplot() + 
   geom_density(aes(x = var_explained, fill = hvCpG_or_control),  
-               alpha = 0.5) + 
+               alpha = 0.3) + 
   facet_wrap(~ facet_label, scales = "free") +
   labs(
     title = "Mean variance explained of hvCpGs and matched controls",
@@ -366,7 +393,7 @@ all_meanvar.df %>%
     fill = "CpG Category"
   )
 
-nrow(hvCpG_w_matched_control.df) ## 1647 match/control hvCpG from Maria
+nrow(hvCpG_w_matched_control.df) ## 3644 match/control hvCpG from Maria
 
 #save the dataframe of hvCpGs and matched controls 
 write_delim(hvCpG_w_matched_control.df, file = "/home/alice/2024_hvCpG/03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt",col_names = T,quote = "needed")

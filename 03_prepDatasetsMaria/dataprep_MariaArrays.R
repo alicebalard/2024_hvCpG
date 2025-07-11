@@ -2,6 +2,8 @@
 ## Data prep Maria datasets ##
 ## Hosted on LSHTM server of Matt Silver
 
+library(dplyr)
+
 ## On Maria
 MariasCpGs <- read.csv("~/2024_hvCpG/03_prepDatasetsMaria/Derakhshan2022_ST5_hvCpG.txt")
 
@@ -28,8 +30,26 @@ all_cpgs <- unlist(lapply(rds_list_mat, rownames))
 cpg_counts <- table(all_cpgs)
 common_cpgs <- names(cpg_counts[cpg_counts >= 15])
 
-Maria_filtered_list_mat <- lapply(rds_list_mat, function(mat) {
+my_list_mat_Mariads <- lapply(rds_list_mat, function(mat) {
   mat[rownames(mat) %in% common_cpgs, ]
 })
 
-rm(rds_list_mat1,rds_list_mat2, rds_list_mat, common_cpgs,cpg_counts,all_cpgs, folder1, rds_files1)
+cpgnames <- unique(unlist(sapply(my_list_mat_Mariads, row.names)))
+cpgnames <- cpgnames[order(cpgnames)]
+
+## Load mQTL-matched controls
+cistrans_GoDMC_hvCpG_matched_control <- 
+  read.table("~/2024_hvCpG/03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
+
+table(cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% MariasCpGs$CpG)
+cpgnames[cpgnames %in% cistrans_GoDMC_hvCpG_matched_control$hvCpG_name] %>% length
+cpgnames[cpgnames %in% cistrans_GoDMC_hvCpG_matched_control$controlCpG_name]  %>% length
+
+sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control[
+  cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpgnames &
+    cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpgnames,]
+
+rm(rds_list_mat1,rds_list_mat2, rds_list_mat, common_cpgs, cpg_counts,all_cpgs, folder1, rds_files1, 
+   cistrans_GoDMC_hvCpG_matched_control)
+
+message("This script loads: \nMariasCpGs: list of hvCpG from Derakhshan2022 (ST5)\nmy_list_mat_Mariads: list of datasets\ncpgnames: all the cpgs covered in the datasets after filtration\nsub_cistrans_GoDMC_hvCpG_matched_control: cpgnames and matching mQTL controls (if exist)")
