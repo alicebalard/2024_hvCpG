@@ -1,6 +1,6 @@
 ## hvCpG algorithm
 ## Alice Balard
-## June 2025
+## July 2025
 
 ## Input data for our algorithm needs to be in the format list of dataframes:
 # filtered_list_mat$Blood_Cauc %>% head
@@ -11,14 +11,6 @@
 
 ###########
 ## Setup ##
-
-## Specific libPath for R --vanilla
-.libPaths(c(
-  "/opt/R/packages/lib_4.4.1",
-  "/home/alice/R/x86_64-pc-linux-gnu-library/4.4",
-  "/usr/lib/R/library"
-))
-
 packages <- c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2","ggrepel",
               "parallel")
 
@@ -36,6 +28,9 @@ rm(packages, to_install)
 # Maximum likelihood analysis
 ## The equation is: $$ \log\left(P(M_j)\right) = \sum_{i=1}^{n} \log\left( \sum_{Z_j=0}^{1} \left( \sum_{Z_{j,k}=0}^{1} P(M_{i,j} \mid Z_{j,k}) \times P(Z_{j,k} \mid Z_j) \right) \times P(Z_j) \right) $$
 
+###########################
+## Functions to run ONCE ##
+
 ## Functions to calculate different parameters of the datasets:
 ## These functions take as imput a list of matrices containing our datasets
 # It outputs
@@ -43,14 +38,25 @@ rm(packages, to_install)
 # * mu_jk: named list for each dataset of vectors containing the mean methylation for each CpG j
 # * sigma_k: named list for each dataset of elements = the median sd for all CpGs
 
-scale_my_list <- function(our_list_datasets){
-  lapply(our_list_datasets, function(k){ ## Scale all the datasets in list
-    k = log2(k/(1-k))
+scale_my_list <- function(our_list_datasets, epsilon = 1e-6) {
+  lapply(our_list_datasets, function(k) {
+    # Clip values away from exactly 0 or 1
+    k_adj <- pmin(pmax(k, epsilon), 1 - epsilon)
+    result <- log2(k_adj / (1 - k_adj))
+    return(result)
   })
 }
 
-calc_mu_jk <- function(scaled_list_mat){
-  lapply(scaled_list_mat, function(k){rowMeans(k, na.rm = T)}) ## list of mean methylation for each CpG j in all datasets
+
+## list of mean methylation for each CpG j in all datasets
+calc_mu_jk <- function(scaled_list_mat) {
+  lapply(scaled_list_mat, function(k) {
+    means <- rowMeans(k, na.rm = TRUE)
+    # Convert to a 1-column matrix with row names
+    means_df <- as.data.frame(means)
+    colnames(means_df) <- "mu"
+    return(means_df)
+  })
 }
 
 calc_sigma_k <- function(scaled_list_mat){
@@ -70,7 +76,8 @@ calc_lambdas <- function(scaled_list_mat) {
     return(lambdas)
 }
 
-## Likelihood function for a given CpG j
+###########################################
+## Likelihood function for a given CpG j ##
 ## The arguments are:
 ##   * my_list_mat: a list of matrices, i.e. our datasets
 ## 
@@ -82,146 +89,122 @@ calc_lambdas <- function(scaled_list_mat) {
 ## * alpha: probability of a CpG site to be a hvCpG
 
 getLogLik_oneCpG_optimized <- function(scaled_list_mat, mu_jk_list, sigma_k_list,
-                                       j, p0, p1, alpha, lambdas) {
-    
-    ## Ensure the number of lambda parameters matches scaled_list_mat's length
-    if (length(lambdas) != length(scaled_list_mat)) {
-        stop("Number of lambda arguments must match length(scaled_list_mat)")
+                                       p0, p1, alpha, lambdas) {
+
+  ## lambdas must match length
+  if (length(lambdas) != length(scaled_list_mat)) {
+    stop("Number of lambda arguments must match length(scaled_list_mat)")
+  }
+
+  datasets <- names(scaled_list_mat)
+  log_P_Mj <- 0
+
+  ## Precompute probability matrix
+  p0p1_mat <- matrix(c(p0, 1 - p1, 1 - p0, p1), nrow = 2, byrow = TRUE)
+  proba_hvCpG_vec <- c(1 - alpha, alpha)
+
+  for (k in datasets) {
+
+  ## Get the only row: the whole matrix is 1-row already
+    Mij_vals <- scaled_list_mat[[k]]
+    if (is.null(Mij_vals) || length(Mij_vals) == 0) next
+    Mij_vals <- as.numeric(Mij_vals)
+    Mij_vals <- na.omit(Mij_vals)
+    if (length(Mij_vals) == 0) next
+
+    mu_jk <- mu_jk_list[[k]]
+    if (is.na(mu_jk)) {
+      warning(paste("Missing mu_jk for dataset", k))
+      next
     }
-    
-    ## Precompute all necessary values upfront
-    datasets <- names(scaled_list_mat)
-    log_P_Mj <- 0 ## initialise
-    
-    ## Precompute probability matrices
-    p0p1_mat <- matrix(c(p0, 1-p1, 1-p0, p1), nrow=2, byrow=TRUE)
-    
-    proba_hvCpG_vec <- c(1-alpha, alpha)
-    
-    for (k in datasets) {
-        ## 1. SAFE ROW INDEXING
-        row_idx <- which(rownames(scaled_list_mat[[k]]) == j)
-        if (length(row_idx) == 0) next  ## Skip missing CpGs
-        
-        ## 2. SAFE VALUE EXTRACTION
-        Mij_vals <- tryCatch({
-            scaled_list_mat[[k]][row_idx, ]
-        }, error = function(e) numeric(0))
-        
-        ## Remove NAs and check length
-        Mij_vals <- na.omit(Mij_vals)
-        if (length(Mij_vals) == 0) next
-        
-        ## 3. MISSING VALUE HANDLING FOR MU
-        mu_jk <- mu_jk_list[[k]][j]
-        if (is.na(mu_jk)) {
-            warning(paste("Missing mu_jk for", j, "in dataset", k))
-            next
-        }
-        
-        ## 4. SAFE STANDARD DEVIATION
-        sd_k <- sigma_k_list[[k]]
-        if (is.na(sd_k) || sd_k <= 0) {
-            warning(paste("Invalid sd_k for dataset", k))
-            next
-        }
-        
-        ## 5. LAMBDA VALIDATION
-        lambda_k <- lambdas[k]
-        if (is.na(lambda_k) || lambda_k <= 0) {
-            warning(paste("Invalid lambda_k for dataset", k))
-            next
-        }
-        
-        ## 6. VECTORIZED CALCULATIONS WITH CHECKS
-        sd_values <- c(sd_k, lambda_k * sd_k)
-        if (any(is.na(sd_values)) || any(sd_values <= 0)) {
-            warning(paste("Invalid sd_values for", j, "in dataset", k))
-            next
-        }
-        
-        ## 7. PROBABILITY CALCULATIONS: proba(M(i,j) knowing Z(j,k) 0 or 1)
-        ## a matrix of 2 columns (sd or lambda sd), one row per individual
-        norm_probs <- tryCatch({
-            matrix(c(
-                dnorm(Mij_vals, mu_jk, sd_values[1]),
-                dnorm(Mij_vals, mu_jk, sd_values[2])
-            ), ncol=2)
-        }, error = function(e) {
-            warning(paste("DNORM error for", j, "in dataset", k))
-            matrix(1, nrow=length(Mij_vals), ncol=2)  ## Fallback to neutral values
-        })
-        
-        ## 8. ARRAY OPERATIONS: double the previous matrix to create two, for Zj=0 or 1
-        zjk_probs <- array(dim = c(length(Mij_vals), 2, 2))
-        for (zjk in 0:1) {
-            zjk_probs[,,zjk+1] <- cbind(norm_probs[, zjk+1] * p0p1_mat[zjk+1, 1],
-                                        norm_probs[, zjk+1] * p0p1_mat[zjk+1, 2])
-        }
-        ## zjk_probs[,,1] <- cbind(norm_probs[, 1] * p0p1_mat[1, 1], ### M with sd_k * p0
-        ##                             norm_probs[, 1] * p0p1_mat[1, 2])## M with sd_k * 1-p1
-        ## zjk_probs[,,2] <- cbind(norm_probs[, 2] * p0p1_mat[2, 1],## M with lambda_k * sd_k * 1-p0
-        ##                             norm_probs[, 2] * p0p1_mat[2, 2])## M with lambda_k * sd_k * p1
-        
-        ## 9. LOGSUMEXP IMPLEMENTATION
-        ## Sum columns across depth dimension
-        col_sums <- apply(zjk_probs, c(1,3), sum)  ## c(1,3) applies the function sum to both rows (1) and the third dimension (3)
-        ## apply(X, c(1,3), sum) = X[,1,] + X[,2,] + X[,3,] = sum of the columns within each row and third dim level
-        ## for us, does row sum of
-        ## [(M with sd_k * p0) + (M with sd_k * 1-p1)] +
-        ## [(M with lambda_k * sd_k * 1-p0) + (M with lambda_k * sd_k * p1)]
-        ## Which corresponds to:
-        ## P(Mj|Zjk=0) * P(Zjk=0|Zj=0) + P(Mj|Zjk=0) * P(Zjk=0|Zj=1) +
-        ## P(Mj|Zjk=1) * P(Zjk=1|Zj=0) + P(Mj|Zjk=1) * P(Zjk=1|Zj=1)
-        ## Multiply columns proba_hvCpG_vec and sum, then log, then sum for all individuals
-        
-        ## How to handle log(0)? We replace -Inf by the next lowest value
-        
-        ## Debugging corner START
-        ## print(sum(log(rowSums(col_sums %*% proba_hvCpG_vec))))
-        ## Debugging corner END
-        
-        dataset_loglik <- sum(log(rowSums(col_sums %*% proba_hvCpG_vec)))
-        
-        if (!is.finite(dataset_loglik)) {
-            warning(paste("Non-finite loglik for", j, "in dataset", k))
-            dataset_loglik <- 0  ## Neutral value for problematic calculations
-        }
-        log_P_Mj <- log_P_Mj + dataset_loglik
+
+    sd_k <- sigma_k_list[[k]]
+    if (is.na(sd_k) || sd_k <= 0) {
+      warning(paste("Invalid sd_k for dataset", k))
+      next
     }
-    return(log_P_Mj)
+
+    lambda_k <- lambdas[k]
+    if (is.na(lambda_k) || lambda_k <= 0) {
+      warning(paste("Invalid lambda_k for dataset", k))
+      next
+    }
+
+    sd_values <- c(sd_k, lambda_k * sd_k)
+    if (any(is.na(sd_values)) || any(sd_values <= 0)) {
+      warning(paste("Invalid sd_values in dataset", k))
+      next
+    }
+
+    ## Calculate normal probabilities
+    norm_probs <- tryCatch({
+      matrix(c(
+        dnorm(Mij_vals, mu_jk, sd_values[1]),
+        dnorm(Mij_vals, mu_jk, sd_values[2])
+      ), ncol = 2)
+    }, error = function(e) {
+      warning(paste("DNORM error in dataset", k))
+      matrix(1, nrow = length(Mij_vals), ncol = 2)
+    })
+
+    ## Zjk probs: 2 hidden states, 2 configurations each
+    zjk_probs <- array(dim = c(length(Mij_vals), 2, 2))
+    for (zjk in 0:1) {
+      zjk_probs[,,zjk+1] <- cbind(
+        norm_probs[, zjk+1] * p0p1_mat[zjk+1, 1],
+        norm_probs[, zjk+1] * p0p1_mat[zjk+1, 2]
+      )
+    }
+
+    ## Combine, sum, log-sum-exp
+    col_sums <- apply(zjk_probs, c(1, 3), sum)
+    dataset_loglik <- sum(log(rowSums(col_sums %*% proba_hvCpG_vec)))
+
+    if (!is.finite(dataset_loglik)) {
+      warning(paste("Non-finite loglik in dataset", k))
+      dataset_loglik <- 0
+    }
+
+    log_P_Mj <- log_P_Mj + dataset_loglik
+  }
+
+  return(log_P_Mj)
 }
 
-## Optim to find alpha
 ## https://www.magesblog.com/post/2013-03-12-how-to-use-optim-in-r/
 
 ## We optimise over the parameter alpha, and specify everything else
 
+################################
+## Helper functions for optim ##
+
 ## Core helper: logit version of fun2optim
 fun2optim_logit <- function(theta, scaled_list_mat, mu_jk_list, sigma_k_list,
-                            j, p0, p1, lambdas) {
+                            p0, p1, lambdas) {
   alpha <- 1 / (1 + exp(-theta))  # logit transform
   names(alpha) <- "alpha"
   fun2optim(par = alpha,
             scaled_list_mat = scaled_list_mat,
             mu_jk_list = mu_jk_list,
             sigma_k_list = sigma_k_list,
-            j = j, p0 = p0, p1 = p1, lambdas = lambdas)
+            p0 = p0, p1 = p1, lambdas = lambdas)
 }
 
 ## Core helper: direct version
 fun2optim <- function(par, scaled_list_mat, mu_jk_list, sigma_k_list,
-                      j, p0, p1, lambdas) {
+                      p0, p1, lambdas) {
   alpha <- par["alpha"]
   getLogLik_oneCpG_optimized(
     scaled_list_mat = scaled_list_mat,
     mu_jk_list = mu_jk_list,
     sigma_k_list = sigma_k_list,
-    j = j, p0 = p0, p1 = p1, alpha = alpha, lambdas = lambdas
+    p0 = p0, p1 = p1, alpha = alpha, lambdas = lambdas
   )
 }
 
-## Run optimizer for a single CpG
+####################################
+## Run optimizer for a single CpG ##
+
 runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
                          lambdas, optimMeth, p0, p1) {
   if (optimMeth == "Nelder-Mead") {
@@ -233,7 +216,7 @@ runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
       scaled_list_mat = scaled_list_mat,
       mu_jk_list = mu_jk_list,
       sigma_k_list = sigma_k_list,
-      j = CpG, p0 = p0, p1 = p1, lambdas = lambdas,
+      p0 = p0, p1 = p1, lambdas = lambdas,
       method = "Nelder-Mead",
       control = list(fnscale = -1) ## maximize instead of minimize
     )
@@ -250,7 +233,7 @@ runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
       scaled_list_mat = scaled_list_mat,
       mu_jk_list = mu_jk_list,
       sigma_k_list = sigma_k_list,
-      j = CpG, p0 = p0, p1 = p1, lambdas = lambdas,
+      p0 = p0, p1 = p1, lambdas = lambdas,
       method = "L-BFGS-B",
       lower = par_lower,
       upper = par_upper,
@@ -262,56 +245,88 @@ runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
   }
 }
 
+#####################################################
+## Parallelise optimizer for all CpG with mclapply ##
+
 getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0, p1) {
-<<<<<<< HEAD
-    ## Prepare data inside the function
-=======
     message("🚀 Scaling datasets...")
->>>>>>> 9f54ab5809dc895c7c9c309976e28718b6851eea
     scaled_list_mat <- scale_my_list(my_list_mat)
+
     message("📊 Computing mu_jk, sigma_k, lambdas...")
     mu_jk_list <- calc_mu_jk(scaled_list_mat)
     sigma_k_list <- calc_sigma_k(scaled_list_mat)
     lambdas <- calc_lambdas(scaled_list_mat)
-<<<<<<< HEAD
-    message("Inputs prepared")
 
-=======
-    message("✅ Inputs ready. Running parallel optimization...")
->>>>>>> 9f54ab5809dc895c7c9c309976e28718b6851eea
-    ## Use safe wrapper with tryCatch
-    safe_run <- function(CpG) {
-        tryCatch(
-            runOptim1CpG(
-                CpG,
-                scaled_list_mat = scaled_list_mat,
-                mu_jk_list = mu_jk_list,
-                sigma_k_list = sigma_k_list,
-                lambdas = lambdas,
-                optimMeth = optimMeth,
-                p0 = p0,
-                p1 = p1
-            ),
-            error = function(e) {
-            message(sprintf("CpG %s failed: %s", CpG, e$message))
-            NA_real_
-        }
-        )
+    message("Precompute the input scaled list of matrices slice for each CpG up front...")
+    ## Precompute all data slices: this avoids repeated extraction overhead.
+    get_cpg_slices <- function(cpg, scaled_list_mat) {
+        lapply(scaled_list_mat, function(mat) {
+            if (cpg %in% rownames(mat)) mat[cpg, ] else NULL
+        })
     }
 
-    ## Run in parallel
+    all_slices <- lapply(cpgvec, function(cpg) {
+        get_cpg_slices(cpg, scaled_list_mat)
+    })
+
+   
+    message("Precompute the input mu slice for each CpG up front...")
+    get_mu_slices <- function(cpg, mu_jk_list) {
+        lapply(mu_jk_list, function(mat) {
+            if (cpg %in% rownames(mat)) mat[cpg, , drop = FALSE] else NULL
+        })
+    }
+    mu_jk_values <- lapply(cpgvec, function(cpg) {
+        get_mu_slices(cpg, mu_jk_list)
+    })
+    
+    ## Now run only the small slices in parallel:
+    message("✅ Inputs ready. Running parallel optimization...")
+    ## Define a lightweight worker:
+    safe_run <- function(cpg) {
+        tryCatch({
+            print(cpg)
+            print(names(all_slices))
+##            print(head(all_slices[[1]]))
+##            print("all_slices[cpg]")
+##            print(all_slices[cpg])
+##            print("mu_jk_values[cpg]")
+##            print(mu_jk_values[cpg])
+##            print("sigma_k_list")
+##            print(sigma_k_list)
+##            print("lambdas")
+##            print(lambdas)
+##
+           
+##            runOptim1CpG(                         
+##                CpG = cpg,
+##                scaled_list_mat = all_slices[cpg],
+##                mu_jk_list = mu_jk_values[cpg],
+##                sigma_k_list = sigma_k_list,
+##                lambdas = lambdas,
+##                optimMeth = optimMeth,
+##                p0 = p0,
+##                p1 = p1
+#            )
+        },
+        error = function(e) {
+            message(sprintf("CpG %s failed: %s", cpg, e$message))
+            NA_real_
+        })
+        message("CpG:",cpg)
+    }
     res <- mclapply(cpgvec, safe_run, mc.cores = NCORES, mc.preschedule = FALSE)
-
-    ## Make sure length is same
     names(res) <- cpgvec
-
+    
     my_matrix <- matrix(unlist(res), ncol = 1)
     rownames(my_matrix) <- names(res)
-    colnames(my_matrix) <- "alpha_hat"
+    colnames(my_matrix) <- "alpha"
     return(my_matrix)    
 }
 
-## Top-level: run & save results
+###################################
+## Top-level: run & save results ##
+
 runAndSave <- function(my_list_mat, cpgvec, resultDir, optimMeth, NCORES, p0, p1) {
   # Generate a safe object name
   var_mylist <- deparse(substitute(my_list_mat))
