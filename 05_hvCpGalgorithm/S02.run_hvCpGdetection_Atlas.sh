@@ -1,7 +1,7 @@
 #!/bin/bash
 #$ -N runhvCpGAtlas
 #$ -S /bin/bash
-#$ -pe smp 16
+#$ -pe smp 10
 #$ -l tmem=4G
 #$ -l h_vmem=4G
 #$ -l h_rt=100:00:00
@@ -10,44 +10,34 @@
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 #$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
 
+source /share/apps/source_files/python/python-3.13.0a6.source
+
+python3 /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S01.prepare_beta_matrices.py
+
 R --vanilla <<EOF
 
 myNthreads=16 ## specify here
 
-## Atlas data was preprocessed in 04/S02 and cut in chunks of 500k CpG
-## Filter: CpGs with at least 20 coverage in at least 3 individuals and at least half of the datasets
-input_dir <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/filtered_chunks/"
+## Load algorithm (30sec)
+system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
 
-## Source the function:
-source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v1.R")
+## Load data & functions specific to Atlas (2 sec)
+system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S02.formatAtlasforR.R"))
 
-#########################
-## test ## **************
-chunk_idx <- 1
+## Load cpg list (1 min) 29,401,795 CpG names
+system.time(cpg_names <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets_prepared/Abdominal_Subcut._scaled_matrix.h5", "cpg_names"))
 
-## Build filename (must match your sprintf format!)
-file_path <- file.path(input_dir, sprintf("filtered_chunk_%04d.rds", chunk_idx))
+length(cpg_names); head(cpg_names)
+##[1] 29401795
+##[1] "chr1_10469-10470" "chr1_10471-10472" "chr1_10484-10485" "chr1_10489-10490"
+##[5] "chr1_10493-10494" "chr1_10497-10498"
 
-## Load it
-chunk_data <- readRDS(file_path)
+system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 1000),p0=0.80, p1=0.65, NCORES=myNthreads,
+		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
 
-cpgnames <- unique(unlist(sapply(chunk_data, row.names)))
-cpgnames <- cpgnames[order(cpgnames)]
-
-#### test subset: 8 cores, 10Gb/core 2h30 for 50k pos
-### Take first 50,000 CpG names
-##cpg_subset <- cpgnames[1:50000]
-##chunk_data_subset <- lapply(
-##  chunk_data,
-##  function(mat) {
-##    rows_to_keep <- intersect(rownames(mat), cpg_subset)
-##    mat[rows_to_keep, , drop = FALSE]
-##  }
-##)
-
-system.time(runAndSave(my_list_mat = chunk_data, cpgvec = cpgnames,
-           optimMeth="Nelder-Mead", NCORES=myNthreads, p0=0.95, p1=0.65, 
-resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
+##100, 5G, 1C = 87 sec
+##1000, 5G, 1C = 
+## 825 CpGs, 5G, 1C in 1403 sec
 
 message("Done!")
 
