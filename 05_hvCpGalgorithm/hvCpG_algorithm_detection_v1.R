@@ -11,6 +11,14 @@
 
 ###########
 ## Setup ##
+
+## Specific libPath for R --vanilla
+.libPaths(c(
+  "/opt/R/packages/lib_4.4.1",
+  "/home/alice/R/x86_64-pc-linux-gnu-library/4.4",
+  "/usr/lib/R/library"
+))
+
 packages <- c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2","ggrepel",
               "parallel")
 
@@ -255,13 +263,22 @@ runOptim1CpG <- function(CpG, scaled_list_mat, mu_jk_list, sigma_k_list,
 }
 
 getAllOptimAlpha_parallel <- function(my_list_mat, cpgvec, optimMeth, NCORES, p0, p1) {
+<<<<<<< HEAD
+    ## Prepare data inside the function
+=======
     message("🚀 Scaling datasets...")
+>>>>>>> 9f54ab5809dc895c7c9c309976e28718b6851eea
     scaled_list_mat <- scale_my_list(my_list_mat)
     message("📊 Computing mu_jk, sigma_k, lambdas...")
     mu_jk_list <- calc_mu_jk(scaled_list_mat)
     sigma_k_list <- calc_sigma_k(scaled_list_mat)
     lambdas <- calc_lambdas(scaled_list_mat)
+<<<<<<< HEAD
+    message("Inputs prepared")
+
+=======
     message("✅ Inputs ready. Running parallel optimization...")
+>>>>>>> 9f54ab5809dc895c7c9c309976e28718b6851eea
     ## Use safe wrapper with tryCatch
     safe_run <- function(CpG) {
         tryCatch(
