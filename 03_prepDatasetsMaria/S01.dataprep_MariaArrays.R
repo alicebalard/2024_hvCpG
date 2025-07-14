@@ -34,57 +34,21 @@ Maria_filtered_list_mat <- lapply(rds_list_mat, function(mat) {
 
 rm(rds_list_mat1,rds_list_mat2, rds_list_mat, common_cpgs,cpg_counts,all_cpgs, folder1, rds_files1)
 
+library(rhdf5)
 
-# 📊 For each group: load, logit transform, save
-# Collect all beta files once (outside the loop!)
-all_files = glob.glob("XX")
+# Save each matrix as an HDF5 file with CpG names
+output_folder <- "~/outputHDF5_temp"
 
-for group, samples in samples_per_group_short.items():
-    print(f"🔄 Processing {group} ({len(samples)} samples)")
-    betas = []
-    for s in samples:
-        # Logit transform with clipping
-        p = np.clip(beta, epsilon, 1 - epsilon)
-        scaled = np.log2(p / (1 - p))
-        betas.append(scaled)
-    if not betas:
-        print(f"⚠️  Skipping {group}: no valid samples")
-        continue
-    # 🧬 build matrix: rows = CpGs, columns = samples
-    mat = np.column_stack(betas)
-    ## Count valid (non-NaN) values per CpG (row)
-    valid_counts = np.sum(~np.isnan(mat), axis=1)
-    ## Find rows with fewer than 3 valid values
-    rows_to_mask = valid_counts < 3
-    ## Mask entire rows with NaN
-    mat[rows_to_mask, :] = np.nan
-    ## ✅ Check shape
-    print("Matrix shape:", mat.shape)
-    ## Should be (number_of_CpGs, number_of_samples)
-    print(f"Rows (CpGs): {mat.shape[0]:,}")
-    print(f"Columns (Samples): {mat.shape[1]}")
-    ## 🔍 Peek at the first few rows and columns
-    print("First 5 rows, all columns:")
-    print(mat[:5, :])    
-    #mat = np.vstack(betas).T
-    # Save matrix
-    with h5py.File(os.path.join(output_folder, f"{group}_scaled_matrix.h5"), "w") as f:
-        f.create_dataset("scaled_matrix", data=mat, compression="gzip")
-        f.create_dataset("samples", data=np.array(samples, dtype='S'))  # Save as bytes
-        f.create_dataset("cpg_names", data=np.array(cpg_names, dtype='S'))
-    print(f"✅ Saved: {group}_scaled_matrix.h5")
-    # Calculate row SDs
-    row_sds = bn.nanstd(mat, axis=1)
-    # Calculate median SD
-    median_sd = np.nanmedian(row_sds)
-    # Save median SD only
-    with h5py.File(os.path.join(output_folder, f"{group}_median_sd.h5"), "w") as f:
-        f.create_dataset("median_sd", data=np.array(median_sd))
-        print(f"✅ Saved: {group}_median_sd.h5 [median_sd = {median_sd:.4f}]")
-    # Calculate lambda: (95th percentile / median)
-    percentile_95 = np.nanpercentile(row_sds, 95)
-    lambda_value = percentile_95 / median_sd
-    # Save lambda only
-    with h5py.File(os.path.join(output_folder, f"{group}_lambda.h5"), "w") as f:
-        f.create_dataset("lambda", data=np.array(lambda_value))
-        print(f"✅ Saved: {group}_lambda.h5 [lambda = {lambda_value:.4f}]")
+dir.create(output_folder, showWarnings = FALSE)
+
+for (name in names(Maria_filtered_list_mat)) {
+  mat <- Maria_filtered_list_mat[[name]]
+  file <- file.path(output_folder, paste0(name, "_matrix.h5"))
+  
+  h5createFile(file)
+  h5write(mat, file, "beta_matrix")
+  h5write(rownames(mat), file, "cpg_names")
+  h5write(colnames(mat), file, "sample_names")
+  
+  cat("✅ Saved:", file, "\n")
+}
