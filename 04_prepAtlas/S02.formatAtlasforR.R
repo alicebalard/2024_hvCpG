@@ -2,6 +2,11 @@
 ## Script to prepare Atlas objects used in our algorithm, once, and for each CpG ##
 ###################################################################################
 
+## Should output:
+## (1) median sd sigma k (1 sigma per dataset)
+## (2) lambdas as a list (95th percentile sd/ median sd) (1 lambda per dataset)
+## (3) a function able to retrieve the methylation values for a given CpG
+
 library(rhdf5)
 
 ## 📁 Folder with all data prepared in S01
@@ -11,7 +16,6 @@ folder <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/dat
 matrix_files <- list.files(folder, pattern = "_scaled_matrix\\.h5$", full.names = TRUE)
 
 ## 📦 Storage lists
-scaled_rows <- list()
 median_sds <- list()
 lambdas <- list()
 
@@ -32,31 +36,22 @@ for (matrix_file in matrix_files) {
                 group, median_sd, lambda))
 }
 
-str(median_sds)
-str(lambdas)
+##str(median_sds)
+##str(lambdas)
 
-## To do for each CpG 
-## 🧬 YpG of interest
+## Function of 🧬  CpG of interestt
+source_scaled_mat_1CpG <- function(pos) {
+    cpg_index <- pos
+    scaled_rows <- list()
 
+    for (matrix_file in matrix_files) {
+        ## 🗝️ SAFE: no explicit open/close of hd5
+        row <- rhdf5::h5read(
+                          matrix_file, "scaled_matrix", index = list(NULL, cpg_index))
+        group <- sub("_scaled_matrix\\.h5$", "", basename(matrix_file))
+        scaled_rows[[group]] <- t(row)
+    }
 
-pos <- 1 ## to loop over
-
-## source_scaled_mat_1CpG <- function(pos){}
-
-cpg_index <- 0 + pos ## Python is in base 0
-
-## Create empty list to hold rows
-scaled_rows <- list()
-
-## 🔄 Loop over each matrix file
-for (matrix_file in matrix_files) {
-  ## Extract group name from file name
-  group <- sub("_scaled_matrix\\.h5$", "", basename(matrix_file))
-  
-  ## Read only this row (1 x N)
-  row <- h5read(matrix_file, "scaled_matrix", index = list(NULL, cpg_index))
-  
-  ## Store in list with group name
-  scaled_rows[[group]] <- t(row)
+    return(scaled_rows)
 }
-
+## e.g. source_scaled_mat_1CpG(1)
