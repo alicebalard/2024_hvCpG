@@ -46,8 +46,7 @@ source_scaled_mat_1CpG <- function(pos) {
 
     for (matrix_file in matrix_files) {
         ## 🗝️ SAFE: no explicit open/close of hd5
-        row <- rhdf5::h5read(
-                          matrix_file, "scaled_matrix", index = list(NULL, cpg_index))
+        row <- rhdf5::h5read(matrix_file, "scaled_matrix", index = list(NULL, cpg_index))
         group <- sub("_scaled_matrix\\.h5$", "", basename(matrix_file))
         scaled_rows[[group]] <- t(row)
     }

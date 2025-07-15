@@ -6,7 +6,7 @@ This script:
  1️⃣ Filters cell/tissue groups with at least 3 samples
  2️⃣ Loads beta files (.beta)
  3️⃣ Builds a CpG-by-sample matrix for each group
- 4️⃣ Masks coverage < 20
+ 4️⃣ Masks coverage < 10
  5️⃣ Applies logit transform: log2(p / (1 - p)) with clipping
  6️⃣ Saves: (a) matrix, (b) median of per-CpG row SD per data set, (c) lambda per dataset, (d) CpG names
 
@@ -28,6 +28,7 @@ os.makedirs(output_folder, exist_ok=True)  # Create folder if it doesn't exist
 
 NR_SITES = 29401795  # Known length of CpGs list
 epsilon = 1e-6       # For safe logit transform
+minCov = 10 # We will mask sites for which the coverage is below this
 
 # 📂 1️⃣ Read metadata & filter valid groups
 meta = pd.read_csv("SupTab1_Loyfer2023.csv")
@@ -88,7 +89,7 @@ for group, samples in samples_per_group_short.items():
         if len(beta) != NR_SITES:
             raise ValueError(f"Mismatch: {s} has {len(beta)} CpGs, expected {NR_SITES}")
         # Mask low coverage
-        beta[cov < 20] = np.nan
+        beta[cov < minCov] = np.nan
         # Logit transform with clipping
         p = np.clip(beta, epsilon, 1 - epsilon)
         scaled = np.log2(p / (1 - p))
@@ -100,6 +101,7 @@ for group, samples in samples_per_group_short.items():
     mat = np.column_stack(betas)
     ## Count valid (non-NaN) values per CpG (row)
     valid_counts = np.sum(~np.isnan(mat), axis=1)
+
     ## Find rows with fewer than 3 valid values
     rows_to_mask = valid_counts < 3
     ## Mask entire rows with NaN
