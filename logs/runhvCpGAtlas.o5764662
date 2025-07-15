@@ -1,0 +1,536 @@
+✅ Found 27 groups with ≥ 3 samples.
+✅ Loaded 29,401,795 CpG names.
+🔄 Processing Abdominal Subcut. (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Abdominal Subcut._scaled_matrix.h5
+✅ Saved: Abdominal Subcut._median_sd.h5 [median_sd = 0.6047]
+✅ Saved: Abdominal Subcut._lambda.h5 [lambda = 12.6932]
+🔄 Processing Aorta (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Aorta_scaled_matrix.h5
+✅ Saved: Aorta_median_sd.h5 [median_sd = 0.9880]
+✅ Saved: Aorta_lambda.h5 [lambda = 8.0943]
+🔄 Processing Bladder (6 samples)
+Matrix shape: (29401795, 6)
+Rows (CpGs): 29,401,795
+Columns (Samples): 6
+First 5 rows, all columns:
+[[        nan  0.28010792 -0.91753784  0.26303441 -0.8930848          nan]
+ [        nan         nan         nan         nan         nan         nan]
+ [        nan         nan         nan         nan         nan         nan]
+ [        nan         nan         nan         nan         nan         nan]
+ [        nan         nan         nan         nan         nan         nan]]
+✅ Saved: Bladder_scaled_matrix.h5
+✅ Saved: Bladder_median_sd.h5 [median_sd = 2.0807]
+✅ Saved: Bladder_lambda.h5 [lambda = 3.9292]
+🔄 Processing Blood (36 samples)
+Matrix shape: (29401795, 36)
+Rows (CpGs): 29,401,795
+Columns (Samples): 36
+First 5 rows, all columns:
+[[ 1.          0.80735492  2.                 nan  0.83650127         nan
+          nan  1.07038933         nan         nan         nan         nan
+   0.20645088         nan  2.08746284  0.                 nan         nan
+          nan         nan         nan         nan  2.          0.5849625
+          nan         nan         nan  0.54056838  0.5849625  -0.48542683
+   0.20163386  2.07038933         nan  1.13750352         nan         nan]
+ [ 2.          0.70043972  4.52356196         nan  0.94341647         nan
+          nan  3.9068906          nan         nan         nan         nan
+   1.67807191         nan         nan  0.48542683         nan         nan
+          nan         nan         nan         nan  2.50250034         nan
+          nan         nan         nan  1.45943162         nan  0.4150375
+   1.20645088  0.91753784         nan  0.66296501         nan         nan]
+ [        nan  2.5849625   2.66296501         nan  1.68805599         nan
+          nan  3.80735492         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan  1.87446912         nan         nan
+   1.68805599  2.07038933         nan  3.39231742         nan         nan]
+ [        nan  3.39231742  4.32192809         nan  2.45943162         nan
+          nan  3.7548875          nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan  1.                 nan         nan
+   3.5849625   4.70043972         nan  2.24792751         nan         nan]
+ [        nan  2.32192809  2.5849625          nan  1.63742992         nan
+          nan  2.64385619         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan  2.32192809         nan         nan
+   1.          2.20163386         nan  4.39231742         nan         nan]]
+✅ Saved: Blood_scaled_matrix.h5
+✅ Saved: Blood_median_sd.h5 [median_sd = 4.7798]
+✅ Saved: Blood_lambda.h5 [lambda = 1.6162]
+🔄 Processing Bone marrow (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Bone marrow_scaled_matrix.h5
+✅ Saved: Bone marrow_median_sd.h5 [median_sd = 0.4331]
+✅ Saved: Bone marrow_lambda.h5 [lambda = 3.6679]
+🔄 Processing Brain (14 samples)
+Matrix shape: (29401795, 14)
+Rows (CpGs): 29,401,795
+Columns (Samples): 14
+First 5 rows, all columns:
+[[        nan  0.29956028         nan -0.91753784         nan -0.12553088
+   0.22239242         nan         nan  0.0931094   0.11547722  0.169925
+          nan  0.        ]
+ [        nan  2.13750352         nan  0.32192809         nan         nan
+   1.32192809         nan         nan         nan  1.09953567  1.6520767
+          nan         nan]
+ [        nan  2.66296501         nan  1.4150375          nan         nan
+  19.93156713         nan         nan         nan         nan  0.80735492
+          nan  1.76553475]
+ [        nan  2.24792751         nan  2.5849625          nan         nan
+   4.45943162         nan         nan         nan         nan  2.66296501
+          nan  1.5849625 ]
+ [        nan  2.66296501         nan  2.                 nan  0.28950662
+   1.5849625          nan         nan         nan  0.5849625   0.4150375
+          nan  2.50250034]]
+✅ Saved: Brain_scaled_matrix.h5
+✅ Saved: Brain_median_sd.h5 [median_sd = 5.5070]
+✅ Saved: Brain_lambda.h5 [lambda = 1.4173]
+🔄 Processing Breast (7 samples)
+Matrix shape: (29401795, 7)
+Rows (CpGs): 29,401,795
+Columns (Samples): 7
+First 5 rows, all columns:
+[[       nan 1.5849625         nan 1.51457317 0.                nan
+         nan]
+ [       nan        nan        nan        nan        nan        nan
+         nan]
+ [       nan        nan        nan        nan        nan        nan
+         nan]
+ [       nan        nan        nan        nan        nan        nan
+         nan]
+ [       nan        nan        nan        nan        nan        nan
+         nan]]
+✅ Saved: Breast_scaled_matrix.h5
+✅ Saved: Breast_median_sd.h5 [median_sd = 5.6732]
+✅ Saved: Breast_lambda.h5 [lambda = 1.4021]
+🔄 Processing Colon (12 samples)
+Matrix shape: (29401795, 12)
+Rows (CpGs): 29,401,795
+Columns (Samples): 12
+First 5 rows, all columns:
+[[-0.05658353  0.78849589 -0.32192809  0.61005348         nan  1.22239242
+   1.75002175         nan  1.4150375          nan  0.70043972  1.92599942]
+ [ 0.71620703  0.          0.84799691  1.5849625          nan         nan
+   2.4150375          nan  2.                 nan         nan  2.5849625 ]
+ [ 2.45943162         nan         nan  5.08746284         nan         nan
+   4.9068906          nan         nan         nan         nan         nan]
+ [ 2.87446912         nan         nan  3.                 nan         nan
+   2.7548875          nan         nan         nan         nan         nan]
+ [ 2.32192809         nan  2.50250034  2.36923381         nan         nan
+   4.9068906          nan         nan         nan         nan         nan]]
+✅ Saved: Colon_scaled_matrix.h5
+✅ Saved: Colon_median_sd.h5 [median_sd = 4.5028]
+✅ Saved: Colon_lambda.h5 [lambda = 1.7176]
+🔄 Processing Endometrium (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Endometrium_scaled_matrix.h5
+✅ Saved: Endometrium_median_sd.h5 [median_sd = 0.7976]
+✅ Saved: Endometrium_lambda.h5 [lambda = 9.8117]
+🔄 Processing Fallopien tubes (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Fallopien tubes_scaled_matrix.h5
+✅ Saved: Fallopien tubes_median_sd.h5 [median_sd = 0.7898]
+✅ Saved: Fallopien tubes_lambda.h5 [lambda = 9.7674]
+🔄 Processing Gastric antrum (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Gastric antrum_scaled_matrix.h5
+✅ Saved: Gastric antrum_median_sd.h5 [median_sd = 0.6514]
+✅ Saved: Gastric antrum_lambda.h5 [lambda = 11.7125]
+🔄 Processing Gastric body (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Gastric body_scaled_matrix.h5
+✅ Saved: Gastric body_median_sd.h5 [median_sd = 0.6659]
+✅ Saved: Gastric body_lambda.h5 [lambda = 11.5038]
+🔄 Processing Gastric fundus (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[ 0.51457317 -0.73696559 -0.12553088]
+ [        nan         nan         nan]
+ [        nan         nan         nan]
+ [        nan         nan         nan]
+ [        nan         nan         nan]]
+✅ Saved: Gastric fundus_scaled_matrix.h5
+✅ Saved: Gastric fundus_median_sd.h5 [median_sd = 0.6197]
+✅ Saved: Gastric fundus_lambda.h5 [lambda = 12.1913]
+🔄 Processing Heart (8 samples)
+Matrix shape: (29401795, 8)
+Rows (CpGs): 29,401,795
+Columns (Samples): 8
+First 5 rows, all columns:
+[[nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]]
+✅ Saved: Heart_scaled_matrix.h5
+✅ Saved: Heart_median_sd.h5 [median_sd = 2.1167]
+✅ Saved: Heart_lambda.h5 [lambda = 3.7385]
+🔄 Processing Kidney glomerular (8 samples)
+Matrix shape: (29401795, 8)
+Rows (CpGs): 29,401,795
+Columns (Samples): 8
+First 5 rows, all columns:
+[[nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]]
+✅ Saved: Kidney glomerular_scaled_matrix.h5
+✅ Saved: Kidney glomerular_median_sd.h5 [median_sd = 1.8112]
+✅ Saved: Kidney glomerular_lambda.h5 [lambda = 4.2722]
+🔄 Processing Kidney tubular (6 samples)
+Matrix shape: (29401795, 6)
+Rows (CpGs): 29,401,795
+Columns (Samples): 6
+First 5 rows, all columns:
+[[ 1.4150375  -0.28950662         nan -0.26303441         nan         nan]
+ [        nan         nan         nan         nan         nan         nan]
+ [        nan         nan         nan         nan         nan         nan]
+ [        nan         nan         nan         nan         nan         nan]
+ [        nan         nan         nan         nan         nan         nan]]
+✅ Saved: Kidney tubular_scaled_matrix.h5
+✅ Saved: Kidney tubular_median_sd.h5 [median_sd = 1.6566]
+✅ Saved: Kidney tubular_lambda.h5 [lambda = 4.7305]
+🔄 Processing Liver (8 samples)
+Matrix shape: (29401795, 8)
+Rows (CpGs): 29,401,795
+Columns (Samples): 8
+First 5 rows, all columns:
+[[        nan -0.12553088  0.          0.          1.28010792         nan
+          nan -0.11547722]
+ [        nan         nan         nan  0.11547722  1.28010792         nan
+          nan  1.169925  ]
+ [        nan  3.169925           nan  1.66296501  3.32192809         nan
+          nan  1.5849625 ]
+ [        nan         nan         nan  3.32192809  1.76553475         nan
+          nan  2.32192809]
+ [        nan  0.8930848          nan  1.84799691  1.32192809         nan
+          nan  1.36257008]]
+✅ Saved: Liver_scaled_matrix.h5
+✅ Saved: Liver_median_sd.h5 [median_sd = 1.3077]
+✅ Saved: Liver_lambda.h5 [lambda = 5.8178]
+🔄 Processing Lung alveolar (8 samples)
+Matrix shape: (29401795, 8)
+Rows (CpGs): 29,401,795
+Columns (Samples): 8
+First 5 rows, all columns:
+[[nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]
+ [nan nan nan nan nan nan nan nan]]
+✅ Saved: Lung alveolar_scaled_matrix.h5
+✅ Saved: Lung alveolar_median_sd.h5 [median_sd = 1.7847]
+✅ Saved: Lung alveolar_lambda.h5 [lambda = 4.2754]
+🔄 Processing Lung bronchus (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Lung bronchus_scaled_matrix.h5
+✅ Saved: Lung bronchus_median_sd.h5 [median_sd = 0.6864]
+✅ Saved: Lung bronchus_lambda.h5 [lambda = 11.0597]
+🔄 Processing Lung interstitial (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Lung interstitial_scaled_matrix.h5
+✅ Saved: Lung interstitial_median_sd.h5 [median_sd = 0.8017]
+✅ Saved: Lung interstitial_lambda.h5 [lambda = 9.6561]
+🔄 Processing Pancreas (21 samples)
+Matrix shape: (29401795, 21)
+Rows (CpGs): 29,401,795
+Columns (Samples): 21
+First 5 rows, all columns:
+[[        nan         nan  0.5849625          nan         nan         nan
+          nan         nan  1.13750352         nan -3.24792751 -0.36257008
+          nan         nan  0.13750352         nan         nan         nan
+          nan         nan  0.76553475]
+ [        nan         nan         nan         nan         nan         nan
+          nan         nan  1.71620703         nan         nan  1.
+          nan         nan  0.5849625          nan         nan         nan
+          nan         nan  1.76553475]
+ [        nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan]
+ [        nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan]
+ [        nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan         nan         nan         nan
+          nan         nan         nan]]
+✅ Saved: Pancreas_scaled_matrix.h5
+✅ Saved: Pancreas_median_sd.h5 [median_sd = 4.8199]
+✅ Saved: Pancreas_lambda.h5 [lambda = 1.6101]
+🔄 Processing Prostate (5 samples)
+Matrix shape: (29401795, 5)
+Rows (CpGs): 29,401,795
+Columns (Samples): 5
+First 5 rows, all columns:
+[[0.80735492        nan        nan 0.         0.63742992]
+ [       nan        nan        nan        nan        nan]
+ [       nan        nan        nan        nan        nan]
+ [       nan        nan        nan        nan        nan]
+ [       nan        nan        nan        nan        nan]]
+✅ Saved: Prostate_scaled_matrix.h5
+✅ Saved: Prostate_median_sd.h5 [median_sd = 1.7463]
+✅ Saved: Prostate_lambda.h5 [lambda = 4.5664]
+🔄 Processing Small intestine (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Small intestine_scaled_matrix.h5
+✅ Saved: Small intestine_median_sd.h5 [median_sd = 0.7226]
+✅ Saved: Small intestine_lambda.h5 [lambda = 10.6637]
+🔄 Processing Thyroid (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Thyroid_scaled_matrix.h5
+✅ Saved: Thyroid_median_sd.h5 [median_sd = 0.7562]
+✅ Saved: Thyroid_lambda.h5 [lambda = 10.2819]
+🔄 Processing Tongue (4 samples)
+Matrix shape: (29401795, 4)
+Rows (CpGs): 29,401,795
+Columns (Samples): 4
+First 5 rows, all columns:
+[[nan nan nan nan]
+ [nan nan nan nan]
+ [nan nan nan nan]
+ [nan nan nan nan]
+ [nan nan nan nan]]
+✅ Saved: Tongue_scaled_matrix.h5
+✅ Saved: Tongue_median_sd.h5 [median_sd = 0.9542]
+✅ Saved: Tongue_lambda.h5 [lambda = 8.1723]
+🔄 Processing Tonsil palatine (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Tonsil palatine_scaled_matrix.h5
+✅ Saved: Tonsil palatine_median_sd.h5 [median_sd = 0.6097]
+✅ Saved: Tonsil palatine_lambda.h5 [lambda = 12.4947]
+🔄 Processing Vascular saphenous (3 samples)
+Matrix shape: (29401795, 3)
+Rows (CpGs): 29,401,795
+Columns (Samples): 3
+First 5 rows, all columns:
+[[nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]
+ [nan nan nan]]
+✅ Saved: Vascular saphenous_scaled_matrix.h5
+✅ Saved: Vascular saphenous_median_sd.h5 [median_sd = 0.7295]
+✅ Saved: Vascular saphenous_lambda.h5 [lambda = 10.5196]
+Renamed: Vascular saphenous_median_sd.h5 -> Vascular_saphenous_median_sd.h5
+Renamed: Vascular saphenous_lambda.h5 -> Vascular_saphenous_lambda.h5
+Renamed: Vascular saphenous_scaled_matrix.h5 -> Vascular_saphenous_scaled_matrix.h5
+Renamed: Tonsil palatine_lambda.h5 -> Tonsil_palatine_lambda.h5
+Renamed: Tonsil palatine_median_sd.h5 -> Tonsil_palatine_median_sd.h5
+Renamed: Tonsil palatine_scaled_matrix.h5 -> Tonsil_palatine_scaled_matrix.h5
+Renamed: Small intestine_lambda.h5 -> Small_intestine_lambda.h5
+Renamed: Small intestine_median_sd.h5 -> Small_intestine_median_sd.h5
+Renamed: Small intestine_scaled_matrix.h5 -> Small_intestine_scaled_matrix.h5
+Renamed: Lung interstitial_lambda.h5 -> Lung_interstitial_lambda.h5
+Renamed: Lung interstitial_median_sd.h5 -> Lung_interstitial_median_sd.h5
+Renamed: Lung interstitial_scaled_matrix.h5 -> Lung_interstitial_scaled_matrix.h5
+Renamed: Lung bronchus_lambda.h5 -> Lung_bronchus_lambda.h5
+Renamed: Lung bronchus_median_sd.h5 -> Lung_bronchus_median_sd.h5
+Renamed: Lung bronchus_scaled_matrix.h5 -> Lung_bronchus_scaled_matrix.h5
+Renamed: Lung alveolar_lambda.h5 -> Lung_alveolar_lambda.h5
+Renamed: Lung alveolar_median_sd.h5 -> Lung_alveolar_median_sd.h5
+Renamed: Lung alveolar_scaled_matrix.h5 -> Lung_alveolar_scaled_matrix.h5
+Renamed: Kidney tubular_lambda.h5 -> Kidney_tubular_lambda.h5
+Renamed: Kidney tubular_median_sd.h5 -> Kidney_tubular_median_sd.h5
+Renamed: Kidney tubular_scaled_matrix.h5 -> Kidney_tubular_scaled_matrix.h5
+Renamed: Kidney glomerular_lambda.h5 -> Kidney_glomerular_lambda.h5
+Renamed: Kidney glomerular_median_sd.h5 -> Kidney_glomerular_median_sd.h5
+Renamed: Kidney glomerular_scaled_matrix.h5 -> Kidney_glomerular_scaled_matrix.h5
+Renamed: Gastric fundus_lambda.h5 -> Gastric_fundus_lambda.h5
+Renamed: Gastric fundus_median_sd.h5 -> Gastric_fundus_median_sd.h5
+Renamed: Gastric fundus_scaled_matrix.h5 -> Gastric_fundus_scaled_matrix.h5
+Renamed: Gastric body_lambda.h5 -> Gastric_body_lambda.h5
+Renamed: Gastric body_median_sd.h5 -> Gastric_body_median_sd.h5
+Renamed: Gastric body_scaled_matrix.h5 -> Gastric_body_scaled_matrix.h5
+Renamed: Gastric antrum_lambda.h5 -> Gastric_antrum_lambda.h5
+Renamed: Gastric antrum_median_sd.h5 -> Gastric_antrum_median_sd.h5
+Renamed: Gastric antrum_scaled_matrix.h5 -> Gastric_antrum_scaled_matrix.h5
+Renamed: Fallopien tubes_lambda.h5 -> Fallopien_tubes_lambda.h5
+Renamed: Fallopien tubes_median_sd.h5 -> Fallopien_tubes_median_sd.h5
+Renamed: Fallopien tubes_scaled_matrix.h5 -> Fallopien_tubes_scaled_matrix.h5
+Renamed: Bone marrow_lambda.h5 -> Bone_marrow_lambda.h5
+Renamed: Bone marrow_median_sd.h5 -> Bone_marrow_median_sd.h5
+Renamed: Bone marrow_scaled_matrix.h5 -> Bone_marrow_scaled_matrix.h5
+Renamed: Abdominal Subcut._lambda.h5 -> Abdominal_Subcut._lambda.h5
+Renamed: Abdominal Subcut._median_sd.h5 -> Abdominal_Subcut._median_sd.h5
+Renamed: Abdominal Subcut._scaled_matrix.h5 -> Abdominal_Subcut._scaled_matrix.h5
+
+🎉 All done.
+
+R version 4.2.1 (2022-06-23) -- "Funny-Looking Kid"
+Copyright (C) 2022 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> myNthreads=16 ## specify here
+> 
+> ## Load algorithm (30sec)
+> system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
+   user  system elapsed 
+  3.668   0.521  25.830 
+> 
+> ## Load data & functions specific to Atlas (2 sec)
+> system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S02.formatAtlasforR.R"))
+✅ Abdominal_Subcut.: median_sd=0.6047, lambda=12.6932
+✅ Aorta: median_sd=0.9880, lambda=8.0943
+✅ Bladder: median_sd=2.0807, lambda=3.9292
+✅ Blood: median_sd=4.7798, lambda=1.6162
+✅ Bone_marrow: median_sd=0.4331, lambda=3.6679
+✅ Brain: median_sd=5.5070, lambda=1.4173
+✅ Breast: median_sd=5.6732, lambda=1.4021
+✅ Colon: median_sd=4.5028, lambda=1.7176
+✅ Endometrium: median_sd=0.7976, lambda=9.8117
+✅ Fallopien_tubes: median_sd=0.7898, lambda=9.7674
+✅ Gastric_antrum: median_sd=0.6514, lambda=11.7125
+✅ Gastric_body: median_sd=0.6659, lambda=11.5038
+✅ Gastric_fundus: median_sd=0.6197, lambda=12.1913
+✅ Heart: median_sd=2.1167, lambda=3.7385
+✅ Kidney_glomerular: median_sd=1.8112, lambda=4.2722
+✅ Kidney_tubular: median_sd=1.6566, lambda=4.7305
+✅ Liver: median_sd=1.3077, lambda=5.8178
+✅ Lung_alveolar: median_sd=1.7847, lambda=4.2754
+✅ Lung_bronchus: median_sd=0.6864, lambda=11.0597
+✅ Lung_interstitial: median_sd=0.8017, lambda=9.6561
+✅ Pancreas: median_sd=4.8199, lambda=1.6101
+✅ Prostate: median_sd=1.7463, lambda=4.5664
+✅ Small_intestine: median_sd=0.7226, lambda=10.6637
+✅ Thyroid: median_sd=0.7562, lambda=10.2819
+✅ Tongue: median_sd=0.9542, lambda=8.1723
+✅ Tonsil_palatine: median_sd=0.6097, lambda=12.4947
+✅ Vascular_saphenous: median_sd=0.7295, lambda=10.5196
+   user  system elapsed 
+  0.628   0.017   1.743 
+> 
+> ## Load cpg list (1 min) 29,401,795 CpG names
+> system.time(cpg_names <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets_prepared/Abdominal_Subcut._scaled_matrix.h5", "cpg_names"))
+   user  system elapsed 
+ 59.121  11.806  73.338 
+> 
+> length(cpg_names); head(cpg_names)
+[1] 29401795
+[1] "chr1_10469-10470" "chr1_10471-10472" "chr1_10484-10485" "chr1_10489-10490"
+[5] "chr1_10493-10494" "chr1_10497-10498"
+> ##[1] 29401795
+> ##[1] "chr1_10469-10470" "chr1_10471-10472" "chr1_10484-10485" "chr1_10489-10490"
+> ##[5] "chr1_10493-10494" "chr1_10497-10498"
+> 
+> system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 1000),p0=0.80, p1=0.65, NCORES=myNthreads,
++ 		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))

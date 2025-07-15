@@ -1,22 +1,20 @@
 #!/bin/bash
 #$ -N runhvCpGAtlas
 #$ -S /bin/bash
-#$ -pe smp 10
+#$ -pe smp 20
 #$ -l tmem=4G
 #$ -l h_vmem=4G
-#$ -l h_rt=100:00:00
-#$ -m abe ## Send an email if abort, begins or end
-#$ -M alice.cam.balard@gmail.com
+#$ -l h_rt=10:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 #$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
 
-source /share/apps/source_files/python/python-3.13.0a6.source
-
-python3 /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S01.prepare_beta_matrices.py
+## If needed, to prepare the files
+## source /share/apps/source_files/python/python-3.13.0a6.source
+## python3 /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S01.prepare_beta_matrices.py
 
 R --vanilla <<EOF
 
-myNthreads=16 ## specify here
+myNthreads=20 ## specify here
 
 ## Load algorithm (30sec)
 system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
@@ -24,20 +22,21 @@ system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvC
 ## Load data & functions specific to Atlas (2 sec)
 system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S02.formatAtlasforR.R"))
 
-## Load cpg list (1 min) 29,401,795 CpG names
-system.time(cpg_names <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets_prepared/Abdominal_Subcut._scaled_matrix.h5", "cpg_names"))
+## Load cpg list (~1 min 30) 29,401,795 CpG names
+system.time(cpg_names <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets_prepared/CpG_names.h5", "cpg_names"))
 
 length(cpg_names); head(cpg_names)
 ##[1] 29401795
 ##[1] "chr1_10469-10470" "chr1_10471-10472" "chr1_10484-10485" "chr1_10489-10490"
 ##[5] "chr1_10493-10494" "chr1_10497-10498"
 
-system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 1000),p0=0.80, p1=0.65, NCORES=myNthreads,
+system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 10000),p0=0.80, p1=0.65, NCORES=myNthreads,
 		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
 
-##100, 5G, 1C = 87 sec
-##1000, 5G, 1C = 
-## 825 CpGs, 5G, 1C in 1403 sec
+## 100, 5G, 1C = 87 sec
+## 1000, 5G, 1C = 471.074 sec
+## 1000 CpGs, 4G, 16C = 57 sec
+## 10000 CpGs, 4G, 25C = 759 sec
 
 message("Done!")
 
