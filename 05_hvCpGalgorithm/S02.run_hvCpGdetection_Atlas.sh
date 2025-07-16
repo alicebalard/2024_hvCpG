@@ -2,8 +2,8 @@
 #$ -N runhvCpGAtlas
 #$ -S /bin/bash
 #$ -pe smp 20
-#$ -l tmem=4G
-#$ -l h_vmem=4G
+#$ -l tmem=5G
+#$ -l h_vmem=5G
 #$ -l h_rt=10:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 #$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
@@ -37,6 +37,7 @@ system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 10000),p0=0.80, p1=0.65
 ## 1000, 5G, 1C = 471.074 sec
 ## 1000 CpGs, 4G, 16C = 57 sec
 ## 10000 CpGs, 4G, 25C = 759 sec
+## 10000 CpGs, 5G, 20C = 3806 sec (but coverage is now 10 min, not 20 min, so much more to process!)
 
 message("Done!")
 

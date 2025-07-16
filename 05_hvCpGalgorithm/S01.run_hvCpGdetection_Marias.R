@@ -1,3 +1,56 @@
+#!/bin/bash
+#$ -N runhvCpGMaria
+#$ -S /bin/bash
+#$ -pe smp 20
+#$ -l tmem=5G
+#$ -l h_vmem=5G
+#$ -l h_rt=10:00:00
+#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
+#$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
+
+## If needed, to prepare the files
+## source /share/apps/source_files/python/python-3.13.0a6.source
+## python3 /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/03_prepDatasetsMaria/S01.prepare_h5files_MariaArrays.py
+
+R --vanilla <<EOF
+
+myNthreads=20 ## specify here
+
+## Load algorithm (30sec)
+system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
+
+## Load data & functions specific to Atlas (2 sec)
+system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S02.formatAtlasforR.R"))
+
+
+
+
+## Load cpg list (~1 min 30) 29,401,795 CpG names
+system.time(cpg_names <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets_prepared/CpG_names.h5", "cpg_names"))
+
+length(cpg_names); head(cpg_names)
+##[1] 29401795
+##[1] "chr1_10469-10470" "chr1_10471-10472" "chr1_10484-10485" "chr1_10489-10490"
+##[5] "chr1_10493-10494" "chr1_10497-10498"
+
+system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 10000),p0=0.80, p1=0.65, NCORES=myNthreads,
+		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
+
+## 100, 5G, 1C = 87 sec
+## 1000, 5G, 1C = 471.074 sec
+## 1000 CpGs, 4G, 16C = 57 sec
+## 10000 CpGs, 4G, 25C = 759 sec
+## 10000 CpGs, 5G, 20C = 3806 sec (but coverage is now 10 min, not 20 min, so much more to process!)
+
+message("Done!")
+
+q()
+EOF
+
+
+
+############ STOP!
+                                                                                          
 ###########
 ## NB: this script has to run on R outside of Rstudio, for compatibility issues with parallelisation
 
