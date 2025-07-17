@@ -1,122 +1,56 @@
-#!/bin/bash
-#$ -N runhvCpGMaria
-#$ -S /bin/bash
-#$ -pe smp 20
-#$ -l tmem=5G
-#$ -l h_vmem=5G
-#$ -l h_rt=10:00:00
-#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
-#$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
-
-## If needed, to prepare the files
-## source /share/apps/source_files/python/python-3.13.0a6.source
-## python3 /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/03_prepDatasetsMaria/S01.prepare_h5files_MariaArrays.py
-
-R --vanilla <<EOF
-
-myNthreads=20 ## specify here
+setwd("~/Documents/GIT/2024_hvCpG/")
 
 ## Load algorithm (30sec)
-system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
+system.time(source("05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
 
 ## Load data & functions specific to Atlas (2 sec)
-system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S02.formatAtlasforR.R"))
+system.time(source("03_prepDatasetsMaria/S02.formatArraysforR.R"))
 
-
-
-
-## Load cpg list (~1 min 30) 29,401,795 CpG names
-system.time(cpg_names <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets_prepared/CpG_names.h5", "cpg_names"))
+## Load cpg list: 397,531 CpG names (probably plus on LSHTM)
+cpg_names <- read.table("~/Documents/27dsh5files/sorted_common_cpgs.txt")$V1
 
 length(cpg_names); head(cpg_names)
-##[1] 29401795
-##[1] "chr1_10469-10470" "chr1_10471-10472" "chr1_10484-10485" "chr1_10489-10490"
-##[5] "chr1_10493-10494" "chr1_10497-10498"
+## [1] 397531
+## [1] "cg00000029" "cg00000109" "cg00000165" "cg00000236" "cg00000289" "cg00000292"
 
-system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 10000),p0=0.80, p1=0.65, NCORES=myNthreads,
-		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
+## Load hvCpG of Maria and matching mQTL
+cistrans_GoDMC_hvCpG_matched_control <- read.table("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
 
-## 100, 5G, 1C = 87 sec
-## 1000, 5G, 1C = 471.074 sec
-## 1000 CpGs, 4G, 16C = 57 sec
-## 10000 CpGs, 4G, 25C = 759 sec
-## 10000 CpGs, 5G, 20C = 3806 sec (but coverage is now 10 min, not 20 min, so much more to process!)
+## In which positions are they?
+cpg_names[cpg_names %in% cistrans_GoDMC_hvCpG_matched_control$hvCpG_name] %>% length
+cpg_names[cpg_names %in% cistrans_GoDMC_hvCpG_matched_control$controlCpG_name]  %>% length
 
-message("Done!")
+sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control[
+  cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpg_names &
+    cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpg_names,]
 
-q()
-EOF
+## Positions of targets in cpg_names:
+match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names)
+match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names)
 
+source_scaled_mat_1CpG(pos = match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names)[2])
 
+pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names),
+               match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names))
 
-############ STOP!
-                                                                                          
-###########
-## NB: this script has to run on R outside of Rstudio, for compatibility issues with parallelisation
-
-## Specific libPath for R --vanilla
-.libPaths(c(
-  "/opt/R/packages/lib_4.4.1",
-  "/home/alice/R/x86_64-pc-linux-gnu-library/4.4",
-  "/usr/lib/R/library"
-))
-
-setwd("/home/alice/2024_hvCpG/")
-
-## Maria's data (Hosted on LSHTM server of Matt Silver)
-source("03_prepDatasetsMaria/dataprep_MariaArrays.R")
-
-cat(paste0("Prepare Maria's dataset and source functions (v1) for optimisation:\n"))
-source("05_hvCpGalgorithm/hvCpG_algorithm_detection_v1.R")
-cat("Functions sourced.\n")
-
-## Set up my number of threads
-myNthreads=50
-
-##########################################################################
-## Part 1. Run hvCpG on 3453 hvCpG from Maria and matched mQTL controls ##
-##########################################################################
-hvCpGandControls <- c(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, 
-                     sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name)
-
-## Nelder-Mead or L-BFGS-B?
-runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = hvCpGandControls,
-           optimMeth="Nelder-Mead", NCORES=myNthreads, p0=0.95, p1=0.65, 
-           resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/")
-
-runAndSave(my_list_mat = my_list_mat_Mariads, cpgvec = hvCpGandControls,
-           optimMeth="L-BFGS-B", NCORES=myNthreads, p0=0.95, p1=0.65, 
-           resultDir="/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/")
-## We choose Nelder-Mead, as L-BFGS-B produces weird zero values (see Rmd plots).
-
-library(foreach)
-library(doParallel)
-
-# Number of *parallel tasks* (each task uses 5 cores)
-NWORKERS <- 10
-
-cl <- makeCluster(NWORKERS)
-registerDoParallel(cl)
+system.time(runAndSave("Maria", cpgvec = pos2check, p0=0.80, p1=0.65, NCORES=8,
+		       resultDir="~/Documents/resultsDir/Maria/"))
+## 1049.522 sec = 17minutes
 
 # Your grid
-params <- seq(0.4, 1, 0.05)
+params <- seq(0.4, 1, 0.1)
 grid <- expand.grid(p0 = params, p1 = params)
 
-# No need to assign to `results` — just run for side effects
-foreach(i = 1:nrow(grid), .packages = packages) %dopar% {
-  row <- grid[i, ]
-  runAndSave(
-    my_list_mat = my_list_mat_Mariads,
-    cpgvec = hvCpGandControls,
-    optimMeth = "Nelder-Mead",
-    NCORES = 5,
-    p0 = row$p0,
-    p1 = row$p1,
-    resultDir = "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/"
-  )
-}
+apply(grid, 1, function(row) {
+  runAndSave("Maria", cpgvec = pos2check, p0=as.numeric(row["p0"]), p1=as.numeric(row["p1"]), NCORES=8,
+             resultDir="~/Documents/resultsDir/Maria/")
+})
 
-stopCluster(cl)
+
+
+
+
+
 
 ## On Rstudio
 ## myres <- readRDS("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Nelder-Mead_minitest_0.95.RDS")

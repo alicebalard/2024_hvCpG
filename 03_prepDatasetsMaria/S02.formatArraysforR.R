@@ -8,7 +8,8 @@
 library(rhdf5)
 
 ## 📁 Folder with all data prepared in S01                                          
-folder <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/arrays_human/27dsh5files/"
+# folder <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/arrays_human/27dsh5files/"
+folder <- "~/Documents/27dsh5files/"
 
 ## 🔍 List all scaled_matrix files                                                  
 matrix_files <- list.files(folder, pattern = "_scaled_matrix\\.h5$", full.names = TRUE)
@@ -17,7 +18,6 @@ matrix_files <- list.files(folder, pattern = "_scaled_matrix\\.h5$", full.names 
 median_sds <- list()
 lambdas <- list()
 
-message("NB: for each CpG, we need at least 3 samples covered in a group for this group to be considered, otherwise the remaining one or 2 samples are masked by Nas.")
 ## 🔄 Loop over each matrix file [to do ONCE]
 for (matrix_file in matrix_files) {
     ## Extract group name from file name
@@ -49,4 +49,5 @@ source_scaled_mat_1CpG <- function(pos) {
     }
     return(scaled_rows)
 }
-## e.g. source_scaled_mat_1CpG(1)
+## e.g. 
+source_scaled_mat_1CpG(1)
