@@ -1,17 +1,14 @@
-setwd("~/Documents/GIT/2024_hvCpG/")
+setwd("~/2024_hvCpG/")
+
+## Load data & functions specific to Maria's arrays (to do before)
+system.time(source("03_prepDatasetsMaria/S02.formatArraysforR.R"))
 
 ## Load algorithm (30sec)
 system.time(source("05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
 
-## Load data & functions specific to Atlas (2 sec)
-system.time(source("03_prepDatasetsMaria/S02.formatArraysforR.R"))
-
-## Load cpg list: 397,531 CpG names (probably plus on LSHTM)
-cpg_names <- read.table("~/Documents/27dsh5files/sorted_common_cpgs.txt")$V1
-
 length(cpg_names); head(cpg_names)
-## [1] 397531
-## [1] "cg00000029" "cg00000109" "cg00000165" "cg00000236" "cg00000289" "cg00000292"
+## [1] 406036
+# [1] "cg00000029" "cg00000108" "cg00000109" "cg00000165" "cg00000236" "cg00000289"
 
 ## Load hvCpG of Maria and matching mQTL
 cistrans_GoDMC_hvCpG_matched_control <- read.table("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
@@ -33,17 +30,19 @@ source_scaled_mat_1CpG(pos = match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCp
 pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names),
                match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names))
 
-system.time(runAndSave("Maria", cpgvec = pos2check, p0=0.80, p1=0.65, NCORES=8,
-		       resultDir="~/Documents/resultsDir/Maria/"))
-## 1049.522 sec = 17minutes
+## Test
+## system.time(runAndSave("Maria", cpgvec = pos2check[1], p0=0.80, p1=0.65, NCORES=1, resultDir="05_hvCpGalgorithm/resultsDir/Mariads/"))
+
+system.time(runAndSave("Maria", cpgvec = pos2check, p0=0.80, p1=0.65, NCORES=30, resultDir="05_hvCpGalgorithm/resultsDir/Mariads/"))
+## 200 sec = 3 minutes
 
 # Your grid
 params <- seq(0.4, 1, 0.1)
 grid <- expand.grid(p0 = params, p1 = params)
 
 apply(grid, 1, function(row) {
-  runAndSave("Maria", cpgvec = pos2check, p0=as.numeric(row["p0"]), p1=as.numeric(row["p1"]), NCORES=8,
-             resultDir="~/Documents/resultsDir/Maria/")
+  runAndSave("Maria", cpgvec = pos2check, p0=as.numeric(row["p0"]), p1=as.numeric(row["p1"]), NCORES=30,
+             resultDir="05_hvCpGalgorithm/resultsDir/Mariads/")
 })
 
 
