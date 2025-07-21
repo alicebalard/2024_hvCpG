@@ -223,12 +223,10 @@ The zero was weirdly transformed. Is that expected?
 Run on LSHTM server (need to be outside of RStudio for parallelising and h5 files access): 
 source("S01_run_hvCpGdetection_Marias.R") ## for different datasets
 
-### "Nelder-Mead" or "L-BFGS-B" optimisation method?
-
 ```{r}
 ## Load data & functions specific to Maria's arrays (to do before)                                                 
 system.time(source("../03_prepDatasetsMaria/S02.formatArraysforR.R"))
-## Load algorithm (30sec)                                                                                                                                                                                                                 
+## Load algorithm (30sec)                                                                                                                                                                                                             
 system.time(source("../05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
 
 ## Load full cpg names
@@ -254,10 +252,10 @@ pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_na
                match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names))
 
 ## Made with "Brent" and new method
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_pos2check_0_8p0_0_65p1.RData")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_pos2check_1p0_0_6p1.RData")
 
-Brent = data.frame(CpG = cpg_names[as.numeric(row.names(results_Maria_pos2check_0_8p0_0_65p1))],
-                   alpha_Brent = as.vector(results_Maria_pos2check_0_8p0_0_65p1))
+Brent = data.frame(CpG = cpg_names[as.numeric(row.names(results_Maria_pos2check_1p0_0_6p1))],
+                   alpha_Brent = as.vector(results_Maria_pos2check_1p0_0_6p1))
 
 Brent %>%  
   mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>%
@@ -269,9 +267,9 @@ Brent %>%
 ```
 
 ```{r}
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/withAlpha0.5atStart/results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_8p0_0_65p1.RData")
-NM = data.frame(CpG = row.names(results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_8p0_0_65p1),
-                alpha_NM_old = as.vector(results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_0_8p0_0_65p1)) 
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/withAlpha0.5atStart/results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1.RData")
+NM = data.frame(CpG = row.names(results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1),
+                alpha_NM_old = as.vector(results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1)) 
 
 NM %>%  
   mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>%
@@ -359,12 +357,13 @@ best <- auc_df |>
   filter(AUC == max(AUC, na.rm = TRUE)) |> 
   slice(1)  # in case of ties
 
+best
 heatmap_plot <- ggplot(auc_df, aes(p0, p1, fill=AUC)) +
   geom_tile(color="white") +
   geom_text(aes(label=round(threshold,2)),
             size=3, color="black", check_overlap = TRUE) +
   # Outline best tile
-  geom_tile(data = best, aes(p0, p1), fill = NA, color = "red", linewidth = 1.5) +
+  geom_rect(data = best, aes(xmin = p0-0.025, xmax = p0+0.025, ymin = p1-0.025, ymax = p1+0.025), fill = NA, color = "red", linewidth = 1) +
   scale_fill_viridis_c(option = "plasma") +
   labs(title="AUC & Optimal Threshold per (p0,p1)",
        x="p0", y="p1") +
@@ -383,6 +382,13 @@ The best threshold ploted in tiles is the alpha probability that gives the best 
 * Previous discrepancies between methods are likely due to scaling!
 
 # Subset Maria's data following Atlas data structure (less N/dataset) to check power of detection in Atlas data:          
+```{r}
+# Atlas data structure:
+AtlasMetaData <- readxl::read_excel("../04_prepAtlas/41586_2022_5580_MOESM4_ESM.xlsx", sheet = 1, skip = 2)
+
+table(AtlasMetaData$`Cell type`)
+```
+
 
 3 tries for (p0, p1): 
 
