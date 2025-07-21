@@ -13,6 +13,9 @@ length(cpg_names); head(cpg_names)
 ## Load hvCpG of Maria and matching mQTL
 cistrans_GoDMC_hvCpG_matched_control <- read.table("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
 
+## Load full cpg names
+cpg_names <- readLines("~/arraysh5files/sorted_common_cpgs.txt")
+
 ## In which positions are they?
 cpg_names[cpg_names %in% cistrans_GoDMC_hvCpG_matched_control$hvCpG_name] %>% length
 cpg_names[cpg_names %in% cistrans_GoDMC_hvCpG_matched_control$controlCpG_name]  %>% length
@@ -30,22 +33,17 @@ source_scaled_mat_1CpG(pos = match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCp
 pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names),
                match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names))
 
-## Test
-## system.time(runAndSave("Maria", cpgvec = pos2check[1], p0=0.80, p1=0.65, NCORES=1, resultDir="05_hvCpGalgorithm/resultsDir/Mariads/"))
-
 system.time(runAndSave("Maria", cpgvec = pos2check, p0=0.80, p1=0.65, NCORES=30, resultDir="05_hvCpGalgorithm/resultsDir/Mariads/"))
-## 200 sec = 3 minutes
+## 774 sec = 3 minutes
 
 # Your grid
-params <- seq(0.4, 1, 0.1)
+params <- seq(0.4, 1, 0.05)
 grid <- expand.grid(p0 = params, p1 = params)
 
 apply(grid, 1, function(row) {
   runAndSave("Maria", cpgvec = pos2check, p0=as.numeric(row["p0"]), p1=as.numeric(row["p1"]), NCORES=30,
              resultDir="05_hvCpGalgorithm/resultsDir/Mariads/")
 })
-
-
 
 
 
