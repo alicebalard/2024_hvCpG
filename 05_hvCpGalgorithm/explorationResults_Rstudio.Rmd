@@ -24,7 +24,47 @@ invisible(lapply(
 # Her hvCpG scripts are here:
 # /mnt/old_user_accounts/p3/maria/PhD/Projects/hvCpGs/Scripts/
 
-system.time(source("../03_prepDatasetsMaria/dataprep_MariaArrays.R")) # takes 2 minutes
+## Load results of Maria for hvCpG
+Marias_hvCpGs <- read.csv("~/2024_hvCpG/03_prepDatasetsMaria/Derakhshan2022_ST5_hvCpG.txt")
+
+## Recreate Maria's datasets
+folder1 <- normalizePath("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/")
+rds_files1 <- list.files(path = folder1, pattern = "\\.RDS$", full.names = TRUE)
+
+# Read all .rds files into a list and convert each to a matrix
+rds_list_mat1 <- lapply(rds_files1, function(file) {as.matrix(readRDS(file))})
+## Name the list elements by file names (without extensions)
+names(rds_list_mat1) <- gsub("\\.RDS$", "", basename(rds_files1))
+
+rds_list_mat2 <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/TCGA/TCGA_BMIQ_age_sex_PC_adjusted_OUTLIERS_REMOVED_round2.RDS")
+rds_list_mat2 <- lapply(rds_list_mat2, as.matrix)
+
+rds_list_mat <- c(rds_list_mat1, rds_list_mat2) ; rm(rds_list_mat1, rds_list_mat2)
+
+# Keep only the array background (covered in 15 datasets out of 30)
+all_cpgs <- unlist(lapply(rds_list_mat, rownames))
+cpg_counts <- table(all_cpgs)
+common_cpgs <- names(cpg_counts[cpg_counts >= 15])
+
+rds_list_mat <- lapply(rds_list_mat, function(mat) {
+  mat[rownames(mat) %in% common_cpgs, ]
+})
+
+## Load mQTL-matched controls
+cistrans_GoDMC_hvCpG_matched_control <- 
+  read.table("~/2024_hvCpG/03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
+
+## Load cpgnames (all dpg covered after filtration)
+cpgnames <- read.table("~/arraysh5files/sorted_common_cpgs.txt")$V1
+
+## Check if I'm consistent
+table(cpgnames %in% common_cpgs) ## PERFECT
+
+sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control[
+  cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpgnames &
+    cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpgnames,]
+
+rm(common_cpgs, cpg_counts,all_cpgs, folder1, rds_files1, cistrans_GoDMC_hvCpG_matched_control)
 ```
 
 # Reproduce Maria’s results
@@ -35,7 +75,7 @@ Maria’s paper: We defined an hvCpG in the following way:
 
 ```{r Maria}
 ## Within each dataset, calculate the CpGs variance, and keep the top 5%
-top5pcvar <- lapply(my_list_mat_Mariads, function(mat) {
+top5pcvar <- lapply(rds_list_mat, function(mat) {
   # Step 1: Calculate row variances
   row_variances = rowVars(mat, na.rm = T)
   df = data.frame(var=row_variances, cpg=names(row_variances))
@@ -49,7 +89,7 @@ cpg_counts_top <- table(unlist(lapply(top5pcvar, rownames))) %>%
   data.frame() %>% dplyr::rename("cpgs"="Var1", "all_cpgs_top5pc"="Freq")
 
 ## all covered CpGs:
-cpg_counts <- table(unlist(lapply(my_list_mat_Mariads, rownames))) %>%
+cpg_counts <- table(unlist(lapply(rds_list_mat, rownames))) %>%
   data.frame() %>% dplyr::rename("cpgs"="Var1", "all_cpgs"="Freq")
 
 ## Both:
@@ -57,14 +97,12 @@ cpg_counts_full <- merge(cpg_counts, cpg_counts_top, all.x = T)
 rm(cpg_counts, cpg_counts_top)
 
 ## in 65% of datasets in which the CpG is covered (following quality control), it has methylation variance in the top 5% of all (non-removed) CpGs:
-hvCpGs_maria <- na.omit(cpg_counts_full[cpg_counts_full$all_cpgs_top5pc/cpg_counts_full$all_cpgs >= 0.65,])
-
 ## rounding, to mimick Maria's approach
-hvCpGs_maria <- na.omit(cpg_counts_full[round(cpg_counts_full$all_cpgs_top5pc/cpg_counts_full$all_cpgs, 2) >= 0.65,])
+hvCpGs_repro_maria <- na.omit(cpg_counts_full[round(cpg_counts_full$all_cpgs_top5pc/cpg_counts_full$all_cpgs, 2) >= 0.65,])
 ```
 
-Maria detected `r length(MariasCpGs$CpG)` hvCpGs. I detected `r length(hvCpGs_maria$cpgs)` hvCpGs.
-We both have `r length(intersect(hvCpGs_maria$cpgs, MariasCpGs$CpG))` hvCpGs in common.
+Maria detected `r length(Marias_hvCpGs$CpG)` hvCpGs. I detected `r length(hvCpGs_repro_maria$cpgs)` hvCpGs.
+We both have `r length(intersect(hvCpGs_repro_maria$cpgs, Marias_hvCpGs$CpG))` hvCpGs in common.
 
 # Identify hvCpGs based on a sd multiplicative factor lambda
 
@@ -75,10 +113,7 @@ The proportion of CpGs than Maria found hvCpGs is p(hvCpG) = `r round(4143/40630
 Within each dataset k, calculate the median sd of all CpG j
 
 ```{r calcLambdas}
-all_sd_jk <- sapply(my_list_mat_Mariads, function(k){
-  
-  ## Scale
-  k = log2(k/(1-k))
+all_sd_jk <- sapply(rds_list_mat, function(k){
   
   get_sd_k <- function(k){
     ## Calculate a vector of the row (=per CpG j) sd
@@ -123,11 +158,11 @@ median(lambdas) #1.878303
 Which datasets have a higher lambda, and why? 
 
 ```{r}
-df = data.frame(nind=sapply(my_list_mat_Mariads, ncol),
-                dataset=names(my_list_mat_Mariads),
+df = data.frame(nind=sapply(rds_list_mat, ncol),
+                dataset=names(rds_list_mat),
                 lambda=lambdas, 
-                tissue = sapply(strsplit(names(my_list_mat_Mariads), "_"), `[`, 1),
-                ethnicity=sapply(strsplit(names(my_list_mat_Mariads), "_"), `[`, 2)) %>%
+                tissue = sapply(strsplit(names(rds_list_mat), "_"), `[`, 1),
+                ethnicity=sapply(strsplit(names(rds_list_mat), "_"), `[`, 2)) %>%
   mutate(dataset=ifelse(dataset %in% c("Blood_Cauc", "Blood_Hisp"), "Blood_Cauc_Hisp", dataset)) %>% 
   mutate(dataset=ifelse(dataset %in% c("Blood_Mexican", "Blood_PuertoRican "), "Blood_Mex_PuertoRican ", dataset)) %>% 
   mutate(dataset=ifelse(dataset %in% c("CD4+_Estonian", "CD8+_Estonian"), "CD4+_CD8+_Estonian", dataset)) %>% 
@@ -159,40 +194,6 @@ ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
   scale_x_sqrt()
 ```
 
-```{r}
-## Emphasize the outliers
-df_long$col = "grey"
-df_long$col[df_long$L1 %in% "Blood_Cauc"] <- "red"
-
-ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
-  geom_density(data = df_long[!df_long$L1 %in% "Blood_Cauc",], alpha = .5) +
-  geom_density(data = df_long[df_long$L1 %in% "Blood_Cauc",], alpha = .6) +
-  scale_fill_manual(values = c("grey", "red"))+
-  labs(title = "Distribution of SDs accross datasets",subtitle = "Red=Blood_Cauc",
-       x = "SDs",
-       y = "Density") +
-  theme_minimal() +
-  theme(legend.position = "none") +
-  scale_x_sqrt()
-```
-
-```{r}
-## Emphasize the outlier
-df_long$col = "grey"
-df_long$col[df_long$L1 %in% "Blood_Hisp"] <- "red"
-
-ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
-  geom_density(data = df_long[!df_long$L1 %in% "Blood_Hisp",], alpha = .5) +
-  geom_density(data = df_long[df_long$L1 %in% "Blood_Hisp",], alpha = .6) +
-  scale_fill_manual(values = c("grey", "red"))+
-  labs(title = "Distribution of SDs accross datasets",subtitle = "Red=Blood_Hisp",
-       x = "SDs",
-       y = "Density") +
-  theme_minimal() +
-  theme(legend.position = "none") +
-  scale_x_sqrt()
-```
-
 # Maximum likelihood analysis
 
 The equation is:
@@ -206,53 +207,88 @@ $$
 The transformation lead to weird values:
 
 ```{r investigate_weird_transfo}
-# my_list_mat_Mariads$Blood_Hisp[rownames(my_list_mat_Mariads$Blood_Hisp) %in% "cg23089912",1:10]
-# scaled_list_mat$Blood_Hisp[rownames(scaled_list_mat$Blood_Hisp) %in% "cg23089912",1:10]
-# 
-# test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
-# test[rownames(test) %in% "cg23089912",5:10]
-# 
-# test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
-# test[rownames(test) %in% "cg23089912",5:10]
-# # GSM1870986
-# # 0.00000000000000001124546 --> give extreme value in scaling, and p dnorm=0
+test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
+test[rownames(test) %in% "cg23089912",5:10]
+
+test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
+test[rownames(test) %in% "cg23089912",5:10]
+# GSM1870986
+# 0.00000000000000001124546 --> give extreme value in scaling, and p dnorm=0
 ```
 
-The zero in 8h sample was weirdly transformed. The cleaned values are very different from the original. Is that expected? 
+The zero was weirdly transformed. Is that expected? 
 
 ## Optimisation over multiple CpGs
 
-Run on LSHTM server (need to be outside of RStudio): 
+Run on LSHTM server (need to be outside of RStudio for parallelising and h5 files access): 
 source("S01_run_hvCpGdetection_Marias.R") ## for different datasets
 
-### "Nelder-Mead" or "L-BFGS-B" optimisation method?
+```{r}
+## Load data & functions specific to Maria's arrays (to do before)                                                 
+system.time(source("../03_prepDatasetsMaria/S02.formatArraysforR.R"))
+## Load algorithm (30sec)                                                                                                                                                                                                             
+system.time(source("../05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
+
+## Load full cpg names
+cpg_names <- readLines("~/arraysh5files/sorted_common_cpgs.txt")
+
+length(cpg_names); head(cpg_names)
+## [1] 406036
+# [1] "cg00000029" "cg00000108" "cg00000109" "cg00000165" "cg00000236" "cg00000289"
+
+## Load hvCpG of Maria and matching mQTL
+cistrans_GoDMC_hvCpG_matched_control <- read.table("../03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
+
+## In which positions are they?
+cpg_names[cpg_names %in% cistrans_GoDMC_hvCpG_matched_control$hvCpG_name] %>% length
+cpg_names[cpg_names %in% cistrans_GoDMC_hvCpG_matched_control$controlCpG_name]  %>% length
+
+sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control[
+  cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpg_names &
+    cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpg_names,]
+
+## Positions of targets in cpg_names:
+pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names),
+               match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names))
+
+## Made with "Brent" and new method
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_pos2check_1p0_0_6p1.RData")
+
+Brent = data.frame(CpG = cpg_names[as.numeric(row.names(results_Maria_pos2check_1p0_0_6p1))],
+                   alpha_Brent = as.vector(results_Maria_pos2check_1p0_0_6p1))
+
+Brent %>%  
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>%
+  ggplot(aes(x = ishvCpG, y = alpha_Brent)) +
+  geom_jitter(aes(fill=ishvCpG),pch=21, size = 3, alpha = .2)+ 
+  geom_violin(aes(col=ishvCpG))+
+  geom_boxplot(aes(col=ishvCpG),width = .1) + 
+  theme_bw() + theme(legend.position = "none")
+```
 
 ```{r}
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Nelder_Mead_my_list_mat_Mariads_hvCpGandControls_0_95p0_0_65p1.RData")
-A <- results_Nelder_Mead_my_list_mat_Mariads_hvCpGandControls_0_95p0_0_65p1 %>% data.frame %>% tibble::rownames_to_column("CpG") %>% dplyr::rename(alpha_NM_0.95="alpha_hat")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/withAlpha0.5atStart/results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1.RData")
+NM = data.frame(CpG = row.names(results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1),
+                alpha_NM_old = as.vector(results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1)) 
 
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_L_BFGS_B_my_list_mat_Mariads_hvCpGandControls_0_95p0_0_65p1.RData")
-B <- results_L_BFGS_B_my_list_mat_Mariads_hvCpGandControls_0_95p0_0_65p1 %>% 
-  data.frame %>% tibble::rownames_to_column("CpG") %>% dplyr::rename(alpha_LB_0.95="alpha_hat")
+NM %>%  
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>%
+  ggplot(aes(x = ishvCpG, y = alpha_NM_old)) +
+  geom_jitter(aes(fill=ishvCpG),pch=21, size = 3, alpha = .2)+ 
+  geom_violin(aes(col=ishvCpG))+
+  geom_boxplot(aes(col=ishvCpG),width = .05) + 
+  theme_bw() + theme(legend.position = "none")
+```
 
-merge(A, B, by = "CpG") -> results_bothMethods
-results_bothMethods %>% mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, 
-                                                  "hvCpG in Maria's study", "mQTL matching controls")) %>% ggplot(aes(x=alpha_LB_0.95, y=alpha_NM_0.95, fill = ishvCpG)) +
+```{r}
+merge(Brent, NM) %>% 
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>% ggplot(aes(x=alpha_Brent, y=alpha_NM_old, fill = ishvCpG)) +
   geom_abline(slope = 1) +
   geom_point(pch=21, size = 3, alpha = .8) +
   theme_bw()
 ```
 
-Some CpGs have an alpha of 0 for LBB algorithm and different alpha for NM
-
-```{r}
-results_bothMethods[round(results_bothMethods$alpha_NM_0.95, 1) != round(results_bothMethods$alpha_LB_0.95, 1),] %>% mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>% melt() %>%
-  ggplot(aes(x=CpG, y=value, fill = variable)) +
-  geom_point(pch=21, size = 3, alpha = .8) +
-  facet_grid(ishvCpG~.) + theme_bw() + theme(axis.text.x = element_blank())
-```
-
-The probability of zero seems to be an artefact of the "L-BFGS-B" optimisation method, so we choose "Nelder-Mead".
+The new method is much better than the old one
 
 ## ROC curves to define p0 and p1 matching Maria's approach
 
@@ -267,7 +303,7 @@ p1 = 0.65 in Maria's approach (to be a hvCpG, it needs to be hypervariable in >6
 # Step 1: Read results and compute AUC + threshold
 files <- list.files(
   "resultsDir/Mariads",
-  pattern = "^results_Nelder_Mead_.*\\.RData$",
+  pattern = "^results_Maria_pos2check_.*\\.RData$",
   full.names = TRUE
 )
 
@@ -284,17 +320,17 @@ for (f in files) {
   p1 <- as.numeric(gsub("_", ".", pstr[2]))
   label <- sprintf("p0=%.2f p1=%.2f", p0, p1)
   
-  df <- as.data.frame(res) %>% rownames_to_column("CpG")
+  df <- as.data.frame(res) %>% rownames_to_column("CpGpos") %>%
+    mutate(CpG=cpg_names[as.numeric(CpGpos)])
   colnames(df)[2] <- "alpha"
   
-  truth <- ifelse(df$CpG %in% MariasCpGs$CpG, 1, 0)
+  truth <- ifelse(df$CpG %in% Marias_hvCpGs$CpG, 1, 0)
   roc_obj <- try(roc(truth, df$alpha, quiet=TRUE), silent=TRUE)
   if (inherits(roc_obj, "try-error")) next
   
   aucv <- as.numeric(auc(roc_obj))
   thr <- coords(roc_obj, "best", ret = "threshold", transpose = FALSE)[["threshold"]]
   auc_df <- auc_df %>% add_row(p0, p1, AUC=aucv, threshold=thr)
-  
   pts <- coords(roc_obj, "all", ret=c("sensitivity","specificity"),
                 transpose = FALSE) %>%
     as_tibble() %>%
@@ -313,14 +349,21 @@ roc_plot <- ggplot(roc_all, aes(FPR, TPR, group=label, color=label)) +
   theme_minimal() + theme(legend.position="none")
 
 # Step 3: AUC heatmap with thresholds
-best <- auc_df %>% slice_max(AUC, n=1)
 
+### To avoid multiple
+auc_df <-   auc_df %>% distinct(p0, p1, .keep_all = TRUE)
+
+best <- auc_df |> 
+  filter(AUC == max(AUC, na.rm = TRUE)) |> 
+  slice(1)  # in case of ties
+
+best
 heatmap_plot <- ggplot(auc_df, aes(p0, p1, fill=AUC)) +
   geom_tile(color="white") +
   geom_text(aes(label=round(threshold,2)),
             size=3, color="black", check_overlap = TRUE) +
   # Outline best tile
-  geom_tile(data = best, aes(p0, p1), fill = NA, color = "red", linewidth = 1.5) +
+  geom_rect(data = best, aes(xmin = p0-0.025, xmax = p0+0.025, ymin = p1-0.025, ymax = p1+0.025), fill = NA, color = "red", linewidth = 1) +
   scale_fill_viridis_c(option = "plasma") +
   labs(title="AUC & Optimal Threshold per (p0,p1)",
        x="p0", y="p1") +
@@ -332,155 +375,20 @@ print(heatmap_plot)
 
 The best threshold ploted in tiles is the alpha probability that gives the best sensitivity-specificity trade-off. It's derived using a statistical rule (Youden's J: maximizes (Sensitivity + Specificity – 1), giving the best overall balance between true positives and true negatives). It classifies a CpG as hypervariable in Maria's approach if alpha > threshold 
 
-### Conclusions: 
+### Conclusions (NB TO UPDATE WITH NEW ALGO): 
 
 * Best AUC = for p0 (true negative) is quite low in Maria's data (0.45)
 * Threshold for this best AUC = : Classify a CpG as hvCpG in Maria's data if alpha ≥ 
-
-
-## Understanding discrepancies between method
-
-I think that it's due to a high rate of false positive accepted in Maria's approach. The sensibility is high (p1, true positive = 65%), but the specificity is low (we get a lot of hvCpG that have a low probability to be one in my method). I think it's because it accepts as hvCpG CpG with a very low variance in certain datasets (up to 35%), while my approach gain power with each dataset. Let's test that hypothesis.
-
-```{r}
-## 10 hvCpG with highest alpha + match controls
-## 10 hvCpG with lowest alpha + match controls
-
-# 1️⃣ Make the alpha_hat a data frame with a `hvCpG_name` column
-alpha_df <- data.frame(
-  hvCpG_name = rownames(results_Nelder_Mead_my_list_mat_Mariads_hvCpGandControls_0_95p0_0_65p1),
-  alpha_hat = results_Nelder_Mead_my_list_mat_Mariads_hvCpGandControls_0_95p0_0_65p1
-)
-
-# 2️⃣ Merge on hvCpG_name
-merged_df <- merge(sub_cistrans_GoDMC_hvCpG_matched_control,alpha_df,
-  by = "hvCpG_name",all.x = TRUE) ; rm(alpha_df)
-
-# Rows with minimum and maximum values of a variable
-bottom10 <- merged_df %>% slice_min(alpha_hat, n = 10) %>% mutate(which="bottom10alpha")
-top10 <- merged_df %>% slice_max(alpha_hat, n = 10) %>% head(10) %>% mutate(which="top10alpha")
-df <- rbind(bottom10, top10)
-
-# 3️⃣ Variance per data frame
-myListVar <- lapply(my_list_mat_Mariads, function(mat) {
-  row_variances = rowVars(mat, na.rm = T)
-  df = data.frame(var=row_variances, cpg=names(row_variances))
-  })
-  
-myListVar$Blood_Cauc$cpg %in% c(df$hvCpG_name, df$controlCpG_name) %>% head
-
-
-# ✅ Result: same rows as sub_cistrans_GoDMC_hvCpG_matched_control, with `alpha_hat` added.
-head(merged_df)
-```
-
-
-```{r}
-
-
-
-
-# mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, 
-#                                                   "1500 hvCpG in Maria's study", "1500 mQTL matching controls"))
-
-my_list_mat_Mariads_Subset <- lapply(my_list_mat_Mariads, function(x) x[rownames(x) %in% sub_cistrans_GoDMC_hvCpG_matched_control,])
-
-# 📊 1. Calculate Per-CpG Variance
-
-# Calculate per-CpG variance across datasets
-var_list <- lapply(my_list_mat_Mariads_Subset3000, function(mat) rowSds(mat, na.rm = TRUE))
-
-
-
-# 1. Determine the full set of CpG names across all matrices
-all_cpgs <- unique(unlist(lapply(my_list_mat_Mariads_Subset, rownames)))
-
-# 2. For each matrix, ensure it has all CpGs, filling missing rows with NA
-aligned_list <- lapply(my_list_mat_Mariads_Subset3000, function(mat) {
-  # Create empty matrix with full CpG set and same columns
-  full_mat <- matrix(NA_real_, nrow = length(all_cpgs), ncol = ncol(mat),
-                     dimnames = list(all_cpgs, colnames(mat)))
-  # Insert existing data
-  intersecting <- intersect(rownames(mat), all_cpgs)
-  full_mat[intersecting, ] <- mat[intersecting, , drop = FALSE]
-  full_mat
-})
-
-# 3. Optional: check that all aligned matrices have same row count
-unique(sapply(aligned_list, nrow))  == length(all_cpgs)
-
-test3000CpGsvec[!test3000CpGsvec %in% all_cpgs] %in% sub1500$controlCpG_name
-```
-
-
-```{r}
-# 📊 1. Calculate Per-CpG Variance and Coverage
-
-# Calculate per-CpG variance across datasets
-var_list <- lapply(my_list_mat_Mariads_Subset3000, function(mat) rowSds(mat, na.rm = TRUE))
-# Convert to matrix
-var_mat <- do.call(cbind, var_list)
-
-
-# Calculate per-CpG coverage (number of non-NA values) across datasets
-cpg_coverage <- sapply(my_list_mat_Mariads, function(mat) rowCounts(!is.na(mat)))
-
-# Convert both to numeric matrices:
-var_mat <- simplify2array(cpg_variance)  # ensures numeric matrix
-cov_mat <- simplify2array(cpg_coverage)
-
-# 🔍 2. Visualize Methylation Variance and Coverage
-# a. Heatmap of Per-CpG Variance
-library(ComplexHeatmap)
-library(circlize)
-
-Heatmap(var_mat,
-        name = "Variance",
-        col = colorRamp2(c(min(var_mat), mean(var_mat), max(var_mat)), c("white", "yellow", "red")),
-        show_row_names = FALSE, show_column_names = TRUE)
-
-# b. Heatmap of Per-CpG Coverage
-Heatmap(cpg_coverage,
-        name = "Coverage",
-        show_row_names = FALSE,
-        show_column_names = FALSE,
-        cluster_rows = TRUE,
-        cluster_columns = TRUE,
-        col = colorRampPalette(c("white", "blue"))(100))
-
-# 📈 3. Compare Detection Methods
-# Assuming maria_flags is a vector indicating hvCpG status from Maria's method:
-
-# Create a data frame for visualization
-comparison_df <- data.frame(
-  CpG = rownames(cpg_variance),
-  Maria = maria_flags,
-  Alice = ifelse(alice_alpha > 0.5, "hvCpG", "Control")
-)
-
-# Create a table of counts
-table(comparison_df$Maria, comparison_df$Alice)
-
-# 📊 4. Visualize Distribution of Alice's Alpha Values
-library(ggplot2)
-
-ggplot(comparison_df, aes(x = Alice, y = alice_alpha)) +
-  geom_boxplot(aes(fill = Alice)) +
-  labs(title = "Distribution of Alice's Alpha Values",
-       x = "Detection Method",
-       y = "Alpha Value") +
-  theme_minimal()
-
-# 🧩 Interpretation
-# Heatmaps: Identify CpGs with high variance or low coverage that may contribute to discrepancies between methods.
-# 
-# Comparison Table: Understand the overlap and differences between the hvCpG sets identified by Maria and Alice.
-# 
-# Boxplot: Assess how Alice's alpha values differ between CpGs flagged by Maria and those not flagged.
-```
-
+* Previous discrepancies between methods are likely due to scaling!
 
 # Subset Maria's data following Atlas data structure (less N/dataset) to check power of detection in Atlas data:          
+```{r}
+# Atlas data structure:
+AtlasMetaData <- readxl::read_excel("../04_prepAtlas/41586_2022_5580_MOESM4_ESM.xlsx", sheet = 1, skip = 2)
+
+table(AtlasMetaData$`Cell type`)
+```
+
 
 3 tries for (p0, p1): 
 
@@ -552,23 +460,23 @@ makeMyPlots <-function(p0p1){
 ### best AUC, my algorithm with the closest proximity to Maria's approach)
 
 ```{r}
-load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1.RData")
-makeMyPlots(p0p1 = "0_45p0_0_6p1")
+# load("resultsDir/Mariads/withAlpha0.5atStart/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1.RData")
+# makeMyPlots(p0p1 = "0_45p0_0_6p1")
 ```
 
 ## 2. high specificity and mid sensitivity (p0=0.95 and p1=0.65)
 ### high true negative rate, i.e. high specificity)
 
 ```{r}
-load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1.RData")
-makeMyPlots(p0p1 = "0_95p0_0_65p1")
+# load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1.RData")
+# makeMyPlots(p0p1 = "0_95p0_0_65p1")
 ```
 
 ## 3. high specificity and sensitivity (p0=0.9 and p1=0.9)
 
 ```{r}
-load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_9p0_0_9p1.RData")
-makeMyPlots(p0p1 = "0_9p0_0_9p1")
+# load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_9p0_0_9p1.RData")
+# makeMyPlots(p0p1 = "0_9p0_0_9p1")
 ```
 
 # Notes:

@@ -12,25 +12,47 @@ import numpy as np
 import h5py
 import bottleneck as bn
 
-output_folder = os.path.expanduser("/SAN/ghlab/epigen/Alice/hvCpG_project/data/arrays_human/27dsh5files")
-
-# 1) Paths
-folder = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/arrays_human/30datasetsMaria"
+output_folder = os.path.expanduser("/home/alice/arraysh5files") # to scp into ing-s1 soon after
 os.makedirs(output_folder, exist_ok=True)
 
-# 2) Find .RDS files
-rds_files = glob.glob(os.path.join(folder, "*.RDS"))
-print(f"✅ Found {len(rds_files)} .RDS files")
+# 1) Find .RDS batch 1 GEO
+folder1 = "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
+rds_files1 = glob.glob(os.path.join(folder1, "*.RDS"))
+print(f"✅ Found {len(rds_files1)} .RDS files")
 
-# 3) Load all .RDS into list
-rds_list_mat = []
-for f in rds_files:
+# Load all .RDS into list
+rds_list_mat1 = []
+for f in rds_files1:
     print(f"Reading: {f}")
     read_result = pyreadr.read_r(f)
     df = next(iter(read_result.values()))
     mat = df.values
     rownames = df.index.tolist()
-    rds_list_mat.append((os.path.splitext(os.path.basename(f))[0], mat, rownames))
+    rds_list_mat1.append((os.path.splitext(os.path.basename(f))[0], mat, rownames))
+
+# 2) Find .RDS batch 2 TCGA files
+## !!!! NB: done in R before, rm after : prepTCGAforpy.R
+folder2 = "/home/alice/tempRDS/"
+rds_files2 = glob.glob(os.path.join(folder2, "*.RDS"))
+if len(rds_files2) == 0:
+    print("⚠️  WARNING!!! No .RDS files found — in R, run `prepTCGAforpy`")
+else:
+    print(f"✅ Found {len(rds_files2)} .RDS files")
+
+# Load all .RDS into list
+rds_list_mat2 = []
+for f in rds_files2:
+    print(f"Reading: {f}")
+    read_result = pyreadr.read_r(f)
+    df = next(iter(read_result.values()))
+    mat = df.values
+    rownames = df.index.tolist()
+    rds_list_mat2.append((os.path.splitext(os.path.basename(f))[0], mat, rownames))
+
+# 3) Merge both
+rds_list_mat = rds_list_mat1 + rds_list_mat2
+
+print(f"✅ Total datasets loaded: {len(rds_list_mat)}")
 
 # 4) Keep CpGs covered in ≥15 datasets
 all_cpgs = []
@@ -46,6 +68,10 @@ print(f"✅ {len(common_cpgs):,} CpGs covered in ≥15 datasets")
 with open(os.path.join(output_folder, "sorted_common_cpgs.txt"), "w") as f:
     for cpg in sorted_common_cpgs:
         f.write(f"{cpg}\n")
+<<<<<<< HEAD
+=======
+## ✅ 406,036 CpGs covered in ≥15 datasets
+>>>>>>> 9e5ca0b9b22fe1eb6b6eb68d730b65a13c66fc72
 
 # 5) Process each dataset separately — keep all samples (no mean!)
 for name, mat, rownames in rds_list_mat:
@@ -54,10 +80,15 @@ for name, mat, rownames in rds_list_mat:
     # Align CpGs to the full global set — insert NaNs for missing CpGs
     df_aligned = df.reindex(sorted_common_cpgs)
 
+<<<<<<< HEAD
     # Logit transform (clip to avoid infs)
     epsilon = 1e-6
     p = np.clip(df_aligned.values, epsilon, 1 - epsilon)
     scaled_matrix = np.log2(p / (1 - p))  # logit transform
+=======
+    ## NB: DO NOT logit transform, data where already transformed
+    scaled_matrix = df_aligned.values
+>>>>>>> 9e5ca0b9b22fe1eb6b6eb68d730b65a13c66fc72
 
     # Row-wise SDs (ignoring NaNs)
     row_sds = bn.nanstd(scaled_matrix, axis=1)
@@ -82,43 +113,3 @@ for name, mat, rownames in rds_list_mat:
     print(f"  Saved for {name} | CpGs: {scaled_matrix.shape[0]} | Samples: {scaled_matrix.shape[1]} | median_sd: {median_sd:.4f} | lambda: {lambda_value:.4f}")
 
 print("\n🎉 All done — 1 H5 set per dataset saved.")
-
-### FOR LSHTM:
-### ------------------------------
-### 📂 2) Find all .RDS files (batch 1)
-### ------------------------------
-##folder1 = os.path.expanduser(
-##    "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
-##)
-##rds_files1 = glob.glob(os.path.join(folder1, "*.RDS"))
-##print(f"✅ Found {len(rds_files1)} .RDS files")
-
-### ------------------------------
-### 📂 3) Load all .RDS into list of matrices
-### ------------------------------
-##rds_list_mat1 = []
-##for f in rds_files1:
-##    print(f"Reading: {f}")
-##    read_result = pyreadr.read_r(f)
-##    # Take the first object in the .RDS file:
-##    df = next(iter(read_result.values()))
-##    mat = df.values
-##    rownames = df.index.tolist()
-##    rds_list_mat1.append((os.path.splitext(os.path.basename(f))[0], mat, rownames))
-
-### ------------------------------
-### 📂 4) Load TCGA .RDS batch
-### ------------------------------
-##tcga_file = "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/TCGA/TCGA_BMIQ_age_sex_PC_adjusted_OUTLIERS_REMOVED_round2.RDS"
-##tcga_result = pyreadr.read_r(tcga_file)
-##
-##rds_list_mat2 = []
-##for key, df in tcga_result.items():
-##    mat = df.values
-##    rownames = df.index.tolist()
-##    rds_list_mat2.append((key, mat, rownames))
-##
-### Merge both
-##rds_list_mat = rds_list_mat1 + rds_list_mat2
-##
-##print(f"✅ Total datasets loaded: {len(rds_list_mat)}")
