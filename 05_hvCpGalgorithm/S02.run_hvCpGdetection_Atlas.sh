@@ -1,10 +1,11 @@
+
 #!/bin/bash
 #$ -N runhvCpGAtlas
 #$ -S /bin/bash
-#$ -pe smp 20
+#$ -pe smp 30
 #$ -l tmem=5G
 #$ -l h_vmem=5G
-#$ -l h_rt=10:00:00
+#$ -l h_rt=24:00:00 ## try 48 to be sure
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs # one err and out file per sample
 #$ -R y # reserve the resources, i.e. stop smaller jobs from getting into the queue while you wait for all the required resources to become available for you
 
@@ -14,31 +15,56 @@
 
 R --vanilla <<EOF
 
-myNthreads=20 ## specify here
+myNthreads=30 ## specify here
 
-## Load algorithm (30sec)
-system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
+## Load algorithm
+system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v4scan.R"))
 
-## Load data & functions specific to Atlas (2 sec)
-system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S02.formatAtlasforR.R"))
+## Run and save:
+## NB: Needs >3G, 5G ok, to load the heavy cpgnames
+## For only 1 CpG, just the time to load the heavy cpg_names and light functions: 30sec
+## 1 thread, 100 CpG --> only 40 covered, 100sec
 
-## Load cpg list (~1 min 30) 29,401,795 CpG names
-system.time(cpg_names <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets_prepared/CpG_names.h5", "cpg_names"))
+## NB: only 1/3 is covered in at least 3 people in at least 3 datasets
 
-length(cpg_names); head(cpg_names)
-##[1] 29401795
-##[1] "chr1_10469-10470" "chr1_10471-10472" "chr1_10484-10485" "chr1_10489-10490"
-##[5] "chr1_10493-10494" "chr1_10497-10498"
+## Test 1000 CpG --> 5G 30T 120sec
+system.time(runAndSave(analysis = "Atlas", cpgPos_vec = 1:1000,
+		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/",
+		       NCORES=myNthreads, p0=0.80, p1=0.65))
 
-system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 10000),p0=0.80, p1=0.65, NCORES=myNthreads,
-		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
+## An entire chromosome:
+cpgPos_vec_chr1 = grep("chr1_", cpg_names_all)
 
-## 100, 5G, 1C = 87 sec
-## 1000, 5G, 1C = 471.074 sec
-## 1000 CpGs, 4G, 16C = 57 sec
-## 10000 CpGs, 4G, 25C = 759 sec
-## 10000 CpGs, 5G, 20C = 3806 sec (but coverage is now 10 min, not 20 min, so much more to process!)
+system.time(runAndSave(analysis = "Atlas", cpgPos_vec = cpgPos_vec_chr1,
+		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/",
+		       NCORES=myNthreads, p0=0.80, p1=0.65))
 
+# load("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/results_Atlas_10CpGs_0_8p0_0_65p1.RData")
+
+### PREV
+### Load algorithm (30sec)
+#system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
+#
+### Load data & functions specific to Atlas (2 sec)
+#system.time(source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/S02.formatAtlasforR.R"))
+#
+### Load cpg list (~1 min 30) 29,401,795 CpG names
+#system.time(cpg_names <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/datasets_prepared/CpG_names.h5", "cpg_names"))
+#
+#length(cpg_names); head(cpg_names)
+###[1] 29401795
+###[1] "chr1_10469-10470" "chr1_10471-10472" "chr1_10484-10485" "chr1_10489-10490"
+###[5] "chr1_10493-10494" "chr1_10497-10498"
+#
+#system.time(runAndSave("Atlas", cpgvec = head(cpg_names, 10000),p0=0.80, p1=0.65, NCORES=myNthreads,
+#		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/"))
+#
+### 100, 5G, 1C = 87 sec
+### 1000, 5G, 1C = 471.074 sec
+### 1000 CpGs, 4G, 16C = 57 sec
+### 10000 CpGs, 4G, 25C = 759 sec
+### 10000 CpGs, 5G, 20C = 3806 sec (but coverage is now 10 min, not 20 min, so much more to process!)
+#
 message("Done!")
 
 q()
