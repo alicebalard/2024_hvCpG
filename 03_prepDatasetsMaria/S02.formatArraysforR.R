@@ -8,7 +8,8 @@
 library(rhdf5)
 
 ## 📁 Folder with all data prepared in S01                                          
-folder <- "/SAN/ghlab/epigen/Alice/hvCpG_project/data/arrays_human/27dsh5files/"
+folder <- "~/arraysh5files/"
+# folder <- "/mnt/ing-s1/alice_data/arraysh5files/" ## doesn't work!
 
 ## 🔍 List all scaled_matrix files                                                  
 matrix_files <- list.files(folder, pattern = "_scaled_matrix\\.h5$", full.names = TRUE)
@@ -17,7 +18,6 @@ matrix_files <- list.files(folder, pattern = "_scaled_matrix\\.h5$", full.names 
 median_sds <- list()
 lambdas <- list()
 
-message("NB: for each CpG, we need at least 3 samples covered in a group for this group to be considered, otherwise the remaining one or 2 samples are masked by Nas.")
 ## 🔄 Loop over each matrix file [to do ONCE]
 for (matrix_file in matrix_files) {
     ## Extract group name from file name
@@ -39,14 +39,26 @@ str(lambdas)
 
 ## Function of 🧬  CpG of interest
 source_scaled_mat_1CpG <- function(pos) {
-    cpg_index <- pos
     scaled_rows <- list()
+   
     for (matrix_file in matrix_files) {
-        ## 🗝️ SAFE: no explicit open/close of hd5
-    row <- rhdf5::h5read(matrix_file, "scaled_matrix", index = list(NULL, cpg_index))
-    group <- sub("_scaled_matrix\\.h5$", "", basename(matrix_file))
-    scaled_rows[[group]] <- t(row)
+        # Read the vector of CpG names
+        cpg_names <- h5read(matrix_file, "cpg_names")
+        cpg_name <- cpg_names[pos]
+        
+        # Read one row (CpG) from the matrix (as a column vector)
+        row <- h5read(matrix_file, "scaled_matrix", index = list(NULL,pos))
+        # Transpose and format
+        row_df <- as.data.frame(t(row))
+        rownames(row_df) <- cpg_name
+        
+        # Extract group name
+        group <- sub("_scaled_matrix\\.h5$", "", basename(matrix_file))
+        scaled_rows[[group]] <- row_df
     }
+    
     return(scaled_rows)
 }
-## e.g. source_scaled_mat_1CpG(1)
+
+## e.g. 
+source_scaled_mat_1CpG(1)

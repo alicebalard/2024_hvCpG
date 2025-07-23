@@ -17,6 +17,26 @@
 ## lambdas
 ## source_scaled_mat_1CpG(1 to length(cpgvec)
 
+## For Maria's array on LSHTM server:
+## source("~/2024_hvCpG/03_prepDatasetsMaria/S02.formatArraysforR.R")
+## Outputs:
+## median_sds (sigma_k)
+## lambdas
+## source_scaled_mat_1CpG(1 to length(cpgvec)
+
+###########
+## Check ##
+# 🔍 List of required variables
+required_vars <- c("median_sds", "lambdas")
+
+# ❌ Check for missing variables
+missing_vars <- required_vars[!sapply(required_vars, exists)]
+
+# 🛑 If any are missing, stop and print informative error
+if (length(missing_vars) > 0) {
+  stop(sprintf("❌ Missing required variable(s): %s", paste(missing_vars, collapse = ", ")))
+}
+
 ###########
 ## Setup ##
 packages <- c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2","ggrepel",
@@ -160,52 +180,51 @@ runOptim1CpG <- function(scaled_list_mat, mu_jk_list, sigma_k_list,
 getAllOptimAlpha_parallel <- function(cpgvec, NCORES, p0, p1) {
 
     safe_run <- function(cpgPos) {
-    scaled_list_mat <- source_scaled_mat_1CpG(cpgPos)
-    
-    ## ✅ “Proceed only if there are at least 3 matrices that contain at least one non-NA value.”
-    ## Logical vector: TRUE if matrix has at least one non-NA value
-    has_data <- sapply(scaled_list_mat, function(m) any(!is.na(m)))
+        scaled_list_mat <- source_scaled_mat_1CpG(cpgPos)
+        
+        ## ✅ “Proceed only if there are at least 3 matrices that contain at least one non-NA value.”
+        ## Logical vector: TRUE if matrix has at least one non-NA value
+        has_data <- sapply(scaled_list_mat, function(m) any(!is.na(m)))
 
-    ## Count how many matrices have real data
-    num_with_data <- sum(has_data)
+        ## Count how many matrices have real data
+        num_with_data <- sum(has_data)
 
-    ## Proceed only if >= 3 have real data
-    if (num_with_data < 3) {
-        message(sprintf("CpG at index %s not covered in enough (>= 3) datasets", cpgPos))
-        return(NA_real_)
-    } else {
-      mu_jk_list <- lapply(scaled_list_mat, mean, na.rm = TRUE)
-      tryCatch({
-        runOptim1CpG(
-          scaled_list_mat = scaled_list_mat,
-          mu_jk_list = mu_jk_list,
-          sigma_k_list = median_sds,
-          lambdas = lambdas,
-          p0 = p0,
-          p1 = p1
-        )
-      },
-      error = function(e) {
-        message(sprintf("CpG %s failed: %s", cpgPos, e$message))
-        NA_real_
-      })
+        ## Proceed only if >= 3 have real data
+        if (num_with_data < 3) {
+            message(sprintf("CpG at index %s not covered in enough (>= 3) datasets", cpgPos))
+            return(NA_real_)
+        } else {
+            mu_jk_list <- lapply(scaled_list_mat, function(mat) rowMeans(mat, na.rm = TRUE))
+            tryCatch({
+                runOptim1CpG(
+                    scaled_list_mat = scaled_list_mat,
+                    mu_jk_list = mu_jk_list,
+                    sigma_k_list = median_sds,
+                    lambdas = lambdas,
+                    p0 = p0,
+                    p1 = p1
+                )
+            },
+            error = function(e) {
+                message(sprintf("CpG %s failed: %s", cpgPos, e$message))
+                NA_real_
+            })
+        }
     }
-  }
 
-  ## Do the parallel run OUTSIDE safe_run!
-  res <- parallel::mclapply(
-    1:length(cpgvec),
-    safe_run,
-    mc.cores = NCORES,
-    mc.preschedule = FALSE
-  )
+    ## Do the parallel run OUTSIDE safe_run!
+    res <- parallel::mclapply(cpgvec,
+                         safe_run,
+                         mc.cores = NCORES,
+                         mc.preschedule = FALSE
+                     )
 
-  ## Name & return matrix
-  names(res) <- cpgvec
-  my_matrix <- matrix(unlist(res), ncol = 1)
-  rownames(my_matrix) <- names(res)
-  colnames(my_matrix) <- "alpha"
-  return(my_matrix)
+    ## Name & return matrix
+    names(res) <- cpgvec
+    my_matrix <- matrix(unlist(res), ncol = 1)
+    rownames(my_matrix) <- names(res)
+    colnames(my_matrix) <- "alpha"
+    return(my_matrix)
 }
 
 ###################################
