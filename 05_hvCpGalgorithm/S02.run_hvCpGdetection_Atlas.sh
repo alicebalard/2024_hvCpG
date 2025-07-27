@@ -33,7 +33,11 @@ system.time(runAndSave(analysis = "Atlas", cpgPos_vec = 1:1000,
 		       NCORES=myNthreads, p0=0.80, p1=0.65))
 
 ## An entire chromosome:
+## if needed: cpg_names_all <- rhdf5::h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/all_scaled_matrix.h5", "cpg_names")
 cpgPos_vec_chr1 = grep("chr1_", cpg_names_all)
+
+length(cpfPos_vec_chr1)
+#2 375 159
 
 system.time(runAndSave(analysis = "Atlas", cpgPos_vec = cpgPos_vec_chr1,
 		       resultDir="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/",
