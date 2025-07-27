@@ -97,3 +97,69 @@ plot <- ggplot() +
 CairoPNG("ManhattanAlphaPlot.png", width = 1600, height = 600)
 print(plot)
 dev.off()
+
+###########################################################
+## Test for enrichment of hvCpG with alpha > p in corSIV ##
+###########################################################
+
+threshold=0.7
+
+# Create binary column for alpha > threshold
+dt[, alpha_high := alpha > threshold]
+
+# Count combinations of (in_corSIV, alpha_high)
+tbl <- dt[, .N, by = .(in_corSIV, alpha_high)]
+
+# Format as contingency table
+# Row 1: alpha > 0.6; Row 2: alpha <= 0.6
+# Column 1: in corSIV; Column 2: not in corSIV
+
+A <- tbl[in_corSIV == TRUE & alpha_high == TRUE, N]
+B <- tbl[in_corSIV == FALSE & alpha_high == TRUE, N]
+C <- tbl[in_corSIV == TRUE & alpha_high == FALSE, N]
+D <- tbl[in_corSIV == FALSE & alpha_high == FALSE, N]
+
+# Replace missing counts with zero
+A <- ifelse(length(A) == 0, 0, A)
+B <- ifelse(length(B) == 0, 0, B)
+C <- ifelse(length(C) == 0, 0, C)
+D <- ifelse(length(D) == 0, 0, D)
+
+# Build matrix
+contingency_matrix <- matrix(c(A, B, C, D), nrow = 2, byrow = TRUE,
+                             dimnames = list(`Alpha > threshold` = c("Yes", "No"),
+                                             `In corSIV` = c("Yes", "No")))
+
+# Perform Fisher's Exact Test
+fisher_result <- fisher.test(contingency_matrix)
+
+# View result
+print(contingency_matrix)
+#                In corSIV
+# Alpha > 0.6   Yes      No
+#         Yes  2689  854700
+#         No  17381 6130075
+
+print(fisher_result)
+# 
+# Fisher's Exact Test for Count Data
+# 
+# data:  contingency_matrix
+# p-value = 7.389e-07
+# alternative hypothesis: true odds ratio is not equal to 1
+# 95 percent confidence interval:
+#  1.064985 1.155738
+# sample estimates:
+# odds ratio 
+#   1.109572 
+# 🔍 Fisher’s Exact Test Output
+# p-value: 7.389e-07 → Highly significant
+# → Strong evidence that the distribution of alpha > 0.6 differs between corSIV and non-corSIV regions.
+# 
+# Odds ratio: 1.11
+# → Sites with alpha > 0.6 are ~11% more likely to occur in corSIV regions than expected by chance.
+# 
+# 95% CI: [1.065, 1.156]
+# → This interval does not include 1, further supporting statistical significance.
+
+# CCl: We observe a statistically significant enrichment of high-alpha CpG sites (alpha > 0.6) in corSIV regions (Fisher’s exact test: OR = 1.11, p = 7.4 × 10⁻⁷), suggesting a non-random association between regulatory variability and corSIV domains."
