@@ -50,6 +50,18 @@ prepData <- function(analysis){
 
         ## Names of all CpG in the dataset:
         cpg_names_all <<- rhdf5::h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/all_scaled_matrix.h5", "cpg_names")
+    } else if (analysis == "Atlas5X"){
+        dir = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/5X/"
+        metadata <<- read.table(paste0(dir, "sample_metadata.tsv"), sep ="\t", header = TRUE)
+        medsd_lambdas <<- read.table(paste0(dir, "all_medsd_lambda.tsv"), sep = "\t", header = TRUE)
+        ## Function of one CpG of interest:
+        source_M_1CpG <<- function(cpgpos) {
+            M = rhdf5::h5read(paste0(dir,"all_scaled_matrix.h5"), "scaled_matrix", index = list(NULL, cpgpos))
+            rownames(M) = metadata$sample
+            return(M)
+        }
+        ## Names of all CpG in the dataset:
+        cpg_names_all <<- rhdf5::h5read(paste0(dir, "all_scaled_matrix.h5"), "cpg_names")
     }
 }
 
