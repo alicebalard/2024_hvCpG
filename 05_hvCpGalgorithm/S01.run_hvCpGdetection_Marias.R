@@ -6,8 +6,8 @@ system.time(source("05_hvCpGalgorithm/hvCpG_algorithm_detection_v4scan.R"))
 ## Load hvCpG of Maria and matching mQTL
 cistrans_GoDMC_hvCpG_matched_control <- read.table("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
 
-## cpg_names_all in here:
-prepData(analysis="Mariasarrays")
+## Names of all CpG in the dataset:                                                                                                                                                   
+cpg_names_all <<- rhdf5::h5read(paste0("/home/alice/arraysh5/all_scaled_matrix.h5"), "cpg_names")
 length(cpg_names_all); head(cpg_names_all)
 ## [1] 406036
 # [1] "cg00000029" "cg00000108" "cg00000109" "cg00000165" "cg00000236" "cg00000289"
@@ -71,12 +71,19 @@ apply(grid, 1, function(row) {
 ###############
 
 for (s in 3:5){
-    for (d in 3:20){
+    for (d in 3:30){
         if (file.exists(paste0("/home/alice/arraysh5_reducedMimicAtlas_", s, "samples_", d, "datasets/all_scaled_matrix.h5")))
         system.time(runAndSave(analysis = paste0("MariasarraysREDUCED_", s, "samples_", d, "datasets"), cpgPos_vec = pos2check,
                                resultDir="05_hvCpGalgorithm/resultsDir/Mariads/", NCORES=30, p0=0.80, p1=0.65))
     }
 }
+
+for (d in 3:30){
+    if (file.exists(paste0("/home/alice/arraysh5_reducedMimicAtlas_allsamples_", d, "datasets/all_scaled_matrix.h5")))
+        system.time(runAndSave(analysis = paste0("MariasarraysREDUCED_allsamples_", d, "datasets"), cpgPos_vec = pos2check,
+                               resultDir="05_hvCpGalgorithm/resultsDir/Mariads/", NCORES=30, p0=0.80, p1=0.65))
+}
+
 
 ###############
 ## To do after:
