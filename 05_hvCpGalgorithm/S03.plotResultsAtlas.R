@@ -338,7 +338,7 @@ cpg_in_corSIV_ESS_dt <- rbind(all_cpg_dt, cpg_in_ESS_dt, cpg_in_corSIV_dt)
 p <- ggplot(cpg_in_corSIV_ESS_dt, aes(x = ME, y = alpha)) +
   geom_jitter(aes(fill=ME),pch=21, size = 3, alpha = .2)+ 
   geom_violin(aes(col=ME))+
-  scale_col_manual(values = c("#FC4E07", "#00AFBB", "#E7B800"))+
+  scale_color_manual(values = c("#FC4E07", "#00AFBB", "#E7B800"))+
   scale_fill_manual(values = c("#FC4E07", "#00AFBB", "#E7B800"))+
   geom_boxplot(aes(col=ME), width = .1) + 
   theme_minimal(base_size = 14) + 

@@ -48,8 +48,6 @@ prepData <- function(analysis){
         }
         ## Names of all CpG in the dataset:
         cpg_names_all <<- rhdf5::h5read(paste0(dir, "all_scaled_matrix.h5"), "cpg_names")
-        ## Names of all CpG in the dataset:
-        cpg_names_all <<- rhdf5::h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/all_scaled_matrix.h5", "cpg_names")
     } else if (analysis == "Atlas5X"){
         dir = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/5X/"
         metadata <<- read.table(paste0(dir, "sample_metadata.tsv"), sep ="\t", header = TRUE)
@@ -61,8 +59,26 @@ prepData <- function(analysis){
             return(M)
         }
         ## Names of all CpG in the dataset:
-        cpg_names_all <<- rhdf5::h5read(paste0(dir, "all_scaled_matrix.h5"), "cpg_names")
-    }
+        cpg_names_all <<- rhdf5::h5read("/home/alice/arraysh5/all_scaled_matrix.h5", "cpg_names")
+    } else if (grepl("MariasarraysREDUCED", analysis)){
+        ## analysis names: "MariasarraysREDUCED_nsamples_ndatasets"
+        x=gsub("MariasarraysREDUCED", "", analysis)
+        metapath <- paste0("/home/alice/arraysh5_reducedMimicAtlas", x, "/all_metadata.tsv")
+        if (!file.exists(metapath)) {
+            message("❌ Run 03_prepDatasetsMaria/S02.prepare_REDUCED_arrays_mimicAtlas.py")
+        } else {
+            metadata <<- read.table(metapath, sep ="\t", header = TRUE)
+        }
+        medsd_lambdas <<- read.table(paste0("/home/alice/arraysh5_reducedMimicAtlas", x, "/all_medsd_lambda.tsv"), sep = "\t", header = TRUE)
+        ## Function of one CpG of interest:
+        source_M_1CpG <<- function(cpgpos) {
+            M = rhdf5::h5read(paste0("/home/alice/arraysh5_reducedMimicAtlas", x, "/all_scaled_matrix.h5"), "scaled_matrix", index = list(NULL, cpgpos))
+            rownames(M) = metadata$sample
+            return(M)
+        }
+        ## Names of all CpG in the dataset:
+        cpg_names_all <<- rhdf5::h5read(paste0("/home/alice/arraysh5_reducedMimicAtlas", x, "/all_scaled_matrix.h5"), "cpg_names")
+    }   
 }
 
 ##############
@@ -212,8 +228,8 @@ runAndSave <- function(analysis, cpgPos_vec, resultDir, NCORES, p0, p1) {
 
     ## Check if file exists first
     if (file.exists(file_name)) {
-        message("File already exists: ", file_name)
-        message("Skipping run to avoid overwriting.")
+        message("⚠️  File already exists: ", file_name)
+        message("⏭️  Skipping run to avoid overwriting.")
         return(invisible(NULL))
     }
 
