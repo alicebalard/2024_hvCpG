@@ -36,23 +36,25 @@ rm(packages, to_install)
 
 ## <<- assigns the variable to the global environment (or parent environment) rather than the local function scope. Be careful with it!
 prepData <- function(analysis){
-    if (analysis == "Atlas"){
-        metadata <<- read.table("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/sample_metadata.tsv", sep ="\t", header = TRUE)
-        medsd_lambdas <<- read.table("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/all_medsd_lambda.tsv", sep = "\t", header = TRUE)
+    if (analysis == "Atlas10X"){
+        dir = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/"
+        metadata <<- read.table(paste0(dir, "sample_metadata.tsv"), sep ="\t", header = TRUE)
+        medsd_lambdas <<- read.table(paste0(dir, "all_medsd_lambda.tsv"), sep = "\t", header = TRUE)
         ## Function of one CpG of interest:
         source_M_1CpG <<- function(cpgpos) {
-            M = rhdf5::h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/all_scaled_matrix.h5", "scaled_matrix", index = list(NULL, cpgpos))
+            M = rhdf5::h5read(paste0(dir,"all_scaled_matrix.h5"), "scaled_matrix", index = list(NULL, cpgpos))
             rownames(M) = metadata$sample
             return(M)
         }
         ## Names of all CpG in the dataset:
-        cpg_names_all <<- rhdf5::h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/all_scaled_matrix.h5", "cpg_names")
-    } else if (analysis == "Mariasarrays"){
-        metadata <<- read.table("/home/alice/arraysh5/all_metadata.tsv", sep ="\t", header = TRUE)
-        medsd_lambdas <<- read.table("/home/alice/arraysh5/all_medsd_lambda.tsv", sep = "\t", header = TRUE)
+        cpg_names_all <<- rhdf5::h5read(paste0(dir, "all_scaled_matrix.h5"), "cpg_names")
+    } else if (analysis == "Atlas5X"){
+        dir = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/5X/"
+        metadata <<- read.table(paste0(dir, "sample_metadata.tsv"), sep ="\t", header = TRUE)
+        medsd_lambdas <<- read.table(paste0(dir, "all_medsd_lambda.tsv"), sep = "\t", header = TRUE)
         ## Function of one CpG of interest:
         source_M_1CpG <<- function(cpgpos) {
-            M = rhdf5::h5read("/home/alice/arraysh5/all_scaled_matrix.h5", "scaled_matrix", index = list(NULL, cpgpos))
+            M = rhdf5::h5read(paste0(dir,"all_scaled_matrix.h5"), "scaled_matrix", index = list(NULL, cpgpos))
             rownames(M) = metadata$sample
             return(M)
         }
