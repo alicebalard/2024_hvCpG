@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Combine:
-- R logic: load Maria’s .RDS-like files, merge them, keep CpGs covered in ≥15 datasets
-- WGBS steps 3, 5, 6: build CpG-by-sample matrix, logit transform, save: matrix, median SD, lambda, CpG names
+- Load .RDS files from two batches (GEO & TCGA)
+- Merge them
+- Save everything into a large HDF5 file (all_scaled_matrix.h5) along with sample names, groups, CpG names, and summary statistics (median_sd, lambda)
+- NB: no logit transform for these ones to stick to Maria's approach
+
+Author: Alice Balard
 """
+# 🧩 Setup
+
 import os
 import glob
 import pyreadr
@@ -12,49 +17,38 @@ import numpy as np
 import h5py
 import bottleneck as bn
 
-output_folder = os.path.expanduser("/home/alice/arraysh5files") # to scp into ing-s1 soon after
+# --- PARAMETERS ---
+folder1 = "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
+folder2 = "/home/alice/tempRDS/"
+output_folder = "/home/alice/arraysh5"
 os.makedirs(output_folder, exist_ok=True)
 
-# 1) Find .RDS batch 1 GEO
-folder1 = "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
+output_path = os.path.join(output_folder, "all_scaled_matrix.h5")
+metadata_file = os.path.join(output_folder, "all_metadata.tsv")
+output_file_medsd_lambda = os.path.join(output_folder, "all_medsd_lambda.tsv")
+
+# --- STEP 1: Load all RDS files ---
+def load_rds_matrix(file_list):
+    result = []
+    for f in file_list:
+        print(f"📖 Reading: {f}")
+        read_result = pyreadr.read_r(f)
+        df = next(iter(read_result.values()))
+        mat = df.values
+        rownames = df.index.tolist()
+        result.append((os.path.splitext(os.path.basename(f))[0], mat, rownames))
+    return result
+
 rds_files1 = glob.glob(os.path.join(folder1, "*.RDS"))
-print(f"✅ Found {len(rds_files1)} .RDS files")
-
-# Load all .RDS into list
-rds_list_mat1 = []
-for f in rds_files1:
-    print(f"Reading: {f}")
-    read_result = pyreadr.read_r(f)
-    df = next(iter(read_result.values()))
-    mat = df.values
-    rownames = df.index.tolist()
-    rds_list_mat1.append((os.path.splitext(os.path.basename(f))[0], mat, rownames))
-
-# 2) Find .RDS batch 2 TCGA files
-## !!!! NB: done in R before, rm after : prepTCGAforpy.R
-folder2 = "/home/alice/tempRDS/"
 rds_files2 = glob.glob(os.path.join(folder2, "*.RDS"))
-if len(rds_files2) == 0:
-    print("⚠️  WARNING!!! No .RDS files found — in R, run `prepTCGAforpy`")
-else:
-    print(f"✅ Found {len(rds_files2)} .RDS files")
 
-# Load all .RDS into list
-rds_list_mat2 = []
-for f in rds_files2:
-    print(f"Reading: {f}")
-    read_result = pyreadr.read_r(f)
-    df = next(iter(read_result.values()))
-    mat = df.values
-    rownames = df.index.tolist()
-    rds_list_mat2.append((os.path.splitext(os.path.basename(f))[0], mat, rownames))
+rds_list_mat1 = load_rds_matrix(rds_files1)
+rds_list_mat2 = load_rds_matrix(rds_files2)
 
-# 3) Merge both
 rds_list_mat = rds_list_mat1 + rds_list_mat2
-
 print(f"✅ Total datasets loaded: {len(rds_list_mat)}")
 
-# 4) Keep CpGs covered in ≥15 datasets
+# --- STEP 2: Identify common CpGs (covered in ≥15 datasets) ---
 all_cpgs = []
 for _, _, rownames in rds_list_mat:
     all_cpgs.extend(rownames)
@@ -62,54 +56,89 @@ for _, _, rownames in rds_list_mat:
 cpg_counts = pd.Series(all_cpgs).value_counts()
 common_cpgs = set(cpg_counts[cpg_counts >= 15].index.tolist())
 sorted_common_cpgs = sorted(common_cpgs)
-print(f"✅ {len(common_cpgs):,} CpGs covered in ≥15 datasets")
+print(f"✅ {len(sorted_common_cpgs):,} CpGs covered in ≥15 datasets")
 
-# Save the global list to file
-with open(os.path.join(output_folder, "sorted_common_cpgs.txt"), "w") as f:
-    for cpg in sorted_common_cpgs:
-        f.write(f"{cpg}\n")
-<<<<<<< HEAD
-=======
-## ✅ 406,036 CpGs covered in ≥15 datasets
->>>>>>> 9e5ca0b9b22fe1eb6b6eb68d730b65a13c66fc72
-
-# 5) Process each dataset separately — keep all samples (no mean!)
+# --- STEP 3: Initialize HDF5 ---
+NR_SITES = len(sorted_common_cpgs)
+all_valid_samples = []
 for name, mat, rownames in rds_list_mat:
+    all_valid_samples.extend([f"{name}_{i}" for i in range(mat.shape[1])])
+
+h5f = h5py.File(output_path, "w")
+scaled_dset = h5f.create_dataset(
+    "scaled_matrix",
+    shape=(NR_SITES, len(all_valid_samples)),
+    dtype="float32",
+    compression="gzip"
+)
+
+sample_names = []
+sample_groups = []
+all_sample_names = []
+all_sample_groups = []
+group_medians = {}
+group_lambdas = {}
+
+sample_idx = 0
+cpg_index_map = {cpg: i for i, cpg in enumerate(sorted_common_cpgs)}
+
+# --- STEP 4: Write filtered data to HDF5 ---
+for group_name, mat, rownames in rds_list_mat:
     df = pd.DataFrame(mat, index=rownames)
-
-    # Align CpGs to the full global set — insert NaNs for missing CpGs
-    df_aligned = df.reindex(sorted_common_cpgs)
-
-<<<<<<< HEAD
-    # Logit transform (clip to avoid infs)
-    epsilon = 1e-6
-    p = np.clip(df_aligned.values, epsilon, 1 - epsilon)
-    scaled_matrix = np.log2(p / (1 - p))  # logit transform
-=======
-    ## NB: DO NOT logit transform, data where already transformed
-    scaled_matrix = df_aligned.values
->>>>>>> 9e5ca0b9b22fe1eb6b6eb68d730b65a13c66fc72
-
-    # Row-wise SDs (ignoring NaNs)
-    row_sds = bn.nanstd(scaled_matrix, axis=1)
+    df_filtered = df.loc[df.index.intersection(sorted_common_cpgs)]
+    if df_filtered.shape[0] < NR_SITES:
+        missing = sorted_common_cpgs.copy()
+        df_filtered = df_filtered.reindex(sorted_common_cpgs)
+    mat_filtered = df_filtered.values.astype(np.float32)
+    # Write to HDF5
+    n_samples = mat_filtered.shape[1]
+    scaled_dset[:, sample_idx:sample_idx + n_samples] = mat_filtered
+    # Metadata
+    for i in range(n_samples):
+        sample_name = f"{group_name}_{i}"
+        sample_names.append(sample_name)
+        sample_groups.append(group_name)
+        all_sample_names.append(sample_name)
+        all_sample_groups.append(group_name)
+    # Stats
+    row_sds = bn.nanstd(mat_filtered, axis=1)
     median_sd = np.nanmedian(row_sds)
-    perc95 = np.nanpercentile(row_sds, 95)
-    lambda_value = perc95 / median_sd if median_sd != 0 else np.nan
+    percentile_95 = np.nanpercentile(row_sds, 95)
+    lambda_value = percentile_95 / median_sd
+    group_medians[group_name] = median_sd
+    group_lambdas[group_name] = lambda_value
+    print(f"✅ {group_name}: median_sd = {median_sd:.4f}, lambda = {lambda_value:.4f}")
+    sample_idx += n_samples
 
-    # Save scaled matrix (CpGs x Samples)
-    with h5py.File(os.path.join(output_folder, f"{name}_scaled_matrix.h5"), "w") as f:
-        f.create_dataset("scaled_matrix", data=scaled_matrix, compression="gzip")
-        f.create_dataset("cpg_names", data=np.array(sorted_common_cpgs, dtype='S'))
-        f.create_dataset("sample_names", data=np.array(df_aligned.columns.tolist(), dtype='S'))
+# --- STEP 5: Finalize HDF5 ---
+max_len = max(len(s) for s in sample_names)
+dt = h5py.string_dtype(encoding='utf-8')
+h5f.create_dataset("samples", data=np.array(sample_names, dtype=dt))
 
-    # Save median SD
-    with h5py.File(os.path.join(output_folder, f"{name}_median_sd.h5"), "w") as f:
-        f.create_dataset("median_sd", data=np.array(median_sd))
+max_len = max(len(s) for s in sample_groups)
+dt = h5py.string_dtype(encoding='utf-8')
+h5f.create_dataset("sample_groups", data=np.array(sample_groups, dtype=dt))
 
-    # Save lambda
-    with h5py.File(os.path.join(output_folder, f"{name}_lambda.h5"), "w") as f:
-        f.create_dataset("lambda", data=np.array(lambda_value))
+h5f.create_dataset("cpg_names", data=np.array(sorted_common_cpgs, dtype="S"))
 
-    print(f"  Saved for {name} | CpGs: {scaled_matrix.shape[0]} | Samples: {scaled_matrix.shape[1]} | median_sd: {median_sd:.4f} | lambda: {lambda_value:.4f}")
+h5f.close()
+print(f"✅ Saved scaled matrix to: {output_path}")
 
-print("\n🎉 All done — 1 H5 set per dataset saved.")
+# --- STEP 6: Save metadata ---
+meta_df = pd.DataFrame({
+    "sample": all_sample_names,
+    "dataset": all_sample_groups
+})
+meta_df.to_csv(metadata_file, sep="\t", index=False)
+print(f"✅ Saved metadata to: {metadata_file}")
+
+# --- STEP 7: Save medians/lambdas ---
+df = pd.DataFrame({
+    "dataset": list(group_medians.keys()),
+    "median_sd": list(group_medians.values()),
+    "lambda": [group_lambdas[k] for k in group_medians]
+})
+df.to_csv(output_file_medsd_lambda, sep="\t", index=False)
+print(f"✅ Saved stats to: {output_file_medsd_lambda}")
+
+print("\n🎉 All done.")
