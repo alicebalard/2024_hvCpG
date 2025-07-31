@@ -2,19 +2,14 @@
 ## A. Balard
 ## Plot files for scan Atlas
 
-library(dplyr)
-library(data.table)
-library(progress)
-library(readxl)
-library(ggplot2)
-library(tidyr)
-library(scales)
-library(viridis)
-library(ggrastr)     # For rasterized geom_point
-library(Cairo)       # For high-quality PDF
-library(genomation)
-library(GenomicRanges)
-library(GenomicFeatures)
+library(dplyr, data.table, readxl, progress, ggplot2, tidyr, scales, viridis,
+        ggrastr, Cairo,genomation, GenomicRanges, GenomicFeatures)
+
+## This code does:
+### Histogram of coverage across datasets
+### Manhattan plot
+### Test enrichment of features for high alpha
+### Test for enrichment in other putative MEs for hvCpGs with alpha > threshold
 
 ###########################################
 ## Histogram of coverage across datasets ##
@@ -225,100 +220,141 @@ ggplot(df_donut_label, aes(x = AlphaGroup, y = Percent, fill = Region)) +
   ))
 dev.off()
 
-#############################################################
-## Test for enrichment in corSIV of hvCpG with alpha > 0.9 ##
-#############################################################
+#################################################################################
+## Test for enrichment in other putative MEs for hvCpGs with alpha > threshold ##
+#################################################################################
 
-# Load corSIV intervals
-corSIV <- readxl::read_excel("13059_2019_1708_MOESM1_ESM.xls", sheet = 3)
-corSIV <- unique(corSIV$USCS_Coordinates_CoRSIV)
+## Our dataset of CpG tested is in gr_cpg
 
-# Parse corSIV to data.table with numeric chromosome, start, end
-corSIV_split <- tstrsplit(corSIV, "[:-]", fixed = FALSE)
-corSIV_dt <- data.table(
-  chr = sub("chr", "", corSIV_split[[1]]),
-  start_pos = as.integer(corSIV_split[[2]]),
-  end_pos = as.integer(corSIV_split[[3]])
+all_cpg_dt <- data.table(
+  chr = as.character(seqnames(gr_cpg)),
+  start_pos = start(gr_cpg),
+  end_pos = end(gr_cpg),
+  alpha = mcols(gr_cpg)$alpha,
+  ME = "all CpGs in atlas"
 )
- 
-# Key the tables for foverlaps
-setkey(corSIV_dt, chr, start_pos, end_pos)
 
-dt_subset <- dt[, .(chr = as.character(chr), start_pos, end_pos)]
-setkey(dt_subset, chr, start_pos, end_pos)
-dt_subset[, row_id := .I]
+#############################################
+## Needed to perform liftover hg19 to hg38 ##
+library(rtracklayer)
+library(GenomicRanges)
 
-# Find overlaps
-overlaps <- foverlaps(dt_subset, corSIV_dt, nomatch = 0L)
-overlap_idx <- overlaps[, row_id]
+# Download the chain file
+chain_url <- "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz"
+chain_gz <- "hg19ToHg38.over.chain.gz"
+chain_file <- "hg19ToHg38.over.chain"
+if (!file.exists(chain_file)) {
+  download.file(chain_url, chain_gz)
+  R.utils::gunzip(chain_gz, destname = chain_file, remove = FALSE)
+}
+chain <- import.chain(chain_file)
 
-# Mark points in corSIV intervals
-dt[, in_corSIV := FALSE]
-dt[overlap_idx, in_corSIV := TRUE]
+#######################################
+## Gunasekara2019_9926CoRSIVs_10WGBS ##
+# Load corSIV intervals (already in hg38)
+corSIV <- readxl::read_excel("dataPrev/Gunasekara2019_9926CoRSIVs_10WGBS.xls", sheet = 3)
+corSIV <- unique(corSIV$USCS_Coordinates_CoRSIV)
+corSIV_split <- tstrsplit(corSIV, "[:-]", fixed = FALSE)
+corSIV_GRanges <- GRanges(
+  seqnames = corSIV_split[[1]],
+  ranges = IRanges(start = as.integer(corSIV_split[[2]]), end = as.integer(corSIV_split[[3]])),
+  strand = "*")
 
-# Create binary column for alpha > threshold
-dt[, alpha_high := alpha > threshold]
+# Find overlaps: which CpGs fall in corSIV regions
+hits <- findOverlaps(gr_cpg, corSIV_GRanges)
+cpg_in_corSIV <- gr_cpg[queryHits(hits)]
 
-# Count combinations of (in_corSIV, alpha_high)
-tbl <- dt[, .N, by = .(in_corSIV, alpha_high)]
+length(cpg_in_corSIV)
 
-# Format as contingency table
-# Row 1: alpha > threshold; Row 2: alpha <= threshold
-# Column 1: in corSIV; Column 2: not in corSIV
+cpg_in_corSIV_dt <- data.table(
+  chr = as.character(seqnames(cpg_in_corSIV)),
+  start_pos = start(cpg_in_corSIV),
+  end_pos = end(cpg_in_corSIV),
+  alpha = mcols(cpg_in_corSIV)$alpha,
+  ME = "CoRSIV"
+)
 
-A <- tbl[in_corSIV == TRUE & alpha_high == TRUE, N]
-B <- tbl[in_corSIV == FALSE & alpha_high == TRUE, N]
-C <- tbl[in_corSIV == TRUE & alpha_high == FALSE, N]
-D <- tbl[in_corSIV == FALSE & alpha_high == FALSE, N]
+#######################################
+## VanBaak2018_ESS_HM450 ##
+ESS <- readxl::read_excel("dataPrev/VanBaak2018_2210ESS_450k.xlsx", sheet = 2)
+ESS <- unique(ESS$`UCSC browser coordinates`)
+ESS_split <- tstrsplit(ESS, "[:-]", fixed = FALSE)
 
-# Replace missing counts with zero
-A <- ifelse(length(A) == 0, 0, A)
-B <- ifelse(length(B) == 0, 0, B)
-C <- ifelse(length(C) == 0, 0, C)
-D <- ifelse(length(D) == 0, 0, D)
+ESS_GRanges <- GRanges(
+  seqnames = ESS_split[[1]],
+  ranges = IRanges(start = as.integer(ESS_split[[2]]), end = as.integer(ESS_split[[3]])),
+  strand = "*")
 
-# Build matrix
-contingency_matrix <- matrix(c(A, B, C, D), nrow = 2, byrow = TRUE,
-                             dimnames = list(`Alpha > threshold` = c("Yes", "No"),
-                                             `In corSIV` = c("Yes", "No")))
+ESS_GRanges_hg38 <- liftOver(ESS_GRanges, chain)
+ESS_GRanges_hg38 <- unlist(ESS_GRanges_hg38)
 
-# Perform Fisher's Exact Test
-fisher_result <- fisher.test(contingency_matrix)
+# Find overlaps: which CpGs fall in ESS regions
+hits <- findOverlaps(gr_cpg, ESS_GRanges_hg38)
+cpg_in_ESS <- gr_cpg[queryHits(hits)]
 
-# View result
-print(contingency_matrix)
+length(cpg_in_ESS)
 
-print(fisher_result)
-# 
-# Fisher's Exact Test for Count Data
-# 
-# data:  contingency_matrix
-# p-value = 7.389e-07
-# alternative hypothesis: true odds ratio is not equal to 1
-# 95 percent confidence interval:
-#  1.064985 1.155738
-# sample estimates:
-# odds ratio 
-#   1.109572 
-# 🔍 Fisher’s Exact Test Output
-# p-value: 7.389e-07 → Highly significant
-# → Strong evidence that the distribution of alpha > threshold differs between corSIV and non-corSIV regions.
-# 
-# Odds ratio: 1.11
-# → Sites with alpha > threshold are ~11% more likely to occur in corSIV regions than expected by chance.
-# 
-# 95% CI: [1.065, 1.156]
-# → This interval does not include 1, further supporting statistical significance.
+cpg_in_ESS_dt <- data.table(
+  chr = as.character(seqnames(cpg_in_ESS)),
+  start_pos = start(cpg_in_ESS),
+  end_pos = end(cpg_in_ESS),
+  alpha = mcols(cpg_in_ESS)$alpha,
+  ME = "ESS"
+)
 
-# CCl: We observe a statistically significant enrichment of high-alpha CpG sites (alpha > threshold) in corSIV regions (Fisher’s exact test: OR = 1.11, p = 7.4 × 10⁻⁷), suggesting a non-random association between regulatory variability and corSIV domains."
 
-p <- ggplot(dt, aes(x = in_corSIV, y = alpha)) +
- geom_violin(aes(fill = in_corSIV), trim = FALSE) + 
-  geom_boxplot(width = 0.2) + theme_minimal(base_size = 14) +
-  scale_fill_manual(values = c("#FC4E07", "#00AFBB"))+
-  xlab("CpG in corSIV (Gunasekara et al. 2019)") +
-  ylab("Probability of being a hvCpG") + theme(legend.position = "none")
+#######################################
+## VanBaak2018_ESS_HM450 ##
+hvCpG <- readxl::read_excel("dataPrev/VanBaak2018_2210ESS_450k.xlsx", sheet = 2)
+ESS <- unique(ESS$`UCSC browser coordinates`)
+ESS_split <- tstrsplit(ESS, "[:-]", fixed = FALSE)
 
-pdf("figures/boxplot_corSIV.pdf", width = 5, height = 5)
+ESS_GRanges <- GRanges(
+  seqnames = ESS_split[[1]],
+  ranges = IRanges(start = as.integer(ESS_split[[2]]), end = as.integer(ESS_split[[3]])),
+  strand = "*")
+
+ESS_GRanges_hg38 <- liftOver(ESS_GRanges, chain)
+ESS_GRanges_hg38 <- unlist(ESS_GRanges_hg38)
+
+# Find overlaps: which CpGs fall in ESS regions
+hits <- findOverlaps(gr_cpg, ESS_GRanges_hg38)
+cpg_in_ESS <- gr_cpg[queryHits(hits)]
+
+length(cpg_in_ESS)
+
+cpg_in_ESS_dt <- data.table(
+  chr = as.character(seqnames(cpg_in_ESS)),
+  start_pos = start(cpg_in_ESS),
+  end_pos = end(cpg_in_ESS),
+  alpha = mcols(cpg_in_ESS)$alpha,
+  ME = "ESS"
+)
+
+#############
+## Combine ##
+cpg_in_corSIV_ESS_dt <- rbind(all_cpg_dt, cpg_in_ESS_dt, cpg_in_corSIV_dt)
+
+p <- ggplot(cpg_in_corSIV_ESS_dt, aes(x = ME, y = alpha)) +
+  geom_jitter(aes(fill=ME),pch=21, size = 3, alpha = .2)+ 
+  geom_violin(aes(col=ME))+
+  scale_col_manual(values = c("#FC4E07", "#00AFBB", "#E7B800"))+
+  scale_fill_manual(values = c("#FC4E07", "#00AFBB", "#E7B800"))+
+  geom_boxplot(aes(col=ME), width = .1) + 
+  theme_minimal(base_size = 14) + 
+  theme(legend.position = "none", axis.title.x = element_blank()) +
+  ylab("Probability of being a hvCpG")
+
+pdf("figures/boxplot_otherMEs.pdf", width = 4, height = 4)
 p
 dev.off()
+
+## Statistical testing: does alpha differ between cpg types?
+kruskal.test(alpha ~ ME, data = cpg_in_corSIV_ESS_dt)
+
+## Pairwise testing:
+pairwise.wilcox.test(cpg_in_corSIV_ESS_dt$alpha, cpg_in_corSIV_ESS_dt$ME,
+                     p.adjust.method = "BH")  # Benjamini-Hochberg correction
+
+
+
