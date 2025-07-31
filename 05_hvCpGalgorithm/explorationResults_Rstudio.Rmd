@@ -54,15 +54,31 @@ rds_list_mat <- lapply(rds_list_mat, function(mat) {
 cistrans_GoDMC_hvCpG_matched_control <- 
   read.table("~/2024_hvCpG/03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
 
-## Load cpgnames (all dpg covered after filtration)
-cpgnames <- read.table("~/arraysh5files/sorted_common_cpgs.txt")$V1
+## Load cpgnames (all cpg covered after filtration)
+system.time(source("~/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v4scan.R"))
+prepData(analysis="MariasarraysREDUCED_3samples_3datasets")
 
 ## Check if I'm consistent
-table(cpgnames %in% common_cpgs) ## PERFECT
+table(cpg_names_all %in% common_cpgs) ## PERFECT
 
 sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control[
-  cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpgnames &
-    cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpgnames,]
+  cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpg_names_all &
+    cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpg_names_all,]
+
+## Histogram of samples in array data
+df <- data.frame(n_samples = sapply(rds_list_mat, ncol))
+
+# Plot with ggplot2
+pdf("figures/histogramArray.pdf", width = 5, height = 5)
+ggplot(df, aes(x = n_samples)) +
+  geom_histogram(bins = 100, fill = "steelblue", color = "white") +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Distribution of number of samples per dataset",
+    x = "Number of samples",
+    y = "Count of datasets"
+  )
+# dev.off()
 
 rm(common_cpgs, cpg_counts,all_cpgs, folder1, rds_files1, cistrans_GoDMC_hvCpG_matched_control)
 ```
@@ -180,13 +196,13 @@ ggplot(data = df,
 ```{r}
 ## Emphasize the outliers
 df_long$col = "grey"
-df_long$col[df_long$L1 %in% "BulkFrontalCortex"] <- "red"
+df_long$col[df_long$L1 %in% "uterus"] <- "red"
 
 ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
-  geom_density(data = df_long[!df_long$L1 %in% "BulkFrontalCortex",], alpha = .5) +
-  geom_density(data = df_long[df_long$L1 %in% "BulkFrontalCortex",], alpha = .6) +
+  geom_density(data = df_long[!df_long$L1 %in% "uterus",], alpha = .5) +
+  geom_density(data = df_long[df_long$L1 %in% "uterus",], alpha = .6) +
   scale_fill_manual(values = c("grey", "red"))+
-  labs(title = "Distribution of SDs accross datasets",subtitle = "Red=BulkFrontalCortex",
+  labs(title = "Distribution of SDs accross datasets",subtitle = "Red=uterus",
        x = "SDs",
        y = "Density") +
   theme_minimal() +
@@ -224,71 +240,28 @@ Run on LSHTM server (need to be outside of RStudio for parallelising and h5 file
 source("S01_run_hvCpGdetection_Marias.R") ## for different datasets
 
 ```{r}
-## Load data & functions specific to Maria's arrays (to do before)                                                 
-system.time(source("../03_prepDatasetsMaria/S02.formatArraysforR.R"))
-## Load algorithm (30sec)                                                                                                                                                                                                             
-system.time(source("../05_hvCpGalgorithm/hvCpG_algorithm_detection_v3.R"))
-
-## Load full cpg names
-cpg_names <- readLines("~/arraysh5files/sorted_common_cpgs.txt")
-
-length(cpg_names); head(cpg_names)
-## [1] 406036
-# [1] "cg00000029" "cg00000108" "cg00000109" "cg00000165" "cg00000236" "cg00000289"
-
-## Load hvCpG of Maria and matching mQTL
-cistrans_GoDMC_hvCpG_matched_control <- read.table("../03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
-
-## In which positions are they?
-cpg_names[cpg_names %in% cistrans_GoDMC_hvCpG_matched_control$hvCpG_name] %>% length
-cpg_names[cpg_names %in% cistrans_GoDMC_hvCpG_matched_control$controlCpG_name]  %>% length
-
-sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control[
-  cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpg_names &
-    cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpg_names,]
-
 ## Positions of targets in cpg_names:
-pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names),
-               match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names))
+pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names_all),
+               match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names_all))
 
 ## Made with "Brent" and new method
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_pos2check_1p0_0_6p1.RData")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_6906CpGs_0_8p0_0_65p1.RData")
 
-Brent = data.frame(CpG = cpg_names[as.numeric(row.names(results_Maria_pos2check_1p0_0_6p1))],
-                   alpha_Brent = as.vector(results_Maria_pos2check_1p0_0_6p1))
+Brent = data.frame(CpG = cpg_names_all[as.numeric(row.names(results_Maria_pos2check_0_8p0_0_65p1))],
+                   alpha = as.vector(results_Maria_pos2check_0_8p0_0_65p1))
 
+pdf("figures/ex0.806.5arrayviolin.pdf", width = 4, height = 5)
 Brent %>%  
   mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>%
-  ggplot(aes(x = ishvCpG, y = alpha_Brent)) +
+  ggplot(aes(x = ishvCpG, y = alpha)) +
   geom_jitter(aes(fill=ishvCpG),pch=21, size = 3, alpha = .2)+ 
   geom_violin(aes(col=ishvCpG))+
   geom_boxplot(aes(col=ishvCpG),width = .1) + 
-  theme_bw() + theme(legend.position = "none")
+  geom_hline(yintercept = 0.73, linetype = 5)+
+  theme_minimal(base_size = 14) + 
+  theme(legend.position = "none", axis.title.x = element_blank()) +
+  ylab("Probability of being a hvCpG")
 ```
-
-```{r}
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/withAlpha0.5atStart/results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1.RData")
-NM = data.frame(CpG = row.names(results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1),
-                alpha_NM_old = as.vector(results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_1p0_0_6p1)) 
-
-NM %>%  
-  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>%
-  ggplot(aes(x = ishvCpG, y = alpha_NM_old)) +
-  geom_jitter(aes(fill=ishvCpG),pch=21, size = 3, alpha = .2)+ 
-  geom_violin(aes(col=ishvCpG))+
-  geom_boxplot(aes(col=ishvCpG),width = .05) + 
-  theme_bw() + theme(legend.position = "none")
-```
-
-```{r}
-merge(Brent, NM) %>% 
-  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>% ggplot(aes(x=alpha_Brent, y=alpha_NM_old, fill = ishvCpG)) +
-  geom_abline(slope = 1) +
-  geom_point(pch=21, size = 3, alpha = .8) +
-  theme_bw()
-```
-
-The new method is much better than the old one
 
 ## ROC curves to define p0 and p1 matching Maria's approach
 
@@ -303,7 +276,7 @@ p1 = 0.65 in Maria's approach (to be a hvCpG, it needs to be hypervariable in >6
 # Step 1: Read results and compute AUC + threshold
 files <- list.files(
   "resultsDir/Mariads",
-  pattern = "^results_Maria_pos2check_.*\\.RData$",
+  pattern = "^results_Maria_6906CpGs_.*\\.RData$",
   full.names = TRUE
 )
 
@@ -321,7 +294,7 @@ for (f in files) {
   label <- sprintf("p0=%.2f p1=%.2f", p0, p1)
   
   df <- as.data.frame(res) %>% rownames_to_column("CpGpos") %>%
-    mutate(CpG=cpg_names[as.numeric(CpGpos)])
+    mutate(CpG=cpg_names_all[as.numeric(CpGpos)])
   colnames(df)[2] <- "alpha"
   
   truth <- ifelse(df$CpG %in% Marias_hvCpGs$CpG, 1, 0)
@@ -342,7 +315,7 @@ roc_all <- bind_rows(roc_list)
 
 # Step 2: Plot ROC curves
 roc_plot <- ggplot(roc_all, aes(FPR, TPR, group=label, color=label)) +
-  geom_line(size=0.8, alpha=0.6) +
+  geom_line(linewidth=0.8, alpha=0.6) +
   geom_abline(slope=1, linetype="dashed", color="gray50") +
   labs(title="ROC Curves for Different (p0,p1)",
        x="False Positive Rate", y="True Positive Rate") +
@@ -357,68 +330,58 @@ best <- auc_df |>
   filter(AUC == max(AUC, na.rm = TRUE)) |> 
   slice(1)  # in case of ties
 
-best
 heatmap_plot <- ggplot(auc_df, aes(p0, p1, fill=AUC)) +
   geom_tile(color="white") +
-  geom_text(aes(label=round(threshold,2)),
-            size=3, color="black", check_overlap = TRUE) +
+  # geom_text(aes(label=round(threshold,2)),
+  #           size=3, color="black", check_overlap = TRUE) +
   # Outline best tile
-  geom_rect(data = best, aes(xmin = p0-0.025, xmax = p0+0.025, ymin = p1-0.025, ymax = p1+0.025), fill = NA, color = "red", linewidth = 1) +
+  geom_rect(xmin = 0.8-0.025, xmax = 0.8+0.025, ymin = 0.65-0.025, ymax = 0.65+0.025,
+            fill = NA, color = "red", linewidth = 1) +
   scale_fill_viridis_c(option = "plasma") +
   labs(title="AUC & Optimal Threshold per (p0,p1)",
        x="p0", y="p1") +
-  theme_minimal()
+  theme_minimal(base_size = 14) + theme(plot.title = element_blank())
 # Step 4: Show both plots
 print(roc_plot)
 print(heatmap_plot)
+
+pdf("figures/heatmap_plot.pdf", width = 4, height = 5)
+heatmap_plot
+
+auc_df[auc_df$p0 %in% 0.8 & auc_df$p1 %in% 0.65,]
+## AUC  threshold
+## 0.9864289	0.7354292	
+
 ```
 
 The best threshold ploted in tiles is the alpha probability that gives the best sensitivity-specificity trade-off. It's derived using a statistical rule (Youden's J: maximizes (Sensitivity + Specificity – 1), giving the best overall balance between true positives and true negatives). It classifies a CpG as hypervariable in Maria's approach if alpha > threshold 
 
-### Conclusions (NB TO UPDATE WITH NEW ALGO): 
+### Conclusions:
 
-* Best AUC = for p0 (true negative) is quite low in Maria's data (0.45)
-* Threshold for this best AUC = : Classify a CpG as hvCpG in Maria's data if alpha ≥ 
-* Previous discrepancies between methods are likely due to scaling!
+Very big discrepancies between Maria's approach and mine for high p1 with low p0.
 
 # Subset Maria's data following Atlas data structure (less N/dataset) to check power of detection in Atlas data:          
 ```{r}
-# Atlas data structure:
-AtlasMetaData <- readxl::read_excel("../04_prepAtlas/41586_2022_5580_MOESM4_ESM.xlsx", sheet = 1, skip = 2)
+load("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_6906CpGs_0_8p0_0_65p1.RData")
+df1 = results_Maria_pos2check_0_8p0_0_65p1
 
-table(AtlasMetaData$`Cell type`)
-```
-
-
-3 tries for (p0, p1): 
-
-* c(0.45, 0.6): best AUC, closest to Maria's data; low specificity and mid sensitivity                                    * c(0.95, 0.65): our original idea, high specificity but mid sensitivity                                                  * c(0.9, 0.9): high specificity and sensitivity       
-
-```{r}
-makeMyPlots <-function(p0p1){
-  df1 = get(paste0("results_Nelder_Mead_my_list_mat_Mariads_test3000CpGsvec_", p0p1))
-  df2 = get(paste0("results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_", p0p1))
-  
-  p_str = str_match(p0p1, "(\\d+_\\d+)p0_(\\d+_\\d+)p1")[, 2:3]
-  p0 = gsub("_", ".", p_str[1])
-  p1 = gsub("_", ".", p_str[2])
-  label = paste0("p0=", p0, ", p1=", p1)
-  
+myplots <- function(df2, N){
   plot1 = data.frame(df1, df2) %>%
-    tibble::rownames_to_column("CpG") %>%
-    mutate(ishvCpG = ifelse(CpG %in% MariasCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
-    dplyr::rename(alpha_normalDS = alpha_hat, alpha_mimicAtlas = alpha_hat.1) %>% 
-    ggplot(aes(x = alpha_normalDS, y = alpha_mimicAtlas)) +
+    tibble::rownames_to_column("CpGpos") %>% 
+    mutate(CpGname =  cpg_names_all[as.numeric(CpGpos)]) %>% 
+    mutate(ishvCpG = ifelse(CpGname %in% Marias_hvCpGs$CpG, "1500 hvCpG in Maria's study", "1500 mQTL matching controls")) %>%
+    dplyr::rename(alpha_full = alpha, alpha_reduce = alpha.1) %>% 
+    ggplot(aes(x = alpha_full, y = alpha_reduce)) +
     geom_point(aes(fill=ishvCpG), pch =21, size =3, alpha = .3) + 
-    geom_abline(slope = 1, linetype = "dashed") + theme_bw() +
-    ggtitle(label = label)
+    geom_abline(slope = 1, linetype = "dashed") + theme_bw()
   
   # === 1) Prepare the ORIGINAL ===
   df_original = df1 %>%
     data.frame() %>%
-    tibble::rownames_to_column("CpG") %>%
+    tibble::rownames_to_column("CpGpos") %>%
+    mutate(CpGname =  cpg_names_all[as.numeric(CpGpos)]) %>% 
     mutate(ishvCpG = ifelse(
-      CpG %in% MariasCpGs$CpG,
+      CpGname %in% Marias_hvCpGs$CpG,
       "1500 hvCpG in Maria's study",
       "1500 mQTL matching controls"
     ),
@@ -428,9 +391,9 @@ makeMyPlots <-function(p0p1){
   # === 2) Prepare the MIMIC ===
   df_mimic = df2 %>%
     data.frame() %>%
-    tibble::rownames_to_column("CpG") %>%
+    tibble::rownames_to_column("CpGname") %>%
     mutate(ishvCpG = ifelse(
-      CpG %in% MariasCpGs$CpG,
+      CpGname %in% Marias_hvCpGs$CpG,
       "1500 hvCpG in Maria's study",
       "1500 mQTL matching controls"
     ),
@@ -448,36 +411,171 @@ makeMyPlots <-function(p0p1){
     theme_bw() +
     theme(axis.title.y = element_blank()) +
     labs(title = "Probability alpha of being hypervariable in my algorithm",
-         subtitle = "Original data of Maria vs mimic Atlas structure")
+         subtitle = paste0("Original array data vs reduced (3 samples in ", N, " datasets)"))
   
   print(plot1)
   print(plot2)
 }
+
+for (i in c(3,20)){
+  load(paste0("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_3samples_", i, "datasets_6906CpGs_0_8p0_0_65p1.RData"))
+  myplots(df2 = get(paste0("results_MariasarraysREDUCED_3samples_", i, "datasets_6906CpGs_0_8p0_0_65p1")), N=i)
+}
+
+for (i in c(3,20)){
+  load(paste0("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_4samples_", i, "datasets_6906CpGs_0_8p0_0_65p1.RData"))
+  myplots(df2 = get(paste0("results_MariasarraysREDUCED_3samples_", i, "datasets_6906CpGs_0_8p0_0_65p1")), N=i)
+}
+
+for (i in c(3,20)){
+  load(paste0("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_5samples_", i, "datasets_6906CpGs_0_8p0_0_65p1.RData"))
+  myplots(df2 = get(paste0("results_MariasarraysREDUCED_3samples_", i, "datasets_6906CpGs_0_8p0_0_65p1")), N=i)
+}
 ```
 
-
-## 1. low specificity and mid sensitivity (p0=0.45 and p1=0.6)
-### best AUC, my algorithm with the closest proximity to Maria's approach)
+## Calculate AUC the ROC curve
 
 ```{r}
-# load("resultsDir/Mariads/withAlpha0.5atStart/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_45p0_0_6p1.RData")
-# makeMyPlots(p0p1 = "0_45p0_0_6p1")
+# Initialize result data frame
+auc_results <- data.frame(NbrDataset = integer(), AUC = numeric(), NbrSamples = integer())
+
+# Loop through number of samples
+for (s in 3:5) {
+  for (i in 3:30) {
+    # Load result
+    file_path <- paste0("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_", 
+                        s, "samples_", i, "datasets_6906CpGs_0_8p0_0_65p1.RData")
+    if (!file.exists(file_path)) next
+    load(file_path)
+    df2 <- get(paste0("results_MariasarraysREDUCED_", s, "samples_", i, "datasets_6906CpGs_0_8p0_0_65p1"))
+    ## Which proportion of the CpG tested are covered?
+    propCovered <- (table(is.na(df2))/(sum(table(is.na(df2)))))[[1]]
+    # Build mimic dataframe with label
+    df_mimic <- df2 %>%
+      data.frame() %>%
+      tibble::rownames_to_column("CpGname") %>%
+      mutate(ishvCpG = ifelse(CpGname %in% Marias_hvCpGs$CpG, 1, 0))
+    # Identify alpha column
+    score_col <- if ("alpha" %in% colnames(df_mimic)) "alpha" else colnames(df_mimic)[2]
+    # Compute ROC and AUC
+    roc_obj <- roc(response = df_mimic$ishvCpG, predictor = df_mimic[[score_col]])
+    auc_val <- as.numeric(auc(roc_obj))
+    # Store result
+    auc_results <- bind_rows(auc_results, tibble(
+      NbrDataset = i,
+      AUC = auc_val,
+      NbrSamples = s,
+      propCovered = propCovered
+    ))
+  }
+}
+
+## For full dataset
+# Loop through number of samples
+for (i in 3:30) {
+  # Load result
+  file_path <- paste0("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_allsamples_", 
+                      i, "datasets_6906CpGs_0_8p0_0_65p1.RData")
+  if (!file.exists(file_path)) next
+  load(file_path)
+  df2 <- get(paste0("results_MariasarraysREDUCED_allsamples_", i, "datasets_6906CpGs_0_8p0_0_65p1"))
+  ## Which proportion of the CpG tested are covered?
+  propCovered <- (table(is.na(df2))/(sum(table(is.na(df2)))))[[1]]
+  # Build mimic dataframe with label
+  df_mimic <- df2 %>%
+    data.frame() %>%
+    tibble::rownames_to_column("CpGname") %>%
+    mutate(ishvCpG = ifelse(CpGname %in% Marias_hvCpGs$CpG, 1, 0))
+  # Identify alpha column
+  score_col <- if ("alpha" %in% colnames(df_mimic)) "alpha" else colnames(df_mimic)[2]
+  # Compute ROC and AUC
+  roc_obj <- roc(response = df_mimic$ishvCpG, predictor = df_mimic[[score_col]])
+  auc_val <- as.numeric(auc(roc_obj))
+  # Store result
+  auc_results <- bind_rows(auc_results, tibble(
+    NbrDataset = i,
+    AUC = auc_val,
+    NbrSamples = 15,
+    propCovered = propCovered
+  ))
+}
+
+auc_results$NbrSamples[auc_results$NbrSamples %in% 15] <- "all"
+
+
+pdf("figures/auc_results_array.pdf", width = 4, height = 5)
+ggplot(auc_results, aes(x = NbrDataset, y = AUC, color = factor(NbrSamples), group = NbrSamples)) +
+  geom_hline(linetype = 5, yintercept = 0.9) +
+  geom_line(size = 1.1) +
+  geom_point(data = auc_results[auc_results$propCovered %in% 1,], aes(size = propCovered)) +
+  geom_point(data = auc_results[auc_results$propCovered < 1,], aes(size = propCovered), 
+             shape = 21, fill = "white") +
+  scale_color_brewer(palette = "Set1") +
+  labs(
+    x = "Number of datasets",
+    y = "AUC",
+    color = "Samples\nper dataset",
+  ) +
+  guides(
+    color = guide_legend(order = 1),
+    size = guide_legend(order = 2)
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = c(0.95, 0.05),
+    legend.justification = c("right", "bottom"),
+    legend.box = "horizontal",
+    legend.background = element_rect(fill = "white", color = "black", size = 0.4),
+    legend.key = element_rect(fill = "white", color = NA),
+    plot.margin = margin(5.5, 20, 5.5, 5.5, "pt"),
+    panel.clip = "off"
+  ) +
+  coord_cartesian(clip = "off") +
+  scale_x_continuous(breaks = 3:30)+
+  scale_size(
+  range = c(0.1, 7),
+  breaks = c(0.2, 0.4, 0.6, 0.8),  # Adjust depending on your data
+  name = "Prop. CpGs\ncovered"
+)
 ```
 
-## 2. high specificity and mid sensitivity (p0=0.95 and p1=0.65)
-### high true negative rate, i.e. high specificity)
 
 ```{r}
-# load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_95p0_0_65p1.RData")
-# makeMyPlots(p0p1 = "0_95p0_0_65p1")
+auc_results <- data.frame(NbrDataset = integer(), AUC = numeric(), NbrSamples = integer())
+
+i = 16
+  # Load result
+  file_path <- paste0("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_allsamples_", 
+                      i, "datasets_6906CpGs_0_8p0_0_65p1.RData")
+  if (!file.exists(file_path)) next
+  load(file_path)
+  df2 <- get(paste0("results_MariasarraysREDUCED_allsamples_", i, "datasets_6906CpGs_0_8p0_0_65p1"))
+  
+  ## Which proportion of the CpG tested are covered?
+  propCovered <- (table(is.na(df2))/(sum(table(is.na(df2)))))[[1]]
+  
+  
+  # Build mimic dataframe with label
+  df_mimic <- df2 %>%
+    data.frame() %>%
+    tibble::rownames_to_column("CpGname") %>%
+    mutate(ishvCpG = ifelse(CpGname %in% Marias_hvCpGs$CpG, 1, 0))
+  # Identify alpha column
+  score_col <- if ("alpha" %in% colnames(df_mimic)) "alpha" else colnames(df_mimic)[2]
+  # Compute ROC and AUC
+  roc_obj <- roc(response = df_mimic$ishvCpG, predictor = df_mimic[[score_col]])
+  auc_val <- as.numeric(auc(roc_obj))
+  # Store result
+  auc_results <- bind_rows(auc_results, tibble(
+    NbrDataset = i,
+    AUC = auc_val,
+    NbrSamples = 15
+  ))
+}
+
+
 ```
 
-## 3. high specificity and sensitivity (p0=0.9 and p1=0.9)
-
-```{r}
-# load("resultsDir/results_Nelder_Mead_my_list_mat_Mariads_mimicAtlas_test3000CpGsvec_0_9p0_0_9p1.RData")
-# makeMyPlots(p0p1 = "0_9p0_0_9p1")
-```
 
 # Notes:
 
