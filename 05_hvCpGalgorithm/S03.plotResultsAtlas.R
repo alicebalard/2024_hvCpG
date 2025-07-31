@@ -2,8 +2,11 @@
 ## A. Balard
 ## Plot files for scan Atlas
 
-library(dplyr, data.table, readxl, progress, ggplot2, tidyr, scales, viridis,
-        ggrastr, Cairo,genomation, GenomicRanges, GenomicFeatures)
+packages <- c("dplyr", "data.table", "readxl", "progress", "ggplot2",
+              "tidyr", "scales", "viridis", "ggrastr", "Cairo",
+              "genomation", "GenomicRanges", "GenomicFeatures")
+
+lapply(packages, library, character.only = TRUE)
 
 ## This code does:
 ### Histogram of coverage across datasets
@@ -194,7 +197,7 @@ df_donut <- as.data.frame(contingency) %>%
 # Add angle positions within each ring
 df_donut_label <- df_donut %>%
   group_by(AlphaGroup) %>%
-  arrange(Region) %>%
+  rrange(Region) %>%
   mutate(
     ymax = cumsum(Percent),
     ymin = lag(ymax, default = 0),
@@ -225,7 +228,6 @@ dev.off()
 #################################################################################
 
 ## Our dataset of CpG tested is in gr_cpg
-
 all_cpg_dt <- data.table(
   chr = as.character(seqnames(gr_cpg)),
   start_pos = start(gr_cpg),
@@ -249,87 +251,127 @@ if (!file.exists(chain_file)) {
 }
 chain <- import.chain(chain_file)
 
+################################
+## To get alpha in each group ##
+getMEdt <- function(gr_cpg, GRanges_hg38, MEgroup){
+  MEgroup = unlist(strsplit(deparse(substitute(GRanges_hg38)), "_"))[1]
+  hits = findOverlaps(gr_cpg, GRanges_hg38)
+  cpg_in_MEs = gr_cpg[queryHits(hits)]
+  print(length(cpg_in_MEs))
+  cpg_in_MEs_dt <- data.table(
+    chr = as.character(seqnames(cpg_in_MEs)),
+    start_pos = start(cpg_in_MEs),
+    end_pos = end(cpg_in_MEs),
+    alpha = mcols(cpg_in_MEs)$alpha,
+    ME = MEgroup
+  )
+  return(cpg_in_MEs)
+}
+
+## E.g. getMEdt(gr_cpg, VanBaakESS_GRanges_hg38)
+
+#######################################
+## Harris2012_1776SIV_10children450k ##
+HarrisSIV <- readxl::read_excel("dataPrev/Harris2012_1776SIV_10children450k.xls", sheet = 3)
+HarrisSIV <- unique(HarrisSIV$Coordinate) ; length(HarrisSIV)
+HarrisSIV_split <- tstrsplit(HarrisSIV, "[:-]", fixed = FALSE)
+HarrisSIV_GRanges <- GRanges(
+  seqnames = HarrisSIV_split[[1]],
+  ranges = IRanges(start = as.integer(HarrisSIV_split[[2]]),
+                   end = as.integer(HarrisSIV_split[[3]])) + 1,
+  strand = "*")
+
+HarrisSIV_GRanges_hg38 <- unlist(liftOver(HarrisSIV_GRanges, chain))
+
+###########################
+## VanBaak2018_ESS_HM450 ##
+VanBaakESS <- readxl::read_excel("dataPrev/VanBaak2018_1580ESS_450k.xlsx", sheet = 2)
+VanBaakESS <- unique(VanBaakESS$`UCSC browser coordinates`[VanBaakESS$`ESS hit`]) 
+length(VanBaakESS)
+VanBaakESS_split <- tstrsplit(VanBaakESS, "[:-]", fixed = FALSE)
+VanBaakESS_GRanges <- GRanges(
+  seqnames = VanBaakESS_split[[1]],
+  ranges = IRanges(start = as.integer(VanBaakESS_split[[2]]), end = as.integer(VanBaakESS_split[[3]])),
+  strand = "*")
+
+VanBaakESS_GRanges_hg38 <- unlist(liftOver(VanBaakESS_GRanges, chain))
+
+###########################################
+## Kessler2018_687SIVregions_2WGBS hg19! ##
+KesslerSIV <- readxl::read_excel("dataPrev/Kessler2018_supTables.xlsx", sheet = 2, skip = 1)
+KesslerSIV_GRanges <- GRanges(
+  seqnames = KesslerSIV$Chromosome,
+  ranges = IRanges(start = KesslerSIV$`ME start`, 
+                   end = KesslerSIV$`ME end`),
+  strand = "*")
+
+KesslerSIV_GRanges_hg38 <- unlist(liftOver(KesslerSIV_GRanges, chain))
+
 #######################################
 ## Gunasekara2019_9926CoRSIVs_10WGBS ##
 # Load corSIV intervals (already in hg38)
 corSIV <- readxl::read_excel("dataPrev/Gunasekara2019_9926CoRSIVs_10WGBS.xls", sheet = 3)
 corSIV <- unique(corSIV$USCS_Coordinates_CoRSIV)
 corSIV_split <- tstrsplit(corSIV, "[:-]", fixed = FALSE)
-corSIV_GRanges <- GRanges(
+corSIV_GRanges_hg38 <- GRanges(
   seqnames = corSIV_split[[1]],
   ranges = IRanges(start = as.integer(corSIV_split[[2]]), end = as.integer(corSIV_split[[3]])),
   strand = "*")
 
-# Find overlaps: which CpGs fall in corSIV regions
-hits <- findOverlaps(gr_cpg, corSIV_GRanges)
-cpg_in_corSIV <- gr_cpg[queryHits(hits)]
-
-length(cpg_in_corSIV)
-
-cpg_in_corSIV_dt <- data.table(
-  chr = as.character(seqnames(cpg_in_corSIV)),
-  start_pos = start(cpg_in_corSIV),
-  end_pos = end(cpg_in_corSIV),
-  alpha = mcols(cpg_in_corSIV)$alpha,
-  ME = "CoRSIV"
-)
-
 #######################################
-## VanBaak2018_ESS_HM450 ##
-ESS <- readxl::read_excel("dataPrev/VanBaak2018_2210ESS_450k.xlsx", sheet = 2)
-ESS <- unique(ESS$`UCSC browser coordinates`)
-ESS_split <- tstrsplit(ESS, "[:-]", fixed = FALSE)
+## Silver2022_SoCCpGs_10WGBS ##
+arrayRef <- readxl::read_excel("dataPrev/Silver2022_259SoC_hg19.xlsx", sheet = 3, skip = 2)
+SoCCpGs <- readxl::read_excel("dataPrev/Silver2022_259SoC_hg19.xlsx", sheet = 6, skip = 2)
 
-ESS_GRanges <- GRanges(
-  seqnames = ESS_split[[1]],
-  ranges = IRanges(start = as.integer(ESS_split[[2]]), end = as.integer(ESS_split[[3]])),
+SoCCpGs_GRanges <- GRanges(
+  seqnames = paste0("chr", arrayRef$chr[match(SoCCpGs$cpg, arrayRef$cpg)]),
+  ranges = IRanges(start = arrayRef$loc[match(SoCCpGs$cpg, arrayRef$cpg)],
+                   end = arrayRef$loc[match(SoCCpGs$cpg, arrayRef$cpg)] + 1),
   strand = "*")
 
-ESS_GRanges_hg38 <- liftOver(ESS_GRanges, chain)
-ESS_GRanges_hg38 <- unlist(ESS_GRanges_hg38)
+SoCCpGs_GRanges_hg38 <- unlist(liftOver(SoCCpGs_GRanges, chain))
 
-# Find overlaps: which CpGs fall in ESS regions
-hits <- findOverlaps(gr_cpg, ESS_GRanges_hg38)
-cpg_in_ESS <- gr_cpg[queryHits(hits)]
+####################
+## Check overlaps ##
 
-length(cpg_in_ESS)
+# Function to convert any GRanges to individual base positions as "chr:pos"
+gr_to_pos <- function(gr) {
+  gr <- reduce(gr)  # Merge overlapping regions
+  unlist(lapply(seq_along(gr), function(i) {
+    chr <- as.character(seqnames(gr)[i])
+    start <- start(gr)[i]
+    end <- end(gr)[i]
+    paste0(chr, ":", start:end)
+  }))
+}
 
-cpg_in_ESS_dt <- data.table(
-  chr = as.character(seqnames(cpg_in_ESS)),
-  start_pos = start(cpg_in_ESS),
-  end_pos = end(cpg_in_ESS),
-  alpha = mcols(cpg_in_ESS)$alpha,
-  ME = "ESS"
+sets <- list(
+  HarrisSIV = gr_to_pos(HarrisSIV_GRanges_hg38),
+  VanBaakESS = gr_to_pos(VanBaakESS_GRanges_hg38),
+  KesslerSIV = gr_to_pos(KesslerSIV_GRanges_hg38),
+  CoRSIV = gr_to_pos(corSIV_GRanges_hg38),
+  SoCCpGs = gr_to_pos(SoCCpGs_GRanges_hg38)
 )
 
+library(UpSetR)
 
-#######################################
-## VanBaak2018_ESS_HM450 ##
-hvCpG <- readxl::read_excel("dataPrev/VanBaak2018_2210ESS_450k.xlsx", sheet = 2)
-ESS <- unique(ESS$`UCSC browser coordinates`)
-ESS_split <- tstrsplit(ESS, "[:-]", fixed = FALSE)
+## NB: exagerated, counts all positions, not only CpGs
 
-ESS_GRanges <- GRanges(
-  seqnames = ESS_split[[1]],
-  ranges = IRanges(start = as.integer(ESS_split[[2]]), end = as.integer(ESS_split[[3]])),
-  strand = "*")
+## To correct adding the CpGs sequenced in Atlas
+library(UpSetR)
+library(gridGraphics)
+library(grid)
 
-ESS_GRanges_hg38 <- liftOver(ESS_GRanges, chain)
-ESS_GRanges_hg38 <- unlist(ESS_GRanges_hg38)
+# Create the plot in a base graphics device
+pdf(NULL)  # draw to null device to avoid displaying
+upset(fromList(sets), nsets = 5, order.by = "freq")
+grid_plot <- grid.grab()  # Capture as a grid object
+dev.off()
 
-# Find overlaps: which CpGs fall in ESS regions
-hits <- findOverlaps(gr_cpg, ESS_GRanges_hg38)
-cpg_in_ESS <- gr_cpg[queryHits(hits)]
-
-length(cpg_in_ESS)
-
-cpg_in_ESS_dt <- data.table(
-  chr = as.character(seqnames(cpg_in_ESS)),
-  start_pos = start(cpg_in_ESS),
-  end_pos = end(cpg_in_ESS),
-  alpha = mcols(cpg_in_ESS)$alpha,
-  ME = "ESS"
-)
+# Now save the captured grid object to a real PDF
+pdf("figures/upsetPreviousME.pdf", width = 7, height = 5)
+grid.draw(grid_plot)
+dev.off()
 
 #############
 ## Combine ##
