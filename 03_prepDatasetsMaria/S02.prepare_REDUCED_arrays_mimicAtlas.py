@@ -188,7 +188,9 @@ def process_reduced_h5(nSamples, nDatasets, output_root="/home/alice/arraysh5_re
     print("\n🎉 All done.")
 
 # Run for different parameters:
-#for s in range(3, 5):
-for n in range(3, 21):  # 21 is exclusive
-    print(f"🚀 Running for nDatasets = {n}")
-    process_reduced_h5(nSamples=5, nDatasets=n)
+
+## NB: for memory resons, do it by block
+for s in range(3,5):
+    for n in range(3, 31):  # last is exclusive
+        print(f"🚀 Running for nDatasets = {n}")
+        process_reduced_h5(nSamples=s, nDatasets=n)
