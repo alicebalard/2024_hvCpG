@@ -12,4 +12,4 @@
 
 CHUNK_SIZE=100000
 
-Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/S02.a_hvCpGdetection_Atlas_batches.R $SGE_TASK_ID $CHUNK_SIZE
+Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/S02.1a_hvCpGdetection_Atlas10X_batches.R $SGE_TASK_ID $CHUNK_SIZE
