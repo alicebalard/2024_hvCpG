@@ -238,6 +238,20 @@ if (doAnnot){
   
   rm(anno_result_highalpha, anno_result_lowalpha)
 }
+
+table(dt_clean$alpha >= 0.7)
+
+# FALSE     TRUE 
+# 23505671  3252148
+
+dt_clean[dt_clean$alpha >= 0.7,"name"]
+
+
+## TBC
+
+
+
+
 #################################################################################
 ## Test for enrichment in other putative MEs for hvCpGs with alpha > threshold ##
 #################################################################################
@@ -469,6 +483,56 @@ dev.off()
 ## Compare values for Derakshan hvCpGs from arrays vs from Atlas ##
 
 makedtMEset(DerakhshanhvCpGs_GRanges_hg38, "DerakhshanhvCpGs")
+
+Rred3array <- read.table("results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1.tsv",
+                                                  header = T, sep = " ")
+Rred3array_GRanges <- GRanges(
+  seqnames = anno450k[match(Rred3array$CpG, anno450k$Name),"chr"],
+  ranges = IRanges(start = ifelse(anno450k[match(Rred3array$CpG, anno450k$Name),"strand"] %in% "+",
+                                  anno450k[match(Rred3array$CpG, anno450k$Name),"pos"],
+                                  anno450k[match(Rred3array$CpG, anno450k$Name),"pos"] - 1),
+                   end = ifelse(anno450k[match(Rred3array$CpG, anno450k$Name),"strand"] %in% "+",
+                                anno450k[match(Rred3array$CpG, anno450k$Name),"pos"] + 1,
+                                anno450k[match(Rred3array$CpG, anno450k$Name),"pos"])),
+  strand = anno450k[match(Rred3array$CpG, anno450k$Name),"strand"],
+  alpha = Rred3array$alpha,
+  ishvCpG = Rred3array$ishvCpG)
+
+Rred3array_GRanges_hg38 <- unlist(liftOver(Rred3array_GRanges, chain))
+
+# Find overlapping CpGs
+hits <- findOverlaps(Rred3array_GRanges_hg38, DerakhshanhvCpGs_GRanges_hg38)
+
+# Extract alpha values
+alpha_dt <- data.table(
+  alpha_x = Rred3array_GRanges_hg38$alpha[queryHits(hits)],
+  alpha_y = DerakhshanhvCpGs_GRanges_hg38$alpha[subjectHits(hits)]
+)
+
+# Remove rows with NA values if needed
+alpha_dt <- na.omit(alpha_dt)
+
+cor_val <- cor(alpha_dt$alpha_x, alpha_dt$alpha_y)
+ggplot(alpha_dt, aes(x = alpha_x, y = alpha_y)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  annotate("text", x = 0.05, y = 0.95, hjust = 0, label = paste("r =", round(cor_val, 2))) +
+  labs(
+    x = "Alpha (Rred3array)",
+    y = "Alpha (Derakhshan)"
+  ) +
+  theme_minimal(base_size = 14)
+
+#######################################################################
+## Investigate variation of purified cell types hvCpGs in Atlas data ##
+
+
+
+
+
+
+
+
 
 
 
