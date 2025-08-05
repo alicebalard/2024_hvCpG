@@ -55,8 +55,9 @@ cistrans_GoDMC_hvCpG_matched_control <-
   read.table("~/2024_hvCpG/03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
 
 ## Load cpgnames (all cpg covered after filtration)
-system.time(source("~/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v4scan.R"))
-prepData(analysis="MariasarraysREDUCED_3samples_3datasets")
+cpg_names_all <- rhdf5::h5read("/home/alice/arraysh5/all_scaled_matrix.h5", "cpg_names")
+## Save it
+write.table(cpg_names_all, "resultsDir/Mariads/cpg_names_all.tsv", row.names = F, quote = F, col.names = F)
 
 ## Check if I'm consistent
 table(cpg_names_all %in% common_cpgs) ## PERFECT
@@ -69,7 +70,6 @@ sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control
 df <- data.frame(n_samples = sapply(rds_list_mat, ncol))
 
 # Plot with ggplot2
-pdf("figures/histogramArray.pdf", width = 5, height = 5)
 ggplot(df, aes(x = n_samples)) +
   geom_histogram(bins = 100, fill = "steelblue", color = "white") +
   theme_minimal(base_size = 14) +
@@ -78,7 +78,6 @@ ggplot(df, aes(x = n_samples)) +
     x = "Number of samples",
     y = "Count of datasets"
   )
-# dev.off()
 
 rm(common_cpgs, cpg_counts,all_cpgs, folder1, rds_files1, cistrans_GoDMC_hvCpG_matched_control)
 ```
@@ -248,11 +247,10 @@ pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_na
 load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_6906CpGs_0_8p0_0_65p1.RData")
 
 Brent = data.frame(CpG = cpg_names_all[as.numeric(row.names(results_Maria_pos2check_0_8p0_0_65p1))],
-                   alpha = as.vector(results_Maria_pos2check_0_8p0_0_65p1))
+                   alpha = as.vector(results_Maria_pos2check_0_8p0_0_65p1)) %>%  
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls"))
 
-pdf("figures/ex0.806.5arrayviolin.pdf", width = 4, height = 5)
-Brent %>%  
-  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls")) %>%
+Brent %>%
   ggplot(aes(x = ishvCpG, y = alpha)) +
   geom_jitter(aes(fill=ishvCpG),pch=21, size = 3, alpha = .2)+ 
   geom_violin(aes(col=ishvCpG))+
@@ -260,7 +258,35 @@ Brent %>%
   geom_hline(yintercept = 0.73, linetype = 5)+
   theme_minimal(base_size = 14) + 
   theme(legend.position = "none", axis.title.x = element_blank()) +
-  ylab("Probability of being a hvCpG")
+  ylab("Probability of being a hvCpG")+
+  ggtitle("Considering all samples per datasets\nCpGs covered in >=15 datasets")
+
+## Save for comparison with Atlas
+write.table(Brent, "results_Maria_6906CpGs_0_8p0_0_65p1.tsv", quote = F, row.names = F)
+
+table(is.na(Brent$alpha))
+
+## Reduced version (only 3 samples)
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_3samples_30datasets_6906CpGs_0_8p0_0_65p1.RData")
+
+Brent2 = data.frame(CpG = rownames(results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1),
+                    alpha = as.vector(results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1)) %>%  
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls"))
+
+Brent2 %>%
+  ggplot(aes(x = ishvCpG, y = alpha)) +
+  geom_jitter(aes(fill=ishvCpG),pch=21, size = 3, alpha = .2)+ 
+  geom_violin(aes(col=ishvCpG))+
+  geom_boxplot(aes(col=ishvCpG),width = .1) + 
+  geom_hline(yintercept = 0.73, linetype = 5)+
+  theme_minimal(base_size = 14) + 
+  theme(legend.position = "none", axis.title.x = element_blank()) +
+  ylab("Probability of being a hvCpG") +
+  ggtitle("Considering 3 samples per datasets\nCpGs covered in >=15 datasets")
+
+table(is.na(Brent2$alpha))
+## Save for comparison with Atlas
+write.table(Brent2, "results_MariasarraysREDUCED_3samples_30datasets_6906CpGs_0_8p0_0_65p1.tsv", quote = F, row.names = F)
 ```
 
 ## ROC curves to define p0 and p1 matching Maria's approach
@@ -344,9 +370,6 @@ heatmap_plot <- ggplot(auc_df, aes(p0, p1, fill=AUC)) +
 # Step 4: Show both plots
 print(roc_plot)
 print(heatmap_plot)
-
-pdf("figures/heatmap_plot.pdf", width = 4, height = 5)
-heatmap_plot
 
 auc_df[auc_df$p0 %in% 0.8 & auc_df$p1 %in% 0.65,]
 ## AUC  threshold
@@ -449,7 +472,7 @@ for (s in 3:5) {
     load(file_path)
     df2 <- get(paste0("results_MariasarraysREDUCED_", s, "samples_", i, "datasets_6906CpGs_0_8p0_0_65p1"))
     ## Which proportion of the CpG tested are covered?
-    propCovered <- (table(is.na(df2))/(sum(table(is.na(df2)))))[[1]]
+    propCovered <- table(is.na(df2))[1]/nrow(df2)
     # Build mimic dataframe with label
     df_mimic <- df2 %>%
       data.frame() %>%
@@ -480,7 +503,7 @@ for (i in 3:30) {
   load(file_path)
   df2 <- get(paste0("results_MariasarraysREDUCED_allsamples_", i, "datasets_6906CpGs_0_8p0_0_65p1"))
   ## Which proportion of the CpG tested are covered?
-  propCovered <- (table(is.na(df2))/(sum(table(is.na(df2)))))[[1]]
+  propCovered <- table(is.na(df2))[1]/nrow(df2)
   # Build mimic dataframe with label
   df_mimic <- df2 %>%
     data.frame() %>%
@@ -502,8 +525,6 @@ for (i in 3:30) {
 
 auc_results$NbrSamples[auc_results$NbrSamples %in% 15] <- "all"
 
-
-pdf("figures/auc_results_array.pdf", width = 4, height = 5)
 ggplot(auc_results, aes(x = NbrDataset, y = AUC, color = factor(NbrSamples), group = NbrSamples)) +
   geom_hline(linetype = 5, yintercept = 0.9) +
   geom_line(size = 1.1) +
@@ -533,10 +554,10 @@ ggplot(auc_results, aes(x = NbrDataset, y = AUC, color = factor(NbrSamples), gro
   coord_cartesian(clip = "off") +
   scale_x_continuous(breaks = 3:30)+
   scale_size(
-  range = c(0.1, 7),
-  breaks = c(0.2, 0.4, 0.6, 0.8),  # Adjust depending on your data
-  name = "Prop. CpGs\ncovered"
-)
+    range = c(0.1, 7),
+    breaks = c(0.2, 0.4, 0.6, 0.8),  # Adjust depending on your data
+    name = "Prop. CpGs\ncovered"
+  )
 ```
 
 
@@ -544,33 +565,33 @@ ggplot(auc_results, aes(x = NbrDataset, y = AUC, color = factor(NbrSamples), gro
 auc_results <- data.frame(NbrDataset = integer(), AUC = numeric(), NbrSamples = integer())
 
 i = 16
-  # Load result
-  file_path <- paste0("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_allsamples_", 
-                      i, "datasets_6906CpGs_0_8p0_0_65p1.RData")
-  if (!file.exists(file_path)) next
-  load(file_path)
-  df2 <- get(paste0("results_MariasarraysREDUCED_allsamples_", i, "datasets_6906CpGs_0_8p0_0_65p1"))
-  
-  ## Which proportion of the CpG tested are covered?
-  propCovered <- (table(is.na(df2))/(sum(table(is.na(df2)))))[[1]]
-  
-  
-  # Build mimic dataframe with label
-  df_mimic <- df2 %>%
-    data.frame() %>%
-    tibble::rownames_to_column("CpGname") %>%
-    mutate(ishvCpG = ifelse(CpGname %in% Marias_hvCpGs$CpG, 1, 0))
-  # Identify alpha column
-  score_col <- if ("alpha" %in% colnames(df_mimic)) "alpha" else colnames(df_mimic)[2]
-  # Compute ROC and AUC
-  roc_obj <- roc(response = df_mimic$ishvCpG, predictor = df_mimic[[score_col]])
-  auc_val <- as.numeric(auc(roc_obj))
-  # Store result
-  auc_results <- bind_rows(auc_results, tibble(
-    NbrDataset = i,
-    AUC = auc_val,
-    NbrSamples = 15
-  ))
+# Load result
+file_path <- paste0("~/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_allsamples_", 
+                    i, "datasets_6906CpGs_0_8p0_0_65p1.RData")
+if (!file.exists(file_path)) next
+load(file_path)
+df2 <- get(paste0("results_MariasarraysREDUCED_allsamples_", i, "datasets_6906CpGs_0_8p0_0_65p1"))
+
+## Which proportion of the CpG tested are covered?
+propCovered <- (table(is.na(df2))/(sum(table(is.na(df2)))))[[1]]
+
+
+# Build mimic dataframe with label
+df_mimic <- df2 %>%
+  data.frame() %>%
+  tibble::rownames_to_column("CpGname") %>%
+  mutate(ishvCpG = ifelse(CpGname %in% Marias_hvCpGs$CpG, 1, 0))
+# Identify alpha column
+score_col <- if ("alpha" %in% colnames(df_mimic)) "alpha" else colnames(df_mimic)[2]
+# Compute ROC and AUC
+roc_obj <- roc(response = df_mimic$ishvCpG, predictor = df_mimic[[score_col]])
+auc_val <- as.numeric(auc(roc_obj))
+# Store result
+auc_results <- bind_rows(auc_results, tibble(
+  NbrDataset = i,
+  AUC = auc_val,
+  NbrSamples = 15
+))
 }
 
 
