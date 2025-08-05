@@ -247,8 +247,8 @@ pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_na
 load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_6906CpGs_0_8p0_0_65p1.RData")
 
 Brent = data.frame(CpG = cpg_names_all[as.numeric(row.names(results_Maria_pos2check_0_8p0_0_65p1))],
-                   alpha = as.vector(results_Maria_pos2check_0_8p0_0_65p1)) %>%  
-  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls"))
+                   alpha = as.vector(results_Maria_pos2check_0_8p0_0_65p1))%>%  
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG", "mQTL"))
 
 Brent %>%
   ggplot(aes(x = ishvCpG, y = alpha)) +
@@ -271,7 +271,7 @@ load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Marias
 
 Brent2 = data.frame(CpG = rownames(results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1),
                     alpha = as.vector(results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1)) %>%  
-  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG in Maria's study", "mQTL matching controls"))
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG", "mQTL"))
 
 Brent2 %>%
   ggplot(aes(x = ishvCpG, y = alpha)) +
@@ -282,11 +282,13 @@ Brent2 %>%
   theme_minimal(base_size = 14) + 
   theme(legend.position = "none", axis.title.x = element_blank()) +
   ylab("Probability of being a hvCpG") +
-  ggtitle("Considering 3 samples per datasets\nCpGs covered in >=15 datasets")
+  ggtitle("Considering 3 samples per datasets\nCpGs covered in >=15 datasets") 
 
 table(is.na(Brent2$alpha))
 ## Save for comparison with Atlas
-write.table(Brent2, "results_MariasarraysREDUCED_3samples_30datasets_6906CpGs_0_8p0_0_65p1.tsv", quote = F, row.names = F)
+
+
+write.table(Brent2, "results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1.tsv", quote = F, row.names = F)
 ```
 
 ## ROC curves to define p0 and p1 matching Maria's approach
