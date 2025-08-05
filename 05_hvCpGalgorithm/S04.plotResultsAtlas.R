@@ -31,20 +31,29 @@ t_combined <- rbind(t5, t10)
 # Filter out CpGs with zero dataset coverage if needed
 t_combined <- t_combined[t_combined$datasets_covered_in > 0, ]
 
-options(scipen=999)
+t_combined <- t_combined %>% group_by(coverage) %>%
+  dplyr::arrange(-dplyr::row_number(datasets_covered_in)) %>%
+  mutate(nCpGcum = cumsum(num_CpGs))
+
+options(scipen=0)
 # Plot
-pdf("figures/freqCpGperdataset.pdf", width = 15, height = 4)
-ggplot(t_combined, aes(x = as.factor(datasets_covered_in), y = num_CpGs, fill = coverage)) +
+pdf("figures/freqCpGperdataset.pdf", width = 14, height = 4)
+ggplot(t_combined, aes(x = as.factor(datasets_covered_in), y = nCpGcum, fill = coverage)) +
   geom_col(position = "dodge") +
-  scale_y_log10() +
-  scale_fill_manual(values = c("≥5" = "steelblue", "≥10" = "firebrick")) +
-  labs(
-    title = "CpG coverage across datasets",
-    x = "Number of datasets with ≥3 samples covered",
-    y = "Number of CpGs (log scale)",
-    fill = "Coverage threshold"
-  ) +
-  theme_minimal(base_size = 14)
+  scale_y_continuous(
+    breaks = seq(0, 100000000, by = 10000000),  # 10 million steps
+    labels = label_number(scale = 1e-6, suffix = "M")
+  ) +  scale_fill_manual(values = c("≥5" = "steelblue", "≥10" = "firebrick")) +
+  labs(title = "Nbr of CpG covered across X or more datasets",
+       x = ">= X datasets",
+       y = "Number of CpGs with ≥3 samples covered",
+       fill = "Coverage threshold") +
+  theme_minimal(base_size = 14) +
+  guides(fill = guide_legend(position = "inside")) +
+  theme(legend.position.inside = c(.2,.5),
+        legend.box = "horizontal",
+        legend.background = element_rect(fill = "white", color = "black", size = 0.4),
+        legend.key = element_rect(fill = "white", color = NA))
 dev.off()
 
 ####################
@@ -127,9 +136,9 @@ plot <- ggplot() +
   theme_minimal(base_size = 14)
 
 # Save as PDF — rasterization improves performance and file size
-CairoPDF("figures/ManhattanAlphaPlot.pdf", width = 15, height = 3)
-print(plot)
-dev.off()
+# CairoPDF("figures/ManhattanAlphaPlot.pdf", width = 15, height = 3)
+# print(plot)
+# dev.off()
 
 ################################################
 ## Test enrichment of features for high alpha ##
@@ -149,7 +158,7 @@ gr_cpg <- GRanges(
   alpha = dt_clean$alpha
 )
 
-doAnnot = FALSE
+doAnnot = TRUE
 
 if (doAnnot){
   
@@ -248,6 +257,12 @@ if (!file.exists(chain_file)) {
 }
 chain <- import.chain(chain_file)
 
+## Manifest illumina450k to check arrays
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+data(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+
+anno450k <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+
 ################################
 ## To get alpha in each group ##
 getMEdt <- function(gr_cpg, GRanges_hg38, MEgroup){
@@ -270,13 +285,15 @@ getMEdt <- function(gr_cpg, GRanges_hg38, MEgroup){
 #######################################
 ## Harris2012_1776SIV_10children450k ##
 HarrisSIV <- readxl::read_excel("dataPrev/Harris2012_1776SIV_10children450k.xls", sheet = 3)
-HarrisSIV <- unique(HarrisSIV$Coordinate) ; length(HarrisSIV)
-HarrisSIV_split <- tstrsplit(HarrisSIV, "[:-]", fixed = FALSE)
 HarrisSIV_GRanges <- GRanges(
-  seqnames = HarrisSIV_split[[1]],
-  ranges = IRanges(start = as.integer(HarrisSIV_split[[2]]),
-                   end = as.integer(HarrisSIV_split[[3]])) + 1,
-  strand = "*")
+  seqnames = anno450k[match(HarrisSIV$Probe, anno450k$Name),"chr"],
+  ranges = IRanges(start = ifelse(anno450k[match(HarrisSIV$Probe, anno450k$Name),"strand"] %in% "+",
+                                  anno450k[match(HarrisSIV$Probe, anno450k$Name),"pos"],
+                                  anno450k[match(HarrisSIV$Probe, anno450k$Name),"pos"] - 1),
+                   end = ifelse(anno450k[match(HarrisSIV$Probe, anno450k$Name),"strand"] %in% "+",
+                                anno450k[match(HarrisSIV$Probe, anno450k$Name),"pos"] + 1,
+                                anno450k[match(HarrisSIV$Probe, anno450k$Name),"pos"])),
+  strand = anno450k[match(HarrisSIV$Probe, anno450k$Name),"strand"])
 
 HarrisSIV_GRanges_hg38 <- unlist(liftOver(HarrisSIV_GRanges, chain))
 ## Select only the ones tested for alpha in Atlas
@@ -285,13 +302,18 @@ HarrisSIV_GRanges_hg38 <- getMEdt(gr_cpg, HarrisSIV_GRanges_hg38)
 ###########################
 ## VanBaak2018_ESS_HM450 ##
 VanBaakESS <- readxl::read_excel("dataPrev/VanBaak2018_1580ESS_450k.xlsx", sheet = 2)
-VanBaakESS <- unique(VanBaakESS$`UCSC browser coordinates`[VanBaakESS$`ESS hit`]) 
-length(VanBaakESS)
-VanBaakESS_split <- tstrsplit(VanBaakESS, "[:-]", fixed = FALSE)
+## only ESS hits
+VanBaakESS <- VanBaakESS[VanBaakESS$`ESS hit`,]
+
 VanBaakESS_GRanges <- GRanges(
-  seqnames = VanBaakESS_split[[1]],
-  ranges = IRanges(start = as.integer(VanBaakESS_split[[2]]), end = as.integer(VanBaakESS_split[[3]])),
-  strand = "*")
+  seqnames = anno450k[match(VanBaakESS$CG, anno450k$Name),"chr"],
+  ranges = IRanges(start = ifelse(anno450k[match(VanBaakESS$CG, anno450k$Name),"strand"] %in% "+",
+                                  anno450k[match(VanBaakESS$CG, anno450k$Name),"pos"],
+                                  anno450k[match(VanBaakESS$CG, anno450k$Name),"pos"] - 1),
+                   end = ifelse(anno450k[match(VanBaakESS$CG, anno450k$Name),"strand"] %in% "+",
+                                anno450k[match(VanBaakESS$CG, anno450k$Name),"pos"] + 1,
+                                anno450k[match(VanBaakESS$CG, anno450k$Name),"pos"])),
+  strand = anno450k[match(VanBaakESS$CG, anno450k$Name),"strand"])
 
 VanBaakESS_GRanges_hg38 <- unlist(liftOver(VanBaakESS_GRanges, chain))
 ## Select only the ones tested for alpha in Atlas
@@ -338,6 +360,42 @@ SoCCpGs_GRanges_hg38 <- unlist(liftOver(SoCCpGs_GRanges, chain))
 ## Select only the ones tested for alpha in Atlas
 SoCCpGs_GRanges_hg38 <- getMEdt(gr_cpg, SoCCpGs_GRanges_hg38)
 
+###########################
+## Derakhshan2022_hvCpGs ##
+DerakhshanhvCpGs <- readxl::read_excel("dataPrev/Derakhshan2022_4143hvCpGs_450k.xlsx", sheet = 6, skip = 3)
+
+DerakhshanhvCpGs_GRanges <- GRanges(
+  seqnames = anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"chr"],
+  ranges = IRanges(start = ifelse(anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"] %in% "+",
+                                  anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"],
+                                  anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"] - 1),
+                   end = ifelse(anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"] %in% "+",
+                                anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"] + 1,
+                                anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"])),
+  strand = anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"])
+
+DerakhshanhvCpGs_GRanges_hg38 <- unlist(liftOver(DerakhshanhvCpGs_GRanges, chain))
+## Select only the ones tested for alpha in Atlas
+DerakhshanhvCpGs_GRanges_hg38 <- getMEdt(gr_cpg, DerakhshanhvCpGs_GRanges_hg38)
+
+##########################################
+## Matching genetic controls to hvCpGs  ##
+mQTLcontrols <- read.table("../03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
+
+mQTLcontrols_GRanges <- GRanges(
+  seqnames = anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"chr"],
+  ranges = IRanges(start = ifelse(anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"] %in% "+",
+                                  anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"],
+                                  anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"] - 1),
+                   end = ifelse(anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"] %in% "+",
+                                anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"] + 1,
+                                anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"])),
+  strand = anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"])
+
+mQTLcontrols_GRanges_hg38 <- unlist(liftOver(mQTLcontrols_GRanges, chain))
+## Select only the ones tested for alpha in Atlas
+mQTLcontrols_GRanges_hg38 <- getMEdt(gr_cpg, mQTLcontrols_GRanges_hg38)
+
 ####################
 ## Check overlaps ##
 
@@ -351,7 +409,9 @@ sets <- list(
   VanBaakESS = gr_to_pos(VanBaakESS_GRanges_hg38),
   KesslerSIV = gr_to_pos(KesslerSIV_GRanges_hg38),
   CoRSIV = gr_to_pos(corSIV_GRanges_hg38),
-  SoCCpGs = gr_to_pos(SoCCpGs_GRanges_hg38)
+  SoCCpGs = gr_to_pos(SoCCpGs_GRanges_hg38),
+  hvCpG = gr_to_pos(DerakhshanhvCpGs_GRanges_hg38),
+  mQTLcontrols = gr_to_pos(mQTLcontrols_GRanges_hg38)
 )
 
 ## To correct adding the CpGs sequenced in Atlas
@@ -361,12 +421,12 @@ library(grid)
 
 # Create the plot in a base graphics device
 pdf(NULL)  # draw to null device to avoid displaying
-upset(fromList(sets), nsets = 5, order.by = "freq")
+upset(fromList(sets), nsets = 7, order.by = "freq")
 grid_plot <- grid.grab()  # Capture as a grid object
 dev.off()
 
 # Now save the captured grid object to a real PDF
-pdf("figures/upsetPreviousME.pdf", width = 7, height = 5)
+pdf("figures/upsetPreviousME.pdf", width = 12, height = 5)
 grid.draw(grid_plot)
 dev.off()
 
@@ -384,36 +444,36 @@ makedtMEset <- function(gr = gr_cpg, name = "all CpGs in atlas"){
 
 ## Our dataset of CpG tested is in gr_cpg
 MEsetdt <- na.omit(rbind(
-  allCpG = makedtMEset(),
   HarrisSIV = makedtMEset(HarrisSIV_GRanges_hg38, "HarrisSIV"),
   VanBaakESS = makedtMEset(VanBaakESS_GRanges_hg38, "VanBaakESS"),
   KesslerSIV = makedtMEset(KesslerSIV_GRanges_hg38, "KesslerSIV"),
   CoRSIV = makedtMEset(corSIV_GRanges_hg38, "CoRSIV"),
-  SoCCpGs = makedtMEset(SoCCpGs_GRanges_hg38, "SoCCpGs")
-))
-
-# subMEsetdt <- na.omit(rbind(
-#   allCpG = sample(makedtMEset(), 10000),
-#   HarrisSIV = makedtMEset(HarrisSIV_GRanges_hg38, "HarrisSIV"),
-#   VanBaakESS = makedtMEset(VanBaakESS_GRanges_hg38, "VanBaakESS"),
-#   KesslerSIV = makedtMEset(KesslerSIV_GRanges_hg38, "KesslerSIV"),
-#   CoRSIV = makedtMEset(corSIV_GRanges_hg38, "CoRSIV"),
-#   SoCCpGs = makedtMEset(SoCCpGs_GRanges_hg38, "SoCCpGs")
-# ))
-
+  SoCCpGs = makedtMEset(SoCCpGs_GRanges_hg38, "SoCCpGs"),
+  DerakhshanhvCpGs = makedtMEset(DerakhshanhvCpGs_GRanges_hg38, "DerakhshanhvCpGs"),
+  mQTLcontrols = makedtMEset(mQTLcontrols_GRanges_hg38, "mQTLcontrols")))
 
 p <- ggplot(MEsetdt, aes(x = ME, y = alpha)) +
-  geom_jitter(data = subMEsetdt,
-              aes(fill=ME), pch=21, size = 3, alpha = .2)+ 
+  geom_jitter(data = MEsetdt,
+              aes(fill=ME), pch=21, size = 3, alpha = .1)+ 
   geom_violin(aes(col=ME))+
   geom_boxplot(aes(col=ME), width = .1) + 
   theme_minimal(base_size = 14) + 
   theme(legend.position = "none", axis.title.x = element_blank()) +
   ylab("Probability of being a hvCpG")
 
-pdf("figures/boxplot_otherMEs.pdf", width = 7, height = 4)
+pdf("figures/boxplot_otherMEs.pdf", width = 10, height = 4)
 p
 dev.off()
+
+###################################################################
+## Compare values for Derakshan hvCpGs from arrays vs from Atlas ##
+
+makedtMEset(DerakhshanhvCpGs_GRanges_hg38, "DerakhshanhvCpGs")
+
+
+
+
+
 
 ## Statistical testing: does alpha differ between cpg types?
 # kruskal.test(alpha ~ ME, data = MEsetdt)
