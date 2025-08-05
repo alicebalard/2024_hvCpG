@@ -52,14 +52,14 @@ dev.off()
 ####################
 
 # Define parent folder containing all "Atlas_batchXXX" folders
-parent_dir <- "resultsDir"
+parent_dir <- "resultsDir/Atlas10X"
 
 # Get list of relevant RData files
-rdata_files <- dir(parent_dir, pattern = "results_Atlas_100000CpGs_0_8p0_0_65p1\\.RData$", 
+rdata_files <- dir(parent_dir, pattern = "results_Atlas10X_100000CpGs_0_8p0_0_65p1\\.RData$", 
                    recursive = TRUE, full.names = TRUE)
 
 ## Check if all batches have ran
-length(rdata_files)
+length(rdata_files) ## 274
 
 all_cpg_values <- numeric()
 pb <- progress_bar$new(total = length(rdata_files), format = "📦 :current/:total [:bar] :percent")
@@ -93,7 +93,7 @@ table(unique(dt$chr))
 
 # Convert chr from "chrN" to  factor
 dt[, chr := sub("chr", "", chr)]
-dt[, chr := factor(chr, levels = as.character(c(1:22, "X")))]
+dt[, chr := factor(chr, levels = as.character(c(1:22, "X", "Y")))]
 
 ## Check chromosomes order:
 message("Chromosomes in the dataset:")
@@ -113,7 +113,7 @@ dt[, pos2 := start_pos + cum_offset]
 
 # Compute chromosome centers for x-axis labeling
 df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-df2 <- merge(data.frame(chr = factor(c(1:22, "X"), levels=as.character(c(1:22, "X")))),
+df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y"), levels=as.character(c(1:22, "X", "Y")))),
              df2, by = "chr", all.x = TRUE, sort = TRUE)
 df2 <- na.omit(df2)
 
@@ -136,7 +136,7 @@ dev.off()
 ################################################
 
 #############
-threshold=0.9
+threshold=0.7
 #############
 
 # Filter valid rows
@@ -149,92 +149,89 @@ gr_cpg <- GRanges(
   alpha = dt_clean$alpha
 )
 
-# Import bed file
-bed_features <- readTranscriptFeatures("../../../Project_hvCpG/hg38_GENCODE_V47.bed")
+doAnnot = FALSE
 
-# annotate CpGs with high alpha (>threshold):
-anno_result_highalpha <- annotateWithGeneParts(
-  target = gr_cpg[!is.na(mcols(gr_cpg)$alpha) & mcols(gr_cpg)$alpha > threshold],
-  feature = bed_features)
-
-# annotate CpGs with low alpha (<=threshold):
-anno_result_lowalpha <- annotateWithGeneParts(
-  target = gr_cpg[!is.na(mcols(gr_cpg)$alpha) & mcols(gr_cpg)$alpha <= threshold],
-  feature = bed_features)
-
-anno_result_lowalpha@precedence
-anno_result_highalpha@precedence
-
-# Percentages from annotations
-low_anno <- anno_result_lowalpha@precedence
-high_anno <- anno_result_highalpha@precedence
-## Convert percentages to counts
-N_low <- nrow(dt_clean[alpha <= threshold])
-N_high <- nrow(dt_clean[alpha > threshold])
-
-# Reconstruct counts from percentages
-count_low <- round(low_anno / 100 * N_low)
-count_high <- round(high_anno / 100 * N_high)
-
-## Build contingency table
-contingency <- rbind(
-  LowAlpha = count_low,
-  HighAlpha = count_high
-)
-print(contingency)
-
-##  Perform chi-squared test
-chisq.test(contingency)
-
-################
-## Donut plot ##
-df_donut <- as.data.frame(contingency) %>%
-  tibble::rownames_to_column("AlphaGroup") %>%
-  tidyr::pivot_longer(-AlphaGroup, names_to = "Region", values_to = "Count") %>%
-  group_by(AlphaGroup) %>%
-  mutate(Percent = Count / sum(Count) * 100)
-
-# Add angle positions within each ring
-df_donut_label <- df_donut %>%
-  group_by(AlphaGroup) %>%
-  rrange(Region) %>%
-  mutate(
-    ymax = cumsum(Percent),
-    ymin = lag(ymax, default = 0),
-    ymid = (ymin + ymax) / 2
+if (doAnnot){
+  
+  # Import bed file
+  bed_features <- readTranscriptFeatures("../../../Project_hvCpG/hg38_GENCODE_V47.bed")
+  
+  # annotate CpGs with high alpha (>threshold):
+  anno_result_highalpha <- annotateWithGeneParts(
+    target = gr_cpg[!is.na(mcols(gr_cpg)$alpha) & mcols(gr_cpg)$alpha > threshold],
+    feature = bed_features)
+  
+  # annotate CpGs with low alpha (<=threshold):
+  anno_result_lowalpha <- annotateWithGeneParts(
+    target = gr_cpg[!is.na(mcols(gr_cpg)$alpha) & mcols(gr_cpg)$alpha <= threshold],
+    feature = bed_features)
+  
+  anno_result_lowalpha@precedence
+  anno_result_highalpha@precedence
+  
+  # Percentages from annotations
+  low_anno <- anno_result_lowalpha@precedence
+  high_anno <- anno_result_highalpha@precedence
+  ## Convert percentages to counts
+  N_low <- nrow(dt_clean[alpha <= threshold])
+  N_high <- nrow(dt_clean[alpha > threshold])
+  
+  # Reconstruct counts from percentages
+  count_low <- round(low_anno / 100 * N_low)
+  count_high <- round(high_anno / 100 * N_high)
+  
+  ## Build contingency table
+  contingency <- rbind(
+    LowAlpha = count_low,
+    HighAlpha = count_high
   )
-
-pdf("figures/donutFeatures.pdf", width = 4, height = 4)
-# Plot with percent labels inside rings
-ggplot(df_donut_label, aes(x = AlphaGroup, y = Percent, fill = Region)) +
-  geom_col(width = 1, color = "white") +
-  geom_text(
-    aes(y = ymin, label = paste0(round(Percent), "%")),
-    color = "white", size = 5, fontface = "bold"
-  ) +
-  scale_x_discrete(limits = c(" ", "LowAlpha", "HighAlpha")) +
-  scale_fill_viridis_d() +
-  coord_polar("y") +
-  theme_void(base_size = 14) +
-  theme(legend.position = "bottom", legend.title = element_blank()) +
-  ggtitle(paste0(
-    "Inner: proba to be hvCpG <= ", threshold,
-    "\nOuter: proba to be hvCpG > ", threshold
-  ))
-dev.off()
-
+  print(contingency)
+  
+  ##  Perform chi-squared test
+  chisq.test(contingency)
+  
+  ################
+  ## Donut plot ##
+  df_donut <- as.data.frame(contingency) %>%
+    tibble::rownames_to_column("AlphaGroup") %>%
+    tidyr::pivot_longer(-AlphaGroup, names_to = "Region", values_to = "Count") %>%
+    group_by(AlphaGroup) %>%
+    mutate(Percent = Count / sum(Count) * 100)
+  
+  # Add angle positions within each ring
+  df_donut_label <- df_donut %>%
+    group_by(AlphaGroup) %>%
+    arrange(Region) %>%
+    mutate(
+      ymax = cumsum(Percent),
+      ymin = lag(ymax, default = 0),
+      ymid = (ymin + ymax) / 2
+    )
+  
+  pdf("figures/donutFeatures.pdf", width = 4, height = 4)
+  # Plot with percent labels inside rings
+  ggplot(df_donut_label, aes(x = AlphaGroup, y = Percent, fill = Region)) +
+    geom_col(width = 1, color = "white") +
+    geom_text(
+      aes(y = ymin, label = paste0(round(Percent), "%")),
+      color = "white", size = 5, fontface = "bold"
+    ) +
+    scale_x_discrete(limits = c(" ", "LowAlpha", "HighAlpha")) +
+    scale_fill_viridis_d() +
+    coord_polar("y") +
+    theme_void(base_size = 14) +
+    theme(legend.position = "bottom", legend.title = element_blank()) +
+    ggtitle(paste0(
+      "Inner: proba to be hvCpG <= ", threshold,
+      "\nOuter: proba to be hvCpG > ", threshold
+    ))
+  dev.off()
+  
+  rm(anno_result_highalpha, anno_result_lowalpha)
+}
 #################################################################################
 ## Test for enrichment in other putative MEs for hvCpGs with alpha > threshold ##
 #################################################################################
-
-## Our dataset of CpG tested is in gr_cpg
-all_cpg_dt <- data.table(
-  chr = as.character(seqnames(gr_cpg)),
-  start_pos = start(gr_cpg),
-  end_pos = end(gr_cpg),
-  alpha = mcols(gr_cpg)$alpha,
-  ME = "all CpGs in atlas"
-)
 
 #############################################
 ## Needed to perform liftover hg19 to hg38 ##
@@ -243,8 +240,8 @@ library(GenomicRanges)
 
 # Download the chain file
 chain_url <- "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz"
-chain_gz <- "hg19ToHg38.over.chain.gz"
-chain_file <- "hg19ToHg38.over.chain"
+chain_gz <- "dataPrev/hg19ToHg38.over.chain.gz"
+chain_file <- "dataPrev/hg19ToHg38.over.chain"
 if (!file.exists(chain_file)) {
   download.file(chain_url, chain_gz)
   R.utils::gunzip(chain_gz, destname = chain_file, remove = FALSE)
@@ -282,6 +279,8 @@ HarrisSIV_GRanges <- GRanges(
   strand = "*")
 
 HarrisSIV_GRanges_hg38 <- unlist(liftOver(HarrisSIV_GRanges, chain))
+## Select only the ones tested for alpha in Atlas
+HarrisSIV_GRanges_hg38 <- getMEdt(gr_cpg, HarrisSIV_GRanges_hg38)
 
 ###########################
 ## VanBaak2018_ESS_HM450 ##
@@ -295,6 +294,8 @@ VanBaakESS_GRanges <- GRanges(
   strand = "*")
 
 VanBaakESS_GRanges_hg38 <- unlist(liftOver(VanBaakESS_GRanges, chain))
+## Select only the ones tested for alpha in Atlas
+VanBaakESS_GRanges_hg38 <- getMEdt(gr_cpg, VanBaakESS_GRanges_hg38)
 
 ###########################################
 ## Kessler2018_687SIVregions_2WGBS hg19! ##
@@ -306,6 +307,8 @@ KesslerSIV_GRanges <- GRanges(
   strand = "*")
 
 KesslerSIV_GRanges_hg38 <- unlist(liftOver(KesslerSIV_GRanges, chain))
+## Select only the ones tested for alpha in Atlas
+KesslerSIV_GRanges_hg38 <- getMEdt(gr_cpg, KesslerSIV_GRanges_hg38)
 
 #######################################
 ## Gunasekara2019_9926CoRSIVs_10WGBS ##
@@ -317,6 +320,8 @@ corSIV_GRanges_hg38 <- GRanges(
   seqnames = corSIV_split[[1]],
   ranges = IRanges(start = as.integer(corSIV_split[[2]]), end = as.integer(corSIV_split[[3]])),
   strand = "*")
+## Select only the ones tested for alpha in Atlas
+corSIV_GRanges_hg38 <- getMEdt(gr_cpg, corSIV_GRanges_hg38)
 
 #######################################
 ## Silver2022_SoCCpGs_10WGBS ##
@@ -330,19 +335,15 @@ SoCCpGs_GRanges <- GRanges(
   strand = "*")
 
 SoCCpGs_GRanges_hg38 <- unlist(liftOver(SoCCpGs_GRanges, chain))
+## Select only the ones tested for alpha in Atlas
+SoCCpGs_GRanges_hg38 <- getMEdt(gr_cpg, SoCCpGs_GRanges_hg38)
 
 ####################
 ## Check overlaps ##
 
 # Function to convert any GRanges to individual base positions as "chr:pos"
 gr_to_pos <- function(gr) {
-  gr <- reduce(gr)  # Merge overlapping regions
-  unlist(lapply(seq_along(gr), function(i) {
-    chr <- as.character(seqnames(gr)[i])
-    start <- start(gr)[i]
-    end <- end(gr)[i]
-    paste0(chr, ":", start:end)
-  }))
+  unique(paste(gr@seqnames, gr@ranges))
 }
 
 sets <- list(
@@ -352,10 +353,6 @@ sets <- list(
   CoRSIV = gr_to_pos(corSIV_GRanges_hg38),
   SoCCpGs = gr_to_pos(SoCCpGs_GRanges_hg38)
 )
-
-library(UpSetR)
-
-## NB: exagerated, counts all positions, not only CpGs
 
 ## To correct adding the CpGs sequenced in Atlas
 library(UpSetR)
@@ -375,27 +372,58 @@ dev.off()
 
 #############
 ## Combine ##
-cpg_in_corSIV_ESS_dt <- rbind(all_cpg_dt, cpg_in_ESS_dt, cpg_in_corSIV_dt)
 
-p <- ggplot(cpg_in_corSIV_ESS_dt, aes(x = ME, y = alpha)) +
-  geom_jitter(aes(fill=ME),pch=21, size = 3, alpha = .2)+ 
+makedtMEset <- function(gr = gr_cpg, name = "all CpGs in atlas"){
+  data.table(
+    chr = as.character(seqnames(gr)),
+    start_pos = start(gr),
+    end_pos = end(gr),
+    alpha = mcols(gr)$alpha,
+    ME = name)
+}
+
+## Our dataset of CpG tested is in gr_cpg
+MEsetdt <- na.omit(rbind(
+  allCpG = makedtMEset(),
+  HarrisSIV = makedtMEset(HarrisSIV_GRanges_hg38, "HarrisSIV"),
+  VanBaakESS = makedtMEset(VanBaakESS_GRanges_hg38, "VanBaakESS"),
+  KesslerSIV = makedtMEset(KesslerSIV_GRanges_hg38, "KesslerSIV"),
+  CoRSIV = makedtMEset(corSIV_GRanges_hg38, "CoRSIV"),
+  SoCCpGs = makedtMEset(SoCCpGs_GRanges_hg38, "SoCCpGs")
+))
+
+# subMEsetdt <- na.omit(rbind(
+#   allCpG = sample(makedtMEset(), 10000),
+#   HarrisSIV = makedtMEset(HarrisSIV_GRanges_hg38, "HarrisSIV"),
+#   VanBaakESS = makedtMEset(VanBaakESS_GRanges_hg38, "VanBaakESS"),
+#   KesslerSIV = makedtMEset(KesslerSIV_GRanges_hg38, "KesslerSIV"),
+#   CoRSIV = makedtMEset(corSIV_GRanges_hg38, "CoRSIV"),
+#   SoCCpGs = makedtMEset(SoCCpGs_GRanges_hg38, "SoCCpGs")
+# ))
+
+
+p <- ggplot(MEsetdt, aes(x = ME, y = alpha)) +
+  geom_jitter(data = subMEsetdt,
+              aes(fill=ME), pch=21, size = 3, alpha = .2)+ 
   geom_violin(aes(col=ME))+
-  scale_color_manual(values = c("#FC4E07", "#00AFBB", "#E7B800"))+
-  scale_fill_manual(values = c("#FC4E07", "#00AFBB", "#E7B800"))+
   geom_boxplot(aes(col=ME), width = .1) + 
   theme_minimal(base_size = 14) + 
   theme(legend.position = "none", axis.title.x = element_blank()) +
   ylab("Probability of being a hvCpG")
 
-pdf("figures/boxplot_otherMEs.pdf", width = 4, height = 4)
+pdf("figures/boxplot_otherMEs.pdf", width = 7, height = 4)
 p
 dev.off()
 
 ## Statistical testing: does alpha differ between cpg types?
-kruskal.test(alpha ~ ME, data = cpg_in_corSIV_ESS_dt)
+# kruskal.test(alpha ~ ME, data = MEsetdt)
+# Kruskal-Wallis rank sum test
+# 
+# data:  alpha by ME
+# Kruskal-Wallis chi-squared = 37.045, df = 5, p-value = 0.0000005868
 
 ## Pairwise testing:
-pairwise.wilcox.test(cpg_in_corSIV_ESS_dt$alpha, cpg_in_corSIV_ESS_dt$ME,
+pairwise.wilcox.test(MEsetdt$alpha, MEsetdt$ME,
                      p.adjust.method = "BH")  # Benjamini-Hochberg correction
 
 
