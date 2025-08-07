@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""
+# Prepare Loyfer WGBS Atlas Data
+---------------------------------
+This script:
+ 1️⃣ Filters cell/tissue groups with at least 3 samples
+ 2️⃣ Loads beta files (.beta)
+ 3️⃣ Builds a CpG-by-sample matrix for each group
+ 4️⃣ Masks coverage < 10
+ 5️⃣ Applies logit transform: log2(p / (1 - p)) with clipping
+ 6️⃣ Saves: (a) matrix, (b) median of per-CpG row SD per data set, (c) lambda per dataset, (d) CpG names
+
+Author: Alice Balard
+"""
+
+# 🧩 Setup
+
+import os
+import glob
+import numpy as np
+import pandas as pd
+import re
+import h5py
+import bottleneck as bn
+
+output_folder = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X"
+os.chdir(output_folder)
+input_folder = "../betaFiles"
+
+output_file = "all_scaled_matrix.h5"
+metadata_file = "sample_metadata.tsv"
+output_file_medsd_lambda = "all_medsd_lambda.tsv"
+
+minCov = 10 # We will mask sites for which the coverage is below this
+
+# 📂 1️⃣ Read metadata & filter valid groups
+
+meta = pd.read_csv("../SupTab1_Loyfer2023.csv")
+
+# Create composite group
+meta["Composite Group"] = meta["Source Tissue"] + " - " + meta["Cell type"]
+
+# Count samples per composite group
+group_counts = meta.groupby("Composite Group").size()
+
+# Keep groups with ≥ 3 samples
+valid_groups = group_counts[group_counts >= 3].index.tolist()
+
+print(f"✅ Found {len(valid_groups)} composite groups (Source Tissue + Cell type) with ≥ 3 samples.")
+
+# Build dict: {group: [sample1, sample2, ...]}
+samples_per_group = {
+    g: meta.loc[meta["Composite Group"] == g, "Sample name"].tolist()
+    for g in valid_groups
+}
+
+samples_per_group_short = {
+    g: [s.split("-")[-1] for s in samples]
+    for g, samples in samples_per_group.items()
+}
+
+# 🧬 2️⃣ Load CpG names
+
+with open("../hg38CpGpos_Loyfer2023.txt") as f:
+    cpg_names = [line.strip() for line in f]
+
+print(f"✅ Loaded {len(cpg_names):,} CpG names.")
+NR_SITES = len(cpg_names)
+
+# 💡 3️⃣ Helper: Load beta + coverage
+
+def load_beta(path):
+    """
+    A .beta file is a binary file: NR_SITES rows × 2 columns:
+      - [0]: # methylated reads (uint8)
+      - [1]: total coverage (uint8)
+    """
+    arr = np.fromfile(path, dtype=np.uint8).reshape((-1, 2))
+    meth = arr[:, 0]
+    cov = arr[:, 1]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        beta = np.where(cov == 0, np.nan, meth / cov).astype(np.float32)
+    return beta, cov
+
+# 📊 4️⃣ For each group: build matrix, CLIP THEN logit transform (avoid massive issues for large 0s or 1s transformed).
+# Save one file for all groups
+
+# Collect all beta files once (outside the loop!)
+all_files = glob.glob("../betaFiles/GSM*.hg38.beta")
+
+## Store everything
+# Count total number of valid samples first (flat list of all samples)
+
+all_valid_samples = [s for group in samples_per_group_short.values() for s in group]
+output_path = os.path.join(output_folder, "all_scaled_matrix.h5")
+h5f = h5py.File(output_path, "w")
+scaled_dset = h5f.create_dataset(
+    "scaled_matrix",
+    shape=(NR_SITES, len(all_valid_samples)),
+    dtype="float32",
+    compression="gzip"
+)
+sample_names = []
+sample_groups = []
+sample_idx = 0  # to track sample index across all groups
+
+# To collect per-group stats
+all_sample_names = []
+all_sample_groups = []
+group_medians = {}
+group_lambdas = {}
+
+
+ clip_and_logit <- function(beta, epsilon = 0.1) {
+    beta <- pmin(pmax(beta, epsilon), 1 - epsilon)
+    log2(beta / (1 - beta))
+  }
+
+for group, samples in samples_per_group_short.items():
+    print(f"🔄 Processing {group} ({len(samples)} samples)")
+    group_start_idx = sample_idx  # mark where this group starts
+    for s in samples:
+        matches = [fn for fn in all_files if re.search(f"-{s}\\.hg38\\.beta$", fn)]
+        if not matches:
+            print(f"⚠️  No beta file found for: {s}")
+            continue
+        fn = matches[0]
+        beta, cov = load_beta(fn)
+        if len(beta) != NR_SITES:
+            raise ValueError(f"Mismatch: {s} has {len(beta)} CpGs, expected {NR_SITES}")
+        ## Clip at 0.01 then logit
+        epsilon = 0.01
+        beta_clipped = np.clip(beta, epsilon, 1 - epsilon)
+        scaled = np.log2(beta_clipped / (1 - beta_clipped)).astype(np.float32)
+        ## Mask low coverage sites (we mask but keep the order of CpGs)
+        scaled[cov < minCov] = np.nan
+        scaled_dset[:, sample_idx] = scaled
+        sample_names.append(s.encode())
+        sample_groups.append(group.encode())
+        all_sample_names.append(s)
+        all_sample_groups.append(group)
+        sample_idx += 1
+
+    # Extract matrix for this group from the HDF5 dataset
+    group_sample_indices = list(range(group_start_idx, sample_idx))
+    if len(group_sample_indices) == 0:
+        print(f"⚠️  Skipping {group}: no valid samples")
+        continue
+    mat = scaled_dset[:, group_sample_indices]
+    # Mask CpGs with <3 non-NaNs
+    valid_counts = np.sum(~np.isnan(mat), axis=1)
+    mat[valid_counts < 3, :] = np.nan
+
+    # ✅ Save masked matrix back to dataset
+    scaled_dset[:, group_sample_indices] = mat
+
+    # Compute stats
+    row_sds = bn.nanstd(mat, axis=1)
+    median_sd = np.nanmedian(row_sds)
+    percentile_95 = np.nanpercentile(row_sds, 95)
+    lambda_value = percentile_95 / median_sd
+    group_medians[group] = median_sd
+    group_lambdas[group] = lambda_value
+    print(f"✅ {group}: median_sd = {median_sd:.4f}, lambda = {lambda_value:.4f}")
+
+# Finalize HDF5
+max_len = max(len(s) for s in sample_names)
+dt = f'S{max_len}'
+h5f.create_dataset("samples", data=np.array(sample_names, dtype=dt))
+
+max_len = max(len(s) for s in sample_groups)
+dt = f'S{max_len}'
+h5f.create_dataset("sample_groups", data=np.array(sample_groups, dtype=dt))
+
+h5f.create_dataset("cpg_names", data=np.array(cpg_names, dtype="S"))
+
+h5f.close()
+print(f"✅ Saved all samples to: {output_path}")
+
+# Save metadata file
+meta_df = pd.DataFrame({
+    "sample": all_sample_names,
+    "dataset": all_sample_groups
+})
+meta_df.to_csv(metadata_file, sep="\t", index=False)
+print(f"✅ Saved metadata to: {metadata_file}")
+
+# Save SDs and lambdas
+
+# Combine the dictionaries into a DataFrame
+df = pd.DataFrame({
+    "dataset": list(group_medians.keys()),
+    "median_sd": list(group_medians.values()),
+    "lambda": [group_lambdas[k] for k in group_medians.keys()]
+})
+
+# Save to TSV
+df.to_csv(output_file_medsd_lambda, sep="\t", index=False)
+
+print(f"✅ Saved medians and lambdas to TSV: {output_file_medsd_lambda}")
+
+print("\n🎉 All done.")
+
+## 10X with correct clipping, 7th August
