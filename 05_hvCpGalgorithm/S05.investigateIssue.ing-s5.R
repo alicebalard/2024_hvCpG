@@ -72,7 +72,7 @@ exploreAlgo <- function(x,title){
     theme_minimal(base_size = 14) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
     xlab("Dataset") +
-    coord_cartesian(ylim = c(0, 1)) +
+    # coord_cartesian(ylim = c(0, 1)) +
     facet_wrap(~ CpG, scales = "free_y", ncol = 3) +
     guides(color = "none") + # Remove legend if desired
     ggtitle(paste0(title, "\n alpha = ", round(as.numeric(resalgo), 3)))
@@ -87,7 +87,7 @@ exploreAlgo <- function(x,title){
          y = "Log-likelihood")
 
   layout <- (p1 / p3) | p2
-  pdf("figures/testMaria1hvCpGexplo.pdf", width = 10, height = 10)
+  pdf("figures/testMaria1hvCpGexplo.pdf", width = 10, height = 7)
   print(layout)
   dev.off()
   print(table(sd_long_df$sdMethyl > sd_long_df$thr))
