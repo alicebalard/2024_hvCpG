@@ -40,7 +40,8 @@ prepData <- function(analysis) {
   base_dirs <- list(
     testLocalPC = "~/Documents/10X/",
     Atlas10X = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/",
-    Atlas5X = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/5X/"
+    Atlas5X = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/5X/",
+    Maria = "/home/alice/arraysh5"
   )
   # Special case for Maria's reduced arrays
   is_marias_reduced <- grepl("MariasarraysREDUCED", analysis)
@@ -98,14 +99,6 @@ prepData <- function(analysis) {
 getLogLik_oneCpG_optimized <- function(Mdf, metadata, medsd_lambdas, p0, p1, alpha){
   datasets <- unique(metadata$dataset)
   
-  # ## TEST if unlog?
-  # unlog <- function(x) {
-  #   odds <- 2^x
-  #   beta <- odds / (1 + odds)
-  #   beta
-  # }
-  # Mdf = unlog(Mdf)
-  
   ## Remove empty datasets
   x = na.omit(as.data.frame(Mdf))
   x$sample = rownames(x)
@@ -138,7 +131,6 @@ getLogLik_oneCpG_optimized <- function(Mdf, metadata, medsd_lambdas, p0, p1, alp
     #sd_values <- c(sd_k, lambda_k * sd_k)
     ## New: clamp sd to avoid division by 0
     sd_values <- pmax(c(sd_k, lambda_k * sd_k), 1e-4)
-    
     
     ## Calculate normal probabilities
     norm_probs <- tryCatch({
