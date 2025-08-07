@@ -88,7 +88,7 @@ exploreAlgo <- function(x,title){
 
   layout <- (p1 / p3) | p2
   pdf("figures/testMaria1hvCpGexplo.pdf", width = 10, height = 10)
-  layout
+  print(layout)
   dev.off()
   print(table(sd_long_df$sdMethyl > sd_long_df$thr))
 }
