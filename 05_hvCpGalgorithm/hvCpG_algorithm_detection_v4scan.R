@@ -115,7 +115,14 @@ getLogLik_oneCpG_optimized <- function(Mdf, metadata, medsd_lambdas, p0, p1, alp
   
   for (k in datasets) {
     ## Extract M values for the good samples
-    Mij_vals <- Mdf[metadata$sample[metadata$dataset %in% k], ]
+    samples_in_k <- metadata$sample[metadata$dataset %in% k]
+    samples_in_M <- intersect(samples_in_k, rownames(Mdf))
+    Mij_vals <- Mdf[samples_in_M, , drop = FALSE]
+    Mij_vals <- as.numeric(Mij_vals)
+    idx <- match(samples_in_k, rownames(Mdf))
+    valid_idx <- which(!is.na(idx))
+    if (length(valid_idx) < 3) next
+    Mij_vals <- Mdf[samples_in_k[valid_idx], , drop = FALSE]
     if (all(is.na(Mij_vals))) next
     Mij_vals <- na.omit(as.numeric(Mij_vals))
     if (length(Mij_vals) == 0) next
@@ -223,8 +230,7 @@ getAllOptimAlpha_parallel <- function(cpgPos_vec, NCORES, p0, p1, prep) {
   
   safe_run <- function(cpgPos) {
     Mdf = source_M_1CpG(cpgPos)
-    ## to rm, test
-    print(Mdf)
+    
     ## ✅ “Proceed only if there are at least 3 matrices that contain at least one non-NA value.”
     if (length(table(setNames(metadata$dataset, metadata$sample)[names(Mdf[!is.na(Mdf),])])) < 3) {
       message(sprintf("CpG at index %s not covered in enough (>= 3) datasets", cpgPos))

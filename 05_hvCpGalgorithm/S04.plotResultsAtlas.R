@@ -135,19 +135,19 @@ dt[, cum_offset := as.numeric(cum_offset)]
 dt[, pos2 := start_pos + cum_offset]
 
 # Compute chromosome centers for x-axis labeling
-df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y"), levels=as.character(c(1:22, "X", "Y")))),
-             df2, by = "chr", all.x = TRUE, sort = TRUE)
-df2 <- na.omit(df2)
-
-plot <- ggplot() +
-  geom_point_rast(data = dt, aes(x = pos2, y = alpha),
-                  color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
-  theme_classic() + theme(legend.position = "none") +
-  scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr)) +
-  xlab("Chromosome") +
-  ylab("pr(Z=1) of being a hvCpG") +
-  theme_minimal(base_size = 14)
+# df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
+# df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y"), levels=as.character(c(1:22, "X", "Y")))),
+#              df2, by = "chr", all.x = TRUE, sort = TRUE)
+# df2 <- na.omit(df2)
+# 
+# plot <- ggplot() +
+#   geom_point_rast(data = dt, aes(x = pos2, y = alpha),
+#                   color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
+#   theme_classic() + theme(legend.position = "none") +
+#   scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr)) +
+#   xlab("Chromosome") +
+#   ylab("pr(Z=1) of being a hvCpG") +
+#   theme_minimal(base_size = 14)
 
 # Save as PDF — rasterization improves performance and file size
 # CairoPDF("figures/ManhattanAlphaPlot.pdf", width = 15, height = 3)
@@ -173,7 +173,7 @@ gr_cpg <- GRanges(
   alpha = dt_clean$alpha
 )
 
-doAnnot = TRUE
+doAnnot = F
 
 if (doAnnot){
   
@@ -688,26 +688,14 @@ df_hvstats_hvCpGs <- myrun_batch_boot(
   B = 1000)
 
 ## Newly detected hvCpG as a comparison
-df_hvstats_newhvCpGs09 <- myrun_batch_boot(
-  batch_size = 1000,
-  cpg_ids = sample(dt_clean$name[dt_clean$alpha > 0.9 & !is.na(dt_clean$alpha)], 3000),
-  B = 1000)
-
 df_hvstats_newhvCpGs07 <- myrun_batch_boot(
   batch_size = 1000,
   cpg_ids = sample(dt_clean$name[dt_clean$alpha > 0.7 & !is.na(dt_clean$alpha)], 3000),
   B = 1000)
 
-df_hvstats_newhvCpGs05 <- myrun_batch_boot(
-  batch_size = 1000,
-  cpg_ids = sample(dt_clean$name[dt_clean$alpha > 0.5 & !is.na(dt_clean$alpha)], 3000),
-  B = 1000)
-
 df <- rbind(df_hvstats_controls %>% mutate(type = "mQTLcontrol"),
             df_hvstats_hvCpGs %>% mutate(type = "hvCpG (Derakhshan)"),
-            df_hvstats_newhvCpGs09 %>% mutate(type = "3000 purCells-hvCpG proba 90%+"),
-            df_hvstats_newhvCpGs07 %>% mutate(type = "3000 purCells-hvCpGs proba 70%+"),
-            df_hvstats_newhvCpGs05 %>% mutate(type = "3000 purCells-hvCpGs proba 50%+"))
+            df_hvstats_newhvCpGs07 %>% mutate(type = "3000 purCells-hvCpGs proba 70%+"))
 
 df$type <- factor(df$type, levels = levels(factor(df$type))[c(1,3,2,4,5)])
 
@@ -761,7 +749,6 @@ ggplot(df,
   ylab("Median SD ± 95% CI")
 
 ### Check one example of high alpha CpG, and see the profile
-
 unlog <- function(x) {
   odds <- 2^x
   beta <- odds / (1 + odds)
@@ -771,6 +758,12 @@ unlog <- function(x) {
 source("../05_hvCpGalgorithm/hvCpG_algorithm_detection_v4scan.R")
 
 library(patchwork)
+
+beta_to_log2M <- function(beta, epsilon = 1e-6) {
+  # Clip beta values for numerical stability
+  beta <- pmin(pmax(beta, epsilon), 1 - epsilon)
+  log2(beta / (1 - beta))
+}
 
 exploreAlgo <- function(x,title){
   alpha_trace <<- list()
@@ -793,29 +786,41 @@ exploreAlgo <- function(x,title){
   ) 
   load("~/Documents/Project_hvCpG/RESULT/results_testLocalPC_1CpGs_0_8p0_0_65p1.RData")
   message("alpha:")
-  print(results_testLocalPC_1CpGs_0_8p0_0_65p1)
+  res = results_testLocalPC_1CpGs_0_8p0_0_65p1
+  print(res)
   
-  cpgRaw = unlog(source_M_batchCpG(cpg_indices = x))
+  cpgRaw = source_M_batchCpG(cpg_indices = x)
   cpgRaw <- as.data.frame(cpgRaw)
   cpgRaw$sample <- rownames(cpgRaw)
   
   # Reshape to long format: sample, CpG, value
-  long_df <- reshape2::melt(cpgRaw, id.vars = "sample", variable.name = "CpG", value.name = "value")
+  long_df <- reshape2::melt(cpgRaw, id.vars = "sample", variable.name = "CpG",
+                            value.name = "value")
   # Merge with metadata to get dataset info
   long_df <- left_join(long_df, metadata, by = "sample")
   
   # Now plot: dataset on x, value on y
-  p1 <- ggplot(long_df, aes(x = dataset, y = value)) +
-    geom_point(position = position_jitter(width = 0.2), alpha = 0.7, size = 2) +
+  p0 <- ggplot(long_df, aes(x = dataset, y = unlog(value))) +
+    geom_point(position = position_jitter(width = 0.01), alpha = 0.7, size = 2) +
     theme_minimal(base_size = 14) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    xlab("Dataset") +
+    ylab("Raw methylation") + xlab("") +
     theme(axis.text.x = element_text(size =6)) +
     facet_wrap(~ CpG, scales = "free_y", ncol = 3)
   
-  sd_long_df <- long_df %>% group_by(dataset, CpG) %>% summarise(sdMethyl = sd(value, na.rm = T))
+  p1 <- ggplot(long_df, aes(x = dataset, y = value)) +
+    geom_point(position = position_jitter(width = 0.01), alpha = 0.7, size = 2) +
+    theme_minimal(base_size = 14) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    ylab("Logit methylation") + xlab("") +
+    theme(axis.text.x = element_text(size =6)) +
+    facet_wrap(~ CpG, scales = "free_y", ncol = 3)
+  
+  sd_long_df <- long_df %>% group_by(dataset, CpG) %>% 
+    summarise(sdMethyl = sd(value, na.rm = T))
+  
   sd_long_df <- merge(sd_long_df, medsd_lambdas)
-  sd_long_df$thr <- sd_long_df$median_sd / sd_long_df$lambda
+  sd_long_df$p95 <- sd_long_df$lambda * sd_long_df$median_sd
   
   sd_long_df <- sd_long_df[sd_long_df$dataset %in% long_df$dataset,]
   
@@ -823,23 +828,20 @@ exploreAlgo <- function(x,title){
     geom_segment(aes(
       x = dataset,
       xend = dataset,
-      y = thr,
+      y = median_sd,
       yend = sdMethyl,
-      color = sdMethyl > thr
+      color = sdMethyl > p95
     ),
     arrow = arrow(length = unit(0.15, "cm")),
     position = position_jitter(width = 0.2)) +
-    
     scale_color_manual(values = c("FALSE" = "red", "TRUE" = "green")) +
     theme_minimal(base_size = 14) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
-    xlab("Dataset") +
-    coord_cartesian(ylim = c(0, 1)) +
+    xlab("") +
     facet_wrap(~ CpG, scales = "free_y", ncol = 3) +
-    guides(color = "none") + # Remove legend if desired
-    ggtitle(paste0(title, "\n alpha = ", round(as.numeric(results_testLocalPC_1CpGs_0_8p0_0_65p1), 3)))
+    guides(color = "none") +
+    ggtitle(label = "Up = sd j > median sd j,k", subtitle = "green = top5% var")
   
- 
   alpha_df <- do.call(rbind, lapply(alpha_trace, as.data.frame))
   p3 <- ggplot(alpha_df, aes(x = alpha, y = loglik)) +
     geom_point() +
@@ -849,17 +851,27 @@ exploreAlgo <- function(x,title){
          x = expression(alpha),
          y = "Log-likelihood")
   
-  layout <- (p1 / p3) | p2 
+  clip_and_logit <- function(beta, epsilon = 0.1) {
+    beta <- pmin(pmax(beta, epsilon), 1 - epsilon)
+    log2(beta / (1 - beta))
+  }
+  
+  p4 <- ggplot(long_df, aes(x = dataset, y = clip_and_logit(unlog(value)))) +
+    geom_point(position = position_jitter(width = 0.01), alpha = 0.7, size = 2) +
+    theme_minimal(base_size = 14) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    ylab("Clipped THEN logit methylation") + xlab("") +
+    theme(axis.text.x = element_text(size =6)) +
+    facet_wrap(~ CpG, scales = "free_y", ncol = 3)
+  
+  layout <- (p0 / p1) | (p2 / p3/p4)
   print(layout)
   print(table(sd_long_df$sdMethyl > sd_long_df$thr))
 }
 
 # a hvCpG:
-exploreAlgo(x = match(paste0(DerakhshanhvCpGs_GRanges_hg38@seqnames, "_", DerakhshanhvCpGs_GRanges_hg38@ranges)[6],
+exploreAlgo(x = match(paste0(DerakhshanhvCpGs_GRanges_hg38@seqnames, "_", DerakhshanhvCpGs_GRanges_hg38@ranges)[4],
                       cpg_names_all), title = "a hvCpG from Maria")
-
-
-
 
 # a high alpha
 exploreAlgo(x = match(dt_clean$name[dt_clean$alpha > 0.9 & !is.na(dt_clean$alpha)] %>% head(2) %>% tail(1),
@@ -868,6 +880,34 @@ exploreAlgo(x = match(dt_clean$name[dt_clean$alpha > 0.9 & !is.na(dt_clean$alpha
 # a low alpha
 exploreAlgo(x = match(dt_clean$name[dt_clean$alpha < 0.1 & !is.na(dt_clean$alpha)] %>% head(3) %>% tail(1),
                       cpg_names_all), title = "a CpG with low alpha")
+
+
+
+exploreAlgo(x = 57175, title = "a hvCpG from Maria")
+
+
+
+# a high alpha that should be low 
+exploreAlgo(x = match(dt_clean$name[dt_clean$alpha > 0.9 & !is.na(dt_clean$alpha)] %>% head(2) %>% tail(1),
+                      cpg_names_all), title = "a CpG with high alpha")
+
+## To log to match lambda 
+
+## Find variable CpGs in data
+findVar <- function(x){
+  
+  layout <- (p1 / p2 )
+  print(layout)
+}
+
+findVar(85300)
+
+match(dt_clean$name, cpg_names_all) %>% head
+cpg_names_all[244] #  [1] 13344 20890 20896 20940 48812* 48813 49062 57175** 57177 85300
+
+match(paste0(DerakhshanhvCpGs_GRanges_hg38@seqnames, "_", 
+             DerakhshanhvCpGs_GRanges_hg38@ranges)[1:10],
+      cpg_names_all)
 
 # ➤ A CpG with low variation across datasets but high alpha
 # In few datasets, the data may still slightly favor the hvCpG model (e.g., by chance).
@@ -882,3 +922,6 @@ exploreAlgo(x = match(dt_clean$name[dt_clean$alpha < 0.1 & !is.na(dt_clean$alpha
 # That would support a CpG model, not a hvCpG one.
 # 
 # Alpha will stay low because the more datasets you have, the stronger evidence you need to say "this CpG is inconsistent across datasets."
+
+
+beta_to_log2M(0)
