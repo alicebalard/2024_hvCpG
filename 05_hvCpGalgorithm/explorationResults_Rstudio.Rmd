@@ -209,6 +209,166 @@ ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
   scale_x_sqrt()
 ```
 
+## Median SD (& bootstrapped 95% CI) of hvCpGs and controls in all datasets
+
+```{r}
+library(boot)
+
+sdselected <- function(cpglist, B = 1000) {
+  results <- lapply(names(rds_list_mat), function(dataset_name) {
+    k <- rds_list_mat[[dataset_name]]
+    mat <- as.matrix(k[rownames(k) %in% cpglist, ])
+    
+    if (nrow(mat) == 0) {
+      return(data.frame(
+        dataset = dataset_name,
+        median_sd = NA,
+        lower = NA,
+        upper = NA
+      ))
+    }
+    
+    row_sds <- rowSds(mat, na.rm = TRUE)
+    
+    # Bootstrap function
+    boot_median <- function(data, indices) {
+      median(data[indices], na.rm = TRUE)
+    }
+    
+    boot_res <- boot(data = row_sds, statistic = boot_median, R = B)
+    
+    ci <- tryCatch(
+      boot.ci(boot_res, type = "perc"),
+      error = function(e) NULL
+    )
+    
+    if (!is.null(ci) && !is.null(ci$percent)) {
+      lower_ci <- ci$percent[4]
+      upper_ci <- ci$percent[5]
+    } else {
+      lower_ci <- NA
+      upper_ci <- NA
+    }
+    
+    data.frame(
+      dataset = dataset_name,
+      median_sd = median(row_sds, na.rm = TRUE),
+      lower = lower_ci,
+      upper = upper_ci
+    )
+  })
+  
+  do.call(rbind, results)
+}
+df <- rbind(data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name), type="hvCpG"),
+            data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name), type="mQTLcontrol"))
+
+ggplot(df, aes(x = medianSD.dataset, y = medianSD.median_sd, fill = type)) +
+  geom_pointrange(
+    aes(ymin = medianSD.lower, ymax = medianSD.upper),
+    shape = 21, size = 0.4, stroke = 0.5
+  ) +
+  geom_point(pch = 21, size = 2) +
+  theme_minimal(base_size = 14) + 
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    legend.position = c(0.8, 0.85),
+    legend.box = "horizontal",
+    legend.background = element_rect(fill = "white", color = "black", size = 0.4),
+    legend.key = element_rect(fill = "white", color = NA)
+  ) +
+  guides(fill = guide_legend(title = NULL)) +
+  xlab("") +
+  ylab("Median SD ± 95% CI")
+```
+
+## Same, but scaling first
+
+```{r}
+
+rds_list_mat_scaled <- lapply(rds_list_mat, function(x){
+  # 1. Clip beta values
+  p <- pmin(pmax(x, 1e-6), 1 - 1e-6)
+  # 2. Logit transformation in log2 scale
+  log2(p / (1 - p))
+})
+
+sdselected <- function(cpglist, B = 1000) {
+  results <- lapply(names(rds_list_mat_scaled), function(dataset_name) {
+    k <- rds_list_mat_scaled[[dataset_name]]
+    mat <- as.matrix(k[rownames(k) %in% cpglist, ])
+    
+    if (nrow(mat) == 0) {
+      return(data.frame(
+        dataset = dataset_name,
+        median_sd = NA,
+        lower = NA,
+        upper = NA
+      ))
+    }
+    
+    row_sds <- rowSds(mat, na.rm = TRUE)
+    
+    # Bootstrap function
+    boot_median <- function(data, indices) {
+      median(data[indices], na.rm = TRUE)
+    }
+    
+    boot_res <- boot(data = row_sds, statistic = boot_median, R = B)
+    
+    ci <- tryCatch(
+      boot.ci(boot_res, type = "perc"),
+      error = function(e) NULL
+    )
+    
+    if (!is.null(ci) && !is.null(ci$percent)) {
+      lower_ci <- ci$percent[4]
+      upper_ci <- ci$percent[5]
+    } else {
+      lower_ci <- NA
+      upper_ci <- NA
+    }
+    
+    data.frame(
+      dataset = dataset_name,
+      median_sd = median(row_sds, na.rm = TRUE),
+      lower = lower_ci,
+      upper = upper_ci
+    )
+  })
+  
+  do.call(rbind, results)
+}
+
+df <- rbind(data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name), type="hvCpG"),
+            data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name), type="mQTLcontrol"))
+
+ggplot(df, aes(x = medianSD.dataset, y = medianSD.median_sd, fill = type)) +
+  geom_pointrange(
+    aes(ymin = medianSD.lower, ymax = medianSD.upper),
+    shape = 21, size = 0.4, stroke = 0.5
+  ) +
+  geom_point(pch = 21, size = 2) +
+  theme_minimal(base_size = 14) + 
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    legend.position = c(0.8, 0.85),
+    legend.box = "horizontal",
+    legend.background = element_rect(fill = "white", color = "black", size = 0.4),
+    legend.key = element_rect(fill = "white", color = NA)
+  ) +
+  guides(fill = guide_legend(title = NULL)) +
+  xlab("") +
+  ylab("Median SD ± 95% CI")
+```
+
+
+## Distribution of DNAm values in array data
+
+```{r}
+hist(rds_list_mat$lung[,2], breaks = 100)
+```
+
 # Maximum likelihood analysis
 
 The equation is:
@@ -248,7 +408,7 @@ load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_Maria_
 
 Brent = data.frame(CpG = cpg_names_all[as.numeric(row.names(results_Maria_pos2check_0_8p0_0_65p1))],
                    alpha = as.vector(results_Maria_pos2check_0_8p0_0_65p1))%>%  
-  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG", "mQTL"))
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpGs", "controls"))
 
 Brent %>%
   ggplot(aes(x = ishvCpG, y = alpha)) +
@@ -258,8 +418,13 @@ Brent %>%
   geom_hline(yintercept = 0.73, linetype = 5)+
   theme_minimal(base_size = 14) + 
   theme(legend.position = "none", axis.title.x = element_blank()) +
-  ylab("Probability of being a hvCpG")+
-  ggtitle("Considering all samples per datasets\nCpGs covered in >=15 datasets")
+  ylab("Probability of being a hvCpG") +
+  ggtitle("Considering all samples per datasets")+
+  scale_fill_manual(values = c("black", "turquoise"))+
+  scale_colour_manual(values = c("black", "turquoise"))
+
+# "CpGs covered in >=15 datasets"
+
 
 ## Save for comparison with Atlas
 write.table(Brent, "results_Maria_6906CpGs_0_8p0_0_65p1.tsv", quote = F, row.names = F)
@@ -267,11 +432,11 @@ write.table(Brent, "results_Maria_6906CpGs_0_8p0_0_65p1.tsv", quote = F, row.nam
 table(is.na(Brent$alpha))
 
 ## Reduced version (only 3 samples)
-load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_3samples_30datasets_6906CpGs_0_8p0_0_65p1.RData")
+load("/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1.RData")
 
 Brent2 = data.frame(CpG = rownames(results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1),
                     alpha = as.vector(results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1)) %>%  
-  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpG", "mQTL"))
+  mutate(ishvCpG = ifelse(CpG %in% Marias_hvCpGs$CpG, "hvCpGs", "controls"))
 
 Brent2 %>%
   ggplot(aes(x = ishvCpG, y = alpha)) +
@@ -282,13 +447,17 @@ Brent2 %>%
   theme_minimal(base_size = 14) + 
   theme(legend.position = "none", axis.title.x = element_blank()) +
   ylab("Probability of being a hvCpG") +
-  ggtitle("Considering 3 samples per datasets\nCpGs covered in >=15 datasets") 
+  ggtitle("Considering 3 samples per datasets")+
+  scale_fill_manual(values = c("black", "turquoise"))+
+  scale_colour_manual(values = c("black", "turquoise"))
+# "CpGs covered in >=15 datasets"
 
 table(is.na(Brent2$alpha))
 ## Save for comparison with Atlas
 
-
 write.table(Brent2, "results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1.tsv", quote = F, row.names = F)
+
+
 ```
 
 ## ROC curves to define p0 and p1 matching Maria's approach
@@ -530,9 +699,7 @@ auc_results$NbrSamples[auc_results$NbrSamples %in% 15] <- "all"
 ggplot(auc_results, aes(x = NbrDataset, y = AUC, color = factor(NbrSamples), group = NbrSamples)) +
   geom_hline(linetype = 5, yintercept = 0.9) +
   geom_line(size = 1.1) +
-  geom_point(data = auc_results[auc_results$propCovered %in% 1,], aes(size = propCovered)) +
-  geom_point(data = auc_results[auc_results$propCovered < 1,], aes(size = propCovered), 
-             shape = 21, fill = "white") +
+  geom_point(data = auc_results, aes(size = propCovered)) +
   scale_color_brewer(palette = "Set1") +
   labs(
     x = "Number of datasets",
@@ -558,7 +725,7 @@ ggplot(auc_results, aes(x = NbrDataset, y = AUC, color = factor(NbrSamples), gro
   scale_size(
     range = c(0.1, 7),
     breaks = c(0.2, 0.4, 0.6, 0.8),  # Adjust depending on your data
-    name = "Prop. CpGs\ncovered"
+    name = "Proportion of\nCpGs covered"
   )
 ```
 
