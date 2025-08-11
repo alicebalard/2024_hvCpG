@@ -851,7 +851,7 @@ exploreAlgo <- function(x,title){
          x = expression(alpha),
          y = "Log-likelihood")
   
-  clip_and_logit <- function(beta, epsilon = 0.1) {
+  clip_and_logit <- function(beta, epsilon = 0.01) {
     beta <- pmin(pmax(beta, epsilon), 1 - epsilon)
     log2(beta / (1 - beta))
   }
