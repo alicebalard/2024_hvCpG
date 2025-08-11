@@ -23,7 +23,7 @@ import re
 import h5py
 import bottleneck as bn
 
-output_folder = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X"
+output_folder = "/home/alice/Documents/Project_hvCpG/10X" ## in cluster "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X"
 os.chdir(output_folder)
 input_folder = "../betaFiles"
 
@@ -109,12 +109,6 @@ all_sample_names = []
 all_sample_groups = []
 group_medians = {}
 group_lambdas = {}
-
-
- clip_and_logit <- function(beta, epsilon = 0.1) {
-    beta <- pmin(pmax(beta, epsilon), 1 - epsilon)
-    log2(beta / (1 - beta))
-  }
 
 for group, samples in samples_per_group_short.items():
     print(f"🔄 Processing {group} ({len(samples)} samples)")
@@ -202,3 +196,103 @@ print(f"✅ Saved medians and lambdas to TSV: {output_file_medsd_lambda}")
 print("\n🎉 All done.")
 
 ## 10X with correct clipping, 7th August
+
+##✅ Found 46 composite groups (Source Tissue + Cell type) with ≥ 3 samples.
+##✅ Loaded 29,401,795 CpG names.
+##🔄 Processing Abdominal Subcut. - Adipocytes (3 samples)
+##✅ Abdominal Subcut. - Adipocytes: median_sd = 0.6063, lambda = 2.6899
+##🔄 Processing Bladder - Epithelium (5 samples)
+##✅ Bladder - Epithelium: median_sd = 1.1999, lambda = 1.8013
+##🔄 Processing Blood - B cells (3 samples)
+##✅ Blood - B cells: median_sd = 0.7681, lambda = 2.3146
+##🔄 Processing Blood - Granulocytes (3 samples)
+##✅ Blood - Granulocytes: median_sd = 0.7269, lambda = 2.3427
+##🔄 Processing Blood - Monocytes (3 samples)
+##✅ Blood - Monocytes: median_sd = 0.8485, lambda = 2.1827
+##🔄 Processing Blood - NK (3 samples)
+##✅ Blood - NK: median_sd = 0.8558, lambda = 2.2026
+##🔄 Processing Blood - T central memory CD4 (3 samples)
+##✅ Blood - T central memory CD4: median_sd = 0.6959, lambda = 2.5560
+##🔄 Processing Blood - T cytotoxic (CD8+) cells (3 samples)
+##✅ Blood - T cytotoxic (CD8+) cells: median_sd = 0.7793, lambda = 2.2730
+##🔄 Processing Blood - T effector cell CD8 (3 samples)
+##✅ Blood - T effector cell CD8: median_sd = 0.7139, lambda = 2.5509
+##🔄 Processing Blood - T effector memory CD4 (3 samples)
+##✅ Blood - T effector memory CD4: median_sd = 0.6629, lambda = 2.6953
+##🔄 Processing Blood - T helper(CD4+) cells (3 samples)
+##✅ Blood - T helper(CD4+) cells: median_sd = 0.7060, lambda = 2.4016
+##🔄 Processing Bone marrow - Erythrocyte progenitors (3 samples)
+##✅ Bone marrow - Erythrocyte progenitors: median_sd = 0.4534, lambda = 2.8974
+##🔄 Processing Brain - Neuronal (10 samples)
+##✅ Brain - Neuronal: median_sd = 1.2014, lambda = 1.8241
+##🔄 Processing Brain - Oligodendrocytes (4 samples)
+##✅ Brain - Oligodendrocytes: median_sd = 0.8917, lambda = 1.9653
+##🔄 Processing Breast - Basal epithelial (4 samples)
+##✅ Breast - Basal epithelial: median_sd = 1.0155, lambda = 1.8505
+##🔄 Processing Breast - Luminal epithelial (3 samples)
+##✅ Breast - Luminal epithelial: median_sd = 0.8777, lambda = 2.1080
+##🔄 Processing Colon - Endocrine (3 samples)
+##✅ Colon - Endocrine: median_sd = 0.9731, lambda = 2.0978
+##🔄 Processing Colon - Epithelium (5 samples)
+##✅ Colon - Epithelium: median_sd = 0.9189, lambda = 1.9414
+##🔄 Processing Endometrium - Epithelium (3 samples)
+##✅ Endometrium - Epithelium: median_sd = 0.7785, lambda = 2.3460
+##🔄 Processing Fallopien tubes - Epithelium (3 samples)
+##✅ Fallopien tubes - Epithelium: median_sd = 0.7369, lambda = 2.2802
+##🔄 Processing Gastric antrum - Epithelium (3 samples)
+##✅ Gastric antrum - Epithelium: median_sd = 0.6390, lambda = 2.5203
+##🔄 Processing Gastric body - Epithelium (3 samples)
+##✅ Gastric body - Epithelium: median_sd = 0.6542, lambda = 2.4930
+##🔄 Processing Gastric fundus - Epithelium (3 samples)
+##✅ Gastric fundus - Epithelium: median_sd = 0.6133, lambda = 2.5540
+##🔄 Processing Heart - Cardiomyocyte (4 samples)
+##✅ Heart - Cardiomyocyte: median_sd = 0.8948, lambda = 2.0003
+##🔄 Processing Heart - Fibroblast (4 samples)
+##✅ Heart - Fibroblast: median_sd = 0.7425, lambda = 2.4008
+##🔄 Processing Kidney glomerular - Endothelium (3 samples)
+##✅ Kidney glomerular - Endothelium: median_sd = 0.7020, lambda = 2.3966
+##🔄 Processing Kidney glomerular - Podocyte (3 samples)
+##✅ Kidney glomerular - Podocyte: median_sd = 0.7658, lambda = 2.2720
+##🔄 Processing Kidney tubular - Endothelium (3 samples)
+##✅ Kidney tubular - Endothelium: median_sd = 0.7441, lambda = 2.4076
+##🔄 Processing Kidney tubular - Epithelium (3 samples)
+##✅ Kidney tubular - Epithelium: median_sd = 0.8099, lambda = 2.3028
+##🔄 Processing Liver - Hepatocyte (6 samples)
+##✅ Liver - Hepatocyte: median_sd = 0.9215, lambda = 1.9534
+##🔄 Processing Lung alveolar - Endothelium (3 samples)
+##✅ Lung alveolar - Endothelium: median_sd = 0.7575, lambda = 2.2733
+##🔄 Processing Lung alveolar - Epithelium (3 samples)
+##✅ Lung alveolar - Epithelium: median_sd = 0.6348, lambda = 2.4780
+##🔄 Processing Lung bronchus - Epithelium (3 samples)
+##✅ Lung bronchus - Epithelium: median_sd = 0.6711, lambda = 2.4284
+##🔄 Processing Lung interstitial - Macrophages (3 samples)
+##✅ Lung interstitial - Macrophages: median_sd = 0.7719, lambda = 2.2833
+##🔄 Processing Pancreas - Acinar (4 samples)
+##✅ Pancreas - Acinar: median_sd = 0.7151, lambda = 2.3649
+##🔄 Processing Pancreas - Alpha (3 samples)
+##✅ Pancreas - Alpha: median_sd = 0.6694, lambda = 2.5248
+##🔄 Processing Pancreas - Beta (3 samples)
+##✅ Pancreas - Beta: median_sd = 0.7447, lambda = 2.4184
+##🔄 Processing Pancreas - Delta (3 samples)
+##✅ Pancreas - Delta: median_sd = 0.7897, lambda = 2.3703
+##🔄 Processing Pancreas - Duct (4 samples)
+##✅ Pancreas - Duct: median_sd = 0.9136, lambda = 2.0156
+##🔄 Processing Pancreas - Endothelium (4 samples)
+##✅ Pancreas - Endothelium: median_sd = 0.8505, lambda = 2.1393
+##🔄 Processing Prostate - Epithelium (4 samples)
+##✅ Prostate - Epithelium: median_sd = 0.9489, lambda = 1.9747
+##🔄 Processing Small intestine - Epithelium (3 samples)
+##✅ Small intestine - Epithelium: median_sd = 0.7015, lambda = 2.4121
+##🔄 Processing Thyroid - Epithelium (3 samples)
+##✅ Thyroid - Epithelium: median_sd = 0.7273, lambda = 2.3525
+##🔄 Processing Tongue - Epithelium (4 samples)
+##✅ Tongue - Epithelium: median_sd = 0.9290, lambda = 1.9847
+##🔄 Processing Tonsil palatine - Epithelium (3 samples)
+##✅ Tonsil palatine - Epithelium: median_sd = 0.6162, lambda = 2.6465
+##🔄 Processing Vascular saphenous - Endothelium (3 samples)
+##✅ Vascular saphenous - Endothelium: median_sd = 0.7071, lambda = 2.3832
+##✅ Saved all samples to: /home/alice/Documents/Project_hvCpG/10X/all_scaled_matrix.h5
+##✅ Saved metadata to: sample_metadata.tsv
+##✅ Saved medians and lambdas to TSV: all_medsd_lambda.tsv
+##
+##🎉 All done.
