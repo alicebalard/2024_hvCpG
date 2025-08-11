@@ -4,7 +4,7 @@ import pandas as pd
 import os
 
 ## My directory
-os.chdir("/home/alice/Documents/10X")
+os.chdir("/home/alice/Documents/Project_hvCpG/10X")
 
 h5_path = "all_scaled_matrix.h5"
 X = 46  # Min number of datasets in which CpG is covered by ≥3 samples
