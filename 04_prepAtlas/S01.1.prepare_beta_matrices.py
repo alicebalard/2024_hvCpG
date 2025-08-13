@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 """
-# Prepare Loyfer WGBS Atlas Data
+# Prepare Loyfer WGBS Atlas Data (No Scaling)
 ---------------------------------
 This script:
  1️⃣ Filters cell/tissue groups with at least 3 samples
  2️⃣ Loads beta files (.beta)
  3️⃣ Builds a CpG-by-sample matrix for each group
  4️⃣ Masks coverage < 10
- 5️⃣ Applies logit transform: log2(p / (1 - p)) with clipping
- 6️⃣ Saves: (a) matrix, (b) median of per-CpG row SD per data set, (c) lambda per dataset, (d) CpG names
-
+ 5️⃣ Saves: (a) matrix, (b) median of per-CpG row SD per data set, (c) lambda per dataset, (d) CpG names
+# 6 Select CpGs covered in 46 cell types
 Author: Alice Balard
 """
-
-# 🧩 Setup
 
 import os
 import glob
@@ -23,58 +20,45 @@ import re
 import h5py
 import bottleneck as bn
 
-output_folder = "/home/alice/Documents/Project_hvCpG/10X" ## in cluster "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X"
+###########################
+## Part 1: prepare files ##
+###########################
+
+output_folder = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X"
 os.chdir(output_folder)
 input_folder = "../betaFiles"
 
-output_file = "all_scaled_matrix.h5"
+output_file = "all_matrix_noscale.h5"
 metadata_file = "sample_metadata.tsv"
 output_file_medsd_lambda = "all_medsd_lambda.tsv"
 
-minCov = 10 # We will mask sites for which the coverage is below this
+minCov = 10  # Mask sites with coverage below this
 
 # 📂 1️⃣ Read metadata & filter valid groups
-
 meta = pd.read_csv("../SupTab1_Loyfer2023.csv")
-
-# Create composite group
 meta["Composite Group"] = meta["Source Tissue"] + " - " + meta["Cell type"]
-
-# Count samples per composite group
 group_counts = meta.groupby("Composite Group").size()
-
-# Keep groups with ≥ 3 samples
 valid_groups = group_counts[group_counts >= 3].index.tolist()
 
 print(f"✅ Found {len(valid_groups)} composite groups (Source Tissue + Cell type) with ≥ 3 samples.")
 
-# Build dict: {group: [sample1, sample2, ...]}
 samples_per_group = {
     g: meta.loc[meta["Composite Group"] == g, "Sample name"].tolist()
     for g in valid_groups
 }
-
 samples_per_group_short = {
     g: [s.split("-")[-1] for s in samples]
     for g, samples in samples_per_group.items()
 }
 
 # 🧬 2️⃣ Load CpG names
-
 with open("../hg38CpGpos_Loyfer2023.txt") as f:
     cpg_names = [line.strip() for line in f]
-
-print(f"✅ Loaded {len(cpg_names):,} CpG names.")
 NR_SITES = len(cpg_names)
+print(f"✅ Loaded {NR_SITES:,} CpG names.")
 
 # 💡 3️⃣ Helper: Load beta + coverage
-
 def load_beta(path):
-    """
-    A .beta file is a binary file: NR_SITES rows × 2 columns:
-      - [0]: # methylated reads (uint8)
-      - [1]: total coverage (uint8)
-    """
     arr = np.fromfile(path, dtype=np.uint8).reshape((-1, 2))
     meth = arr[:, 0]
     cov = arr[:, 1]
@@ -82,29 +66,22 @@ def load_beta(path):
         beta = np.where(cov == 0, np.nan, meth / cov).astype(np.float32)
     return beta, cov
 
-# 📊 4️⃣ For each group: build matrix, CLIP THEN logit transform (avoid massive issues for large 0s or 1s transformed).
-# Save one file for all groups
-
-# Collect all beta files once (outside the loop!)
+# 📊 4️⃣ Build matrix without scaling
 all_files = glob.glob("../betaFiles/GSM*.hg38.beta")
-
-## Store everything
-# Count total number of valid samples first (flat list of all samples)
-
 all_valid_samples = [s for group in samples_per_group_short.values() for s in group]
-output_path = os.path.join(output_folder, "all_scaled_matrix.h5")
+
+output_path = os.path.join(output_folder, output_file)
 h5f = h5py.File(output_path, "w")
-scaled_dset = h5f.create_dataset(
-    "scaled_matrix",
+matrix_dset = h5f.create_dataset(
+    "matrix",
     shape=(NR_SITES, len(all_valid_samples)),
     dtype="float32",
     compression="gzip"
 )
+
 sample_names = []
 sample_groups = []
-sample_idx = 0  # to track sample index across all groups
-
-# To collect per-group stats
+sample_idx = 0
 all_sample_names = []
 all_sample_groups = []
 group_medians = {}
@@ -112,43 +89,34 @@ group_lambdas = {}
 
 for group, samples in samples_per_group_short.items():
     print(f"🔄 Processing {group} ({len(samples)} samples)")
-    group_start_idx = sample_idx  # mark where this group starts
+    group_start_idx = sample_idx
     for s in samples:
         matches = [fn for fn in all_files if re.search(f"-{s}\\.hg38\\.beta$", fn)]
         if not matches:
             print(f"⚠️  No beta file found for: {s}")
             continue
-        fn = matches[0]
-        beta, cov = load_beta(fn)
+        beta, cov = load_beta(matches[0])
         if len(beta) != NR_SITES:
             raise ValueError(f"Mismatch: {s} has {len(beta)} CpGs, expected {NR_SITES}")
-        ## Clip at 0.01 then logit
-        epsilon = 0.01
-        beta_clipped = np.clip(beta, epsilon, 1 - epsilon)
-        scaled = np.log2(beta_clipped / (1 - beta_clipped)).astype(np.float32)
-        ## Mask low coverage sites (we mask but keep the order of CpGs)
-        scaled[cov < minCov] = np.nan
-        scaled_dset[:, sample_idx] = scaled
+        # Mask low coverage
+        beta[cov < minCov] = np.nan
+        matrix_dset[:, sample_idx] = beta
         sample_names.append(s.encode())
         sample_groups.append(group.encode())
         all_sample_names.append(s)
         all_sample_groups.append(group)
         sample_idx += 1
 
-    # Extract matrix for this group from the HDF5 dataset
+    # Group-level stats
     group_sample_indices = list(range(group_start_idx, sample_idx))
     if len(group_sample_indices) == 0:
         print(f"⚠️  Skipping {group}: no valid samples")
         continue
-    mat = scaled_dset[:, group_sample_indices]
-    # Mask CpGs with <3 non-NaNs
+    mat = matrix_dset[:, group_sample_indices]
     valid_counts = np.sum(~np.isnan(mat), axis=1)
     mat[valid_counts < 3, :] = np.nan
+    matrix_dset[:, group_sample_indices] = mat
 
-    # ✅ Save masked matrix back to dataset
-    scaled_dset[:, group_sample_indices] = mat
-
-    # Compute stats
     row_sds = bn.nanstd(mat, axis=1)
     median_sd = np.nanmedian(row_sds)
     percentile_95 = np.nanpercentile(row_sds, 95)
@@ -159,140 +127,219 @@ for group, samples in samples_per_group_short.items():
 
 # Finalize HDF5
 max_len = max(len(s) for s in sample_names)
-dt = f'S{max_len}'
-h5f.create_dataset("samples", data=np.array(sample_names, dtype=dt))
-
+h5f.create_dataset("samples", data=np.array(sample_names, dtype=f"S{max_len}"))
 max_len = max(len(s) for s in sample_groups)
-dt = f'S{max_len}'
-h5f.create_dataset("sample_groups", data=np.array(sample_groups, dtype=dt))
-
+h5f.create_dataset("sample_groups", data=np.array(sample_groups, dtype=f"S{max_len}"))
 h5f.create_dataset("cpg_names", data=np.array(cpg_names, dtype="S"))
-
 h5f.close()
 print(f"✅ Saved all samples to: {output_path}")
 
-# Save metadata file
-meta_df = pd.DataFrame({
-    "sample": all_sample_names,
-    "dataset": all_sample_groups
-})
+# Save metadata
+meta_df = pd.DataFrame({"sample": all_sample_names, "dataset": all_sample_groups})
 meta_df.to_csv(metadata_file, sep="\t", index=False)
 print(f"✅ Saved metadata to: {metadata_file}")
 
-# Save SDs and lambdas
-
-# Combine the dictionaries into a DataFrame
+# Save medians and lambdas
 df = pd.DataFrame({
     "dataset": list(group_medians.keys()),
     "median_sd": list(group_medians.values()),
     "lambda": [group_lambdas[k] for k in group_medians.keys()]
 })
-
-# Save to TSV
 df.to_csv(output_file_medsd_lambda, sep="\t", index=False)
-
 print(f"✅ Saved medians and lambdas to TSV: {output_file_medsd_lambda}")
 
-print("\n🎉 All done.")
+##################################################
+## Part 2: select CpGs covered in 46 cell types ##
+##################################################
 
-## 10X with correct clipping, 7th August
+h5_path = "all_matrix_noscale.h5"
+X = 46  # Min number of datasets in which CpG is covered by ≥3 samples
+min_samples = 3
+chunk_size = 100_000  # Number of CpGs to process at once
+
+with h5py.File(h5_path, "r") as h5f:
+    matrix = h5f["matrix"]
+    samples = h5f["samples"][:].astype(str)
+    sample_groups = h5f["sample_groups"][:].astype(str)
+    cpg_names = h5f["cpg_names"][:].astype(str)
+    NR_SITES = matrix.shape[0]
+
+    # Get sample indices per group
+    df = pd.DataFrame({"sample": samples, "group": sample_groups})
+    group_to_indices = df.groupby("group").indices
+
+    # Tracker: how many datasets each CpG is covered in (≥3 samples)
+    dataset_pass_count = np.zeros(NR_SITES, dtype=np.uint16)
+    for group, indices in group_to_indices.items():
+        print(f"⏳ Processing group: {group} with {len(indices)} samples")
+        for start in range(0, NR_SITES, chunk_size):
+            end = min(start + chunk_size, NR_SITES)
+            submatrix_chunk = matrix[start:end, indices]  # shape: (chunk_size, num_samples_in_group)
+
+            # Count non-NaNs per row (CpG)
+            coverage_counts = np.sum(~np.isnan(submatrix_chunk), axis=1)
+
+            # Mask: CpGs with ≥ min_samples
+            mask = coverage_counts >= min_samples
+
+            # Increment global counter
+            dataset_pass_count[start:end][mask] += 1
+
+    # Final CpG selection
+    final_mask = dataset_pass_count >= X
+    selected_cpgs = np.array(cpg_names)[final_mask]
+    print(f"✅ Selected {len(selected_cpgs):,} CpGs covered in ≥{min_samples} samples in ≥{X} datasets.")
+
+    # Save result
+    np.savetxt(f"selected_cpgs_min{min_samples}_in{X}_datasets.txt", selected_cpgs, fmt="%s")
+    print(f"📝 Saved CpG list to: selected_cpgs_min{min_samples}_in{X}_datasets.txt")
+
+print("\n🎉 All done.")
 
 ##✅ Found 46 composite groups (Source Tissue + Cell type) with ≥ 3 samples.
 ##✅ Loaded 29,401,795 CpG names.
 ##🔄 Processing Abdominal Subcut. - Adipocytes (3 samples)
-##✅ Abdominal Subcut. - Adipocytes: median_sd = 0.6063, lambda = 2.6899
+##✅ Abdominal Subcut. - Adipocytes: median_sd = 0.0356, lambda = 3.1903
 ##🔄 Processing Bladder - Epithelium (5 samples)
-##✅ Bladder - Epithelium: median_sd = 1.1999, lambda = 1.8013
+##✅ Bladder - Epithelium: median_sd = 0.0582, lambda = 3.6937
 ##🔄 Processing Blood - B cells (3 samples)
-##✅ Blood - B cells: median_sd = 0.7681, lambda = 2.3146
+##✅ Blood - B cells: median_sd = 0.0351, lambda = 3.7658
 ##🔄 Processing Blood - Granulocytes (3 samples)
-##✅ Blood - Granulocytes: median_sd = 0.7269, lambda = 2.3427
+##✅ Blood - Granulocytes: median_sd = 0.0295, lambda = 4.0340
 ##🔄 Processing Blood - Monocytes (3 samples)
-##✅ Blood - Monocytes: median_sd = 0.8485, lambda = 2.1827
+##✅ Blood - Monocytes: median_sd = 0.0326, lambda = 3.8701
 ##🔄 Processing Blood - NK (3 samples)
-##✅ Blood - NK: median_sd = 0.8558, lambda = 2.2026
+##✅ Blood - NK: median_sd = 0.0385, lambda = 3.8933
 ##🔄 Processing Blood - T central memory CD4 (3 samples)
-##✅ Blood - T central memory CD4: median_sd = 0.6959, lambda = 2.5560
+##✅ Blood - T central memory CD4: median_sd = 0.0386, lambda = 3.2941
 ##🔄 Processing Blood - T cytotoxic (CD8+) cells (3 samples)
-##✅ Blood - T cytotoxic (CD8+) cells: median_sd = 0.7793, lambda = 2.2730
+##✅ Blood - T cytotoxic (CD8+) cells: median_sd = 0.0437, lambda = 3.7744
 ##🔄 Processing Blood - T effector cell CD8 (3 samples)
-##✅ Blood - T effector cell CD8: median_sd = 0.7139, lambda = 2.5509
+##✅ Blood - T effector cell CD8: median_sd = 0.0429, lambda = 3.2260
 ##🔄 Processing Blood - T effector memory CD4 (3 samples)
-##✅ Blood - T effector memory CD4: median_sd = 0.6629, lambda = 2.6953
+##✅ Blood - T effector memory CD4: median_sd = 0.0432, lambda = 3.0711
 ##🔄 Processing Blood - T helper(CD4+) cells (3 samples)
-##✅ Blood - T helper(CD4+) cells: median_sd = 0.7060, lambda = 2.4016
+##✅ Blood - T helper(CD4+) cells: median_sd = 0.0319, lambda = 3.7493
 ##🔄 Processing Bone marrow - Erythrocyte progenitors (3 samples)
-##✅ Bone marrow - Erythrocyte progenitors: median_sd = 0.4534, lambda = 2.8974
+##✅ Bone marrow - Erythrocyte progenitors: median_sd = 0.0548, lambda = 2.4887
 ##🔄 Processing Brain - Neuronal (10 samples)
-##✅ Brain - Neuronal: median_sd = 1.2014, lambda = 1.8241
+##✅ Brain - Neuronal: median_sd = 0.0451, lambda = 5.0846
 ##🔄 Processing Brain - Oligodendrocytes (4 samples)
-##✅ Brain - Oligodendrocytes: median_sd = 0.8917, lambda = 1.9653
+##✅ Brain - Oligodendrocytes: median_sd = 0.0350, lambda = 3.5224
 ##🔄 Processing Breast - Basal epithelial (4 samples)
-##✅ Breast - Basal epithelial: median_sd = 1.0155, lambda = 1.8505
+##✅ Breast - Basal epithelial: median_sd = 0.0377, lambda = 4.1562
 ##🔄 Processing Breast - Luminal epithelial (3 samples)
-##✅ Breast - Luminal epithelial: median_sd = 0.8777, lambda = 2.1080
+##✅ Breast - Luminal epithelial: median_sd = 0.0360, lambda = 4.8429
 ##🔄 Processing Colon - Endocrine (3 samples)
-##✅ Colon - Endocrine: median_sd = 0.9731, lambda = 2.0978
+##✅ Colon - Endocrine: median_sd = 0.0420, lambda = 4.3199
 ##🔄 Processing Colon - Epithelium (5 samples)
-##✅ Colon - Epithelium: median_sd = 0.9189, lambda = 1.9414
+##✅ Colon - Epithelium: median_sd = 0.0404, lambda = 3.7484
 ##🔄 Processing Endometrium - Epithelium (3 samples)
-##✅ Endometrium - Epithelium: median_sd = 0.7785, lambda = 2.3460
+##✅ Endometrium - Epithelium: median_sd = 0.0371, lambda = 4.0217
 ##🔄 Processing Fallopien tubes - Epithelium (3 samples)
-##✅ Fallopien tubes - Epithelium: median_sd = 0.7369, lambda = 2.2802
+##✅ Fallopien tubes - Epithelium: median_sd = 0.0308, lambda = 4.4392
 ##🔄 Processing Gastric antrum - Epithelium (3 samples)
-##✅ Gastric antrum - Epithelium: median_sd = 0.6390, lambda = 2.5203
+##✅ Gastric antrum - Epithelium: median_sd = 0.0318, lambda = 3.7409
 ##🔄 Processing Gastric body - Epithelium (3 samples)
-##✅ Gastric body - Epithelium: median_sd = 0.6542, lambda = 2.4930
+##✅ Gastric body - Epithelium: median_sd = 0.0330, lambda = 3.6749
 ##🔄 Processing Gastric fundus - Epithelium (3 samples)
-##✅ Gastric fundus - Epithelium: median_sd = 0.6133, lambda = 2.5540
+##✅ Gastric fundus - Epithelium: median_sd = 0.0322, lambda = 3.6808
 ##🔄 Processing Heart - Cardiomyocyte (4 samples)
-##✅ Heart - Cardiomyocyte: median_sd = 0.8948, lambda = 2.0003
+##✅ Heart - Cardiomyocyte: median_sd = 0.0381, lambda = 3.3114
 ##🔄 Processing Heart - Fibroblast (4 samples)
-##✅ Heart - Fibroblast: median_sd = 0.7425, lambda = 2.4008
+##✅ Heart - Fibroblast: median_sd = 0.0585, lambda = 2.7999
 ##🔄 Processing Kidney glomerular - Endothelium (3 samples)
-##✅ Kidney glomerular - Endothelium: median_sd = 0.7020, lambda = 2.3966
+##✅ Kidney glomerular - Endothelium: median_sd = 0.0337, lambda = 4.1858
 ##🔄 Processing Kidney glomerular - Podocyte (3 samples)
-##✅ Kidney glomerular - Podocyte: median_sd = 0.7658, lambda = 2.2720
+##✅ Kidney glomerular - Podocyte: median_sd = 0.0342, lambda = 4.1011
 ##🔄 Processing Kidney tubular - Endothelium (3 samples)
-##✅ Kidney tubular - Endothelium: median_sd = 0.7441, lambda = 2.4076
+##✅ Kidney tubular - Endothelium: median_sd = 0.0359, lambda = 3.6262
 ##🔄 Processing Kidney tubular - Epithelium (3 samples)
-##✅ Kidney tubular - Epithelium: median_sd = 0.8099, lambda = 2.3028
+##✅ Kidney tubular - Epithelium: median_sd = 0.0325, lambda = 5.5689
 ##🔄 Processing Liver - Hepatocyte (6 samples)
-##✅ Liver - Hepatocyte: median_sd = 0.9215, lambda = 1.9534
+##✅ Liver - Hepatocyte: median_sd = 0.0453, lambda = 3.6304
 ##🔄 Processing Lung alveolar - Endothelium (3 samples)
-##✅ Lung alveolar - Endothelium: median_sd = 0.7575, lambda = 2.2733
+##✅ Lung alveolar - Endothelium: median_sd = 0.0413, lambda = 4.1668
 ##🔄 Processing Lung alveolar - Epithelium (3 samples)
-##✅ Lung alveolar - Epithelium: median_sd = 0.6348, lambda = 2.4780
+##✅ Lung alveolar - Epithelium: median_sd = 0.0285, lambda = 4.0087
 ##🔄 Processing Lung bronchus - Epithelium (3 samples)
-##✅ Lung bronchus - Epithelium: median_sd = 0.6711, lambda = 2.4284
+##✅ Lung bronchus - Epithelium: median_sd = 0.0304, lambda = 4.3195
 ##🔄 Processing Lung interstitial - Macrophages (3 samples)
-##✅ Lung interstitial - Macrophages: median_sd = 0.7719, lambda = 2.2833
+##✅ Lung interstitial - Macrophages: median_sd = 0.0312, lambda = 4.5342
 ##🔄 Processing Pancreas - Acinar (4 samples)
-##✅ Pancreas - Acinar: median_sd = 0.7151, lambda = 2.3649
+##✅ Pancreas - Acinar: median_sd = 0.0456, lambda = 3.0408
 ##🔄 Processing Pancreas - Alpha (3 samples)
-##✅ Pancreas - Alpha: median_sd = 0.6694, lambda = 2.5248
+##✅ Pancreas - Alpha: median_sd = 0.0341, lambda = 3.4601
 ##🔄 Processing Pancreas - Beta (3 samples)
-##✅ Pancreas - Beta: median_sd = 0.7447, lambda = 2.4184
+##✅ Pancreas - Beta: median_sd = 0.0366, lambda = 3.3549
 ##🔄 Processing Pancreas - Delta (3 samples)
-##✅ Pancreas - Delta: median_sd = 0.7897, lambda = 2.3703
+##✅ Pancreas - Delta: median_sd = 0.0406, lambda = 3.3095
 ##🔄 Processing Pancreas - Duct (4 samples)
-##✅ Pancreas - Duct: median_sd = 0.9136, lambda = 2.0156
+##✅ Pancreas - Duct: median_sd = 0.0378, lambda = 3.5589
 ##🔄 Processing Pancreas - Endothelium (4 samples)
-##✅ Pancreas - Endothelium: median_sd = 0.8505, lambda = 2.1393
+##✅ Pancreas - Endothelium: median_sd = 0.0458, lambda = 3.0000
 ##🔄 Processing Prostate - Epithelium (4 samples)
-##✅ Prostate - Epithelium: median_sd = 0.9489, lambda = 1.9747
+##✅ Prostate - Epithelium: median_sd = 0.0395, lambda = 4.6038
 ##🔄 Processing Small intestine - Epithelium (3 samples)
-##✅ Small intestine - Epithelium: median_sd = 0.7015, lambda = 2.4121
+##✅ Small intestine - Epithelium: median_sd = 0.0314, lambda = 4.0731
 ##🔄 Processing Thyroid - Epithelium (3 samples)
-##✅ Thyroid - Epithelium: median_sd = 0.7273, lambda = 2.3525
+##✅ Thyroid - Epithelium: median_sd = 0.0304, lambda = 3.6489
 ##🔄 Processing Tongue - Epithelium (4 samples)
-##✅ Tongue - Epithelium: median_sd = 0.9290, lambda = 1.9847
+##✅ Tongue - Epithelium: median_sd = 0.0445, lambda = 3.8546
 ##🔄 Processing Tonsil palatine - Epithelium (3 samples)
-##✅ Tonsil palatine - Epithelium: median_sd = 0.6162, lambda = 2.6465
+##✅ Tonsil palatine - Epithelium: median_sd = 0.0350, lambda = 3.5254
 ##🔄 Processing Vascular saphenous - Endothelium (3 samples)
-##✅ Vascular saphenous - Endothelium: median_sd = 0.7071, lambda = 2.3832
-##✅ Saved all samples to: /home/alice/Documents/Project_hvCpG/10X/all_scaled_matrix.h5
+##✅ Vascular saphenous - Endothelium: median_sd = 0.0345, lambda = 4.3459
+##✅ Saved all samples to: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/all_matrix_noscale.h5
 ##✅ Saved metadata to: sample_metadata.tsv
 ##✅ Saved medians and lambdas to TSV: all_medsd_lambda.tsv
+##⏳ Processing group: Abdominal Subcut. - Adipocytes with 3 samples
+##⏳ Processing group: Bladder - Epithelium with 5 samples
+##⏳ Processing group: Blood - B cells with 3 samples
+##⏳ Processing group: Blood - Granulocytes with 3 samples
+##⏳ Processing group: Blood - Monocytes with 3 samples
+##⏳ Processing group: Blood - NK with 3 samples
+##⏳ Processing group: Blood - T central memory CD4 with 3 samples
+##⏳ Processing group: Blood - T cytotoxic (CD8+) cells with 3 samples
+##⏳ Processing group: Blood - T effector cell CD8 with 3 samples
+##⏳ Processing group: Blood - T effector memory CD4 with 3 samples
+##⏳ Processing group: Blood - T helper(CD4+) cells with 3 samples
+##⏳ Processing group: Bone marrow - Erythrocyte progenitors with 3 samples
+##⏳ Processing group: Brain - Neuronal with 10 samples
+##⏳ Processing group: Brain - Oligodendrocytes with 4 samples
+##⏳ Processing group: Breast - Basal epithelial with 4 samples
+##⏳ Processing group: Breast - Luminal epithelial with 3 samples
+##⏳ Processing group: Colon - Endocrine with 3 samples
+##⏳ Processing group: Colon - Epithelium with 5 samples
+##⏳ Processing group: Endometrium - Epithelium with 3 samples
+##⏳ Processing group: Fallopien tubes - Epithelium with 3 samples
+##⏳ Processing group: Gastric antrum - Epithelium with 3 samples
+##⏳ Processing group: Gastric body - Epithelium with 3 samples
+##⏳ Processing group: Gastric fundus - Epithelium with 3 samples
+##⏳ Processing group: Heart - Cardiomyocyte with 4 samples
+##⏳ Processing group: Heart - Fibroblast with 4 samples
+##⏳ Processing group: Kidney glomerular - Endothelium with 3 samples
+##⏳ Processing group: Kidney glomerular - Podocyte with 3 samples
+##⏳ Processing group: Kidney tubular - Endothelium with 3 samples
+##⏳ Processing group: Kidney tubular - Epithelium with 3 samples
+##⏳ Processing group: Liver - Hepatocyte with 6 samples
+##⏳ Processing group: Lung alveolar - Endothelium with 3 samples
+##⏳ Processing group: Lung alveolar - Epithelium with 3 samples
+##⏳ Processing group: Lung bronchus - Epithelium with 3 samples
+##⏳ Processing group: Lung interstitial - Macrophages with 3 samples
+##⏳ Processing group: Pancreas - Acinar with 4 samples
+##⏳ Processing group: Pancreas - Alpha with 3 samples
+##⏳ Processing group: Pancreas - Beta with 3 samples
+##⏳ Processing group: Pancreas - Delta with 3 samples
+##⏳ Processing group: Pancreas - Duct with 4 samples
+##⏳ Processing group: Pancreas - Endothelium with 4 samples
+##⏳ Processing group: Prostate - Epithelium with 4 samples
+##⏳ Processing group: Small intestine - Epithelium with 3 samples
+##⏳ Processing group: Thyroid - Epithelium with 3 samples
+##⏳ Processing group: Tongue - Epithelium with 4 samples
+##⏳ Processing group: Tonsil palatine - Epithelium with 3 samples
+##⏳ Processing group: Vascular saphenous - Endothelium with 3 samples
+##✅ Selected 23,036,026 CpGs covered in ≥3 samples in ≥46 datasets.
+##📝 Saved CpG list to: selected_cpgs_min3_in46_datasets.txt
 ##
 ##🎉 All done.
