@@ -164,8 +164,8 @@ message(paste0("Run algorithm on the ", length(mQTLcontrols_positions), " contro
    NCORES = nslots,
    p0 = 0.80,
    p1 = 0.65, 
-   batch_size = 1000,
-   dataDir = dataDir)
+   batch_size = 1,
+   dataDir = dataDir, overwrite = TRUE)
    )
 
 #######################
