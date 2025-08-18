@@ -95,3 +95,4 @@ exploreAlgo <- function(x,title){
 
 # a hvCpG:
 exploreAlgo(x = match("cg03396347",  cpg_names_all), title = "a hvCpG from Maria")
+# cg03396347 0.8673156
