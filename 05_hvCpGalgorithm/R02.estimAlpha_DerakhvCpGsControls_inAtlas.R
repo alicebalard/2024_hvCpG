@@ -144,105 +144,26 @@ mQTLcontrols_positions <- match(mQTLcontrols_names_filtered, cpg_names_all)
 message(paste0("Run algorithm on the ", length(DerakhshanhvCpGs_positions), " hvCpG covered in 46 cells..."))
 
 system.time(runAndSave(
-   analysis = "hvCpGsMariav5",
-   cpgPos_vec = DerakhshanhvCpGs_positions,
-   resultDir = resDir,
-   NCORES = nslots,
-   p0 = 0.80,
-   p1 = 0.65, 
-   batch_size = 1000,
-   dataDir = dataDir)
- )
+  analysis = "hvCpGsMariav5",
+  cpgPos_vec = DerakhshanhvCpGs_positions,
+  resultDir = resDir,
+  NCORES = nslots,
+  p0 = 0.80,
+  p1 = 0.65, 
+  batch_size = 1000,
+  dataDir = dataDir)
+)
 
 ###########################################################
 message(paste0("Run algorithm on the ", length(mQTLcontrols_positions), " controls covered in 46 cells..."))
-        
- system.time(runAndSave(
-   analysis = "mQTLcontrolsv5",
-   cpgPos_vec = mQTLcontrols_positions,
-   resultDir = resDir,
-   NCORES = nslots,
-   p0 = 0.80,
-   p1 = 0.65, 
-   batch_size = 1,
-   dataDir = dataDir, overwrite = TRUE)
-   )
 
-#######################
-#### Explore results ##
-##
-##load("/home/alice/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X/results_testLocalPC_1663CpGs_0_8p0_0_65p1.RData")
-##reshvCpG = results_testLocalPC_1663CpGs_0_8p0_0_65p1
-##rm(results_testLocalPC_1663CpGs_0_8p0_0_65p1)
-##
-##load("/home/alice/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X/results_testLocalPC_1474CpGs_0_8p0_0_65p1.RData")
-##resControls = results_testLocalPC_1474CpGs_0_8p0_0_65p1
-##rm(results_testLocalPC_1474CpGs_0_8p0_0_65p1)
-##
-##df = rbind(data.frame(alpha = reshvCpG, type = "hvCpG Derakhshan"),
-##           data.frame(alpha = resControls, type = "mQTL controls"))
-##
-##ggplot(df, aes(x = type, y = alpha)) +
-##  geom_jitter(aes(fill=type), pch=21, size = 3, alpha = .1)+ 
-##  geom_violin(aes(col=type))+
-##  geom_boxplot(aes(col=type), width = .1) + 
-##  theme_minimal(base_size = 14) +                                                    
-##  theme(legend.position = "none", axis.title.x = element_blank()) +
-##  ylab("Probability of being a hvCpG") 
-##
-##summary(lm(alpha~type, df))
-##
-### Create matching names for GRanges
-##gr_names <- paste0(
-##  as.character(seqnames(DerakhshanhvCpGs_GRanges_hg38)), "_",
-##  start(DerakhshanhvCpGs_GRanges_hg38), "-", end(DerakhshanhvCpGs_GRanges_hg38)
-##)
-##
-### Match alpha values to GRanges
-##DerakhshanhvCpGs_GRanges_hg38$alpha <- reshvCpG[gr_names]
-##
-#####################################################################
-#### Compare values for Derakshan hvCpGs from arrays vs from Atlas ##
-##
-##load("resultsDir/Mariads/results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1.RData")
-##Rred3array <- results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1
-##
-##Rred3array_GRanges <- GRanges(
-##  seqnames = anno450k[match(rownames(Rred3array), anno450k$Name),"chr"],
-##  ranges = IRanges(start = ifelse(anno450k[match(rownames(Rred3array), anno450k$Name),"strand"] %in% "+",
-##                                  anno450k[match(rownames(Rred3array), anno450k$Name),"pos"],
-##                                  anno450k[match(rownames(Rred3array), anno450k$Name),"pos"] - 1),
-##                   end = ifelse(anno450k[match(rownames(Rred3array), anno450k$Name),"strand"] %in% "+",
-##                                anno450k[match(rownames(Rred3array), anno450k$Name),"pos"] + 1,
-##                                anno450k[match(rownames(Rred3array), anno450k$Name),"pos"])),
-##  strand = anno450k[match(rownames(Rred3array), anno450k$Name),"strand"],
-##  alpha = Rred3array)
-##
-##Rred3array_GRanges$alpha <- Rred3array_GRanges$alpha.alpha
-##  
-##Rred3array_GRanges_hg38 <- unlist(liftOver(Rred3array_GRanges, chain))
-##
-### Find overlapping CpGs
-##hits <- findOverlaps(Rred3array_GRanges_hg38, DerakhshanhvCpGs_GRanges_hg38)
-##
-### Extract alpha values
-##alpha_dt <- data.table(
-##  alpha_x = Rred3array_GRanges_hg38$alpha[queryHits(hits)],
-##  alpha_y = DerakhshanhvCpGs_GRanges_hg38$alpha[subjectHits(hits)]
-##)
-##
-### Remove rows with NA values if needed
-##alpha_dt <- na.omit(alpha_dt)
-##
-##cor_val <- cor(alpha_dt$alpha_x, alpha_dt$alpha_y)
-##ggplot(alpha_dt, aes(x = alpha_x, y = alpha_y)) +
-##  geom_point(alpha = 0.6) +
-##  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
-##  annotate("text", x = 0.05, y = 0.95, hjust = 0, label = paste("r =", round(cor_val, 2))) +
-##  labs(
-##    x = "Alpha (Rred3array)",
-##    y = "Alpha (Derakhshan)"
-##  ) +
-##  theme_minimal(base_size = 14)
-##
-##
+system.time(runAndSave(
+  analysis = "mQTLcontrolsv5",
+  cpgPos_vec = mQTLcontrols_positions,
+  resultDir = resDir,
+  NCORES = nslots,
+  p0 = 0.80,
+  p1 = 0.65, 
+  batch_size = 1000,
+  dataDir = dataDir)
+)

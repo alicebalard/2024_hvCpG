@@ -82,6 +82,21 @@ ggplot(df, aes(x = n_samples)) +
 rm(common_cpgs, cpg_counts,all_cpgs, folder1, rds_files1, cistrans_GoDMC_hvCpG_matched_control)
 ```
 
+## Distribution of methylation values for array after transformation
+
+```{r}
+# # combine everything into one vector
+# all_values <- unlist(rds_list_mat, use.names = FALSE)
+# 
+# # plot one histogram for all values
+# hist(all_values, breaks = 100,
+#      main = "Histogram of all values in rds_list_mat",
+#      xlab = "Values")
+
+rm(all_values)
+```
+
+
 # Reproduce Maria’s results
 Maria’s paper: We defined an hvCpG in the following way:
 
