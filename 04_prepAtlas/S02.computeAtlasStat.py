@@ -113,3 +113,4 @@ np.savetxt(output_path, selected_cpgs, fmt="%s")
 #    count_5 = np.sum(is_cov5, axis=1)
 #    # Add 1 if ≥3 samples for this CpG in the group
 #    covered_5 += count_5 >= 3
+
