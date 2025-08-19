@@ -2,54 +2,7 @@
 # 13th August
 # Run algo v5 for hvCpGs and controls, without transformation
 
-quiet_library <- function(pkg) {
-  # Check if installed
-  installed <- requireNamespace(pkg, quietly = TRUE)
-  
-  # Install if missing
-  if (!installed) {
-    if (!requireNamespace("BiocManager", quietly = TRUE)) {
-      suppressMessages(suppressWarnings(
-        install.packages("BiocManager", repos = "https://cloud.r-project.org", quiet = TRUE)
-      ))
-    }
-    
-    cran_pkgs <- suppressMessages(available.packages(repos = "https://cloud.r-project.org"))
-    if (pkg %in% rownames(cran_pkgs)) {
-      suppressMessages(suppressWarnings(
-        install.packages(pkg, repos = "https://cloud.r-project.org", quiet = TRUE)
-      ))
-    } else {
-      suppressMessages(suppressWarnings(
-        BiocManager::install(pkg, ask = FALSE, update = FALSE, quiet = TRUE)
-      ))
-    }
-  }
-  
-  # Load silently
-  suppressPackageStartupMessages(
-    suppressMessages(
-      suppressWarnings(
-        library(pkg, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
-      )
-    )
-  )
-  
-  # Get version after loading
-  version <- as.character(utils::packageVersion(pkg))
-  
-  # Print only our message
-  cat(sprintf("Load package %s v%s\n", pkg, version))
-}
-
-quiet_library_all <- function(pkgs) {
-  invisible(lapply(pkgs, quiet_library))
-}
-
-quiet_library_all(c(
-  "IlluminaHumanMethylation450kanno.ilmn12.hg19","rhdf5", "ggplot2", "data.table",
-  "GenomicRanges", "rtracklayer" ## Needed to perform liftover hg19 to hg38 ##
-))
+source("loadMyLibs.R")
 
 dataDir = "/home/alice/Documents/Project_hvCpG/10X/"
 codeDir = "/home/alice/Documents/GIT/2024_hvCpG/"
@@ -152,6 +105,17 @@ ggplot(df, aes(x = type, y = alpha)) +
   ylab("Probability of being a hvCpG") 
 
 summary(lm(alpha~type, df))
+
+head(df)
+
+df[rownames(df) %in% c("chr1_778669-778670", "chr1_1944364-1944365"),]
+
+hist(df$alpha[df$type %in% "hvCpG Derakhshan"], breaks = 100)
+hist(df$alpha[df$type %in% "mQTL controls"], breaks = 100)
+
+
+df[df$alpha < 0.01 & df$type %in% "hvCpG Derakhshan",]
+
 
 # Create matching names for GRanges
 gr_names <- paste0(
