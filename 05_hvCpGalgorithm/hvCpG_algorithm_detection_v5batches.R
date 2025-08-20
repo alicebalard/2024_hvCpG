@@ -5,6 +5,8 @@
 ## Setup ##
 ###########
 
+source("loadMyLibs.R")
+
 quiet_library <- function(pkg) {
   # Check if installed
   installed <- requireNamespace(pkg, quietly = TRUE)
