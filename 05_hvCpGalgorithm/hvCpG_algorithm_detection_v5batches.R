@@ -51,7 +51,7 @@ quiet_library_all <- function(pkgs) {
 
 quiet_library_all(c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2", "ggrepel",
               "parallel", "rhdf5", "IlluminaHumanMethylation450kanno.ilmn12.hg19", "tidyr", "dplyr",
-              "rhdf5", "ggplot2", "data.table", "GenomicRanges", "rtracklayer" ## Needed to perform liftover hg19 to hg38 ##
+              "rhdf5", "ggplot2", "data.table", "GenomicRanges", "rtracklayer"
               ))
 ## NB: not all libraries are necessary; to clean when packaging
 
@@ -222,7 +222,8 @@ getAllOptimAlpha_parallel_batch <- function(cpgPos_vec, NCORES, p0, p1, prep, ba
 ##   Atlas10X = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/",
 ##   Maria = "/home/alice/arraysh5"
 
-runAndSave <- function(analysis, cpgPos_vec, resultDir, NCORES, p0, p1, overwrite = FALSE, batch_size = 1000, dataDir) {
+runAndSave <- function(analysis, cpgPos_vec, resultDir, NCORES, p0, p1, overwrite = FALSE, batch_size = 1000, dataDir,
+                       skipsave=FALSE) {
   prep <- prepData(analysis, dataDir)
   
   obj_name <- paste0("results_", analysis, "_", length(cpgPos_vec), "CpGs_", p0, "p0_", p1, "p1")
@@ -245,7 +246,10 @@ runAndSave <- function(analysis, cpgPos_vec, resultDir, NCORES, p0, p1, overwrit
   )
   
   assign(obj_name, result, envir = .GlobalEnv)
-  message("Saving to file: ", file_name)
-  save(list = obj_name, file = file_name, envir = .GlobalEnv)
-  message("💾 Result saved successfully.")
+
+  if (skipsave==FALSE){
+      message("Saving to file: ", file_name)
+      save(list = obj_name, file = file_name, envir = .GlobalEnv)
+      message("💾 Result saved successfully.")
+  }
 }
