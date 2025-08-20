@@ -5,8 +5,6 @@
 ## Setup ##
 ###########
 
-source("loadMyLibs.R")
-
 quiet_library <- function(pkg) {
   # Check if installed
   installed <- requireNamespace(pkg, quietly = TRUE)
@@ -52,7 +50,10 @@ quiet_library_all <- function(pkgs) {
 }
 
 quiet_library_all(c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2", "ggrepel",
-              "parallel", "rhdf5"))
+              "parallel", "rhdf5", "IlluminaHumanMethylation450kanno.ilmn12.hg19", "tidyr", "dplyr",
+              "rhdf5", "ggplot2", "data.table", "GenomicRanges", "rtracklayer" ## Needed to perform liftover hg19 to hg38 ##
+              ))
+## NB: not all libraries are necessary; to clean when packaging
 
 ###############
 ## Data load ##
@@ -227,7 +228,10 @@ runAndSave <- function(analysis, cpgPos_vec, resultDir, NCORES, p0, p1, overwrit
   obj_name <- paste0("results_", analysis, "_", length(cpgPos_vec), "CpGs_", p0, "p0_", p1, "p1")
   obj_name <- gsub("[^[:alnum:]_]", "_", obj_name)
   if (!grepl("/$", resultDir)) resultDir <- paste0(resultDir, "/")
-  if (!dir.exists(resultDir)) stop("Result directory does not exist: ", resultDir)
+  if (!dir.exists(resultDir)) {
+      dir.create(resultDir, recursive = TRUE)
+      message("New result directory ", resultDir, " created")
+  }
   file_name <- paste0(resultDir, obj_name, ".RData")
   
   if (!overwrite && file.exists(file_name)) {
