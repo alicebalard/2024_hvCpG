@@ -168,50 +168,70 @@ runOptim1CpG <- function(Mdf, metadata, medsd_lambdas, p0, p1) {
 ## Batch loading + parallel processing ##
 #########################################
 
-getAllOptimAlpha_parallel_batch <- function(cpgPos_vec, NCORES, p0, p1, prep, batch_size = 1000) {
-    metadata <- prep$metadata
-    medsd_lambdas <- prep$medsd_lambdas
-    cpg_names_all <- prep$cpg_names_all
-    h5file <- prep$h5file
+getAllOptimAlpha_parallel_batch <- function(cpg_names_vec, NCORES, p0, p1, prep, batch_size = 1000) {
+  metadata       <- prep$metadata
+  medsd_lambdas  <- prep$medsd_lambdas
+  cpg_names_all  <- prep$cpg_names_all
+  h5file         <- prep$h5file
+  
+  ## 🔎 Map CpG names to indices
+  cpg_indices <- match(cpg_names_vec, cpg_names_all)
+  if (anyNA(cpg_indices)) {
+    stop("Some CpG names not found in HDF5: ",
+         paste(cpg_names_vec[is.na(cpg_indices)], collapse = ", "))
+  }
+  
+  ## Prepare result container
+  all_results <- vector("list", length(cpg_indices))
+  
+  ## Split into batches
+  batches <- split(cpg_indices, ceiling(seq_along(cpg_indices) / batch_size))
+  
+  for (b in seq_along(batches)) {
+    message(sprintf(
+      "📦 Loading batch %d / %d (%d CpGs) at %s",
+      b, length(batches), length(batches[[b]]), Sys.time()
+    ))
     
-    all_results <- vector("list", length(cpgPos_vec))
+    ## Read matrix subset (samples x CpGs)
+    M_batch <- h5read(h5file, "matrix", index = list(NULL, batches[[b]]))
     
-    ## Split into batches
-    batches <- split(cpgPos_vec, ceiling(seq_along(cpgPos_vec) / batch_size))
+    ## Assign dimnames
+    rownames(M_batch) <- h5read(h5file, "samples")
+    colnames(M_batch) <- cpg_names_all[batches[[b]]]
     
-    for (b in seq_along(batches)) {
-        message(sprintf(
-            "📦 Loading batch %d / %d (%d CpGs) at %s",
-            b,
-            length(batches),
-            length(batches[[b]]),
-            Sys.time()
-        ))
-        ## Read multiple CpGs at once from HDF5
-        M_batch <- h5read(h5file, "matrix", index = list(NULL, batches[[b]]))
-        rownames(M_batch) <- metadata$sample
-        colnames(M_batch) <- cpg_names_all[batches[[b]]]
-        
-        ## Process each CpG in parallel
-        batch_results <- mclapply(seq_along(batches[[b]]), function(i) {
-            Mdf <- M_batch[, i, drop = FALSE]
-            if (length(table(setNames(metadata$dataset, metadata$sample)[names(Mdf[!is.na(Mdf),])])) < 3) {
-                return(NA_real_)
-            }
-            tryCatch({
-                runOptim1CpG(Mdf = Mdf, metadata = metadata, medsd_lambdas = medsd_lambdas, p0 = p0, p1 = p1)
-            }, error = function(e) NA_real_)
-        }, mc.cores = NCORES)
-        
-        ## Store results
-        all_results[batches[[b]]] <- batch_results
-    }
+    ## Reorder rows to match metadata
+    M_batch <- M_batch[metadata$sample, , drop = FALSE]
     
-    ## Build final matrix
-    my_matrix <- matrix(unlist(all_results), ncol = 1)
-    rownames(my_matrix) <- cpg_names_all[cpgPos_vec]
-    colnames(my_matrix) <- "alpha"
-    return(my_matrix)
+    ## Process CpGs in parallel
+    batch_results <- mclapply(seq_along(batches[[b]]), function(i) {
+      Mdf <- M_batch[, i, drop = FALSE]
+      
+      ## Require at least 3 datasets with data
+      if (length(table(setNames(metadata$dataset,
+                                metadata$sample)[names(Mdf[!is.na(Mdf), ])])) < 3) {
+        return(NA_real_)
+      }
+      
+      tryCatch({
+        runOptim1CpG(Mdf = Mdf,
+                     metadata = metadata,
+                     medsd_lambdas = medsd_lambdas,
+                     p0 = p0,
+                     p1 = p1)
+      }, error = function(e) NA_real_)
+    }, mc.cores = NCORES)
+    
+    ## Store results (using original positions)
+    all_results[match(batches[[b]], cpg_indices)] <- batch_results
+  }
+  
+  ## Build final matrix
+  my_matrix <- matrix(unlist(all_results), ncol = 1)
+  rownames(my_matrix) <- cpg_names_vec
+  colnames(my_matrix) <- "alpha"
+  
+  return(my_matrix)
 }
 
 ######################
@@ -222,11 +242,11 @@ getAllOptimAlpha_parallel_batch <- function(cpgPos_vec, NCORES, p0, p1, prep, ba
 ##   Atlas10X = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/",
 ##   Maria = "/home/alice/arraysh5"
 
-runAndSave <- function(analysis, cpgPos_vec, resultDir, NCORES, p0, p1, overwrite = FALSE, batch_size = 1000, dataDir,
+runAndSave <- function(analysis, cpg_names_vec, resultDir, NCORES, p0, p1, overwrite = FALSE, batch_size = 1000, dataDir,
                        skipsave=FALSE) {
   prep <- prepData(analysis, dataDir)
   
-  obj_name <- paste0("results_", analysis, "_", length(cpgPos_vec), "CpGs_", p0, "p0_", p1, "p1")
+  obj_name <- paste0("results_", analysis, "_", length(cpg_names_vec), "CpGs_", p0, "p0_", p1, "p1")
   obj_name <- gsub("[^[:alnum:]_]", "_", obj_name)
   if (!grepl("/$", resultDir)) resultDir <- paste0(resultDir, "/")
   if (!dir.exists(resultDir)) {
@@ -241,7 +261,7 @@ runAndSave <- function(analysis, cpgPos_vec, resultDir, NCORES, p0, p1, overwrit
   }
   
   result <- getAllOptimAlpha_parallel_batch(
-    cpgPos_vec = cpgPos_vec, NCORES = NCORES, 
+    cpg_names_vec = cpg_names_vec, NCORES = NCORES, 
     p0 = p0, p1 = p1, prep = prep, batch_size = batch_size
   )
   
