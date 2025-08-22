@@ -5,12 +5,12 @@
 ###############################
 message("Define parameters...")
 dataDir <- "~/Documents/Project_hvCpG/10X/"
-nslots <- 8
+nslots <- 5
 
 message(paste0("We work in ", dataDir, " with ", nslots, " cores."))
 
 codeDir = "~/Documents/GIT/2024_hvCpG"
-resDir = file.path(codeDir, "05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/")
+setwd(codeDir)
 
 ##################################
 message("Source the algorithm...")
@@ -26,14 +26,17 @@ cpg_46 <- read.table(file.path(dataDir, "selected_cpgs_min3_in46_datasets.txt"))
 
 #############################
 ## Prep hvCpG and controls ##
-source("runAlgo_myDatasets/Atlas/prephvCpGandControls.R")
+source("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R")
 hvCpGandControls <- prephvCpGandControls(codeDir, cpg_names_all, cpg_46)
 DerakhshanhvCpGs_names_filtered = hvCpGandControls$DerakhshanhvCpGs_names_filtered
 mQTLcontrols_names_filtered = hvCpGandControls$mQTLcontrols_names_filtered
+dictionary <- hvCpGandControls$dictionary
 rm(hvCpGandControls)
 
 ########################################################
 message(paste0("Run algorithm on the ", length(DerakhshanhvCpGs_names_filtered), " hvCpG covered in 46 cells..."))
+
+resDir = file.path(codeDir, "05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/")
 
 system.time(runAndSave(
   analysis = "hvCpGsMariav5",
@@ -45,11 +48,12 @@ system.time(runAndSave(
   batch_size = 1000,
   dataDir = dataDir, overwrite = T)
 )
-# New result directory ~/Documents/GIT/2024_hvCpG//05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/ created
-# 📦 Loading batch 1 / 2 (1000 CpGs) at 2025-08-21 09:40:05.751693
-# 📦 Loading batch 2 / 2 (663 CpGs) at 2025-08-21 09:53:24.189292
-# Saving to file: ~/Documents/GIT/2024_hvCpG//05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_hvCpGsMariav5_1663CpGs_0_8p0_0_65p1.RData
+# 📦 Loading batch 1 / 2 (1000 CpGs) at 2025-08-21 15:56:00.907993
+# 📦 Loading batch 2 / 2 (450 CpGs) at 2025-08-21 17:05:44.917912
+# Saving to file: ~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_hvCpGsMariav5_1450CpGs_0_8p0_0_65p1.RData
 # 💾 Result saved successfully.
+# user   system  elapsed 
+# 9245.875   79.822 5052.667 
 ###########################################################
 message(paste0("Run algorithm on the ", length(mQTLcontrols_names_filtered), " controls covered in 46 cells..."))
 
@@ -59,23 +63,28 @@ system.time(runAndSave(
   resultDir = resDir,
   NCORES = nslots,
   p0 = 0.80,
-  p1 = 0.65, 
+  p1 = 0.65,
   batch_size = 1000,
-  dataDir = dataDir, overwrite = T)
+  dataDir = dataDir)
 )
-# 📦 Loading batch 1 / 2 (1000 CpGs) at 2025-08-21 10:04:19.439537
-# 📦 Loading batch 2 / 2 (474 CpGs) at 2025-08-21 10:17:43.350317
-# Saving to file: ~/Documents/GIT/2024_hvCpG//05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_mQTLcontrolsv5_1474CpGs_0_8p0_0_65p1.RData
+
+# 📦 Loading batch 1 / 2 (1000 CpGs) at 2025-08-21 14:02:06.679142
+# 📦 Loading batch 2 / 2 (474 CpGs) at 2025-08-21 14:20:51.707893
+# Saving to file: ~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_mQTLcontrolsv5_1474CpGs_0_8p0_0_65p1.RData
 # 💾 Result saved successfully.
+## 5 threads, 7G/thread, batch 1000CpGs --> 15min for 1000CpGs
 
 ######################
 ### Explore results ##
 
-load("~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_hvCpGsMariav5_1663CpGs_0_8p0_0_65p1.RData")
-reshvCpG = results_hvCpGsMariav5_1663CpGs_0_8p0_0_65p1; rm(results_hvCpGsMariav5_1663CpGs_0_8p0_0_65p1)
+load("~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_hvCpGsMariav5_1450CpGs_0_8p0_0_65p1.RData")
+reshvCpG = results_hvCpGsMariav5_1450CpGs_0_8p0_0_65p1; rm(results_hvCpGsMariav5_1450CpGs_0_8p0_0_65p1)
 
 load("~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_mQTLcontrolsv5_1474CpGs_0_8p0_0_65p1.RData")
 resControls = results_mQTLcontrolsv5_1474CpGs_0_8p0_0_65p1; rm(results_mQTLcontrolsv5_1474CpGs_0_8p0_0_65p1)
+
+summary(reshvCpG)
+summary(resControls)
 
 df = rbind(data.frame(alpha = reshvCpG, type = "hvCpG Derakhshan"),
            data.frame(alpha = resControls, type = "mQTL controls"))
@@ -88,64 +97,29 @@ ggplot(df, aes(x = type, y = alpha)) +
   theme(legend.position = "none", axis.title.x = element_blank()) +
   ylab("Probability of being a hvCpG") 
 
-reshvCpG[rownames(reshvCpG) %in% c("chr22_27438478-27438479", "chr1_1944364-1944365"),]
-# chr22_27438478-27438479   6.474096e-09 hvCpG Derakhshan
+summary(lm(alpha ~ type, data = df))
+# Coefficients:
+# Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)        0.188740   0.005650  33.406  < 2e-16 ***
+#   typemQTL controls -0.020765   0.007958  -2.609  0.00912 **  
 
-## Test 1 CpG at a time
-system.time(runAndSave(
-  analysis = "mQTLcontrolsv5",
-  cpgPos_vec = which(cpg_names_all %in% "chr22_27438478-27438479"),
-  resultDir = resDir,
-  NCORES = nslots,
-  p0 = 0.80,
-  p1 = 0.65, 
-  batch_size = 1000,
-  dataDir = dataDir)
-)
+testCpGs <- c(rownames(head(df[df$type %in% "hvCpG Derakhshan" & df$alpha < 0.1,],1)),
+  rownames(head(df[df$type %in% "mQTL controls" & df$alpha < 0.1,],1)),
+  rownames(head(df[df$type %in% "hvCpG Derakhshan" & df$alpha > 0.9,],1)),
+  rownames(head(df[df$type %in% "mQTL controls" & df$alpha > 0.9,],1)))
 
-load("~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_mQTLcontrolsv5_1CpGs_0_8p0_0_65p1.RData")
-results_mQTLcontrolsv5_1CpGs_0_8p0_0_65p1
-# alpha
-# chr22_27438478-27438479 0.4418279
+###################################################
+## Check if results make sense based on raw data ##
+source("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/checkRawDataSD.R")
+checkRawDataSD(testCpGs)
+df <- df[rownames(df) %in% testCpGs, ]
+df$alpha <- round(df$alpha, 2)
+df
 
-#### ISSUE WHEN DONE IN BATCHES!!
-head(DerakhshanhvCpGs_positions, 50)
+##############################################################
+## Let's have a look at the surprising values in array data ##
 
-load("~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_hvCpGsMariav5_50CpGs_0_8p0_0_65p1.RData")
-results_hvCpGsMariav5_50CpGs_0_8p0_0_65p1
+## hypo variable in atlas/ hyper in array
+df$probe = dictionary[match(rownames(df), dictionary$hg38),"illu450k"]
 
-head(cbind(head(reshvCpG, 50), results_hvCpGsMariav5_50CpGs_0_8p0_0_65p1),10)
-# alpha      alpha
-# chr1_1944341-1944342     0.4806861 0.48068614
-# chr1_1944364-1944365     0.7561706 0.75617061
-# chr1_41918976-41918977   0.3396265 0.33962655
-# chr1_43007301-43007302   0.5823137 0.58231367
-# chr1_44213119-44213120   0.6402617 0.64026169
-# chr1_58248633-58248634   0.6443377 0.17959387
-# chr1_58577536-58577537   0.5371961 0.55077547
-# chr1_62783528-62783529   0.5018367 0.12677161
-# chr1_62783538-62783539   0.4238029 0.55125701
-
-system.time(runAndSave(
-  analysis = "hvCpGsMariav5",
-  cpg_names_vec = c("chr1_41918976-41918977","chr1_1944341-1944342", "chr1_62783538-62783539"),
-  resultDir = resDir,
-  NCORES = nslots,
-  p0 = 0.80,
-  p1 = 0.65, 
-  batch_size = 1000,
-  dataDir = dataDir, overwrite = T)
-)
-
-load("~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_hvCpGsMariav5_3CpGs_0_8p0_0_65p1.RData")
-results_hvCpGsMariav5_3CpGs_0_8p0_0_65p1
-
-# alpha
-# chr1_1944341-1944342   0.4806861
-# chr1_62783538-62783539 0.4985959
-# chr1_41918976-41918977 0.1795939
-
-load("~/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X_hvCpGandControls/results_hvCpGsMariav5_100CpGs_0_8p0_0_65p1.RData")
-results_hvCpGsMariav5_100CpGs_0_8p0_0_65p1
-
-cbind(head(results_hvCpGsMariav5_100CpGs_0_8p0_0_65p1, 50), results_hvCpGsMariav5_50CpGs_0_8p0_0_65p1)
+df
