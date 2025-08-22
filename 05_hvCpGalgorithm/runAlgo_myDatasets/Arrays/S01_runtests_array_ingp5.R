@@ -68,13 +68,7 @@ results <- bench::press(
 
 print(results)
 
-### 100k CpGs
-#  expression   NCORES batch_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
-#  <bch:expr>    <dbl>      <dbl> <bch> <bch:>     <dbl> <bch:byt>    <dbl> <int>
-#1 run_bench(N…     30      50000  7.4m   7.4m   0.00225        NA     9.15     1
-#2 run_bench(N…     30     100000 7.52m  7.52m   0.00222        NA     9.00     1
-
-### 10kCpGs
+### 4kCpGs
 #  expression   NCORES batch_size   min median `itr/sec` mem_alloc `gc/sec` n_itr
 #1 run_bench(N…     30       5000 8.03m  8.03m   0.00207        NA     7.96     1
 #2 run_bench(N…     30      10000 7.45m  7.45m   0.00224        NA     9.19     1
