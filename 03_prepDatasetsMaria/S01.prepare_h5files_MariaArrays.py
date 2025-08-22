@@ -2,7 +2,7 @@
 """
 - Load .RDS files from two batches (GEO & TCGA)
 - Merge them
-- Save everything into a large HDF5 file (all_scaled_matrix.h5) along with sample names, groups, CpG names, and summary statistics (median_sd, lambda)
+- Save everything into a large HDF5 file (all_matrix_noscale.h5) along with sample names, groups, CpG names, and summary statistics (median_sd, lambda)
 - NB: no logit transform for these ones to stick to Maria's approach
 
 Author: Alice Balard
@@ -23,8 +23,8 @@ folder2 = "/home/alice/tempRDS/"
 output_folder = "/home/alice/arraysh5"
 os.makedirs(output_folder, exist_ok=True)
 
-output_path = os.path.join(output_folder, "all_scaled_matrix.h5")
-metadata_file = os.path.join(output_folder, "all_metadata.tsv")
+output_path = os.path.join(output_folder, "all_matrix_noscale.h5")
+metadata_file = os.path.join(output_folder, "sample_metadata.tsv")
 output_file_medsd_lambda = os.path.join(output_folder, "all_medsd_lambda.tsv")
 
 # --- STEP 1: Load all RDS files ---
@@ -65,8 +65,8 @@ for name, mat, rownames in rds_list_mat:
     all_valid_samples.extend([f"{name}_{i}" for i in range(mat.shape[1])])
 
 h5f = h5py.File(output_path, "w")
-scaled_dset = h5f.create_dataset(
-    "scaled_matrix",
+noscaled_dset = h5f.create_dataset(
+    "matrix",
     shape=(NR_SITES, len(all_valid_samples)),
     dtype="float32",
     compression="gzip"
@@ -92,7 +92,7 @@ for group_name, mat, rownames in rds_list_mat:
     mat_filtered = df_filtered.values.astype(np.float32)
     # Write to HDF5
     n_samples = mat_filtered.shape[1]
-    scaled_dset[:, sample_idx:sample_idx + n_samples] = mat_filtered
+    noscaled_dset[:, sample_idx:sample_idx + n_samples] = mat_filtered
     # Metadata
     for i in range(n_samples):
         sample_name = f"{group_name}_{i}"
@@ -122,7 +122,7 @@ h5f.create_dataset("sample_groups", data=np.array(sample_groups, dtype=dt))
 h5f.create_dataset("cpg_names", data=np.array(sorted_common_cpgs, dtype="S"))
 
 h5f.close()
-print(f"✅ Saved scaled matrix to: {output_path}")
+print(f"✅ Saved matrix to: {output_path}")
 
 # --- STEP 6: Save metadata ---
 meta_df = pd.DataFrame({
