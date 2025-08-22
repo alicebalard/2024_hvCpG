@@ -26,7 +26,7 @@ orig_dataDir="/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/
 cp $orig_dataDir/* $TEMPDIR/. ## Copy in scratch
 
 ## Will be sent to different tasks in an array
-Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/R02.estimAlpha_DerakhvCpGsControls_inAtlas.R $TEMPDIR $SGE_TASK_ID $CHUNK_SIZE
+Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/S02.1_runalgov5_atlas_cscluster.R $TEMPDIR $SGE_TASK_ID $CHUNK_SIZE
 
 ## Rm scratch data
 function finish {
