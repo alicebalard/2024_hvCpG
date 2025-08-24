@@ -104,9 +104,9 @@ summary(lm(alpha ~ type, data = df))
 #   typemQTL controls -0.020765   0.007958  -2.609  0.00912 **  
 
 testCpGs <- c(rownames(head(df[df$type %in% "hvCpG Derakhshan" & df$alpha < 0.1,],1)),
-  rownames(head(df[df$type %in% "mQTL controls" & df$alpha < 0.1,],1)),
-  rownames(head(df[df$type %in% "hvCpG Derakhshan" & df$alpha > 0.9,],1)),
-  rownames(head(df[df$type %in% "mQTL controls" & df$alpha > 0.9,],1)))
+              rownames(head(df[df$type %in% "mQTL controls" & df$alpha < 0.1,],1)),
+              rownames(head(df[df$type %in% "hvCpG Derakhshan" & df$alpha > 0.9,],1)),
+              rownames(head(df[df$type %in% "mQTL controls" & df$alpha > 0.9,],1)))
 
 ###################################################
 ## Check if results make sense based on raw data ##
@@ -123,3 +123,88 @@ df
 df$probe = dictionary[match(rownames(df), dictionary$hg38),"illu450k"]
 
 df
+
+##############################################################################
+## Median SD (& bootstrapped 95% CI) of hvCpGs and controls in all datasets ##
+library(matrixStats)
+library(boot)
+library(dplyr)
+
+sdselected <- function(cpg_indices, B = 1000) {
+  
+  ## Extract sub matrix
+  mat = h5read("~/Documents/Project_hvCpG/10X/all_matrix_noscale.h5", "matrix", 
+               index = list(NULL, cpg_indices))
+  rownames(mat) <- h5read("~/Documents/Project_hvCpG/10X/all_matrix_noscale.h5", "samples")
+  colnames(mat) <- cpg_names_all[cpg_indices]
+  
+  metadata = read.table(file.path(dataDir, "sample_metadata.tsv"), sep = "\t", header = TRUE)
+  
+  results <- metadata %>%
+    group_by(dataset) %>%
+    group_modify(~{
+      samples <- .x$sample
+      submat <- mat[rownames(mat) %in% samples, , drop = FALSE]
+      
+      if (nrow(submat) == 0) {
+        return(tibble(median_sd = NA_real_, lower = NA_real_, upper = NA_real_))
+      }
+      
+      row_sds <- rowSds(as.matrix(submat), na.rm = TRUE)
+      
+      # If all SDs are identical, CI cannot be computed
+      if (length(unique(row_sds)) == 1) {
+        return(tibble(
+          median_sd = unique(row_sds),
+          lower = NA_real_,
+          upper = NA_real_
+        ))
+      }
+      
+      boot_median <- function(data, indices) median(data[indices], na.rm = TRUE)
+      boot_res <- boot(data = row_sds, statistic = boot_median, R = B)
+      
+      ci <- tryCatch(boot.ci(boot_res, type = "perc"), error = function(e) NULL)
+      
+      if (!is.null(ci) && !is.null(ci$percent)) {
+        lower_ci <- ci$percent[4]
+        upper_ci <- ci$percent[5]
+      } else {
+        lower_ci <- NA_real_
+        upper_ci <- NA_real_
+      }
+      
+      tibble(
+        median_sd = median(row_sds, na.rm = TRUE),
+        lower = lower_ci,
+        upper = upper_ci
+      )
+    }) %>%
+    ungroup()
+  results
+}
+
+df <- rbind(data.frame(
+  medianSD = sdselected(cpg_indices = match(DerakhshanhvCpGs_names_filtered, cpg_names_all)),
+  type="hvCpG"),
+  data.frame(
+    medianSD = sdselected(cpg_indices = match(mQTLcontrols_names_filtered, cpg_names_all)),
+    type="mQTLcontrol"))
+
+ggplot(df, aes(x = medianSD.dataset, y = medianSD.median_sd, fill = type)) +
+  geom_pointrange(
+    aes(ymin = medianSD.lower, ymax = medianSD.upper),
+    shape = 21, size = 0.4, stroke = 0.5
+  ) +
+  geom_point(pch = 21, size = 2) +
+  theme_minimal(base_size = 14) + 
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    legend.position = c(0.2, 0.8),
+    legend.box = "horizontal",
+    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+    legend.key = element_rect(fill = "white", color = NA)
+  ) +
+  guides(fill = guide_legend(title = NULL)) +
+  xlab("") +
+  ylab("Median SD ± 95% CI")
