@@ -15,3 +15,8 @@ system.time(runAndSave(analysis = "arrayAll_algov5",
                        dataDir = "/home/alice/arraysh5",
                        resultDir="05_hvCpGalgorithm/resultsDir/Arrays/",
                        p0=0.80, p1=0.65, NCORES=30, batch_size = 10000))
+
+#Saving to file: 05_hvCpGalgorithm/resultsDir/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData
+#💾 Result saved successfully.
+#      user     system    elapsed 
+#797097.912   2733.189  28188.744 
