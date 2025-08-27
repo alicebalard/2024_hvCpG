@@ -1,0 +1,18 @@
+#!/bin/bash
+#$ -N cleanScratch
+#$ -S /bin/bash
+#$ -l tmem=1G
+#$ -l h_vmem=1G
+#$ -l h_rt=01:00:00
+#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
+#$ -R y
+#$ -l tscratch=50G ## use of scratch
+
+echo "**** Job $JOB_NAME started at $(date) ****"
+
+echo "Cleaning up shared scratch for job $JOB_ID"
+rm -rf /scratch0/abalard/${JOB_ID}_shared
+
+trap finish EXIT ERR INT TERM
+
+echo "**** Job $JOB_NAME finished at $(date) ****"
