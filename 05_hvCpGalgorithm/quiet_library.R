@@ -42,8 +42,11 @@ quiet_library_all <- function(pkgs) {
   invisible(lapply(pkgs, quiet_library))
 }
 
-quiet_library_all(c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2", "ggrepel",
+quiet_library_all(c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2", "ggrepel", "scales",
                     "parallel", "rhdf5", "IlluminaHumanMethylation450kanno.ilmn12.hg19", "tidyr", "dplyr",
-                    "rhdf5", "ggplot2", "data.table", "GenomicRanges", "rtracklayer", "stringr"
+                    "rhdf5", "ggplot2", "data.table", "GenomicRanges", "rtracklayer", "stringr",
+                    "progress", "ggrastr", "Cairo", "boot"
 ))
 ## NB: not all libraries are necessary; to clean when packaging
+
+rm(quiet_library_all, quiet_library)

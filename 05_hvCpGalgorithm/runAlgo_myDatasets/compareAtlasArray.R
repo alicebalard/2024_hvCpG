@@ -1,0 +1,158 @@
+#############################################
+## Overlap plot: Atlas (x) vs Array (y)    ##
+#############################################
+setwd("~/Documents/GIT/2024_hvCpG/")
+source("05_hvCpGalgorithm/quiet_library.R")
+
+source("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R")
+hvCpGandControls <- prephvCpGandControls(codeDir = "~/Documents/GIT/2024_hvCpG/")
+
+################################ 
+## --- Prepare Array data --- ##
+################################ 
+load("05_hvCpGalgorithm/resultsDir/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData")
+
+results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1 <- as.data.frame(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
+results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos <- hvCpGandControls$dictionary$hg38[
+  match(rownames(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1), hvCpGandControls$dictionary$illu450k)]
+
+## Indicate the hvCpG of Maria and controls
+results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group <- NA
+results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group[
+  results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos %in% 
+    hvCpGandControls$DerakhshanhvCpGs_names] <- "hvCpG_Derakhshan"
+results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group[
+  results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos %in% 
+    hvCpGandControls$mQTLcontrols_names] <- "mQTLcontrols"
+
+res = results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1
+
+array_dt <- res %>%
+  select(chrpos, alpha, group) %>%
+  dplyr::rename(alpha_array = alpha)
+
+################################ 
+## --- Prepare Atlas data --- ##
+################################
+
+# Define parent folder containing all "Atlas_batchXXX" folders
+parent_dir <- "05_hvCpGalgorithm/resultsDir/Atlas10X/"
+
+# Get list of relevant RData files
+rdata_files <- dir(parent_dir, pattern = "results_Atlas10X_100000CpGs_0_8p0_0_65p1\\.RData$", 
+                   recursive = TRUE, full.names = TRUE)
+
+## Check if all batches have ran
+length(rdata_files) ## 4 so far (27 aug)
+
+all_cpg_values <- numeric()
+pb <- progress_bar$new(total = length(rdata_files), format = "📦 :current/:total [:bar] :percent")
+
+for (file in rdata_files) {
+  e <- new.env()
+  load(file, envir = e)
+  obj <- e[[ls(e)[1]]]
+  if (is.matrix(obj)) obj <- obj[, 1]
+  all_cpg_values <- c(all_cpg_values, obj)
+  pb$tick()
+}
+
+# Create data.table from named vector
+dt <- data.table(
+  name = names(all_cpg_values),
+  alpha = as.numeric(all_cpg_values)
+)
+
+rm(e, pb, all_cpg_values, obj, file, parent_dir, rdata_files)
+
+atlas_dt <- dt[, .(name, alpha_atlas = alpha)]
+setnames(atlas_dt, "name", "chrpos")
+
+## --- Merge by chrpos ---
+merged <- merge(array_dt, atlas_dt, by = "chrpos", all = FALSE)
+
+## Do the alpha correlate?
+mod <- lm(alpha_array~alpha_atlas, data = merged)
+
+summary(mod)
+# alpha_atlas 0.710523   0.016648   42.68   <2e-16 ***
+## --- Plot ---
+pdf("05_hvCpGalgorithm/figures/Atlas_vs_Array_overlap.pdf", width = 6, height = 6)
+ggplot(merged, aes(x = alpha_atlas, y = alpha_array)) +
+  # any relationship between x and y
+  geom_smooth(col="grey")+
+  # linear relationship between both alpha values
+  geom_abline(intercept = mod$coefficients["(Intercept)"], 
+              slope = mod$coefficients["alpha_atlas"], linetype = 2)+
+  # background cloud
+  geom_point(data = merged[is.na(merged$group), ],
+             color = "grey60", alpha = 0.3, size = 0.5) +
+  # hvCpGs (red)
+  geom_point(data = merged[merged$chrpos %in% hvCpGandControls$DerakhshanhvCpGs_names, ],
+             color = "#DC3220", alpha = 0.8, size = 1) +
+  # mQTL controls (blue)
+  geom_point(data = merged[merged$chrpos %in% hvCpGandControls$mQTLcontrols_names, ],
+             color = "#005AB5", alpha = 0.8, size = 1) +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Atlas alpha (probability hvCpG)",
+    y = "Array alpha (probability hvCpG)",
+    title = "Overlap of hvCpG results between Atlas and Array"
+  ) +
+  theme(legend.position = "none")+
+  coord_cartesian(xlim = 0:1, ylim= 0:1)
+dev.off()
+
+## What is the most variable point on chr1?
+merged[merged$alpha_array>0.99 & merged$alpha_atlas>0.99,"chrpos"]
+## chr1_18784484-18784485
+
+## Explore
+cpg_names_all <- rhdf5::h5read("/home/alice/Documents/Project_hvCpG/10X/all_matrix_noscale.h5", "cpg_names")
+
+x <- match(merged[merged$alpha_array>0.99 & merged$alpha_atlas>0.99,"chrpos"], cpg_names_all)
+
+subRawData <- h5read("/home/alice/Documents/Project_hvCpG/10X/all_matrix_noscale.h5",
+                     "matrix", index = list(NULL, x))
+metadata <- read.table("/home/alice/Documents/Project_hvCpG/10X/sample_metadata.tsv", sep ="\t", header = TRUE)
+
+colnames(subRawData) = cpg_names_all[x]
+subRawData <- as.data.frame(subRawData)
+
+subRawData$samples = metadata$sample
+subRawData$sample_groups = metadata$dataset
+
+subRawData <- melt(subRawData)
+
+# Create alternating colors for sample_groups
+group_levels <- unique(subRawData$sample_groups)
+color_values <- rep(c("black", "grey60"), length.out = length(group_levels))
+
+ggplot(subRawData, aes(x = sample_groups, y = value, color = sample_groups)) +
+  geom_point() +
+  scale_color_manual(values = color_values) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    legend.position = "none"  # remove legend if not needed
+  ) +
+  labs(x = "Sample Groups", y = "Value")
+
+# Exclude metadata columns
+num_cols <- setdiff(names(subRawData), c("samples", "sample_groups"))
+
+# Compute SD per group per CpG site
+df_long <- subRawData %>%
+  select(all_of(num_cols), sample_groups) %>%
+  pivot_longer(cols = -sample_groups, names_to = "CpG", values_to = "value") %>%
+  group_by(sample_groups, CpG) %>%
+  summarise(sd = sd(value, na.rm = TRUE), .groups = "drop")
+
+# Histogram of SD distributions per group
+ggplot(df_long, aes(x = sd)) +
+  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+  facet_wrap(~ CpG, scales = "free_y") +
+  theme_minimal() +
+  labs(title = "Distribution of SD per CpG",
+       x = "Standard deviation across samples",
+       y = "Count")
