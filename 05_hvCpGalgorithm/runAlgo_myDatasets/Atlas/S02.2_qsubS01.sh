@@ -1,41 +1,25 @@
 #!/bin/bash
-#$ -N runalgo5_atlas_bychunk
+#$ -N runalgo5_atlas_100k.10T.5G
 #$ -S /bin/bash
-#$ -pe smp 15
-#$ -l tmem=6G
-#$ -l h_vmem=6G
+#$ -pe smp 10
+#$ -l tmem=5G
+#$ -l h_vmem=5G
 #$ -l h_rt=48:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
-#$ -l tscratch=50G ## use of scratch
-#$ -t 1-231 ## For 23,036,026 CpGs in chunks of 100k
-#$ -tc 100
+#$ -t 1-240
 
-CHUNK_SIZE=100000
+CHUNK_SIZE=100000 ## How big are chunks sent to arrays?
+BATCH_SIZE=10000 ## How many CpGs are loaded at the same time?
 
-echo "**** Job $JOB_NAME started at $(date) ****"
+echo "**** Job $JOB_NAME.$SGE_TASK_ID started at $(date) ****"
 
-## Create scratch directory for in/out issues
-mkdir -p /scratch0/abalard/$JOB_ID
+DATA_DIR="/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/"
 
-TEMPDIR="/scratch0/abalard/$JOB_ID"
+Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/S02.1_runalgov5_atlas_cscluster.R "$DATA_DIR" "$SGE_TASK_ID" "$CHUNK_SIZE" "$BATCH_SIZE"
 
-echo "Copy data in scratch..."
+echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"
 
-orig_dataDir="/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/"
-cp $orig_dataDir/* $TEMPDIR/. ## Copy in scratch
-
-## Will be sent to different tasks in an array
-Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/S02.1_runalgov5_atlas_cscluster.R $TEMPDIR $SGE_TASK_ID $CHUNK_SIZE
-
-## Rm scratch data
-function finish {
-    rm -rf $TEMPDIR
-}
-
-trap finish EXIT ERR INT TERM
-
-echo "**** Job $JOB_NAME finished at $(date) ****"
 
 
 
