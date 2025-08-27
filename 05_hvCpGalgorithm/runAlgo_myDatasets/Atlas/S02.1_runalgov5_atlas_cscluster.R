@@ -1,12 +1,14 @@
 #!/usr/bin/env Rscript
 
 args <- commandArgs(trailingOnly = TRUE)
-dataDir <- as.integer(args[1]) ## where the data is
+
+data_dir <- args[1] ## where the data is
 task_id <- as.integer(args[2]) ## which task on the array
 chunk_size <- as.integer(args[3]) ## what is the size of the chunk
+batch_size <- as.integer(args[4]) ## how many CpGs are loaded at once
 
 ## Run on CpGs which are covered in all 46 cells 
-cpg_46 <- read.table(file.path(dataDir, "selected_cpgs_min3_in46_datasets.txt"))$V1
+cpg_46 <- read.table(file.path(data_dir, "selected_cpgs_min3_in46_datasets.txt"))$V1
 
 ## Batch
 start_idx <- (task_id - 1) * chunk_size + 1
@@ -35,10 +37,10 @@ message("Run algo:")
 system.time(runAndSave(
     analysis = "Atlas10X",
     cpg_names_vec = subset_cpgs,
-    dataDir = dataDir,
+    dataDir = data_dir,
     resultDir = result_dir,
     NCORES = myNthreads,
     p0 = 0.80,
     p1 = 0.65,
-    batch_size = 10000)
+    batch_size = batch_size)
 )
