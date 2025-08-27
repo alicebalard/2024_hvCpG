@@ -47,24 +47,39 @@ chr_mid <- res %>%
   group_by(chr) %>%
   summarise(mid = (min(cum_pos) + max(cum_pos)) / 2)
 
-# Alternate background colors
-bg <- chr_sizes %>%
-  mutate(bg_color = rep(c("white", "grey95"), length.out = n()))
+# Assign alternating black/grey per chromosome
+chr_colors <- data.frame(
+  chr = chr_order,
+  point_col = rep(c("black", "grey60"), length.out = length(chr_order))
+)
+
+# Merge with res
+res <- res %>%
+  left_join(chr_colors, by = "chr")
 
 # Plot
-ggplot(res, aes(x = cum_pos, y = alpha, color = chr)) +
-  geom_point(alpha = 0.1, size = 1) +
-  geom_point(data = res[res$group %in% "hvCpG_Derakhshan",],
-             aes(x = cum_pos, y = alpha), pch=21, col = "red")+
-  geom_point(data = res[res$group %in% "mQTLcontrols",],
-             aes(x = cum_pos, y = alpha), pch=21, col = "black")+
-  scale_fill_identity() +
-  scale_color_manual(values = rep(c("steelblue", "darkorange"), length.out = length(chr_order))) +
-  scale_x_continuous(breaks = chr_mid$mid, labels = gsub("chr", "", chr_mid$chr)) +
-  theme_minimal() +
+pdf("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_array.pdf", width = 15, height = 3)
+## colorblind friendly
+ggplot() +
+  geom_point(data = res, aes(x = cum_pos, y = alpha, col = point_col),
+             alpha = 0.1, size = 1) +
+  # Highlight hvCpG
+  geom_point(data = res[res$group %in% "hvCpG_Derakhshan", ],
+             aes(x = cum_pos, y = alpha),
+             col = "#DC3220", alpha = 0.8) +
+  # Highlight mQTL controls
+  geom_point(data = res[res$group %in% "mQTLcontrols", ],
+             aes(x = cum_pos, y = alpha),
+             col = "#005AB5", alpha = 0.8) +
+  scale_color_identity() +
+  scale_x_continuous(breaks = chr_mid$mid,
+                     labels = gsub("chr", "", chr_mid$chr),
+                     expand = c(0, 0)) + ## rm padding
+  theme_minimal(base_size = 14) +
   theme(
     legend.position = "none",
     panel.grid.major.x = element_blank(),
     panel.grid.minor.x = element_blank()
   ) +
-  labs(x = "Chromosome", y = "Probability alpha of being a hvCpG")
+  labs(x = "Chromosome", y = "Probability of being a hvCpG")
+dev.off()

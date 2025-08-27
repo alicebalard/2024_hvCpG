@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
-# 12th August
-# Run algo v5 for hvCpGs and controls, without transformation
+# 27th August
+# Optimise algo v5
 
 ###############################
 message("Define parameters...")
@@ -27,7 +27,7 @@ cpg_46 <- read.table(file.path(dataDir, "selected_cpgs_min3_in46_datasets.txt"))
 #############################
 ## Prep hvCpG and controls ##
 source("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R")
-hvCpGandControls <- prephvCpGandControls(codeDir, cpg_names_all, cpg_46)
+hvCpGandControls <- prephvCpGandControls(codeDir, cpg_46)
 DerakhshanhvCpGs_names_filtered = hvCpGandControls$DerakhshanhvCpGs_names_filtered
 mQTLcontrols_names_filtered = hvCpGandControls$mQTLcontrols_names_filtered
 dictionary <- hvCpGandControls$dictionary

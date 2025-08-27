@@ -1,184 +1,8 @@
-#!/usr/bin/env Rscript
-# 13th August
-# Run algo v5 for hvCpGs and controls, without transformation
-
-source("loadMyLibs.R")
-
-dataDir = "/home/alice/Documents/Project_hvCpG/10X/"
-codeDir = "/home/alice/Documents/GIT/2024_hvCpG/"
-resDir = file.path(codeDir, "05_hvCpGalgorithm/resultsDir/Atlas10X/")
-
-###########################
-message("Load the cpgs...")
-cpg_names_all <- h5read(file.path(dataDir, "all_matrix_noscale.h5"), "cpg_names")
-
-###################################
-## Which are covered in 26 cells ##
-cpg_46 <- read.table(file.path(dataDir, "selected_cpgs_min3_in46_datasets.txt"))$V1
-
-#############################################
-message("Download the chain file for liftover...")
-dir.create(file.path(codeDir, "05_hvCpGalgorithm/dataPrev"), recursive = TRUE, showWarnings = FALSE)
-
-chain_url <- "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz"
-chain_gz <- file.path(codeDir, "05_hvCpGalgorithm/dataPrev/hg19ToHg38.over.chain.gz")
-chain_file <- file.path(codeDir, "05_hvCpGalgorithm/dataPrev/hg19ToHg38.over.chain")
-if (!file.exists(chain_file)) {
-  download.file(chain_url, chain_gz)
-  R.utils::gunzip(chain_gz, destname = chain_file, remove = FALSE)
-}
-chain <- import.chain(chain_file)
-
-## Manifest illumina450k to check arrays
-data(IlluminaHumanMethylation450kanno.ilmn12.hg19)
-anno450k <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
-
-###########################################
-message("Prepare Derakhshan2022_hvCpGs...")
-DerakhshanhvCpGs <- readxl::read_excel(file.path(codeDir, "05_hvCpGalgorithm/dataPrev/Derakhshan2022_4143hvCpGs_450k.xlsx"), sheet = 6, skip = 3)
-
-DerakhshanhvCpGs_GRanges <- GRanges(
-  seqnames = anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"chr"],
-  ranges = IRanges(start = ifelse(anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"] %in% "+",
-                                  anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"],
-                                  anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"] - 1),
-                   end = ifelse(anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"] %in% "+",
-                                anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"] + 1,
-                                anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"])),
-  strand = anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"])
-
-DerakhshanhvCpGs_GRanges_hg38 <- unlist(liftOver(DerakhshanhvCpGs_GRanges, chain))
-length(DerakhshanhvCpGs_GRanges_hg38) == 4143
-
-DerakhshanhvCpGs_names <- paste0(DerakhshanhvCpGs_GRanges_hg38@seqnames, "_", DerakhshanhvCpGs_GRanges_hg38@ranges)
-
-# Restrict to CpGs in cpg_46
-DerakhshanhvCpGs_names_filtered <- DerakhshanhvCpGs_names[DerakhshanhvCpGs_names %in% cpg_46]
-
-# Find positions in cpg_names_all
-DerakhshanhvCpGs_positions <- match(DerakhshanhvCpGs_names_filtered, cpg_names_all)
-
-###############################################
-message("Matching genetic controls to hvCpGs..")
-mQTLcontrols <- read.table(file.path(codeDir, "03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
-
-mQTLcontrols_GRanges <- GRanges(
-  seqnames = anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"chr"],
-  ranges = IRanges(start = ifelse(anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"] %in% "+",
-                                  anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"],
-                                  anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"] - 1),
-                   end = ifelse(anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"] %in% "+",
-                                anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"] + 1,
-                                anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"])),
-  strand = anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"])
-
-mQTLcontrols_GRanges_hg38 <- unlist(liftOver(mQTLcontrols_GRanges, chain))
-
-length(mQTLcontrols_GRanges_hg38) == 3644
-
-mQTLcontrols_names <- paste0(mQTLcontrols_GRanges_hg38@seqnames, "_", mQTLcontrols_GRanges_hg38@ranges)
-
-# Restrict to CpGs in cpg_46
-mQTLcontrols_names_filtered <- mQTLcontrols_names[mQTLcontrols_names %in% cpg_46]
-
-# Find positions in cpg_names_all
-mQTLcontrols_positions <- match(mQTLcontrols_names_filtered, cpg_names_all)
-
-######################
-### Explore results ##
-
-load("/home/alice/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X/results_hvCpGsMariav5_1663CpGs_0_8p0_0_65p1.RData")
-reshvCpG = results_hvCpGsMariav5_1663CpGs_0_8p0_0_65p1; rm(results_hvCpGsMariav5_1663CpGs_0_8p0_0_65p1)
-
-load("/home/alice/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X/results_mQTLcontrolsv5_1474CpGs_0_8p0_0_65p1.RData")
-resControls = results_mQTLcontrolsv5_1474CpGs_0_8p0_0_65p1; rm(results_mQTLcontrolsv5_1474CpGs_0_8p0_0_65p1)
-
-df = rbind(data.frame(alpha = reshvCpG, type = "hvCpG Derakhshan"),
-           data.frame(alpha = resControls, type = "mQTL controls"))
-
-ggplot(df, aes(x = type, y = alpha)) +
-  geom_jitter(aes(fill=type), pch=21, size = 3, alpha = .1)+ 
-  geom_violin(aes(col=type))+
-  geom_boxplot(aes(col=type), width = .1) + 
-  theme_minimal(base_size = 14) +                                                    
-  theme(legend.position = "none", axis.title.x = element_blank()) +
-  ylab("Probability of being a hvCpG") 
-
-summary(lm(alpha~type, df))
-
-head(df)
-
-df[rownames(df) %in% c("chr1_778669-778670", "chr1_1944364-1944365"),]
-
-hist(df$alpha[df$type %in% "hvCpG Derakhshan"], breaks = 100)
-hist(df$alpha[df$type %in% "mQTL controls"], breaks = 100)
-
-
-df[df$alpha < 0.01 & df$type %in% "hvCpG Derakhshan",]
-
-
-# Create matching names for GRanges
-gr_names <- paste0(
-  as.character(seqnames(DerakhshanhvCpGs_GRanges_hg38)), "_",
-  start(DerakhshanhvCpGs_GRanges_hg38), "-", end(DerakhshanhvCpGs_GRanges_hg38)
-)
-
-# Match alpha values to GRanges
-DerakhshanhvCpGs_GRanges_hg38$alpha <- reshvCpG[rownames(reshvCpG) %in% gr_names]
-
-#############################################################
-## Compare values for Derakshan hvCpGs from arrays vs from Atlas 
-
-load(paste0(codeDir, "05_hvCpGalgorithm/resultsDir/Mariads/results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1.RData"))
-Rred3array <- results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1
-
-Rred3array_GRanges <- GRanges(
-  seqnames = anno450k[match(rownames(Rred3array), anno450k$Name),"chr"],
-  ranges = IRanges(start = ifelse(anno450k[match(rownames(Rred3array), anno450k$Name),"strand"] %in% "+",
-                                  anno450k[match(rownames(Rred3array), anno450k$Name),"pos"],
-                                  anno450k[match(rownames(Rred3array), anno450k$Name),"pos"] - 1),
-                   end = ifelse(anno450k[match(rownames(Rred3array), anno450k$Name),"strand"] %in% "+",
-                                anno450k[match(rownames(Rred3array), anno450k$Name),"pos"] + 1,
-                                anno450k[match(rownames(Rred3array), anno450k$Name),"pos"])),
-  strand = anno450k[match(rownames(Rred3array), anno450k$Name),"strand"],
-  alpha = Rred3array)
-
-Rred3array_GRanges$alpha <- Rred3array_GRanges$alpha.alpha
-  
-Rred3array_GRanges_hg38 <- unlist(liftOver(Rred3array_GRanges, chain))
-
-# Find overlapping CpGs
-hits <- findOverlaps(Rred3array_GRanges_hg38, DerakhshanhvCpGs_GRanges_hg38)
-
-# Extract alpha values
-alpha_dt <- data.table(
-  alpha_x = Rred3array_GRanges_hg38$alpha[queryHits(hits)],
-  alpha_y = DerakhshanhvCpGs_GRanges_hg38$alpha[subjectHits(hits)]
-)
-
-# Remove rows with NA values if needed
-alpha_dt <- na.omit(alpha_dt)
-
-cor_val <- cor(alpha_dt$alpha_x, alpha_dt$alpha_y)
-ggplot(alpha_dt, aes(x = alpha_x, y = alpha_y)) +
-  geom_point(alpha = 0.6) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
-  annotate("text", x = 0.05, y = 0.95, hjust = 0, label = paste("r =", round(cor_val, 2))) +
-  labs(
-    x = "Alpha (Rred3array)",
-    y = "Alpha (Derakhshan)"
-  ) +
-  theme_minimal(base_size = 14)
-
-## July 2025
-## A. Balard
-## Plot files for scan Atlas
-
-packages <- c("dplyr", "data.table", "readxl", "progress", "ggplot2",
-              "tidyr", "scales", "viridis", "ggrastr", "Cairo",
-              "genomation", "GenomicRanges", "GenomicFeatures", "boot")
-
-lapply(packages, library, character.only = TRUE)
+#################################################
+## Plot results of algorithm ran on atlas data ##
+#################################################
+setwd("~/Documents/GIT/2024_hvCpG/")
+source("05_hvCpGalgorithm/quiet_library.R")
 
 ## This code does:
 ### I. Histogram of coverage across datasets
@@ -190,8 +14,8 @@ lapply(packages, library, character.only = TRUE)
 ## I. Histogram of coverage across datasets ##
 ##############################################
 
-t5 <- read.table("../04_prepAtlas/CpG_coverage_freqtable5X.tsv", header = T)
-t10 <- read.table("../04_prepAtlas/CpG_coverage_freqtable10X.tsv", header = T)
+t5 <- read.table("04_prepAtlas/CpG_coverage_freqtable5X.tsv", header = T)
+t10 <- read.table("04_prepAtlas/CpG_coverage_freqtable10X.tsv", header = T)
 
 # Add coverage type label
 t5$coverage <- "≥5"
@@ -209,7 +33,7 @@ t_combined <- t_combined %>% group_by(coverage) %>%
 
 options(scipen=0)
 # Plot
-pdf("figures/freqCpGperdataset.pdf", width = 14, height = 4)
+pdf("05_hvCpGalgorithm/figures/freqCpGperdataset.pdf", width = 14, height = 4)
 ggplot(t_combined, aes(x = as.factor(datasets_covered_in), y = nCpGcum, fill = coverage)) +
   geom_col(position = "dodge") +
   scale_y_continuous(
@@ -239,14 +63,14 @@ rm(t_combined, t5, t10)
 ####################################
 
 # Define parent folder containing all "Atlas_batchXXX" folders
-parent_dir <- "resultsDir/Atlas10X"
+parent_dir <- "05_hvCpGalgorithm/resultsDir/Atlas10X/"
 
 # Get list of relevant RData files
 rdata_files <- dir(parent_dir, pattern = "results_Atlas10X_100000CpGs_0_8p0_0_65p1\\.RData$", 
                    recursive = TRUE, full.names = TRUE)
 
 ## Check if all batches have ran
-length(rdata_files) ## 287
+length(rdata_files) ## 4 so far (27 aug)
 
 all_cpg_values <- numeric()
 pb <- progress_bar$new(total = length(rdata_files), format = "📦 :current/:total [:bar] :percent")
@@ -266,14 +90,9 @@ dt <- data.table(
   alpha = as.numeric(all_cpg_values)
 )
 
-################################## *** NEW *** #####################################
-## Select only positions that are covered in all cell types, in at least 3 people ##
-cpgs46M <- read.table("~/Documents/10X/selected_cpgs_min3_in46_datasets.txt")
+rm(e, pb, all_cpg_values, obj, file, parent_dir, rdata_files)
 
-dt <- dt[dt$name %in% cpgs46M$V1,] ## 7th August: 22.6M
-rm(cpgs46M) 
 #######################################################################
-
 # Parse "chr_start-end" in name into chr, start_pos, end_pos. NB: takes a couple of minutes
 dt[, c("chr", "start_end") := tstrsplit(name, "_", fixed = TRUE)]
 dt[, c("start_pos", "end_pos") := tstrsplit(start_end, "-", fixed = TRUE)]
@@ -294,6 +113,15 @@ dt[, chr := factor(chr, levels = as.character(c(1:22, "X", "Y")))]
 message("Chromosomes in the dataset:")
 table(unique(dt$chr))
 
+## Add Maria's results
+source("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R")
+hvCpGandControls <- prephvCpGandControls(codeDir = "~/Documents/GIT/2024_hvCpG/")
+
+## Mark group membership in dt
+dt[, group := NA_character_]
+dt[name %in% hvCpGandControls$DerakhshanhvCpGs_names, group := "hvCpG_Derakhshan"]
+dt[name %in% hvCpGandControls$mQTLcontrols_names, group := "mQTLcontrols"]
+
 # Compute cumulative position offsets for Manhattan plot
 setorder(dt, chr, start_pos)
 
@@ -307,24 +135,38 @@ dt[, cum_offset := as.numeric(cum_offset)]
 dt[, pos2 := start_pos + cum_offset]
 
 # Compute chromosome centers for x-axis labeling
-# df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-# df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y"), levels=as.character(c(1:22, "X", "Y")))),
-#              df2, by = "chr", all.x = TRUE, sort = TRUE)
-# df2 <- na.omit(df2)
-# 
-# plot <- ggplot() +
-#   geom_point_rast(data = dt, aes(x = pos2, y = alpha),
-#                   color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
-#   theme_classic() + theme(legend.position = "none") +
-#   scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr)) +
-#   xlab("Chromosome") +
-#   ylab("pr(Z=1) of being a hvCpG") +
-#   theme_minimal(base_size = 14)
+df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
+df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y"), levels=as.character(c(1:22, "X", "Y")))),
+             df2, by = "chr", all.x = TRUE, sort = TRUE)
+df2 <- na.omit(df2)
+
+plot <- ggplot() +
+  # background cloud
+  geom_point_rast(data = dt[is.na(group)], 
+                  aes(x = pos2, y = alpha),
+                  color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
+  # hvCpG highlights
+  geom_point(data = dt[group == "hvCpG_Derakhshan"],
+             aes(x = pos2, y = alpha),
+             color = "#DC3220", size = 1, alpha = 0.7) +
+  # mQTL controls highlights
+  geom_point(data = dt[group == "mQTLcontrols"],
+             aes(x = pos2, y = alpha),
+             color = "#005AB5", size = 1, alpha = 0.7) +
+  theme_classic() + theme(legend.position = "none") +
+  scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
+  theme_minimal(base_size = 14)
 
 # Save as PDF — rasterization improves performance and file size
-# CairoPDF("figures/ManhattanAlphaPlot.pdf", width = 15, height = 3)
-# print(plot)
-# dev.off()
+CairoPDF("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_atlas.pdf", width = 15, height = 3)
+print(plot)
+dev.off()
+
+
+### TBC
+
 
 #####################################################
 ## III. Test enrichment of features for high alpha ##
@@ -623,43 +465,7 @@ SoCCpGs_GRanges_hg38 <- unlist(liftOver(SoCCpGs_GRanges, chain))
 SoCCpGs_GRanges_hg38 <- getMEdt(gr_cpg, SoCCpGs_GRanges_hg38)
 length(SoCCpGs_GRanges_hg38) # 203 pos
 
-###########################
-## Derakhshan2022_hvCpGs ##
-DerakhshanhvCpGs <- readxl::read_excel("dataPrev/Derakhshan2022_4143hvCpGs_450k.xlsx", sheet = 6, skip = 3)
 
-DerakhshanhvCpGs_GRanges <- GRanges(
-  seqnames = anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"chr"],
-  ranges = IRanges(start = ifelse(anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"] %in% "+",
-                                  anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"],
-                                  anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"] - 1),
-                   end = ifelse(anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"] %in% "+",
-                                anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"] + 1,
-                                anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"pos"])),
-  strand = anno450k[match(DerakhshanhvCpGs$CpG, anno450k$Name),"strand"])
-
-DerakhshanhvCpGs_GRanges_hg38 <- unlist(liftOver(DerakhshanhvCpGs_GRanges, chain))
-## Select only the ones tested for alpha in Atlas
-DerakhshanhvCpGs_GRanges_hg38 <- getMEdt(gr_cpg, DerakhshanhvCpGs_GRanges_hg38)
-length(DerakhshanhvCpGs_GRanges_hg38) # 3430
-
-##########################################
-## Matching genetic controls to hvCpGs  ##
-mQTLcontrols <- read.table("../03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
-
-mQTLcontrols_GRanges <- GRanges(
-  seqnames = anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"chr"],
-  ranges = IRanges(start = ifelse(anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"] %in% "+",
-                                  anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"],
-                                  anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"] - 1),
-                   end = ifelse(anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"] %in% "+",
-                                anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"] + 1,
-                                anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"pos"])),
-  strand = anno450k[match(mQTLcontrols$controlCpG_name, anno450k$Name),"strand"])
-
-mQTLcontrols_GRanges_hg38 <- unlist(liftOver(mQTLcontrols_GRanges, chain))
-## Select only the ones tested for alpha in Atlas
-mQTLcontrols_GRanges_hg38 <- getMEdt(gr_cpg, mQTLcontrols_GRanges_hg38)
-length(mQTLcontrols_GRanges_hg38) # 2929
 
 ####################
 ## Check overlaps ##
@@ -734,366 +540,7 @@ pdf("figures/boxplot_otherMEs.pdf", width = 10, height = 4)
 p
 dev.off()
 
-###################################################################
-## Compare values for Derakshan hvCpGs from arrays vs from Atlas ##
-
-makedtMEset(DerakhshanhvCpGs_GRanges_hg38, "DerakhshanhvCpGs")
-
-Rred3array <- read.table("results_MariasarraysREDUCED_3samples_15datasets_6906CpGs_0_8p0_0_65p1.tsv",
-                         header = T, sep = " ")
-Rred3array_GRanges <- GRanges(
-  seqnames = anno450k[match(Rred3array$CpG, anno450k$Name),"chr"],
-  ranges = IRanges(start = ifelse(anno450k[match(Rred3array$CpG, anno450k$Name),"strand"] %in% "+",
-                                  anno450k[match(Rred3array$CpG, anno450k$Name),"pos"],
-                                  anno450k[match(Rred3array$CpG, anno450k$Name),"pos"] - 1),
-                   end = ifelse(anno450k[match(Rred3array$CpG, anno450k$Name),"strand"] %in% "+",
-                                anno450k[match(Rred3array$CpG, anno450k$Name),"pos"] + 1,
-                                anno450k[match(Rred3array$CpG, anno450k$Name),"pos"])),
-  strand = anno450k[match(Rred3array$CpG, anno450k$Name),"strand"],
-  alpha = Rred3array$alpha,
-  ishvCpG = Rred3array$ishvCpG)
-
-Rred3array_GRanges_hg38 <- unlist(liftOver(Rred3array_GRanges, chain))
-
-# Find overlapping CpGs
-hits <- findOverlaps(Rred3array_GRanges_hg38, DerakhshanhvCpGs_GRanges_hg38)
-
-# Extract alpha values
-alpha_dt <- data.table(
-  alpha_x = Rred3array_GRanges_hg38$alpha[queryHits(hits)],
-  alpha_y = DerakhshanhvCpGs_GRanges_hg38$alpha[subjectHits(hits)]
-)
-
-# Remove rows with NA values if needed
-alpha_dt <- na.omit(alpha_dt)
-
-cor_val <- cor(alpha_dt$alpha_x, alpha_dt$alpha_y)
-ggplot(alpha_dt, aes(x = alpha_x, y = alpha_y)) +
-  geom_point(alpha = 0.6) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
-  annotate("text", x = 0.05, y = 0.95, hjust = 0, label = paste("r =", round(cor_val, 2))) +
-  labs(
-    x = "Alpha (Rred3array)",
-    y = "Alpha (Derakhshan)"
-  ) +
-  theme_minimal(base_size = 14)
-
-###################################################
-## SD in hvCpG and controls per dataset in atlas ##
-
-library(boot)
-library(data.table)
-library(matrixStats)
-
-myrun_batch_boot <- function(batch_size = 10000, cpg_ids, B = 1000) {
-  cpgPos_all <- match(cpg_ids, cpg_names_all)
-  
-  # Prepare result tables
-  datasets <- unique(metadata$dataset)
-  dfres <- data.table(dataset = datasets)
-  boot_res_list <- list()
-  
-  # Preprocess
-  setkey(dfres, dataset)
-  meta_split <- split(metadata, metadata$dataset)
-  dataset_samples <- lapply(meta_split, function(df) df$sample)
-  medsd_dt <- data.table(medsd_lambdas)
-  setkey(medsd_dt, dataset)
-  
-  # Batching
-  batches <- split(cpgPos_all, ceiling(seq_along(cpgPos_all) / batch_size))
-  batchtimer <- 1
-  
-  for (batch in batches) {
-    message(paste0("Processing batch ", batchtimer, " of ", length(batches)))
-    M_block <- source_M_batchCpG(batch)  # Samples x CpGs matrix
-    
-    for (dataset_name in names(dataset_samples)) {
-      samples <- dataset_samples[[dataset_name]]
-      idx <- match(samples, rownames(M_block))
-      idx <- idx[!is.na(idx)]
-      if (length(idx) == 0) next
-      
-      M_ds <- M_block[idx, , drop = FALSE]
-      
-      # SDs for each CpG in this dataset
-      sds <- apply(M_ds, 2, sd, na.rm = TRUE)
-      
-      # Bootstrapped median SD per dataset (pooled per dataset, across CpGs)
-      boot_median <- function(data, indices) {
-        median(data[indices], na.rm = TRUE)
-      }
-      
-      boot_obj <- boot(sds, statistic = boot_median, R = B)
-      ci <- tryCatch(boot.ci(boot_obj, type = "perc"), error = function(e) NULL)
-      if (!is.null(ci) && !is.null(ci$percent)) {
-        lower_ci <- ci$percent[4]
-        upper_ci <- ci$percent[5]
-      } else {
-        lower_ci <- NA
-        upper_ci <- NA
-      }
-      
-      boot_res_list[[dataset_name]] <- data.frame(
-        dataset = dataset_name,
-        median_sd = median(sds, na.rm = TRUE),
-        lower = lower_ci,
-        upper = upper_ci
-      )
-    }
-    batchtimer <- batchtimer + 1
-  }
-  
-  boot_df <- do.call(rbind, boot_res_list)
-  final_df <- merge(dfres, boot_df, by = "dataset", all = TRUE)
-  return(final_df)
-}
-
-df_hvstats_controls <- myrun_batch_boot(
-  batch_size = 10000,
-  cpg_ids = paste0(mQTLcontrols_GRanges_hg38@seqnames, "_", mQTLcontrols_GRanges_hg38@ranges),
-  B = 1000)
-
-df_hvstats_hvCpGs <- myrun_batch_boot(
-  batch_size = 1000,
-  cpg_ids = paste0(DerakhshanhvCpGs_GRanges_hg38@seqnames, "_", DerakhshanhvCpGs_GRanges_hg38@ranges),
-  B = 1000)
-
-## Newly detected hvCpG as a comparison
-df_hvstats_newhvCpGs07 <- myrun_batch_boot(
-  batch_size = 1000,
-  cpg_ids = sample(dt_clean$name[dt_clean$alpha > 0.7 & !is.na(dt_clean$alpha)], 3000),
-  B = 1000)
-
-df <- rbind(df_hvstats_controls %>% mutate(type = "mQTLcontrol"),
-            df_hvstats_hvCpGs %>% mutate(type = "hvCpG (Derakhshan)"),
-            df_hvstats_newhvCpGs07 %>% mutate(type = "3000 purCells-hvCpGs proba 70%+"))
-
-df$type <- factor(df$type, levels = levels(factor(df$type))[c(1,3,2,4,5)])
-
-ggplot(df, aes(x = dataset, y = median_sd, fill = type, col = type)) +
-  geom_pointrange(
-    aes(ymin = lower, ymax = upper),
-    position = position_dodge(width = 1),
-    shape = 21, size = 0.4, stroke = 0.5
-  ) +
-  geom_point(
-    pch = 21, size = 2,
-    position = position_dodge(width = 1)
-  ) +
-  theme_minimal(base_size = 14) + 
-  theme(
-    legend.position = "top",
-    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-    legend.box = "horizontal",
-    legend.background = element_rect(fill = "white", color = "black", size = 0.4),
-    legend.key = element_rect(fill = "white", color = NA)
-  ) +
-  guides(fill = guide_legend(title = NULL), colour = guide_legend(NULL)) +
-  xlab("") +
-  ylab("Median SD ± 95% CI")
-
-## Only hvCpGs of Maria and controls
-df <- rbind(df_hvstats_controls %>% mutate(type = "mQTLcontrol"),
-            df_hvstats_hvCpGs %>% mutate(type = "hvCpG (Derakhshan)"))
-
-ggplot(df,
-       aes(x = dataset, y = median_sd, fill = type, col = type)) +
-  geom_pointrange(
-    aes(ymin = lower, ymax = upper),
-    position = position_dodge(width = 1),
-    shape = 21, size = 0.4, stroke = 0.5
-  ) +
-  geom_point(
-    pch = 21, size = 2,
-    position = position_dodge(width = 1)
-  ) +
-  theme_minimal(base_size = 14) + 
-  theme(
-    legend.position = "top",
-    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-    legend.box = "horizontal",
-    legend.background = element_rect(fill = "white", color = "black", size = 0.4),
-    legend.key = element_rect(fill = "white", color = NA)
-  ) +
-  guides(fill = guide_legend(title = NULL), colour = guide_legend(NULL)) +
-  xlab("") + coord_cartesian(ylim = c(0,2))+
-  ylab("Median SD ± 95% CI")
-
-### Check one example of high alpha CpG, and see the profile
-unlog <- function(x) {
-  odds <- 2^x
-  beta <- odds / (1 + odds)
-  beta
-}
-
-source("../05_hvCpGalgorithm/hvCpG_algorithm_detection_v4scan.R")
-
-library(patchwork)
-
-beta_to_log2M <- function(beta, epsilon = 1e-6) {
-  # Clip beta values for numerical stability
-  beta <- pmin(pmax(beta, epsilon), 1 - epsilon)
-  log2(beta / (1 - beta))
-}
-
-exploreAlgo <- function(x,title){
-  alpha_trace <<- list()
-  
-  ## Prepare data in the environment:
-  prep = prepData("testLocalPC")
-  metadata = prep$metadata
-  medsd_lambdas = prep$medsd_lambdas
-  cpg_names_all = prep$cpg_names_all
-  source_M_1CpG = prep$source_M_1CpG
-  
-  runAndSave(
-    analysis = "testLocalPC",
-    cpgPos_vec = x,
-    resultDir = "~/Documents/Project_hvCpG/RESULT/",
-    NCORES = 1,
-    p0 = 0.80,
-    p1 = 0.65,
-    overwrite = TRUE
-  ) 
-  load("~/Documents/Project_hvCpG/RESULT/results_testLocalPC_1CpGs_0_8p0_0_65p1.RData")
-  message("alpha:")
-  res = results_testLocalPC_1CpGs_0_8p0_0_65p1
-  print(res)
-  
-  cpgRaw = source_M_batchCpG(cpg_indices = x)
-  cpgRaw <- as.data.frame(cpgRaw)
-  cpgRaw$sample <- rownames(cpgRaw)
-  
-  # Reshape to long format: sample, CpG, value
-  long_df <- reshape2::melt(cpgRaw, id.vars = "sample", variable.name = "CpG",
-                            value.name = "value")
-  # Merge with metadata to get dataset info
-  long_df <- left_join(long_df, metadata, by = "sample")
-  
-  # Now plot: dataset on x, value on y
-  p0 <- ggplot(long_df, aes(x = dataset, y = unlog(value))) +
-    geom_point(position = position_jitter(width = 0.01), alpha = 0.7, size = 2) +
-    theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ylab("Raw methylation") + xlab("") +
-    theme(axis.text.x = element_text(size =6)) +
-    facet_wrap(~ CpG, scales = "free_y", ncol = 3)
-  
-  p1 <- ggplot(long_df, aes(x = dataset, y = value)) +
-    geom_point(position = position_jitter(width = 0.01), alpha = 0.7, size = 2) +
-    theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ylab("Logit methylation") + xlab("") +
-    theme(axis.text.x = element_text(size =6)) +
-    facet_wrap(~ CpG, scales = "free_y", ncol = 3)
-  
-  sd_long_df <- long_df %>% group_by(dataset, CpG) %>% 
-    summarise(sdMethyl = sd(value, na.rm = T))
-  
-  sd_long_df <- merge(sd_long_df, medsd_lambdas)
-  sd_long_df$p95 <- sd_long_df$lambda * sd_long_df$median_sd
-  
-  sd_long_df <- sd_long_df[sd_long_df$dataset %in% long_df$dataset,]
-  
-  p2 <- ggplot(sd_long_df, aes(x = dataset)) +
-    geom_segment(aes(
-      x = dataset,
-      xend = dataset,
-      y = median_sd,
-      yend = sdMethyl,
-      color = sdMethyl > p95
-    ),
-    arrow = arrow(length = unit(0.15, "cm")),
-    position = position_jitter(width = 0.2)) +
-    scale_color_manual(values = c("FALSE" = "red", "TRUE" = "green")) +
-    theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
-    xlab("") +
-    facet_wrap(~ CpG, scales = "free_y", ncol = 3) +
-    guides(color = "none") +
-    ggtitle(label = "Up = sd j > median sd j,k", subtitle = "green = top5% var")
-  
-  alpha_df <- do.call(rbind, lapply(alpha_trace, as.data.frame))
-  p3 <- ggplot(alpha_df, aes(x = alpha, y = loglik)) +
-    geom_point() +
-    geom_line() +
-    theme_minimal() +
-    labs(title = "Alpha Optimization Trace",
-         x = expression(alpha),
-         y = "Log-likelihood")
-  
-  clip_and_logit <- function(beta, epsilon = 0.01) {
-    beta <- pmin(pmax(beta, epsilon), 1 - epsilon)
-    log2(beta / (1 - beta))
-  }
-  
-  p4 <- ggplot(long_df, aes(x = dataset, y = clip_and_logit(unlog(value)))) +
-    geom_point(position = position_jitter(width = 0.01), alpha = 0.7, size = 2) +
-    theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ylab("Clipped THEN logit methylation") + xlab("") +
-    theme(axis.text.x = element_text(size =6)) +
-    facet_wrap(~ CpG, scales = "free_y", ncol = 3)
-  
-  layout <- (p0 / p1) | (p2 / p3/p4)
-  print(layout)
-  print(table(sd_long_df$sdMethyl > sd_long_df$thr))
-}
-
-# a hvCpG:
-exploreAlgo(x = match(paste0(DerakhshanhvCpGs_GRanges_hg38@seqnames, "_", DerakhshanhvCpGs_GRanges_hg38@ranges)[4],
-                      cpg_names_all), title = "a hvCpG from Maria")
-
-# a high alpha
-exploreAlgo(x = match(dt_clean$name[dt_clean$alpha > 0.9 & !is.na(dt_clean$alpha)] %>% head(2) %>% tail(1),
-                      cpg_names_all), title = "a CpG with high alpha")
-
-# a low alpha
-exploreAlgo(x = match(dt_clean$name[dt_clean$alpha < 0.1 & !is.na(dt_clean$alpha)] %>% head(3) %>% tail(1),
-                      cpg_names_all), title = "a CpG with low alpha")
 
 
 
-exploreAlgo(x = 57175, title = "a hvCpG from Maria")
 
-
-
-# a high alpha that should be low 
-exploreAlgo(x = match(dt_clean$name[dt_clean$alpha > 0.9 & !is.na(dt_clean$alpha)] %>% head(2) %>% tail(1),
-                      cpg_names_all), title = "a CpG with high alpha")
-
-## To log to match lambda 
-
-## Find variable CpGs in data
-findVar <- function(x){
-  
-  layout <- (p1 / p2 )
-  print(layout)
-}
-
-findVar(85300)
-
-match(dt_clean$name, cpg_names_all) %>% head
-cpg_names_all[244] #  [1] 13344 20890 20896 20940 48812* 48813 49062 57175** 57177 85300
-
-match(paste0(DerakhshanhvCpGs_GRanges_hg38@seqnames, "_", 
-             DerakhshanhvCpGs_GRanges_hg38@ranges)[1:10],
-      cpg_names_all)
-
-# ➤ A CpG with low variation across datasets but high alpha
-# In few datasets, the data may still slightly favor the hvCpG model (e.g., by chance).
-# 
-# Even a small deviation from expected variability under the null could make the alternative statistically better, just because there’s so little data to contradict it.
-# 
-# With only 2–3 datasets, the log-likelihood difference needed to swing toward hvCpG can be small.
-# 
-# ➤ A CpG with lots of variability but low alpha
-# Even if variability is high, if it is consistent across datasets, the model could conclude that it’s intrinsically noisy, not heterogeneous across datasets.
-# 
-# That would support a CpG model, not a hvCpG one.
-# 
-# Alpha will stay low because the more datasets you have, the stronger evidence you need to say "this CpG is inconsistent across datasets."
-
-
-beta_to_log2M(0)
