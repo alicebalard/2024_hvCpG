@@ -83,3 +83,44 @@ ggplot() +
   ) +
   labs(x = "Chromosome", y = "Probability of being a hvCpG")
 dev.off()
+
+###################################################################
+## Calculate proba hvCpG minus matching control: is it always +? ##
+
+data <- read.table(file.path(codeDir = "~/Documents/GIT/2024_hvCpG/", "03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
+
+x = hvCpGandControls$dictionary$hg38[match(data$hvCpG_name, hvCpGandControls$dictionary$illu450k)]
+y = hvCpGandControls$dictionary$hg38[match(data$controlCpG_name, hvCpGandControls$dictionary$illu450k)]
+
+# Build mapping from hvCpG -> control
+pairs <- data.frame(
+  hvCpG = x,
+  control = y,
+  stringsAsFactors = FALSE
+)
+
+# Merge hvCpG alphas
+hv_alpha <- res[, c("chrpos", "alpha")]
+colnames(hv_alpha) <- c("hvCpG", "alpha_hvCpG")
+
+# Merge control alphas
+ctrl_alpha <- res[, c("chrpos", "alpha")]
+colnames(ctrl_alpha) <- c("control", "alpha_control")
+
+# Join everything
+merged <- pairs %>%
+  left_join(hv_alpha, by = "hvCpG") %>%
+  left_join(ctrl_alpha, by = "control") %>%
+  mutate(diffAlpha=alpha_hvCpG-alpha_control)
+
+pdf("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInArray.pdf", width = 4, height = 5)
+ggplot(merged, aes(x="diff", y=diffAlpha))+
+  geom_jitter(data=merged[merged$diffAlpha>=0,], col="#005AB5", alpha=.5)+
+  geom_jitter(data=merged[merged$diffAlpha<0,], col="#DC3220", alpha=.5)+
+  geom_violin(width=.5, fill = "grey", alpha=.8) +
+  geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
+  theme_minimal(base_size = 14)+
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
+  ggtitle("P(hvCpG) minus P(matching control) in array")+
+  ylab("Difference of probability")
+dev.off()
