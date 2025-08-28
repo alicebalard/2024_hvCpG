@@ -115,8 +115,8 @@ merged <- pairs %>%
 
 pdf("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInArray.pdf", width = 4, height = 5)
 ggplot(merged, aes(x="diff", y=diffAlpha))+
-  geom_jitter(data=merged[merged$diffAlpha>=0,], col="#005AB5", alpha=.5)+
-  geom_jitter(data=merged[merged$diffAlpha<0,], col="#DC3220", alpha=.5)+
+  geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
+  geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
   geom_violin(width=.5, fill = "grey", alpha=.8) +
   geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
   theme_minimal(base_size = 14)+
