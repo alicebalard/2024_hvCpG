@@ -35,6 +35,10 @@ system.time(runAndSave_fast(
   dataDir = dataDir, overwrite = T)
 )
 
+## 100 CpGs
+## 75.046 
+## now 68.505
+
 load("05_hvCpGalgorithm/resultsDir/Atlas10X_test/results_test_100CpGs_0_8p0_0_65p1.RData")
 head(results_test_100CpGs_0_8p0_0_65p1,10)
 # alpha

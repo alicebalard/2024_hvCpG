@@ -103,7 +103,26 @@ ggplot(merged, aes(x = alpha_atlas, y = alpha_array)) +
   coord_cartesian(xlim = 0:1, ylim= 0:1)
 dev.off()
 
-## What is the most variable point on chr1?
+## Plot the difference between both
+merged <- merged %>% mutate(diffArrayMinusAlpha=alpha_array- alpha_atlas)
+
+pdf("05_hvCpGalgorithm/figures/Atlas_vs_Array_overlap_fig2.pdf", width = 5, height = 5)
+ggplot(merged, aes(x=group, y=diffArrayMinusAlpha))+
+  geom_jitter(data=merged[!merged$group %in% c("hvCpG_Derakhshan", "mQTLcontrols"),], col="grey", alpha=.5)+
+  geom_jitter(data=merged[merged$group %in% "hvCpG_Derakhshan",], col="#DC3220", alpha=.5)+
+  geom_jitter(data=merged[merged$group %in% "mQTLcontrols",], col="#005AB5", alpha=.5)+
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"))+
+  geom_violin(aes(fill = group), width=.5, alpha=.8) +
+  geom_boxplot(aes(fill = group), width=0.1, color="black", alpha=0.8) +
+  theme_minimal(base_size = 14)+
+  theme(legend.position =  "none", axis.title.x = element_blank(), title = element_text(size=10))+
+  ggtitle("P(array) minus P(atlas)")+
+  ylab("Difference of probability of being hypervariable")
+dev.off()
+
+##############################################
+## What is the most variable point on chr1? ##
+##############################################
 merged[merged$alpha_array>0.99 & merged$alpha_atlas>0.99,"chrpos"]
 ## chr1_18784484-18784485
 
