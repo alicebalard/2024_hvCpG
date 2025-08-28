@@ -212,22 +212,29 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
     # Reorder rows to match metadata
     M_batch <- M_batch[metadata$sample, , drop = FALSE]
     
-    # Process CpGs in parallel
-    batch_results <- mclapply(seq_along(batches[[b]]), function(i) {
-      Mdf <- M_batch[, i, drop = FALSE]
-      cpg_name <- colnames(Mdf)
-      
-      # Require at least 3 datasets with data
-      if (length(table(setNames(metadata$dataset, metadata$sample)[names(Mdf[!is.na(Mdf), ])])) < 3) {
-        return(NA_real_)
-      }
-      
-      result <- tryCatch({
-        runOptim1CpG_fast(Mdf = Mdf, metadata = metadata, medsd_lambdas = medsd_lambdas, p0 = p0, p1 = p1)
-      }, error = function(e) NA_real_)
-      
-      return(result)
+    sample_to_dataset <- setNames(metadata$dataset, metadata$sample)
+    
+    # NEW: Split CpGs into chunks (not one per worker)
+    idx_split <- split(seq_len(ncol(M_batch)), cut(seq_len(ncol(M_batch)), NCORES, labels = FALSE))
+    
+    # Run in parallel over chunks
+    chunk_results <- mclapply(idx_split, function(idx) {
+      sapply(idx, function(i) {
+        Mdf <- M_batch[, i, drop = FALSE]
+        
+        # Require at least 3 datasets with data
+        datasets_present <- unique(sample_to_dataset[names(Mdf[!is.na(Mdf), ])])
+        if (length(datasets_present) < 3) return(NA_real_)
+        
+        res <- tryCatch(
+          runOptim1CpG_fast(Mdf = Mdf, metadata = metadata, medsd_lambdas = medsd_lambdas, p0 = p0, p1 = p1),
+          error = function(e) NA_real_
+        )
+        return(res)
+      })
     }, mc.cores = NCORES)
+    
+    batch_results <- unlist(chunk_results, use.names = FALSE)
     
     # Store results (original positions)
     all_results[match(batches[[b]], cpg_indices)] <- batch_results
