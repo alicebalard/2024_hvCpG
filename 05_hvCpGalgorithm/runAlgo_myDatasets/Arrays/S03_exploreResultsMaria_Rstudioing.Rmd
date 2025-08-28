@@ -226,12 +226,12 @@ ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
 ```{r}
 library(boot)
 
-sdselected <- function(cpglist, B = 1000) {
+sdselected <- function(cpglist, B = 1000, select3 = FALSE) {
   results <- lapply(names(rds_list_mat), function(dataset_name) {
     k <- rds_list_mat[[dataset_name]]
     mat <- as.matrix(k[rownames(k) %in% cpglist, ])
     
-    if (nrow(mat) == 0) {
+    if (nrow(mat) == 0 || ncol(mat) < 3) {
       return(data.frame(
         dataset = dataset_name,
         median_sd = NA,
@@ -239,6 +239,12 @@ sdselected <- function(cpglist, B = 1000) {
         upper = NA
       ))
     }
+    
+    if (select3){
+      # randomly sample 3 individuals (columns)
+      selected_cols <- sample(seq_len(ncol(mat)), 3)
+      mat <- mat[, selected_cols, drop = FALSE]
+    }    
     
     row_sds <- rowSds(mat, na.rm = TRUE)
     
@@ -286,13 +292,46 @@ ggplot(df, aes(x = medianSD.dataset, y = medianSD.median_sd, fill = type)) +
     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
     legend.position = c(0.8, 0.85),
     legend.box = "horizontal",
-    legend.background = element_rect(fill = "white", color = "black", size = 0.4),
+    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
     legend.key = element_rect(fill = "white", color = NA)
   ) +
   guides(fill = guide_legend(title = NULL)) +
   xlab("") +
-  ylab("Median SD ± 95% CI")
+  ylab("Median SD ± 95% CI")+
+  ggtitle("Array. All individuals")
 ```
+
+## Same but we select 3 individuals randomly per dataset
+
+```{r}
+set.seed(1234)
+df2 <- rbind(data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name,
+                                             select3 = TRUE), type="hvCpG"),
+            data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, 
+                                             select3 = TRUE), type="mQTLcontrol"))
+
+ggplot(df2, aes(x = medianSD.dataset, y = medianSD.median_sd, fill = type)) +
+  geom_pointrange(
+    aes(ymin = medianSD.lower, ymax = medianSD.upper),
+    shape = 21, size = 0.4, stroke = 0.5
+  ) +
+  geom_point(pch = 21, size = 2) +
+  theme_minimal(base_size = 14) + 
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    legend.position = c(0.8, 0.85),
+    legend.box = "horizontal",
+    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+    legend.key = element_rect(fill = "white", color = NA)
+  ) +
+  guides(fill = guide_legend(title = NULL)) +
+  xlab("") +
+  ylab("Median SD ± 95% CI")+
+  ggtitle("Array. 3 individuals randomly selected per dataset")
+```
+
+
+
 
 # Maximum likelihood analysis
 
