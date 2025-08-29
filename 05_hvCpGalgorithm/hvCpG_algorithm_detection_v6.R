@@ -51,8 +51,7 @@ quiet_library_all <- function(pkgs) {
 
 quiet_library_all(c("dplyr", "data.table", "matrixStats", "reshape2", "ggrepel",
                     "parallel", "rhdf5", "IlluminaHumanMethylation450kanno.ilmn12.hg19", "tidyr", 
-                    "ggplot2", "GenomicRanges", "rtracklayer", "HDF5Array"
-))
+                    "ggplot2", "GenomicRanges", "rtracklayer"))
 ## NB: not all libraries are necessary; to clean when packaging
 
 ###############
@@ -139,30 +138,30 @@ getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, dataset_groups, ds_pa
 ## Optimisation per CpG ##
 ################################
 
-runOptim1CpG_fast <- function(Mdf, metadata, dataset_groups, ds_params, p0, p1) {
-  start_alphas <- c(0.25, 0.75) # two starting points
-  results <- lapply(start_alphas, function(start_alpha) {
-    resOpt <- optim(
-      par = start_alpha,
-      fn = function(alpha) {
-        getLogLik_oneCpG_optimized_fast(
-          Mdf = Mdf,
-          metadata = metadata,
-          dataset_groups = dataset_groups,
-          ds_params = ds_params,
-          p0 = p0,
-          p1 = p1,
-          alpha = alpha
-        )
-      },
-      method = "Brent",
-      lower = 0, upper = 1,
-      control = list(fnscale = -1)
-    )
-    list(par = resOpt$par, value = resOpt$value)
-  })
-  best_idx <- which.max(sapply(results, function(x) x$value))
-  return(results[[best_idx]]$par)
+runOptim1CpG_gridrefine <- function(Mdf, metadata, dataset_groups, ds_params, p0, p1) {
+  # Step 1. Coarse grid search (0, 0.05, 0.1...)
+  grid <- seq(0, 1, length.out = 21)
+  logliks <- vapply(grid, function(a) {
+    getLogLik_oneCpG_optimized_fast(Mdf, metadata, dataset_groups, ds_params, p0, p1, a)
+  }, numeric(1))
+  
+  best_idx <- which.max(logliks)
+  alpha_start <- grid[best_idx]
+
+  # Step 2. Local refinement with Brent, only in neighborhood
+  lower <- ifelse(best_idx == 1, 0, grid[best_idx - 1])
+  upper <- ifelse(best_idx == length(grid), 1, grid[best_idx + 1])
+  
+  resOpt <- optim(
+    par = alpha_start,
+    fn = function(alpha) {
+      getLogLik_oneCpG_optimized_fast(Mdf, metadata, dataset_groups, ds_params, p0, p1, alpha)
+    },
+    method = "Brent",
+    lower = lower, upper = upper,
+    control = list(fnscale = -1)
+  )
+  return(resOpt$par)
 }
 
 #########################################
@@ -185,10 +184,7 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
   
   ## Build a list of row indices grouped by dataset
   dataset_groups <- split(seq_len(nrow(metadata)), metadata$dataset)
-  
-  # Treat HDF5 as delayed matrix
-  mat <- HDF5Array(h5file, "matrix")
-  
+
   # Read sample names once
   samples <- h5read(h5file, "samples")
   
@@ -210,19 +206,24 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
       b, length(batches), length(batches[[b]]), Sys.time()
     ))
     
-    # Load block of matrix (samples × CpGs)
-    M_batch <- as.matrix(mat[, batches[[b]]])
+    # Load block of matrix (samples × CpGs) with rhdf5::h5read direct slice
+    col_batches <- batches[[b]]
+    M_batch <- h5read(
+      file   = h5file,
+      name   = "matrix",
+      index  = list(NULL, col_batches)  # NULL = all rows, subset columns
+    )
     
     # Assign dimnames
     rownames(M_batch) <- samples
-    colnames(M_batch) <- cpg_names_all[batches[[b]]]
+    colnames(M_batch) <- cpg_names_all[col_batches]
     
     # Reorder rows to match metadata
     M_batch <- M_batch[metadata$sample, , drop = FALSE]
     
     sample_to_dataset <- setNames(metadata$dataset, metadata$sample)
     
-    # NEW: Split CpGs into chunks (not one per worker)
+    # Split CpGs into chunks (not one per worker)
     idx_split <- split(seq_len(ncol(M_batch)), cut(seq_len(ncol(M_batch)), NCORES, labels = FALSE))
     
     # Run in parallel over chunks
@@ -235,7 +236,7 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
         if (length(datasets_present) < 3) return(NA_real_)
         
         res <- tryCatch(
-          runOptim1CpG_fast(Mdf = Mdf, metadata = metadata, dataset_groups = dataset_groups,
+          runOptim1CpG_gridrefine(Mdf = Mdf, metadata = metadata, dataset_groups = dataset_groups,
                             ds_params = ds_params, p0 = p0, p1 = p1),
           error = function(e) NA_real_
         )
