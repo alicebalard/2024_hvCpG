@@ -26,7 +26,7 @@ resDir = file.path(codeDir, "05_hvCpGalgorithm/resultsDir/Atlas10X_test/")
 
 system.time(runAndSave_fast(
   analysis = "test",
-  cpg_names_vec = head(cpg_46,1000),
+  cpg_names_vec = head(cpg_46,100),
   resultDir = resDir,
   NCORES = 5,
   p0 = 0.80,
@@ -40,8 +40,8 @@ system.time(runAndSave_fast(
 ## now 68.505
 ## and 82
 
-load("05_hvCpGalgorithm/resultsDir/Atlas10X_test/results_test_1000CpGs_0_8p0_0_65p1.RData")
-results_test_1000CpGs_0_8p0_0_65p1
+load("05_hvCpGalgorithm/resultsDir/Atlas10X_test/results_test_100CpGs_0_8p0_0_65p1.RData")
+head(results_test_100CpGs_0_8p0_0_65p1,10)
 # alpha
 # chr1_17452-17453   1.230424e-0
 # chr1_17478-17479   6.474096e-09
