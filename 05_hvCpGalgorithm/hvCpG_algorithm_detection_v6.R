@@ -89,7 +89,7 @@ prepData <- function(analysis, dataDir) {
 ## Likelihood function for a given CpG j ##
 ###########################################
 
-getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, ds_params, p0, p1, alpha) {
+getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, dataset_groups, ds_params, p0, p1, alpha) {
   
   samples <- metadata$sample
   datasets <- unique(metadata$dataset)
@@ -101,11 +101,7 @@ getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, ds_params, p0, p1, al
   log_P_Mj <- 0
   
   for (k in datasets) {
-    # Dataset-specific samples
-    samples_in_k <- samples[metadata$dataset == k]
-    samples_in_M <- intersect(samples_in_k, rownames(Mdf))
-    
-    Mij_vals <- as.numeric(Mdf[samples_in_M, , drop = FALSE])
+    Mij_vals <- as.numeric(Mdf[dataset_groups[[k]], , drop = FALSE])
     if (length(Mij_vals) < 3 || all(is.na(Mij_vals))) next
     
     # Precompute mean and SDs
@@ -143,7 +139,7 @@ getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, ds_params, p0, p1, al
 ## Optimisation per CpG ##
 ################################
 
-runOptim1CpG_fast <- function(Mdf, metadata, ds_params, p0, p1) {
+runOptim1CpG_fast <- function(Mdf, metadata, dataset_groups, ds_params, p0, p1) {
   start_alphas <- c(0.25, 0.75) # two starting points
   results <- lapply(start_alphas, function(start_alpha) {
     resOpt <- optim(
@@ -152,6 +148,7 @@ runOptim1CpG_fast <- function(Mdf, metadata, ds_params, p0, p1) {
         getLogLik_oneCpG_optimized_fast(
           Mdf = Mdf,
           metadata = metadata,
+          dataset_groups = dataset_groups,
           ds_params = ds_params,
           p0 = p0,
           p1 = p1,
@@ -185,6 +182,9 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
                   sd1 = pmax(lambda * median_sd, 1e-4)) %>%
     as.data.frame()
   rownames(ds_params) = ds_params$dataset
+  
+  ## Build a list of row indices grouped by dataset
+  dataset_groups <- split(seq_len(nrow(metadata)), metadata$dataset)
   
   # Treat HDF5 as delayed matrix
   mat <- HDF5Array(h5file, "matrix")
@@ -235,7 +235,8 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
         if (length(datasets_present) < 3) return(NA_real_)
         
         res <- tryCatch(
-          runOptim1CpG_fast(Mdf = Mdf, metadata = metadata, ds_params = ds_params, p0 = p0, p1 = p1),
+          runOptim1CpG_fast(Mdf = Mdf, metadata = metadata, dataset_groups = dataset_groups,
+                            ds_params = ds_params, p0 = p0, p1 = p1),
           error = function(e) NA_real_
         )
         return(res)
