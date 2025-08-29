@@ -35,6 +35,8 @@ system.time(runAndSave_fast(
   dataDir = dataDir, overwrite = T)
 )
 
+# Build a list of row indices grouped by dataset
+
 ## 100 CpGs
 ## 75.046 
 ## now 68.505
@@ -72,3 +74,7 @@ head(results_test_100CpGs_0_8p0_0_65p1,10)
 # 24.967 
 # 24.161 
 #19.087 
+
+metadata <- read.table("~/Documents/Project_hvCpG/10X/sample_metadata.tsv", sep = "\t", header = TRUE)
+
+dataset_groups <- split(seq_len(nrow(metadata)), metadata$dataset)
