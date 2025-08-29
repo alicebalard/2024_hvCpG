@@ -89,7 +89,7 @@ prepData <- function(analysis, dataDir) {
 ## Likelihood function for a given CpG j ##
 ###########################################
 
-getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1, alpha) {
+getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, ds_params, p0, p1, alpha) {
   
   samples <- metadata$sample
   datasets <- unique(metadata$dataset)
@@ -110,14 +110,14 @@ getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1
     
     # Precompute mean and SDs
     mu_jk <- mean(Mij_vals, na.rm = TRUE)
-    sd_k <- medsd_lambdas$median_sd[medsd_lambdas$dataset == k]
-    lambda_k <- medsd_lambdas$lambda[medsd_lambdas$dataset == k]
-    sd_values <- pmax(c(sd_k, lambda_k * sd_k), 1e-4)
     
+    ## Cal precomputed sds for both cases
+    params =  ds_params[k, ]
+
     # Vectorized density per mixture component
     norm_probs <- matrix(0, nrow = length(Mij_vals), ncol = 2)
-    norm_probs[,1] <- dnorm(Mij_vals, mu_jk, sd_values[1])
-    norm_probs[,2] <- dnorm(Mij_vals, mu_jk, sd_values[2])
+    norm_probs[,1] <- dnorm(Mij_vals, mu_jk, params$sd0)
+    norm_probs[,2] <- dnorm(Mij_vals, mu_jk, params$sd1)
     
     # Compute zjk_probs safely
     zjk_probs <- array(0, dim = c(length(Mij_vals), 2, 2))
@@ -143,7 +143,7 @@ getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1
 ## Optimisation per CpG ##
 ################################
 
-runOptim1CpG_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1) {
+runOptim1CpG_fast <- function(Mdf, metadata, ds_params, p0, p1) {
   start_alphas <- c(0.25, 0.75) # two starting points
   results <- lapply(start_alphas, function(start_alpha) {
     resOpt <- optim(
@@ -152,7 +152,7 @@ runOptim1CpG_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1) {
         getLogLik_oneCpG_optimized_fast(
           Mdf = Mdf,
           metadata = metadata,
-          medsd_lambdas = medsd_lambdas,
+          ds_params = ds_params,
           p0 = p0,
           p1 = p1,
           alpha = alpha
@@ -174,9 +174,17 @@ runOptim1CpG_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1) {
 
 getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, prep, batch_size = 1000) {
   metadata       <- prep$metadata
-  medsd_lambdas  <- prep$medsd_lambdas
   cpg_names_all  <- prep$cpg_names_all
   h5file         <- prep$h5file
+  medsd_lambdas  <- prep$medsd_lambdas
+  
+  ## Precompute dataset-level parameters
+  ds_params = medsd_lambdas %>%
+    dplyr::select(dataset, median_sd, lambda) %>%
+    dplyr::mutate(sd0 = pmax(median_sd, 1e-4),
+                  sd1 = pmax(lambda * median_sd, 1e-4)) %>%
+    as.data.frame()
+  rownames(ds_params) = ds_params$dataset
   
   # Treat HDF5 as delayed matrix
   mat <- HDF5Array(h5file, "matrix")
@@ -227,7 +235,7 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
         if (length(datasets_present) < 3) return(NA_real_)
         
         res <- tryCatch(
-          runOptim1CpG_fast(Mdf = Mdf, metadata = metadata, medsd_lambdas = medsd_lambdas, p0 = p0, p1 = p1),
+          runOptim1CpG_fast(Mdf = Mdf, metadata = metadata, ds_params = ds_params, p0 = p0, p1 = p1),
           error = function(e) NA_real_
         )
         return(res)

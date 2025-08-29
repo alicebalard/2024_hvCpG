@@ -13,7 +13,7 @@ setwd(codeDir)
 
 ##################################
 message("Source the algorithm...")
-source(file.path(codeDir, "05_hvCpGalgorithm/hvCpG_algorithm_detection_v5batches.R"))
+source(file.path(codeDir, "05_hvCpGalgorithm/hvCpG_algorithm_detection_v6.R"))
 
 ###########################
 message("Load the cpgs which are covered in 26 cells...")
@@ -54,6 +54,11 @@ head(results_test_100CpGs_0_8p0_0_65p1,10)
 # chr1_127492-127493 3.011410e-01
 
 # elapsed
+# 1000CpGs
+# 1329.36sec
+
+1329.36/1000*100000/60/60
+
 # 33.187 
 # 17.305 
 # 17.592
