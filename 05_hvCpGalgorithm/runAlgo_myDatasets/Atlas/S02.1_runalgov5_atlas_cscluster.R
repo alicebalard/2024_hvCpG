@@ -27,14 +27,14 @@ dir.create(result_dir, recursive = TRUE, showWarnings = FALSE)
 message(paste0("If new, results will be saved in dir: ", result_dir))
 
 ## Load algorithm
-source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v5batches.R")
+source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v6.R")
 
 ## Run
 myNthreads <- as.numeric(Sys.getenv("NSLOTS", unset = "1"))  # Use all cores
 
 message("Run algo:")
 
-system.time(runAndSave(
+system.time(runAndSave_fast(
     analysis = "Atlas10X",
     cpg_names_vec = subset_cpgs,
     dataDir = data_dir,
