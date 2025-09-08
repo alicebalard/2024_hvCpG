@@ -14,6 +14,8 @@ prephvCpGandControls <- function(codeDir, cpg_46=FALSE){
   anno450k <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
   
   message("Make a dictionary to link 450k probe names to hg19 and hg38 positions...")
+  options(scipen = 999)   # large penalty against scientific notation
+  
   # Preserve probe IDs when building hg19_GRanges
   hg19_GRanges <- GRanges(
     seqnames = anno450k$chr,
@@ -50,7 +52,7 @@ prephvCpGandControls <- function(codeDir, cpg_46=FALSE){
   mQTLcontrols_names <- dictionary[match(data$controlCpG_name, dictionary$illu450k), "hg38"]
   
   if (cpg_46 == FALSE){
-    return(list(dictionary = dictionary,
+    return(list(chain = chain, dictionary = dictionary,
                 DerakhshanhvCpGs_names = DerakhshanhvCpGs_names, 
                 mQTLcontrols_names = mQTLcontrols_names))
   } else {
@@ -58,7 +60,7 @@ prephvCpGandControls <- function(codeDir, cpg_46=FALSE){
     DerakhshanhvCpGs_names_filtered <- DerakhshanhvCpGs_names[DerakhshanhvCpGs_names %in% cpg_46]
     mQTLcontrols_names_filtered <- mQTLcontrols_names[mQTLcontrols_names %in% cpg_46]
     
-    return(list(dictionary = dictionary,
+    return(list(chain = chain, dictionary = dictionary, 
                 DerakhshanhvCpGs_names_filtered = DerakhshanhvCpGs_names_filtered, 
                 mQTLcontrols_names_filtered = mQTLcontrols_names_filtered))
   }

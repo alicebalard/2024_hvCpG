@@ -51,8 +51,7 @@ quiet_library_all <- function(pkgs) {
 
 quiet_library_all(c("dplyr", "data.table", "matrixStats", "reshape2", "ggrepel",
                     "parallel", "rhdf5", "IlluminaHumanMethylation450kanno.ilmn12.hg19", "tidyr", 
-                    "ggplot2", "GenomicRanges", "rtracklayer", "HDF5Array"
-))
+                    "ggplot2", "GenomicRanges", "rtracklayer"))
 ## NB: not all libraries are necessary; to clean when packaging
 
 ###############
@@ -89,7 +88,7 @@ prepData <- function(analysis, dataDir) {
 ## Likelihood function for a given CpG j ##
 ###########################################
 
-getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1, alpha) {
+getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, dataset_groups, ds_params, p0, p1, alpha) {
   
   samples <- metadata$sample
   datasets <- unique(metadata$dataset)
@@ -101,23 +100,19 @@ getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1
   log_P_Mj <- 0
   
   for (k in datasets) {
-    # Dataset-specific samples
-    samples_in_k <- samples[metadata$dataset == k]
-    samples_in_M <- intersect(samples_in_k, rownames(Mdf))
-    
-    Mij_vals <- as.numeric(Mdf[samples_in_M, , drop = FALSE])
+    Mij_vals <- as.numeric(Mdf[dataset_groups[[k]], , drop = FALSE])
     if (length(Mij_vals) < 3 || all(is.na(Mij_vals))) next
     
     # Precompute mean and SDs
     mu_jk <- mean(Mij_vals, na.rm = TRUE)
-    sd_k <- medsd_lambdas$median_sd[medsd_lambdas$dataset == k]
-    lambda_k <- medsd_lambdas$lambda[medsd_lambdas$dataset == k]
-    sd_values <- pmax(c(sd_k, lambda_k * sd_k), 1e-4)
     
+    ## Cal precomputed sds for both cases
+    params =  ds_params[k, ]
+
     # Vectorized density per mixture component
     norm_probs <- matrix(0, nrow = length(Mij_vals), ncol = 2)
-    norm_probs[,1] <- dnorm(Mij_vals, mu_jk, sd_values[1])
-    norm_probs[,2] <- dnorm(Mij_vals, mu_jk, sd_values[2])
+    norm_probs[,1] <- dnorm(Mij_vals, mu_jk, params$sd0)
+    norm_probs[,2] <- dnorm(Mij_vals, mu_jk, params$sd1)
     
     # Compute zjk_probs safely
     zjk_probs <- array(0, dim = c(length(Mij_vals), 2, 2))
@@ -143,29 +138,30 @@ getLogLik_oneCpG_optimized_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1
 ## Optimisation per CpG ##
 ################################
 
-runOptim1CpG_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1) {
-  start_alphas <- c(0.25, 0.75) # two starting points
-  results <- lapply(start_alphas, function(start_alpha) {
-    resOpt <- optim(
-      par = start_alpha,
-      fn = function(alpha) {
-        getLogLik_oneCpG_optimized_fast(
-          Mdf = Mdf,
-          metadata = metadata,
-          medsd_lambdas = medsd_lambdas,
-          p0 = p0,
-          p1 = p1,
-          alpha = alpha
-        )
-      },
-      method = "Brent",
-      lower = 0, upper = 1,
-      control = list(fnscale = -1)
-    )
-    list(par = resOpt$par, value = resOpt$value)
-  })
-  best_idx <- which.max(sapply(results, function(x) x$value))
-  return(results[[best_idx]]$par)
+runOptim1CpG_gridrefine <- function(Mdf, metadata, dataset_groups, ds_params, p0, p1) {
+  # Step 1. Coarse grid search (0, 0.05, 0.1...)
+  grid <- seq(0, 1, length.out = 21)
+  logliks <- vapply(grid, function(a) {
+    getLogLik_oneCpG_optimized_fast(Mdf, metadata, dataset_groups, ds_params, p0, p1, a)
+  }, numeric(1))
+  
+  best_idx <- which.max(logliks)
+  alpha_start <- grid[best_idx]
+
+  # Step 2. Local refinement with Brent, only in neighborhood
+  lower <- ifelse(best_idx == 1, 0, grid[best_idx - 1])
+  upper <- ifelse(best_idx == length(grid), 1, grid[best_idx + 1])
+  
+  resOpt <- optim(
+    par = alpha_start,
+    fn = function(alpha) {
+      getLogLik_oneCpG_optimized_fast(Mdf, metadata, dataset_groups, ds_params, p0, p1, alpha)
+    },
+    method = "Brent",
+    lower = lower, upper = upper,
+    control = list(fnscale = -1)
+  )
+  return(resOpt$par)
 }
 
 #########################################
@@ -174,13 +170,21 @@ runOptim1CpG_fast <- function(Mdf, metadata, medsd_lambdas, p0, p1) {
 
 getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, prep, batch_size = 1000) {
   metadata       <- prep$metadata
-  medsd_lambdas  <- prep$medsd_lambdas
   cpg_names_all  <- prep$cpg_names_all
   h5file         <- prep$h5file
+  medsd_lambdas  <- prep$medsd_lambdas
   
-  # Treat HDF5 as delayed matrix
-  mat <- HDF5Array(h5file, "matrix")
+  ## Precompute dataset-level parameters
+  ds_params = medsd_lambdas %>%
+    dplyr::select(dataset, median_sd, lambda) %>%
+    dplyr::mutate(sd0 = pmax(median_sd, 1e-4),
+                  sd1 = pmax(lambda * median_sd, 1e-4)) %>%
+    as.data.frame()
+  rownames(ds_params) = ds_params$dataset
   
+  ## Build a list of row indices grouped by dataset
+  dataset_groups <- split(seq_len(nrow(metadata)), metadata$dataset)
+
   # Read sample names once
   samples <- h5read(h5file, "samples")
   
@@ -202,19 +206,24 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
       b, length(batches), length(batches[[b]]), Sys.time()
     ))
     
-    # Load block of matrix (samples × CpGs)
-    M_batch <- as.matrix(mat[, batches[[b]]])
+    # Load block of matrix (samples × CpGs) with rhdf5::h5read direct slice
+    col_batches <- batches[[b]]
+    M_batch <- h5read(
+      file   = h5file,
+      name   = "matrix",
+      index  = list(NULL, col_batches)  # NULL = all rows, subset columns
+    )
     
     # Assign dimnames
     rownames(M_batch) <- samples
-    colnames(M_batch) <- cpg_names_all[batches[[b]]]
+    colnames(M_batch) <- cpg_names_all[col_batches]
     
     # Reorder rows to match metadata
     M_batch <- M_batch[metadata$sample, , drop = FALSE]
     
     sample_to_dataset <- setNames(metadata$dataset, metadata$sample)
     
-    # NEW: Split CpGs into chunks (not one per worker)
+    # Split CpGs into chunks (not one per worker)
     idx_split <- split(seq_len(ncol(M_batch)), cut(seq_len(ncol(M_batch)), NCORES, labels = FALSE))
     
     # Run in parallel over chunks
@@ -227,7 +236,8 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
         if (length(datasets_present) < 3) return(NA_real_)
         
         res <- tryCatch(
-          runOptim1CpG_fast(Mdf = Mdf, metadata = metadata, medsd_lambdas = medsd_lambdas, p0 = p0, p1 = p1),
+          runOptim1CpG_gridrefine(Mdf = Mdf, metadata = metadata, dataset_groups = dataset_groups,
+                            ds_params = ds_params, p0 = p0, p1 = p1),
           error = function(e) NA_real_
         )
         return(res)

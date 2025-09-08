@@ -1,9 +1,9 @@
 #!/bin/bash
-#$ -N runalgo5_atlas_100k.10T.5G
+#$ -N runalgo6_atlas_100k.5T.10G
 #$ -S /bin/bash
-#$ -pe smp 10
-#$ -l tmem=5G
-#$ -l h_vmem=5G
+#$ -pe smp 5
+#$ -l tmem=10G
+#$ -l h_vmem=10G
 #$ -l h_rt=48:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
@@ -20,7 +20,12 @@ Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"
 
+## With 5T, 10G, chunk 100,000, batch 10,000
+# 📦 Loading batch 1 / 10 (10000 CpGs) at 2025-08-27 10:44:59
+# 📦 Loading batch 2 / 10 (10000 CpGs) at 2025-08-27 20:14:48
+## 10h between 2 batches!
 
+## Test new algo v6:
 
 
 
