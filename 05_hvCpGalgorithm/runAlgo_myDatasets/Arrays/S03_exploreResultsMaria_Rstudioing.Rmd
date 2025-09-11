@@ -227,6 +227,12 @@ ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
 library(boot)
 
 sdselected <- function(cpglist, B = 1000, select3 = FALSE) {
+  if (select3){
+      # randomly sample 3 individuals (columns)
+      selected_cols <- sample(seq_len(ncol(mat)), 3)
+      mat <- mat[, selected_cols, drop = FALSE]
+    }    
+  
   results <- lapply(names(rds_list_mat), function(dataset_name) {
     k <- rds_list_mat[[dataset_name]]
     mat <- as.matrix(k[rownames(k) %in% cpglist, ])
@@ -240,11 +246,7 @@ sdselected <- function(cpglist, B = 1000, select3 = FALSE) {
       ))
     }
     
-    if (select3){
-      # randomly sample 3 individuals (columns)
-      selected_cols <- sample(seq_len(ncol(mat)), 3)
-      mat <- mat[, selected_cols, drop = FALSE]
-    }    
+    
     
     row_sds <- rowSds(mat, na.rm = TRUE)
     
