@@ -221,117 +221,111 @@ ggplot(df_long, aes(x = SDs, group = L1, fill = col)) +
   scale_x_sqrt()
 ```
 
-## Median SD (& bootstrapped 95% CI) of hvCpGs and controls in all datasets
+## SD & 95% CI  hvCpGs minus controls in all datasets
+
+I computed the row(CpG)-wise standard deviation difference between hvCpG and their matched control CpGs for each dataset & calculated the median difference and inner 95% range (2.5th to 97.5th percentile) across CpGs, both for all individuals and for just the first three individuals of each dataset.
+
 
 ```{r}
-library(boot)
+library(matrixStats)
+library(dplyr)
+library(ggplot2)
 
-sdselected <- function(cpglist, B = 1000, select3 = FALSE) {
-  results <- lapply(names(rds_list_mat), function(dataset_name) {
-    k <- rds_list_mat[[dataset_name]]
-    mat <- as.matrix(k[rownames(k) %in% cpglist, ])
-    
-    if (nrow(mat) == 0 || ncol(mat) < 3) {
-      return(data.frame(
-        dataset = dataset_name,
-        median_sd = NA,
-        lower = NA,
-        upper = NA
-      ))
-    }
-    
-    if (select3){
-      # randomly sample 3 individuals (columns)
-      selected_cols <- sample(seq_len(ncol(mat)), 3)
-      mat <- mat[, selected_cols, drop = FALSE]
-    }    
-    
-    row_sds <- rowSds(mat, na.rm = TRUE)
-    
-    # Bootstrap function
-    boot_median <- function(data, indices) {
-      median(data[indices], na.rm = TRUE)
-    }
-    
-    boot_res <- boot(data = row_sds, statistic = boot_median, R = B)
-    
-    ci <- tryCatch(
-      boot.ci(boot_res, type = "perc"),
-      error = function(e) NULL
-    )
-    
-    if (!is.null(ci) && !is.null(ci$percent)) {
-      lower_ci <- ci$percent[4]
-      upper_ci <- ci$percent[5]
-    } else {
-      lower_ci <- NA
-      upper_ci <- NA
-    }
-    
-    data.frame(
-      dataset = dataset_name,
-      median_sd = median(row_sds, na.rm = TRUE),
-      lower = lower_ci,
-      upper = upper_ci
-    )
-  })
+# For each dataset
+sd_diff <- lapply(names(rds_list_mat), function(dataset_name, selectN = NULL) {
   
-  do.call(rbind, results)
-}
-df <- rbind(data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name), type="hvCpG"),
-            data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name), type="mQTLcontrol"))
+  if (!is.null(selectN) && selectN < ncol(mat)) {
+      mat <- mat[, 1:selectN, drop = FALSE]
+  }
+  
+  mat <- rds_list_mat[[dataset_name]]
+  
+  hv_cpgs <- sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name
+  ctrl_cpgs <- sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name
+  
+  # Only keep pairs that exist in the dataset
+  keep <- hv_cpgs %in% rownames(mat) & ctrl_cpgs %in% rownames(mat)
+  hv_cpgs <- hv_cpgs[keep]
+  ctrl_cpgs <- ctrl_cpgs[keep]
+  
+  # Calculate SD
+  hv_sds <- rowSds(as.matrix(mat[hv_cpgs, , drop = FALSE]), na.rm = TRUE)
+  ctrl_sds <- rowSds(as.matrix(mat[ctrl_cpgs, , drop = FALSE]), na.rm = TRUE)
+  
+  # Difference
+  hv_sds - ctrl_sds
+})
 
-ggplot(df, aes(x = medianSD.dataset, y = medianSD.median_sd, fill = type)) +
-  geom_pointrange(
-    aes(ymin = medianSD.lower, ymax = medianSD.upper),
-    shape = 21, size = 0.4, stroke = 0.5
-  ) +
-  geom_point(pch = 21, size = 2) +
-  theme_minimal(base_size = 14) + 
-  theme(
-    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-    legend.position = c(0.8, 0.85),
-    legend.box = "horizontal",
-    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-    legend.key = element_rect(fill = "white", color = NA)
-  ) +
-  guides(fill = guide_legend(title = NULL)) +
-  xlab("") +
-  ylab("Median SD ± 95% CI")+
-  ggtitle("Array. All individuals")
+names(sd_diff) <- names(rds_list_mat)
+
+inner95_df <- lapply(names(sd_diff), function(dataset_name) {
+  diffs <- sd_diff[[dataset_name]]
+  range95 <- quantile(diffs, c(0.025, 0.975), na.rm = TRUE)
+  data.frame(
+    dataset = dataset_name,
+    lower_95 = range95[1],
+    upper_95 = range95[2],
+    median_diff = median(diffs, na.rm = TRUE)
+  )
+}) %>% bind_rows()
+
+# Compute inner 95% for first 3 individuals
+sd_diff_3 <- lapply(names(rds_list_mat), function(dataset_name) {
+  mat <- rds_list_mat[[dataset_name]]
+  mat <- mat[, 1:min(3, ncol(mat)), drop = FALSE]  # first 3 columns
+
+  hv_cpgs <- sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name
+  ctrl_cpgs <- sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name
+  
+  # Only keep pairs that exist in the dataset
+  keep <- hv_cpgs %in% rownames(mat) & ctrl_cpgs %in% rownames(mat)
+  hv_cpgs <- hv_cpgs[keep]
+  ctrl_cpgs <- ctrl_cpgs[keep]
+  
+  hv_sds <- rowSds(as.matrix(mat[hv_cpgs, , drop = FALSE]), na.rm = TRUE)
+  ctrl_sds <- rowSds(as.matrix(mat[ctrl_cpgs, , drop = FALSE]), na.rm = TRUE)
+  
+  hv_sds - ctrl_sds
+})
+
+names(sd_diff_3) <- names(rds_list_mat)
+
+inner95_df_3 <- lapply(names(sd_diff_3), function(dataset_name) {
+  diffs <- sd_diff_3[[dataset_name]]
+  range95 <- quantile(diffs, c(0.025, 0.975), na.rm = TRUE)
+  data.frame(
+    dataset = dataset_name,
+    lower_95 = range95[1],
+    upper_95 = range95[2],
+    median_diff = median(diffs, na.rm = TRUE)
+  )
+}) %>% bind_rows()
+
+# Add a type column to distinguish
+inner95_df$type <- "all individuals"
+inner95_df_3$type <- "first 3 individuals"
+
+# Combine
+plot_df <- rbind(inner95_df, inner95_df_3)
+
+# Set dodge width
+dodge_width <- 0.4
+
+ggplot(plot_df, aes(x = dataset, y = median_diff, fill = type)) +
+  geom_errorbar(aes(ymin = lower_95, ymax = upper_95), 
+                width = 0.2, position = position_dodge(width = dodge_width), color = "black") +
+  geom_point(shape = 21, size = 3, stroke = 0.5,
+             position = position_dodge(width = dodge_width)) +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position = c(0.85, 1), legend.title = element_blank(),
+        legend.box = "horizontal",
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(y = "SD difference (hvCpG - control) ± inner 95% range",
+       x = NULL,
+       title = "CpG SD differences across datasets")
 ```
-
-## Same but we select 3 individuals randomly per dataset
-
-```{r}
-set.seed(1234)
-df2 <- rbind(data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name,
-                                             select3 = TRUE), type="hvCpG"),
-            data.frame(medianSD = sdselected(cpglist = sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, 
-                                             select3 = TRUE), type="mQTLcontrol"))
-
-ggplot(df2, aes(x = medianSD.dataset, y = medianSD.median_sd, fill = type)) +
-  geom_pointrange(
-    aes(ymin = medianSD.lower, ymax = medianSD.upper),
-    shape = 21, size = 0.4, stroke = 0.5
-  ) +
-  geom_point(pch = 21, size = 2) +
-  theme_minimal(base_size = 14) + 
-  theme(
-    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-    legend.position = c(0.8, 0.85),
-    legend.box = "horizontal",
-    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-    legend.key = element_rect(fill = "white", color = NA)
-  ) +
-  guides(fill = guide_legend(title = NULL)) +
-  xlab("") +
-  ylab("Median SD ± 95% CI")+
-  ggtitle("Array. 3 individuals randomly selected per dataset")
-```
-
-
-
 
 # Maximum likelihood analysis
 
