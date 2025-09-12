@@ -1,35 +1,16 @@
 #############################################
 ## Overlap plot: Atlas (x) vs Array (y)    ##
 #############################################
-setwd("~/Documents/GIT/2024_hvCpG/")
-source("05_hvCpGalgorithm/quiet_library.R")
+source(here("05_hvCpGalgorithm/quiet_library.R"))
 
-source("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R")
+source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R"))
 hvCpGandControls <- prephvCpGandControls(codeDir = "~/Documents/GIT/2024_hvCpG/")
 
 ################################ 
 ## --- Prepare Array data --- ##
 ################################ 
-load("05_hvCpGalgorithm/resultsDir/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData")
 
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1 <- as.data.frame(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos <- hvCpGandControls$dictionary$hg38[
-  match(rownames(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1), hvCpGandControls$dictionary$illu450k)]
-
-## Indicate the hvCpG of Maria and controls
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group <- NA
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group[
-  results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos %in% 
-    hvCpGandControls$DerakhshanhvCpGs_names] <- "hvCpG_Derakhshan"
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group[
-  results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos %in% 
-    hvCpGandControls$mQTLcontrols_names] <- "mQTLcontrols"
-
-res = results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1
-
-array_dt <- res %>%
-  dplyr::select(chrpos, alpha, group) %>%
-  dplyr::rename(alpha_array = alpha)
+source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S02_analyseResultsArray_local.R"))
 
 ################################ 
 ## --- Prepare Atlas data --- ##
@@ -176,3 +157,6 @@ ggplot(df_long, aes(x = sd)) +
   labs(title = "Distribution of SD per CpG",
        x = "Standard deviation across samples",
        y = "Count")
+
+
+
