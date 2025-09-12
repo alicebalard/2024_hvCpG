@@ -67,11 +67,11 @@ rm(t_combined, t5, t10)
 parent_dir <- here("05_hvCpGalgorithm/resultsDir/Atlas10X/")
 
 # Get list of relevant RData files
-rdata_files <- dir(parent_dir, pattern = "results_Atlas10X_100000CpGs_0_8p0_0_65p1\\.RData$", 
+rdata_files <- dir(parent_dir, pattern = "results_Atlas10X_[0-9]+CpGs_0_8p0_0_65p1\\.RData$", 
                    recursive = TRUE, full.names = TRUE)
 
 ## Check if all batches have ran
-length(rdata_files) ## 127 so far (4 sept)
+length(rdata_files) == 231
 
 all_cpg_values <- numeric()
 pb <- progress_bar$new(total = length(rdata_files), format = "📦 :current/:total [:bar] :percent")

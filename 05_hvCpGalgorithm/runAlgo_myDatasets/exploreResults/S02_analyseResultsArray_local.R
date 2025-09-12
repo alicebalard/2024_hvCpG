@@ -1,74 +1,93 @@
-setwd("~/Documents/GIT/2024_hvCpG/")
+## This script does:
+## Load full results on array ##
+## Calculate proba hvCpG minus matching control: is it always +? ##
+## Load full results on array with only 3 individuals/ds ##
 
-source("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R")
-source("05_hvCpGalgorithm/quiet_library.R")
+## Prepare
+library(here)
+
+source(here("05_hvCpGalgorithm/quiet_library.R"))
+source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R"))
+
 hvCpGandControls <- prephvCpGandControls(codeDir = "~/Documents/GIT/2024_hvCpG/")
 
-load("05_hvCpGalgorithm/resultsDir/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData")
+################################
+## Load full results on array ##
+################################
 
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1 <- as.data.frame(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos <- hvCpGandControls$dictionary$hg38[
-  match(rownames(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1), hvCpGandControls$dictionary$illu450k)]
+load(here("05_hvCpGalgorithm/resultsDir/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData"))
 
-## Indicate the hvCpG of Maria and controls
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group <- NA
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group[
-  results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos %in% 
-    hvCpGandControls$DerakhshanhvCpGs_names] <- "hvCpG_Derakhshan"
-results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$group[
-  results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1$chrpos %in% 
-    hvCpGandControls$mQTLcontrols_names] <- "mQTLcontrols"
+resArrayAll <- as.data.frame(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
+rm(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
 
-res = results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1
-
-# Parse chromosome and position
-res <- res %>%
-  mutate(
-    chr = str_extract(chrpos, "^chr[0-9XY]+"),
-    pos = as.numeric(str_extract(chrpos, "(?<=_)[0-9]+"))
+prepareChrDataset <- function(res){
+  res$chrpos <- hvCpGandControls$dictionary$hg38[
+    match(rownames(res), hvCpGandControls$dictionary$illu450k)]
+  
+  ## Indicate the hvCpG of Maria and controls
+  res$group <- NA
+  res$group[
+    res$chrpos %in% 
+      hvCpGandControls$DerakhshanhvCpGs_names] <- "hvCpG_Derakhshan"
+  res$group[
+    res$chrpos %in% 
+      hvCpGandControls$mQTLcontrols_names] <- "mQTLcontrols"
+  
+  # Parse chromosome and position
+  res <- res %>%
+    mutate(
+      chr = str_extract(chrpos, "^chr[0-9XY]+"),
+      pos = as.numeric(str_extract(chrpos, "(?<=_)[0-9]+"))
+    )
+  
+  # Order chromosomes
+  chr_order <- paste0("chr", c(1:22, "X", "Y"))
+  res$chr <- factor(res$chr, levels = chr_order)
+  
+  # Compute cumulative position for genome-wide x-axis
+  chr_sizes <- res %>%
+    group_by(chr) %>%
+    summarise(max_pos = max(pos)) %>%
+    mutate(cum_start = lag(cumsum(max_pos), default = 0))
+  
+  res <- res %>%
+    left_join(chr_sizes, by = "chr") %>%
+    mutate(cum_pos = pos + cum_start)
+  
+   # Assign alternating black/grey per chromosome
+  chr_colors <- data.frame(
+    chr = chr_order,
+    point_col = rep(c("black", "grey60"), length.out = length(chr_order))
   )
+  
+  # Merge with res
+  res <- res %>%
+    left_join(chr_colors, by = "chr")
+  
+  # Remove values with no position
+  res <- res[!is.na(res$chrpos),]
+  
+  return(res)
+}
 
-# Order chromosomes
-chr_order <- paste0("chr", c(1:22, "X", "Y"))
-res$chr <- factor(res$chr, levels = chr_order)
-
-# Compute cumulative position for genome-wide x-axis
-chr_sizes <- res %>%
-  group_by(chr) %>%
-  summarise(max_pos = max(pos)) %>%
-  mutate(cum_start = lag(cumsum(max_pos), default = 0))
-
-res <- res %>%
-  left_join(chr_sizes, by = "chr") %>%
-  mutate(cum_pos = pos + cum_start)
-
-# Compute midpoints for chromosome labels
-chr_mid <- res %>%
-  group_by(chr) %>%
-  summarise(mid = (min(cum_pos) + max(cum_pos)) / 2)
-
-# Assign alternating black/grey per chromosome
-chr_colors <- data.frame(
-  chr = chr_order,
-  point_col = rep(c("black", "grey60"), length.out = length(chr_order))
-)
-
-# Merge with res
-res <- res %>%
-  left_join(chr_colors, by = "chr")
+resArrayAll <- prepareChrDataset(resArrayAll)
 
 # Plot
-pdf("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_array.pdf", width = 15, height = 3)
+# Compute midpoints for chromosome labels
+chr_mid <- resArrayAll %>%
+  group_by(chr) %>%
+  summarise(mid = (min(cum_pos) + max(cum_pos)) / 2)
+pdf(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_array.pdf"), width = 15, height = 3)
 ## colorblind friendly
 ggplot() +
-  geom_point(data = res, aes(x = cum_pos, y = alpha, col = point_col),
+  geom_point(data = resArrayAll, aes(x = cum_pos, y = alpha, col = point_col),
              alpha = 0.1, size = 1) +
   # Highlight hvCpG
-  geom_point(data = res[res$group %in% "hvCpG_Derakhshan", ],
+  geom_point(data = resArrayAll[resArrayAll$group %in% "hvCpG_Derakhshan", ],
              aes(x = cum_pos, y = alpha),
              col = "#DC3220", alpha = 0.8) +
   # Highlight mQTL controls
-  geom_point(data = res[res$group %in% "mQTLcontrols", ],
+  geom_point(data = resArrayAll[resArrayAll$group %in% "mQTLcontrols", ],
              aes(x = cum_pos, y = alpha),
              col = "#005AB5", alpha = 0.8) +
   scale_color_identity() +
@@ -86,6 +105,7 @@ dev.off()
 
 ###################################################################
 ## Calculate proba hvCpG minus matching control: is it always +? ##
+###################################################################
 
 data <- read.table(file.path(codeDir = "~/Documents/GIT/2024_hvCpG/", "03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
 
@@ -100,11 +120,11 @@ pairs <- data.frame(
 )
 
 # Merge hvCpG alphas
-hv_alpha <- res[, c("chrpos", "alpha")]
+hv_alpha <- resArrayAll[, c("chrpos", "alpha")]
 colnames(hv_alpha) <- c("hvCpG", "alpha_hvCpG")
 
 # Merge control alphas
-ctrl_alpha <- res[, c("chrpos", "alpha")]
+ctrl_alpha <- resArrayAll[, c("chrpos", "alpha")]
 colnames(ctrl_alpha) <- c("control", "alpha_control")
 
 # Join everything
@@ -113,7 +133,7 @@ merged <- pairs %>%
   left_join(ctrl_alpha, by = "control") %>%
   mutate(diffAlpha=alpha_hvCpG-alpha_control)
 
-pdf("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInArray.pdf", width = 4, height = 5)
+pdf(here("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInArray.pdf"), width = 4, height = 5)
 ggplot(merged, aes(x="diff", y=diffAlpha))+
   geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
   geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
@@ -124,3 +144,41 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   ggtitle("P(hvCpG) minus P(matching control) in array")+
   ylab("Difference of probability")
 dev.off()
+
+###########################################################
+## Load full results on array with only 3 individuals/ds ##
+###########################################################
+
+load(here("05_hvCpGalgorithm/resultsDir/Arrays/results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1.RData"))
+
+resArray3ind <- as.data.frame(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
+rm(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
+
+resArray3ind <- prepareChrDataset(resArray3ind)
+
+names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_3ind"
+resComp <- dplyr::left_join(resArray3ind, resArrayAll)
+
+pdf(here("05_hvCpGalgorithm/figures/compArrayalland3ind.pdf"), width = 7, height = 7)
+ggplot(resComp, aes(x=alpha, y=alpha_3ind, fill = group, col = group)) +
+  geom_point(data = resComp[is.na(resComp$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = resComp[!is.na(resComp$group),], pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
+                      theme_minimal(base_size = 14) +
+  guides(fill = guide_legend(position = "inside"))+
+  theme(legend.position.inside = c(0.18,0.85),
+        legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(title = "Probability of being hypervariable",
+       subtitle = "30 450k array datasets",
+       x = "P(hv) considering all array data",
+       y = "P(hv) considering 3 individuals per dataset")
+dev.off()
+
+## rm junk
+rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha)
+   
