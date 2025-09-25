@@ -168,7 +168,7 @@ runOptim1CpG_gridrefine <- function(Mdf, metadata, dataset_groups, ds_params, p0
 ## Batch loading + parallel processing ##
 #########################################
 
-getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, prep, batch_size = 1000) {
+getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, prep, batch_size = 1000, Nds) {
   metadata       <- prep$metadata
   cpg_names_all  <- prep$cpg_names_all
   h5file         <- prep$h5file
@@ -231,9 +231,9 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
       sapply(idx, function(i) {
         Mdf <- M_batch[, i, drop = FALSE]
         
-        # Require at least 3 datasets with data
+        ## Require at least Nds datasets with data
         datasets_present <- unique(sample_to_dataset[names(Mdf[!is.na(Mdf), ])])
-        if (length(datasets_present) < 3) return(NA_real_)
+        if (length(datasets_present) < Nds) return(NA_real_)
         
         res <- tryCatch(
           runOptim1CpG_gridrefine(Mdf = Mdf, metadata = metadata, dataset_groups = dataset_groups,
@@ -265,7 +265,7 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
 ##   Atlas10X = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/",
 ##   Maria = "/home/alice/arraysh5"
 
-runAndSave_fast <- function(analysis, cpg_names_vec, resultDir, NCORES, p0, p1, overwrite = FALSE, batch_size = 1000, dataDir, skipsave=FALSE) {
+runAndSave_fast <- function(analysis, cpg_names_vec, resultDir, NCORES, p0, p1, overwrite = FALSE, batch_size = 1000, dataDir, skipsave=FALSE, Nds=3) {
   
   t <- Sys.time()
   prep <- prepData(analysis, dataDir)
@@ -289,7 +289,7 @@ runAndSave_fast <- function(analysis, cpg_names_vec, resultDir, NCORES, p0, p1, 
   # Run batch + parallel processing
   result <- getAllOptimAlpha_parallel_batch_fast(
     cpg_names_vec = cpg_names_vec, NCORES = NCORES,
-    p0 = p0, p1 = p1, prep = prep, batch_size = batch_size
+    p0 = p0, p1 = p1, prep = prep, batch_size = batch_size, Nds = Nds
   )
   
   assign(obj_name, result, envir = .GlobalEnv)
