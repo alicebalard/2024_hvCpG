@@ -174,7 +174,7 @@ ggplot(resComp, aes(x=alpha, y=alpha_3ind, fill = group, col = group)) +
         legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
         legend.key = element_rect(fill = "white", color = NA)) +
   labs(title = "Probability of being hypervariable",
-       subtitle = "30 450k array datasets",
+       subtitle = "30 datasets 450k array",
        x = "P(hv) considering all array data",
        y = "P(hv) considering 3 individuals per dataset")
 dev.off()
@@ -182,3 +182,4 @@ dev.off()
 ## rm junk
 rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha)
    
+saveRDS(resComp, here("05_hvCpGalgorithm/dataOut/resArray.RDS"))

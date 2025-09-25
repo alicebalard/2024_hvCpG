@@ -5,6 +5,9 @@ library(here)
 
 source(here("05_hvCpGalgorithm", "quiet_library.R"))
 
+## Load array results
+resArray <- readRDS(here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
+
 ## This code does:
 ### I. Histogram of coverage across datasets
 ### II. Load data & Manhattan plot
@@ -49,7 +52,7 @@ ggplot(t_combined, aes(x = as.factor(datasets_covered_in), y = nCpGcum, fill = c
   guides(fill = guide_legend(position = "inside")) +
   theme(legend.position.inside = c(.2,.5),
         legend.box = "horizontal",
-        legend.background = element_rect(fill = "white", color = "black", size = 0.4),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
         legend.key = element_rect(fill = "white", color = NA))
 dev.off()
 
@@ -213,9 +216,9 @@ dev.off()
 ## III. Test enrichment of features for high alpha ##
 #####################################################
 
-#############
-threshold=0.7
-#############
+##############
+threshold=0.75
+##############
 
 # Filter valid rows
 dt_clean <- dt[!is.na(start_pos) & !is.na(end_pos)]
@@ -463,3 +466,6 @@ p2 <- ggplot(contrasts, aes(x = ME, y = estimate)) +
 pdf(here("05_hvCpGalgorithm/figures/alphaComparisonBetweenMEtypes.pdf"), width = 13, height = 4)
 cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
 dev.off()
+
+tail(dt_clean)
+tail(resArray)
