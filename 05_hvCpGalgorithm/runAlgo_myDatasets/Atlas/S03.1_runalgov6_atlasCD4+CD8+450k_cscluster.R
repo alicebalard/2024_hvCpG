@@ -42,5 +42,6 @@ system.time(runAndSave_fast(
     NCORES = myNthreads,
     p0 = 0.80,
     p1 = 0.65,
-    batch_size = batch_size)
+    batch_size = batch_size,
+    Nds = 2) ## important! Allows only 2 datasets
 )
