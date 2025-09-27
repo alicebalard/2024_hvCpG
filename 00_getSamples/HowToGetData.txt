@@ -6,7 +6,7 @@ How to obtain SRA fastq samples for each dataset?
 1. Online:
 SRA, select the samples --> click run selector --> Select Download Metadata
 
-2. In pchuckle login node, get the samples by running (after adding in code the correct dataset):
+2. In large node, get the samples by running (after adding in code the correct dataset):
 bash /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/00_getSamples/S01_SRAprefectch_onlogin.sh
 
 3. As a job, run S02
