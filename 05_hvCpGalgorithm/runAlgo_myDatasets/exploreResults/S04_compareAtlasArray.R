@@ -20,11 +20,11 @@ source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S02_analyseResu
 parent_dir <- "05_hvCpGalgorithm/resultsDir/Atlas10X/"
 
 # Get list of relevant RData files
-rdata_files <- dir(parent_dir, pattern = "results_Atlas10X_100000CpGs_0_8p0_0_65p1\\.RData$", 
+rdata_files <- dir(here(parent_dir), pattern = "results_Atlas10X_100000CpGs_0_8p0_0_65p1\\.RData$", 
                    recursive = TRUE, full.names = TRUE)
 
 ## Check if all batches have ran
-length(rdata_files) ## 4 so far (27 aug)
+length(rdata_files) ## 230
 
 all_cpg_values <- numeric()
 pb <- progress_bar$new(total = length(rdata_files), format = "📦 :current/:total [:bar] :percent")
@@ -49,114 +49,231 @@ rm(e, pb, all_cpg_values, obj, file, parent_dir, rdata_files)
 atlas_dt <- dt[, .(name, alpha_atlas = alpha)]
 setnames(atlas_dt, "name", "chrpos")
 
-## --- Merge by chrpos ---
-merged <- merge(array_dt, atlas_dt, by = "chrpos", all = FALSE)
+###################################### 
+## --- Merge Array & Atlas data --- ##
+######################################
 
-## Do the alpha correlate?
-mod <- lm(alpha_array~alpha_atlas, data = merged)
+resCommonAlphaAtlas <- dplyr::left_join(resCompArray, atlas_dt)
 
-summary(mod)
-# alpha_atlas 0.710523   0.016648   42.68   <2e-16 ***
-## --- Plot ---
-pdf("05_hvCpGalgorithm/figures/Atlas_vs_Array_overlap.pdf", width = 8, height = 6)
-ggplot(merged, aes(x = alpha_atlas, y = alpha_array)) +
-  # background cloud
-  geom_point(data = merged[is.na(merged$group), ],
-             color = "grey60", alpha = 0.2, size = 0.5) +
-  # hvCpGs (red)
-  geom_point(data = merged[merged$chrpos %in% hvCpGandControls$DerakhshanhvCpGs_names, ],
-             color = "#DC3220", alpha = 0.8, size = 0.8) +
-  # mQTL controls (blue)
-  geom_point(data = merged[merged$chrpos %in% hvCpGandControls$mQTLcontrols_names, ],
-             color = "#005AB5", alpha = 0.8, size = 0.8) +
-  # any relationship between x and y
-  geom_smooth(method = "lm", aes(col=group, fill = group))+
-  scale_color_manual(values = c("#DC3220", "#005AB5", "grey60"))+
-  scale_fill_manual(values = c("#DC3220", "#005AB5","grey60"))+
-  # linear relationship between both alpha values
-  geom_abline(intercept = mod$coefficients["(Intercept)"], 
-              slope = mod$coefficients["alpha_atlas"], linetype = 2)+
+######################################### 
+## --- Test 1: matching pos error? --- ##
+#########################################
+
+## Positions to test
+## high alpha in array, low in atlas
+## high alpha in atlas, low in array
+pos2test <- c(resCommonAlphaAtlas[resCommonAlphaAtlas$alpha_array_all > 0.9 &
+                                    resCommonAlphaAtlas$alpha_atlas < 0.1 &
+                                    !is.na(resCommonAlphaAtlas$alpha_atlas ),][1,"chrpos"],
+              resCommonAlphaAtlas[resCommonAlphaAtlas$alpha_array_all <0.1 &
+                                    resCommonAlphaAtlas$alpha_atlas > 0.9 &
+                                    !is.na(resCommonAlphaAtlas$alpha_atlas ),][1,"chrpos"])
+
+# Extract only the desired columns from the matrix
+# Load the names of CpGs
+datadir <-"~/Documents/Project_hvCpG/10X/all_matrix_noscale.h5"
+cpg_names <- h5read(datadir, "cpg_names")
+
+col_indices <- match(pos2test, cpg_names)
+
+subset_matrix <- h5read(datadir, "matrix", index = list(NULL, col_indices))
+
+# Check result
+dim(subset_matrix)
+apply(subset_matrix, 2, hist)
+
+## seems correct
+
+################################## 
+## --- Test 2: low N error? --- ##
+##################################
+
+p1 <- ggplot(resCommonAlphaAtlas, aes(x=alpha_array_all, y=alpha_array_3ind, fill = group, col = group)) +
+  geom_point(data = resCommonAlphaAtlas[is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = resCommonAlphaAtlas[!is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
   theme_minimal(base_size = 14) +
-  labs(
-    x = "Atlas alpha (probability hvCpG)",
-    y = "Array alpha (probability hvCpG)",
-    title = "Overlap of hvCpG results between Atlas and Array"
-  ) +
-  # theme(legend.position = "none")+
-  coord_cartesian(xlim = 0:1, ylim= 0:1)
+  guides(fill = guide_legend(position = "inside"))+
+  theme(legend.position.inside = c(0.18,0.85),
+        legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(title = "Probability of being hypervariable",
+       x = "P(hv) considering all array data",
+       y = "P(hv) considering 3 individuals per dataset")
+
+p2 <- ggplot(resCommonAlphaAtlas, aes(x=alpha_atlas, y=alpha_array_all, fill = group, col = group)) +
+  geom_point(data = resCommonAlphaAtlas[is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = resCommonAlphaAtlas[!is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
+  theme_minimal(base_size = 14) +
+  guides(fill = guide_legend(position = "inside"))+
+  labs(title = "Probability of being hypervariable",
+       x = "P(hv) considering all atlas data",
+       y = "P(hv) considering all array data")
+
+p3 <- ggplot(resCommonAlphaAtlas, aes(x=alpha_atlas, y=alpha_array_3ind, fill = group, col = group)) +
+  geom_point(data = resCommonAlphaAtlas[is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = resCommonAlphaAtlas[!is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
+  theme_minimal(base_size = 14) +
+  guides(fill = guide_legend(position = "inside"))+
+  labs(title = "Probability of being hypervariable",
+       x = "P(hv) considering all atlas data",
+       y = "P(hv) considering array with 3 individuals per dataset only")
+
+# --- Turn off legends inside plots ---
+p1_clean <- p1 + theme(legend.position = "none")
+p2_clean <- p2 + theme(legend.position = "none")
+p3_clean <- p3 + theme(legend.position = "none")
+
+# --- Extract one legend (e.g. from p1) ---
+legend <- cowplot::get_legend(
+  p1 + theme(legend.position = "bottom",
+             legend.box = "horizontal",
+             legend.title = element_blank(),
+             legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+             legend.key = element_rect(fill = "white", color = NA))
+)
+
+# --- Arrange plots with legend as 4th panel ---
+pdf(here("05_hvCpGalgorithm/figures/compAtlasvsArrayalland3ind.pdf"), width = 10, height = 10)
+cowplot::plot_grid(p1_clean, p2_clean, p3_clean, legend,
+                   ncol = 2)  # grid layout: 2 cols × 2 rows
 dev.off()
 
-## Plot the difference between both
-merged <- merged %>% mutate(diffArrayMinusAlpha=alpha_array- alpha_atlas)
+## Not the issue
 
-pdf("05_hvCpGalgorithm/figures/Atlas_vs_Array_overlap_fig2.pdf", width = 5, height = 5)
-ggplot(merged, aes(x=group, y=diffArrayMinusAlpha))+
-  geom_jitter(data=merged[!merged$group %in% c("hvCpG_Derakhshan", "mQTLcontrols"),], col="grey", alpha=.1)+
-  geom_jitter(data=merged[merged$group %in% "hvCpG_Derakhshan",], col="#DC3220", alpha=.1)+
-  geom_jitter(data=merged[merged$group %in% "mQTLcontrols",], col="#005AB5", alpha=.1)+
-  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"))+
-  geom_violin(aes(fill = group), width=.5, alpha=.8) +
-  geom_boxplot(aes(fill = group), width=0.1, color="black", alpha=0.8) +
-  theme_minimal(base_size = 14)+
-  theme(legend.position =  "none", axis.title.x = element_blank(), title = element_text(size=10))+
-  ggtitle("P(array) minus P(atlas)")+
-  ylab("Difference of probability of being hypervariable")
+############################################# 
+## --- Test 3: bulk vs purified cells? --- ##
+#############################################
+
+## Run only cd4+ cd8+ in both and see
+
+## Array CD4+ CD8+
+load("/home/alice/Documents/GIT/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Arrays/results_Arrays_CD4_CD8___352914CpGs_0_8p0_0_65p1.RData")
+
+## Atlas CD4+ CD8+ on array positions
+# Define parent folder containing all "Atlas_batchXXX" folders
+parent_dir <- here("05_hvCpGalgorithm/resultsDir/10X_CD4+CD8+/")
+
+# Get list of relevant RData files
+rdata_files <- dir(parent_dir, pattern = "^results_Atlas10X.*CpGs_0_8p0_0_65p1\\.RData$",
+  recursive = TRUE, full.names = TRUE
+)
+
+## Check if all batches have ran
+length(rdata_files) 
+
+all_cpg_values <- numeric()
+pb <- progress_bar$new(total = length(rdata_files), format = "📦 :current/:total [:bar] :percent")
+
+for (file in rdata_files) {
+  e <- new.env()
+  load(file, envir = e)
+  obj <- e[[ls(e)[1]]]
+  if (is.matrix(obj)) obj <- obj[, 1]
+  all_cpg_values <- c(all_cpg_values, obj)
+  pb$tick()
+}
+
+# Create data.table from named vector
+dt <- data.table(
+  name = names(all_cpg_values),
+  alpha = as.numeric(all_cpg_values)
+)
+
+rm(e, pb, all_cpg_values, obj, file, parent_dir, rdata_files)
+
+## Merge
+resArrayCD4CD8 <- data.frame(
+    alpha_array_CD4CD8 = as.vector(results_Arrays_CD4_CD8___352914CpGs_0_8p0_0_65p1),
+  cpgProbe = rownames(results_Arrays_CD4_CD8___352914CpGs_0_8p0_0_65p1), row.names = NULL)
+
+resArrayCD4CD8$chrpos = hvCpGandControls$dictionary$hg38[
+  match(resArrayCD4CD8$cpgProbe,hvCpGandControls$dictionary$illu450k)]
+
+nrow(resArrayCD4CD8) # 352914
+nrow(dt) # 216791
+
+resbothCD4CD8 <- na.omit(full_join(resArrayCD4CD8, 
+          data.frame(alpha_atlas_CD4CD8 = dt$alpha, chrpos = dt$name)))
+nrow(resbothCD4CD8) # 155635 covered in both in enough samples/coverage
+
+## Indicate the hvCpG of Maria and controls
+resbothCD4CD8$group <- "background"
+resbothCD4CD8$group[resbothCD4CD8$chrpos %in% 
+                      hvCpGandControls$DerakhshanhvCpGs_names] <- "hvCpG_Derakhshan"
+resbothCD4CD8$group[resbothCD4CD8$chrpos %in% 
+                      hvCpGandControls$mQTLcontrols_names] <- "mQTLcontrols"
+resbothCD4CD8$group <- as.factor(resbothCD4CD8$group)
+
+resplot <- subset(resbothCD4CD8, !is.na(group))
+resplot$group <- factor(resplot$group, levels = c("background","hvCpG_Derakhshan", "mQTLcontrols"))
+
+p <- ggplot(resplot, aes(x = alpha_array_CD4CD8,
+                         y = alpha_atlas_CD4CD8,
+                         fill = group,
+                         colour = group)) +
+  geom_point(shape = 21, alpha = 0.1) +
+  geom_point(data = resplot[!resplot$group %in% "background",],
+             shape = 21, alpha = 0.4) +
+  scale_fill_manual(values = c("background"       = "grey",
+                               "hvCpG_Derakhshan" = "#DC3220",
+                               "mQTLcontrols"     = "#005AB5")) +
+  scale_colour_manual(values = c("background"       = "grey",
+                                 "hvCpG_Derakhshan" = "#DC3220",
+                                 "mQTLcontrols"     = "#005AB5")) +
+  theme_minimal(base_size = 14) +
+  guides(fill = guide_legend(position = "inside"))+
+  theme(legend.position.inside = c(0.7,0.7),
+        legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(title = "Probability of being hypervariable",
+       x = "P(hv) of array data CD4+ CD8+",
+       y = "P(hv) of atlas data CD4+ CD8+")
+
+# Now add marginal densities by group
+p_with_dens <- ggMarginal(
+  p,
+  type = "density",
+  groupFill = TRUE,
+  groupColour = TRUE,
+  alpha = 0.4
+)
+
+pdf(here("05_hvCpGalgorithm/figures/CD4CD8ArrayAtlas.pdf"), width = 7, height = 7)
+p_with_dens
 dev.off()
 
-##############################################
-## What is the most variable point on chr1? ##
-##############################################
-merged[merged$alpha_array>0.99 & merged$alpha_atlas>0.99,"chrpos"]
-## chr1_18784484-18784485
+## Compare array all +-vs array CD4CD8
+x <- full_join(resArrayCD4CD8, resCompArray)
 
-## Explore
-cpg_names_all <- rhdf5::h5read("/home/alice/Documents/Project_hvCpG/10X/all_matrix_noscale.h5", "cpg_names")
-
-x <- match(merged[merged$alpha_array>0.99 & merged$alpha_atlas>0.99,"chrpos"], cpg_names_all)
-
-subRawData <- h5read("/home/alice/Documents/Project_hvCpG/10X/all_matrix_noscale.h5",
-                     "matrix", index = list(NULL, x))
-metadata <- read.table("/home/alice/Documents/Project_hvCpG/10X/sample_metadata.tsv", sep ="\t", header = TRUE)
-
-colnames(subRawData) = cpg_names_all[x]
-subRawData <- as.data.frame(subRawData)
-
-subRawData$samples = metadata$sample
-subRawData$sample_groups = metadata$dataset
-
-subRawData <- melt(subRawData)
-
-# Create alternating colors for sample_groups
-group_levels <- unique(subRawData$sample_groups)
-color_values <- rep(c("black", "grey60"), length.out = length(group_levels))
-
-ggplot(subRawData, aes(x = sample_groups, y = value, color = sample_groups)) +
-  geom_point() +
-  scale_color_manual(values = color_values) +
+pdf(here("05_hvCpGalgorithm/figures/compArrayallVsCD4CD8.pdf"), width = 6, height = 6)
+ggplot(x, aes(x=alpha_array_all, y=alpha_array_CD4CD8, fill = group, col = group)) +
+  geom_point(data = x[is.na(x$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = x[!is.na(x$group),], pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
   theme_minimal(base_size = 14) +
-  theme(
-    axis.text.x = element_text(angle = 90, hjust = 1),
-    legend.position = "none"  # remove legend if not needed
-  ) +
-  labs(x = "Sample Groups", y = "Value")
-
-# Exclude metadata columns
-num_cols <- setdiff(names(subRawData), c("samples", "sample_groups"))
-
-# Compute SD per group per CpG site
-df_long <- subRawData %>%
-  dplyr::group_by(sample_groups, variable) %>%
-  dplyr::summarise(sd = sd(value, na.rm = TRUE), .groups = "drop") %>%
-  dplyr::rename(CpG = variable)
-
-# Histogram of SD distributions per group
-ggplot(df_long, aes(x = sd)) +
-  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
-  facet_wrap(~ CpG, scales = "free_y") +
-  theme_minimal() +
-  labs(title = "Distribution of SD per CpG",
-       x = "Standard deviation across samples",
-       y = "Count")
-
-
-
+  guides(fill = guide_legend(position = "inside"))+
+  theme(legend.position.inside = c(0.3,0.8),
+        legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(title = "Probability of being hypervariable",
+       x = "P(hv) considering all array data",
+       y = "P(hv) considering array CD4+ CD8+ groups only")
+dev.off()
