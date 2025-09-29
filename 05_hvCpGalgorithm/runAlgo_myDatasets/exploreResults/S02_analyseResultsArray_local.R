@@ -11,6 +11,11 @@ source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R")
 
 hvCpGandControls <- prephvCpGandControls(codeDir = "~/Documents/GIT/2024_hvCpG/")
 
+## Save for work on cluster
+write.table(hvCpGandControls$dictionary$hg38, 
+            quote = F, row.names = F,  col.names=FALSE,
+          file = "../Atlas/hg38array.txt")
+
 ################################
 ## Load full results on array ##
 ################################
@@ -156,30 +161,13 @@ rm(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
 
 resArray3ind <- prepareChrDataset(resArray3ind)
 
-names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_3ind"
-resComp <- dplyr::left_join(resArray3ind, resArrayAll)
+names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_3ind"
+resCompArray <- dplyr::left_join(resArray3ind, resArrayAll)
+names(resCompArray)[names(resCompArray) %in% "alpha"] <- "alpha_array_all"
 
-pdf(here("05_hvCpGalgorithm/figures/compArrayalland3ind.pdf"), width = 7, height = 7)
-ggplot(resComp, aes(x=alpha, y=alpha_3ind, fill = group, col = group)) +
-  geom_point(data = resComp[is.na(resComp$group),], pch = 21, alpha = 0.05) +
-  geom_point(data = resComp[!is.na(resComp$group),], pch = 21, alpha = 0.4) +
-  geom_smooth(method = "lm", fill = "black") +
-  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
-                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
-  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
-                      theme_minimal(base_size = 14) +
-  guides(fill = guide_legend(position = "inside"))+
-  theme(legend.position.inside = c(0.18,0.85),
-        legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Probability of being hypervariable",
-       subtitle = "30 datasets 450k array",
-       x = "P(hv) considering all array data",
-       y = "P(hv) considering 3 individuals per dataset")
-dev.off()
+## plot comp in script 3
 
 ## rm junk
-rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha)
+rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)
    
-saveRDS(resComp, here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
+saveRDS(resCompArray, here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
