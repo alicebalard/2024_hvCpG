@@ -277,3 +277,39 @@ ggplot(x, aes(x=alpha_array_all, y=alpha_array_CD4CD8, fill = group, col = group
        x = "P(hv) considering all array data",
        y = "P(hv) considering array CD4+ CD8+ groups only")
 dev.off()
+
+
+
+
+
+
+## FIND PAX8
+# Chromosome 2, NC_000002.12 (113215997..113278921,
+
+atlas_dt <- atlas_dt %>%
+  mutate(
+    chr   = str_extract(chrpos, "chr[0-9XY]+"),
+    start = as.numeric(str_extract(chrpos, "(?<=_)[0-9]+")),
+    end   = as.numeric(str_extract(chrpos, "(?<=-)[0-9]+"))
+  )
+
+# 1. Convert to GRanges object
+gr_atlas <- GRanges(
+  seqnames = atlas_dt$chr,
+  ranges = IRanges(start = atlas_dt$pos, end = atlas_dt$pos),
+  mcols = atlas_dt
+)
+
+# 2. PAX8 as a GRanges
+gr_PAX8 <- GRanges(
+  seqnames = "chr2",
+  ranges = IRanges(start = 113215997, end = 113278921)
+)
+
+# 3. Find overlaps between CpGs and the gene region
+hits <- findOverlaps(gr_resCommonAlphaAtlas, gr_PAX8)
+
+# 4. Extract matching rows from original df
+df_hits <- gr_resCommonAlphaAtlas[queryHits(hits), ]
+
+as.data.frame(df_hits)
