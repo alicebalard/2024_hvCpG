@@ -46,7 +46,7 @@ quiet_library_all(
   c("dplyr", "data.table", "matrixStats", "reshape2","tidyr", ## data formatting
     "parallel", "rhdf5",  "stringr", ## data handling
     "ggplot2", "progress", "ggrastr", "Cairo", "ggrepel", "scales", 
-    "UpSetR", "gridGraphics", "grid", "cowplot", ## graphical
+    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra", ## graphical
     "boot", "emmeans", ## stats
     "methylKit", "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", "GenomicRanges" ## methylation 
   ))
