@@ -21,7 +21,7 @@ if (start_idx > length(cpg_46)) {
 subset_cpgs <- cpg_46[start_idx:end_idx]
 
 # Output directory
-result_dir <- sprintf("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas10X/Atlas_batch%03d", task_id)
+result_dir <- sprintf("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X/Atlas_batch%03d", task_id)
 dir.create(result_dir, recursive = TRUE, showWarnings = FALSE)
 
 message(paste0("If new, results will be saved in dir: ", result_dir))
