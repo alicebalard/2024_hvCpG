@@ -24,7 +24,7 @@ import bottleneck as bn
 ## Part 1: prepare files ##
 ###########################
 
-output_folder = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X_CD4+CD8+"
+output_folder = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer//10X_CD4+CD8+"
 os.chdir(output_folder)
 input_folder = "../betaFiles"
 
@@ -64,8 +64,15 @@ samples_per_group_short = {
 }
 
 # 🧬 2️⃣ Load CpG names
-with open("../hg38CpGpos_Loyfer2023.txt") as f:
-    cpg_names = [line.strip() for line in f]
+cpg_bed = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/wgbs_tools/references/hg38/CpG.bed.gz"
+
+cpg_names = []
+with gzip.open(cpg_bed, "rt") as f:  # "rt" = read text mode
+    for line in f:
+        chrom, pos, _ = line.strip().split("\t")[:3]
+        pos = int(pos)
+        cpg_names.append(f"{chrom}_{pos}-{pos+1}")
+
 NR_SITES = len(cpg_names)
 print(f"✅ Loaded {NR_SITES:,} CpG names.")
 
@@ -181,7 +188,7 @@ with h5py.File(h5_path, "r") as h5f:
     with open(filter_path) as f:
         allowed_cpgs = set(line.strip() for line in f if line.strip())
 
-    print(f"✅ Loaded {len(allowed_cpgs)} CpGs from hhg38array.txt")
+    print(f"✅ Loaded {len(allowed_cpgs)} CpGs from hg38array.txt")
 
     # Build a boolean mask for CpGs to keep
     allowed_mask = np.isin(cpg_names, list(allowed_cpgs))
@@ -228,20 +235,4 @@ with h5py.File(h5_path, "r") as h5f:
 
 print("\n🎉 All done.")
 
-#✅ Found 2 composite groups (Source Tissue + Cell type) with ≥ 33samples.
-#✅ Loaded 29,401,795 CpG names.
-#🔄 Processing Blood - T cytotoxic (CD8+) cells (3 samples)
-#✅ Blood - T cytotoxic (CD8+) cells: median_sd = 0.0437, lambda = 3.7744
-#🔄 Processing Blood - T helper(CD4+) cells (3 samples)
-#✅ Blood - T helper(CD4+) cells: median_sd = 0.0319, lambda = 3.7493
-#✅ Saved all samples to: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X_CD4+CD8+/all_matrix_noscale.h5
-#✅ Saved metadata to: sample_metadata.tsv
-#✅ Saved medians and lambdas to TSV: all_medsd_lambda.tsv
-#✅ Loaded 485325 CpGs from hhg38array.txt
-#⏳ Processing group: Blood - T cytotoxic (CD8+) cells with 3 samples
-#⏳ Processing group: Blood - T helper(CD4+) cells with 3 samples
-#✅ Selected 216,791 CpGs (≥3 samples in ≥2 datasets, and present in allowed list).
-#📝 Saved CpG list to: selected_cpgs_min3_in2_datasets.txt
-#
-#🎉 All done.
 
