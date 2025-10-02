@@ -96,6 +96,18 @@ dt <- data.table(
 
 rm(e, pb, all_cpg_values, obj, file, parent_dir, rdata_files)
 
+
+## TEMP TO RM
+
+newNames <- readLines("~/Documents/Project_hvCpG/selected_cpgs_min3_in46_datasets.txt")
+
+dt$name <- newNames
+
+tail(head(dt, 5000000))
+###################
+
+
+
 #######################################################################
 # Parse "chr_start-end" in name into chr, start_pos, end_pos. NB: takes a couple of minutes
 dt[, c("chr", "start_end") := tstrsplit(name, "_", fixed = TRUE)]
@@ -199,6 +211,10 @@ merged <- pairs %>%
   left_join(ctrl_alpha, by = "control") %>%
   mutate(diffAlpha=alpha_hvCpG-alpha_control)
 
+merged <- merged %>%
+  mutate(chr = str_extract(hvCpG, "^chr[0-9XYM]+"))%>%
+  filter(!is.na(diffAlpha))
+
 pdf(here("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInAtlas.pdf"),
     width = 4, height = 5)
 ggplot(merged, aes(x="diff", y=diffAlpha))+
@@ -211,6 +227,35 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   ggtitle("P(hvCpG) minus P(matching control) in atlas")+
   ylab("Difference of probability")
 dev.off()
+
+ggplot(merged, aes(x="diff", y=diffAlpha))+
+  geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
+  geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
+  geom_violin(width=.5, fill = "grey", alpha=.8) +
+  geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
+  theme_minimal(base_size = 14)+
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
+  ggtitle("P(hvCpG) minus P(matching control) in atlas")+
+  ylab("Difference of probability") +
+  facet_grid(.~chr)
+
+## Is mean/median .02 like plot later comparing different MEs?
+## How different from 50/50 expected? Binomial test
+
+mean_diff <- mean(merged$diffAlpha, na.rm = TRUE)
+median_diff <- median(merged$diffAlpha, na.rm = TRUE)
+summary(merged$diffAlpha)
+# If mean/median ≈ 0.02 (like your later ME plot), it means hvCpGs are slightly enriched for higher hypervariability probability compared to matched controls.
+
+## How different from 50/50 expectation?
+n_pos <- sum(merged$diffAlpha > 0, na.rm = TRUE)
+n_neg <- sum(merged$diffAlpha < 0, na.rm = TRUE)
+n_total <- n_pos + n_neg
+
+binom.test(n_pos, n_total, p = 0.5, alternative = "greater")
+
+## Effect size (proportion above zero)
+n_pos / n_total
 
 #####################################################
 ## III. Test enrichment of features for high alpha ##
@@ -367,7 +412,7 @@ length(corSIV_hg38) # 71320
 ## Silver2022_SoCCpGs_10WGBS ##
 arrayRef <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 3, skip = 2)
 SoCCpGs <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 6, skip = 2)
- 
+
 SoCCpGs_GRanges <- GRanges(
   seqnames = paste0("chr", arrayRef$chr[match(SoCCpGs$cpg, arrayRef$cpg)]),
   ranges = IRanges(start = arrayRef$loc[match(SoCCpGs$cpg, arrayRef$cpg)],

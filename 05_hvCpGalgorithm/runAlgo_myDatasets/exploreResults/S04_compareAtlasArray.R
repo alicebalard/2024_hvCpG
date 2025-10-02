@@ -49,11 +49,12 @@ mergeAtlasRunBatches <- function(parent_dir = "05_hvCpGalgorithm/resultsDir/Atla
 
 atlas_dt <- mergeAtlasRunBatches(parent_dir = "05_hvCpGalgorithm/resultsDir/Atlas10X/", 
                                  analysis = "Atlas10X", alphaname = "alpha_atlas")
+
 ###################################### 
 ## --- Merge Array & Atlas data --- ##
 ######################################
 
-resCommonAlphaAtlas <- dplyr::left_join(resCompArray, atlas_dt)
+res_Alpha_Atlas <- dplyr::full_join(resCompArray, atlas_dt)
 
 ######################################### 
 ## --- Test 1: matching pos error? --- ##
@@ -62,12 +63,12 @@ resCommonAlphaAtlas <- dplyr::left_join(resCompArray, atlas_dt)
 ## Positions to test
 ## high alpha in array, low in atlas
 ## high alpha in atlas, low in array
-pos2test <- c(resCommonAlphaAtlas[resCommonAlphaAtlas$alpha_array_all > 0.9 &
-                                    resCommonAlphaAtlas$alpha_atlas < 0.1 &
-                                    !is.na(resCommonAlphaAtlas$alpha_atlas ),][1,"chrpos"],
-              resCommonAlphaAtlas[resCommonAlphaAtlas$alpha_array_all <0.1 &
-                                    resCommonAlphaAtlas$alpha_atlas > 0.9 &
-                                    !is.na(resCommonAlphaAtlas$alpha_atlas ),][1,"chrpos"])
+pos2test <- c(res_Alpha_Atlas[res_Alpha_Atlas$alpha_array_all > 0.9 &
+                                    res_Alpha_Atlas$alpha_atlas < 0.1 &
+                                    !is.na(res_Alpha_Atlas$alpha_atlas ),][1,"chrpos"],
+              res_Alpha_Atlas[res_Alpha_Atlas$alpha_array_all <0.1 &
+                                    res_Alpha_Atlas$alpha_atlas > 0.9 &
+                                    !is.na(res_Alpha_Atlas$alpha_atlas ),][1,"chrpos"])
 
 # Extract only the desired columns from the matrix
 # Load the names of CpGs
@@ -84,13 +85,30 @@ apply(subset_matrix, 2, hist)
 
 ## seems correct
 
+## Chr1 seems to work more, are the positions matching? Test chr1 and chr2
+head(res_Alpha_Atlas)
+
+compChr1 <- res_Alpha_Atlas[res_Alpha_Atlas$chr %in% "chr1",]
+summary(lm(alpha_array_all~alpha_atlas, data = compChr1))
+ggplot(compChr1, aes(x=alpha_array_all, y=alpha_atlas))+
+  geom_point()+
+  geom_smooth(method = "lm")
+
+compChr2 <- res_Alpha_Atlas[res_Alpha_Atlas$chr %in% "chr2",]
+summary(lm(alpha_array_all~alpha_atlas, data = compChr2))
+ggplot(compChr2, aes(x=alpha_array_all, y=alpha_atlas))+
+  geom_point()+
+  geom_smooth(method = "lm")
+
+## THERE MUST BE A CODE ERROR all positions must be mixed!
+
 ################################## 
 ## --- Test 2: low N error? --- ##
 ##################################
 
-p1 <- ggplot(resCommonAlphaAtlas, aes(x=alpha_array_all, y=alpha_array_3ind, fill = group, col = group)) +
-  geom_point(data = resCommonAlphaAtlas[is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.05) +
-  geom_point(data = resCommonAlphaAtlas[!is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.4) +
+p1 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_all, y=alpha_array_3ind, fill = group, col = group)) +
+  geom_point(data = res_Alpha_Atlas[is.na(res_Alpha_Atlas$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = res_Alpha_Atlas[!is.na(res_Alpha_Atlas$group),], pch = 21, alpha = 0.4) +
   geom_smooth(method = "lm", fill = "black") +
   scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
                     labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
@@ -105,9 +123,9 @@ p1 <- ggplot(resCommonAlphaAtlas, aes(x=alpha_array_all, y=alpha_array_3ind, fil
        x = "P(hv) considering all array data",
        y = "P(hv) considering 3 individuals per dataset")
 
-p2 <- ggplot(resCommonAlphaAtlas, aes(x=alpha_atlas, y=alpha_array_all, fill = group, col = group)) +
-  geom_point(data = resCommonAlphaAtlas[is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.05) +
-  geom_point(data = resCommonAlphaAtlas[!is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.4) +
+p2 <- ggplot(res_Alpha_Atlas, aes(x=alpha_atlas, y=alpha_array_all, fill = group, col = group)) +
+  geom_point(data = res_Alpha_Atlas[is.na(res_Alpha_Atlas$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = res_Alpha_Atlas[!is.na(res_Alpha_Atlas$group),], pch = 21, alpha = 0.4) +
   geom_smooth(method = "lm", fill = "black") +
   scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
                     labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
@@ -118,9 +136,9 @@ p2 <- ggplot(resCommonAlphaAtlas, aes(x=alpha_atlas, y=alpha_array_all, fill = g
        x = "P(hv) considering all atlas data",
        y = "P(hv) considering all array data")
 
-p3 <- ggplot(resCommonAlphaAtlas, aes(x=alpha_atlas, y=alpha_array_3ind, fill = group, col = group)) +
-  geom_point(data = resCommonAlphaAtlas[is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.05) +
-  geom_point(data = resCommonAlphaAtlas[!is.na(resCommonAlphaAtlas$group),], pch = 21, alpha = 0.4) +
+p3 <- ggplot(res_Alpha_Atlas, aes(x=alpha_atlas, y=alpha_array_3ind, fill = group, col = group)) +
+  geom_point(data = res_Alpha_Atlas[is.na(res_Alpha_Atlas$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = res_Alpha_Atlas[!is.na(res_Alpha_Atlas$group),], pch = 21, alpha = 0.4) +
   geom_smooth(method = "lm", fill = "black") +
   scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
                     labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
@@ -146,7 +164,7 @@ legend <- cowplot::get_legend(
 )
 
 # --- Arrange plots with legend as 4th panel ---
-pdf(here("05_hvCpGalgorithm/figures/compAtlasvsArrayalland3ind.pdf"), width = 10, height = 10)
+pdf(here("05_hvCpGalgorithm/figures/test2_compAtlasvsArrayalland3ind.pdf"), width = 10, height = 10)
 cowplot::plot_grid(p1_clean, p2_clean, p3_clean, legend,
                    ncol = 2)  # grid layout: 2 cols × 2 rows
 dev.off()
@@ -176,18 +194,22 @@ atlas_dt_CD4CD8 <- mergeAtlasRunBatches(parent_dir = "05_hvCpGalgorithm/resultsD
                                  analysis = "Atlas10X_CD4_CD8", alphaname = "alpha_atlas_CD4CD8")
 
 ## Merge
-resbothCD4CD8 <- na.omit(full_join(resArrayCD4CD8, data.frame(atlas_dt_CD4CD8)))
-nrow(resbothCD4CD8) # 155635 covered in both in enough samples/coverage
+res_Alpha_Atlas_CD4CD8 <- full_join(resArrayCD4CD8, data.frame(atlas_dt_CD4CD8))
+res_Alpha_Atlas_CD4CD8 <- left_join(res_Alpha_Atlas_CD4CD8, res_Alpha_Atlas)
+
+sum(!is.na(res_Alpha_Atlas_CD4CD8$alpha_array_CD4CD8) & 
+      !is.na(res_Alpha_Atlas_CD4CD8$alpha_atlas_CD4CD8))
+# 155635 covered in both in enough samples/coverage
 
 ## Indicate the hvCpG of Maria and controls
-resbothCD4CD8$group <- "background"
-resbothCD4CD8$group[resbothCD4CD8$chrpos %in% 
+res_Alpha_Atlas_CD4CD8$group <- "background"
+res_Alpha_Atlas_CD4CD8$group[res_Alpha_Atlas_CD4CD8$chrpos %in% 
                       hvCpGandControls$DerakhshanhvCpGs_names] <- "hvCpG_Derakhshan"
-resbothCD4CD8$group[resbothCD4CD8$chrpos %in% 
+res_Alpha_Atlas_CD4CD8$group[res_Alpha_Atlas_CD4CD8$chrpos %in% 
                       hvCpGandControls$mQTLcontrols_names] <- "mQTLcontrols"
-resbothCD4CD8$group <- as.factor(resbothCD4CD8$group)
+res_Alpha_Atlas_CD4CD8$group <- as.factor(res_Alpha_Atlas_CD4CD8$group)
 
-resplot <- subset(resbothCD4CD8, !is.na(group))
+resplot <- subset(res_Alpha_Atlas_CD4CD8, !is.na(group))
 resplot$group <- factor(resplot$group, levels = c("background","hvCpG_Derakhshan", "mQTLcontrols"))
 
 p <- ggplot(resplot, aes(x = alpha_array_CD4CD8,
@@ -222,15 +244,12 @@ p_with_dens <- ggMarginal(
   alpha = 0.4
 )
 
-pdf(here("05_hvCpGalgorithm/figures/CD4CD8ArrayAtlas.pdf"), width = 7, height = 7)
-p_with_dens
-dev.off()
+p1 <- p_with_dens
 
 ## Compare array all +-vs array CD4CD8
 x <- full_join(resArrayCD4CD8, resCompArray)
 
-pdf(here("05_hvCpGalgorithm/figures/compArrayallVsCD4CD8.pdf"), width = 6, height = 6)
-ggplot(x, aes(x=alpha_array_all, y=alpha_array_CD4CD8, fill = group, col = group)) +
+p2 <- ggplot(x, aes(x=alpha_array_all, y=alpha_array_CD4CD8, fill = group, col = group)) +
   geom_point(data = x[is.na(x$group),], pch = 21, alpha = 0.05) +
   geom_point(data = x[!is.na(x$group),], pch = 21, alpha = 0.4) +
   geom_smooth(method = "lm", fill = "black") +
@@ -246,6 +265,9 @@ ggplot(x, aes(x=alpha_array_all, y=alpha_array_CD4CD8, fill = group, col = group
   labs(title = "Probability of being hypervariable",
        x = "P(hv) considering all array data",
        y = "P(hv) considering array CD4+ CD8+ groups only")
+
+pdf(here("05_hvCpGalgorithm/figures/test3_compArrayAtlasCD4CD8.pdf"), width = 14, height = 7)
+cowplot::plot_grid(p2, p1, ncol = 2)
 dev.off()
 
 ################################# 
@@ -264,10 +286,9 @@ atlas_dt_female <- mergeAtlasRunBatches(parent_dir = "05_hvCpGalgorithm/resultsD
 atlas_dt_male_female <- full_join(atlas_dt_male, atlas_dt_female)
 
 ## Compare array all +-vs array CD4CD8
-x <- full_join(atlas_dt_male_female, resCompArray)
+x <- left_join(atlas_dt_male_female, res_Alpha_Atlas)
 
-pdf(here("05_hvCpGalgorithm/figures/compAtlasBothSexes.pdf"), width = 6, height = 6)
-ggplot(x, aes(x=alpha_atlas_males, y=alpha_atlas_females, fill = group, col = group)) +
+p1 <- ggplot(x, aes(x=alpha_atlas_males, y=alpha_atlas_females, fill = group, col = group)) +
   geom_point(data = x[is.na(x$group),], pch = 21, alpha = 0.05) +
   geom_point(data = x[!is.na(x$group),], pch = 21, alpha = 0.4) +
   geom_smooth(method = "lm", fill = "black") +
@@ -280,9 +301,73 @@ ggplot(x, aes(x=alpha_atlas_males, y=alpha_atlas_females, fill = group, col = gr
         legend.box = "horizontal", legend.title = element_blank(),
         legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
         legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Probability of being hypervariable",
-       x = "P(hv) considering male atlas data (12ds)",
+  labs(x = "P(hv) considering male atlas data (12ds)",
        y = "P(hv) considering female atlas data (16ds)")
+
+p2 <- ggplot(x, aes(x=alpha_atlas_males, y=alpha_atlas, fill = group, col = group)) +
+  geom_point(data = x[is.na(x$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = x[!is.na(x$group),], pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
+  theme_minimal(base_size = 14) +
+  guides(fill = guide_legend(position = "inside"))+
+  theme(legend.position.inside = c(0.3,0.8),
+        legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(x = "P(hv) considering male atlas data (12ds)",
+       y = "P(hv) considering all atlas data (46ds)")
+
+p3 <- ggplot(x, aes(x=alpha_atlas_females, y=alpha_atlas, fill = group, col = group)) +
+  geom_point(data = x[is.na(x$group),], pch = 21, alpha = 0.05) +
+  geom_point(data = x[!is.na(x$group),], pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"), 
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
+  theme_minimal(base_size = 14) +
+  guides(fill = guide_legend(position = "inside"))+
+  theme(legend.position.inside = c(0.3,0.8),
+        legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(x = "P(hv) considering female atlas data (16ds)",
+       y = "P(hv) considering all atlas data (46ds)")
+
+# --- Turn off legends inside plots ---
+p1_clean <- p1 + theme(legend.position = "none")
+p2_clean <- p2 + theme(legend.position = "none")
+p3_clean <- p3 + theme(legend.position = "none")
+
+# --- Extract one legend (e.g. from p1) ---
+legend <- cowplot::get_legend(
+  p1 + theme(legend.position = "bottom",
+             legend.box = "horizontal",
+             legend.title = element_blank(),
+             legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+             legend.key = element_rect(fill = "white", color = NA))
+)
+
+# Combine plots
+plots_grid <- plot_grid(
+  p1_clean, p2_clean,
+  p3_clean, legend,
+  ncol = 2
+)
+
+# Add an overall title on top
+final_plot <- ggdraw() +
+  draw_label(
+    "Probability of being hypervariable P(hv) in male, female, and combined WGBS atlas data",
+    fontface = "bold",
+    x = 0.5, y = 0.98, hjust = 0.5, vjust = 1, size = 18
+  ) +
+  draw_plot(plots_grid, x = 0, y = 0, width = 1, height = 0.95)
+
+pdf(here("05_hvCpGalgorithm/figures/test4_compAtlasBothSexes.pdf"), width = 12, height = 12)
+print(final_plot)
 dev.off()
 
 ##############################################
@@ -304,7 +389,7 @@ resArrayNoCor$chrpos = hvCpGandControls$dictionary$hg38[
   match(resArrayNoCor$cpgprobe,
         hvCpGandControls$dictionary$illu450k)]
 
-resCommon_Array_Atlas_rawArray <- full_join(resCommonAlphaAtlas, resArrayNoCor)
+resCommon_Array_Atlas_rawArray <- full_join(res_Alpha_Atlas, resArrayNoCor)
 
 p1 <- ggplot(resCommon_Array_Atlas_rawArray, 
              aes(x=alpha_array_all, y=alpha_array_nocor, fill = group, col = group)) +
@@ -360,7 +445,7 @@ legend <- cowplot::get_legend(
 )
 
 # --- Arrange plots with legend as 4th panel ---
-pdf(here("05_hvCpGalgorithm/figures/compArrayVsnocor.pdf"), width = 10, height = 7)
+pdf(here("05_hvCpGalgorithm/figures/test5_compArrayVsnocor.pdf"), width = 10, height = 7)
 cowplot::plot_grid(p1_clean, p2_clean, legend,
                    ncol = 2, rel_heights = c(.9, .3))  # grid layout: 2 cols × 2 rows
 dev.off()

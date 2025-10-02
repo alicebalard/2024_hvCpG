@@ -85,8 +85,9 @@ chr_mid <- resArrayAll %>%
 pdf(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_array.pdf"), width = 15, height = 3)
 ## colorblind friendly
 ggplot() +
-  geom_point(data = resArrayAll, aes(x = cum_pos, y = alpha, col = point_col),
-             alpha = 0.1, size = 1) +
+  geom_point(data = resArrayAll, 
+             aes(x = cum_pos, y = alpha, col = "black"),
+             alpha = 0.05, size = 1) +
   # Highlight hvCpG
   geom_point(data = resArrayAll[resArrayAll$group %in% "hvCpG_Derakhshan", ],
              aes(x = cum_pos, y = alpha),
