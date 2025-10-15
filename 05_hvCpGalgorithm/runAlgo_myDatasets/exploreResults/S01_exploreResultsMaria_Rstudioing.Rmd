@@ -101,35 +101,69 @@ Maria’s paper: We defined an hvCpG in the following way:
 2. is covered in at least 15 of the 30 datasets.
 
 ```{r Maria}
-## Within each dataset, calculate the CpGs variance, and keep the top 5%
-top5pcvar <- lapply(rds_list_mat, function(mat) {
-  # Step 1: Calculate row variances
-  row_variances = rowVars(mat, na.rm = T)
-  df = data.frame(var=row_variances, cpg=names(row_variances))
-  # Step 2
-  top = top_n(df, as.integer(0.05*nrow(df)), var) ## slightly different than quantile cause keep ties
-  return(top)
-})
+detecthvCpGCutoff <- function(rds_list_mat){
+  ## Within each dataset, calculate the CpGs variance, and keep the top 5%
+  top5pcvar <- lapply(rds_list_mat, function(mat) {
+    # Step 1: Calculate row variances
+    row_variances = rowVars(mat, na.rm = T)
+    df = data.frame(var=row_variances, cpg=names(row_variances))
+    # Step 2
+    top = top_n(df, as.integer(0.05*nrow(df)), var) ## slightly different than quantile cause keep ties
+    return(top)
+  })
+  
+  ## CpGs in the top 5% variance:
+  cpg_counts_top <- table(unlist(lapply(top5pcvar, rownames))) %>%
+    data.frame() %>% dplyr::rename("cpgs"="Var1", "all_cpgs_top5pc"="Freq")
+  
+  ## all covered CpGs:
+  cpg_counts <- table(unlist(lapply(rds_list_mat, rownames))) %>%
+    data.frame() %>% dplyr::rename("cpgs"="Var1", "all_cpgs"="Freq")
+  
+  ## Both:
+  cpg_counts_full <- merge(cpg_counts, cpg_counts_top, all.x = T)
+  rm(cpg_counts, cpg_counts_top)
+  
+  ## in 65% of datasets in which the CpG is covered (following quality control), it has methylation variance in the top 5% of all (non-removed) CpGs:
+  ## rounding, to mimick Maria's approach
+  hvCpGs_repro_maria <- na.omit(cpg_counts_full[round(cpg_counts_full$all_cpgs_top5pc/cpg_counts_full$all_cpgs, 2) >= 0.65,])
+  
+  return(hvCpGs_repro_maria)
+}
 
-## CpGs in the top 5% variance:
-cpg_counts_top <- table(unlist(lapply(top5pcvar, rownames))) %>%
-  data.frame() %>% dplyr::rename("cpgs"="Var1", "all_cpgs_top5pc"="Freq")
-
-## all covered CpGs:
-cpg_counts <- table(unlist(lapply(rds_list_mat, rownames))) %>%
-  data.frame() %>% dplyr::rename("cpgs"="Var1", "all_cpgs"="Freq")
-
-## Both:
-cpg_counts_full <- merge(cpg_counts, cpg_counts_top, all.x = T)
-rm(cpg_counts, cpg_counts_top)
-
-## in 65% of datasets in which the CpG is covered (following quality control), it has methylation variance in the top 5% of all (non-removed) CpGs:
-## rounding, to mimick Maria's approach
-hvCpGs_repro_maria <- na.omit(cpg_counts_full[round(cpg_counts_full$all_cpgs_top5pc/cpg_counts_full$all_cpgs, 2) >= 0.65,])
+hvCpGs_repro_maria <- detecthvCpGCutoff(rds_list_mat = rds_list_mat)
 ```
 
 Maria detected `r length(Marias_hvCpGs$CpG)` hvCpGs. I detected `r length(hvCpGs_repro_maria$cpgs)` hvCpGs.
 We both have `r length(intersect(hvCpGs_repro_maria$cpgs, Marias_hvCpGs$CpG))` hvCpGs in common.
+
+## What if we had only 3 people per dataset?
+
+```{r}
+set.seed(123)  # for reproducibility
+
+# Keep 3 random columns per element
+rds_list_mat_3ind <- lapply(rds_list_mat, function(df) {
+  cols <- sample(ncol(df), 3)   # choose 3 random columns
+  df[, cols, drop = FALSE]      # subset while keeping data.frame
+})
+
+hvCpGs_repro_maria_3ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_3ind)
+
+## Plot 
+
+# install.packages("ggVennDiagram")
+library(ggVennDiagram)
+
+# List of items
+x <- list("Full array" = hvCpGs_repro_maria$cpgs, 
+          "Array 3ind/ds" = hvCpGs_repro_maria_3ind$cpg)
+
+p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
+p
+# 2D Venn diagram
+ggsave("../../figures/arrayCutoffLowPower3ind.pdf", plot = p, width = 5, height = 5)
+```
 
 # Identify hvCpGs based on a sd multiplicative factor lambda
 
@@ -233,10 +267,10 @@ library(ggplot2)
 
 sdselected <- function(cpglist, B = 1000, select3 = FALSE) {
   if (select3){
-      # randomly sample 3 individuals (columns)
-      selected_cols <- sample(seq_len(ncol(mat)), 3)
-      mat <- mat[, selected_cols, drop = FALSE]
-    }    
+    # randomly sample 3 individuals (columns)
+    selected_cols <- sample(seq_len(ncol(mat)), 3)
+    mat <- mat[, selected_cols, drop = FALSE]
+  }    
   
   results <- lapply(names(rds_list_mat), function(dataset_name) {
     k <- rds_list_mat[[dataset_name]]
@@ -250,7 +284,7 @@ sdselected <- function(cpglist, B = 1000, select3 = FALSE) {
         upper = NA
       ))
     }
- 
+    
     row_sds <- rowSds(mat, na.rm = TRUE)
     
     # Bootstrap function
@@ -282,7 +316,7 @@ sdselected <- function(cpglist, B = 1000, select3 = FALSE) {
   })
   
   if (!is.null(selectN) && selectN < ncol(mat)) {
-      mat <- mat[, 1:selectN, drop = FALSE]
+    mat <- mat[, 1:selectN, drop = FALSE]
   }
   
   mat <- rds_list_mat[[dataset_name]]
@@ -320,7 +354,7 @@ inner95_df <- lapply(names(sd_diff), function(dataset_name) {
 sd_diff_3 <- lapply(names(rds_list_mat), function(dataset_name) {
   mat <- rds_list_mat[[dataset_name]]
   mat <- mat[, 1:min(3, ncol(mat)), drop = FALSE]  # first 3 columns
-
+  
   hv_cpgs <- sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name
   ctrl_cpgs <- sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name
   
