@@ -8,6 +8,10 @@ source(here("05_hvCpGalgorithm", "quiet_library.R"))
 ## Load array results
 resArray <- readRDS(here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
 
+## Add Maria's results
+source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R"))
+hvCpGandControls <- prephvCpGandControls(codeDir = here())
+
 ## This code does:
 ### I. Histogram of coverage across datasets
 ### II. Load data & Manhattan plot
@@ -118,10 +122,6 @@ prepAtlasdt <- function(){
   message("Chromosomes in the dataset:")
   table(unique(dt$chr))
   
-  ## Add Maria's results
-  source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R"))
-  hvCpGandControls <- prephvCpGandControls(codeDir = here())
-  
   ## Mark group membership in dt
   dt[, group := NA_character_]
   dt[name %in% hvCpGandControls$DerakhshanhvCpGs_names, group := "hvCpG_Derakhshan"]
@@ -142,7 +142,7 @@ prepAtlasdt <- function(){
   return(dt)
 }
 
-Atlas_dt <- prepAtlasdt()
+system.time(Atlas_dt <- prepAtlasdt())
 stop("stop here to only prepare atlas_dt")
 
 # Compute chromosome centers for x-axis labeling
@@ -191,7 +191,7 @@ pairs <- data.frame(
 )
 
 # Merge hvCpG alphas
-res <- dt[!is.na(group)]
+res <- Atlas_dt[!is.na(group)]
 
 hv_alpha <- res[, c("name", "alpha")]
 colnames(hv_alpha) <- c("hvCpG", "alpha_hvCpG")
@@ -234,7 +234,6 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   ylab("Difference of probability") +
   facet_grid(.~chr)
 
-## Is mean/median .02 like plot later comparing different MEs?
 ## How different from 50/50 expected? Binomial test
 
 mean_diff <- mean(merged$diffAlpha, na.rm = TRUE)
@@ -257,12 +256,12 @@ n_pos / n_total
 #####################################################
 
 ##############
-threshold=0.75
+threshold=0.7#
 ##############
 
 # Filter valid rows
-dt_clean <- dt[!is.na(start_pos) & !is.na(end_pos)]
-rm(dt)
+dt_clean <- Atlas_dt[!is.na(start_pos) & !is.na(end_pos)]
+rm(Atlas_dt)
 
 # Create GRanges
 gr_cpg <- GRanges(
@@ -328,8 +327,8 @@ ggplot(df_plot, aes(x=Region, y=Percent, fill = AlphaGroup))+
   theme_minimal(base_size = 14)+
   scale_fill_manual(
     values = c("red", "skyblue"),
-    name = "p(hypervariable)",      # optional
-    labels = c(">75%", "<=75%")   # new names for legend keys
+    name = "p(hv)",      # optional
+    labels = c(">70%", "<=70%")   # new names for legend keys
   ) +
   theme(axis.title.x = element_blank())
 dev.off()
@@ -517,8 +516,33 @@ pdf(here("05_hvCpGalgorithm/figures/alphaComparisonBetweenMEtypes.pdf"), width =
 cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
 dev.off()
 
-tail(dt_clean)
-tail(resArray)
+#################################
+### Regions of hypervariation ###
+#################################
+plot <- ggplot() +
+  geom_point_rast(data = dt_clean, aes(x = pos2, y = alpha), color = "black",
+                  size = 0.01, alpha = 0.01, raster.dpi = 72) +
+  theme_classic() + theme(legend.position = "none") +
+  scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
+  theme_minimal(base_size = 14)
+
+# Save as PDF — rasterization improves performance and file size
+CairoPDF(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_atlas_2.pdf"), width = 15, height = 3)
+print(plot)
+dev.off()
+
+## TBC
+
+
+
+
+
+
+
+
+
 
 ###############
 ## FIND PAX8
