@@ -119,6 +119,42 @@ print(results)
 #### TRUE 
 ## 6906 
 
+# ## Load hvCpG of Maria and matching mQTL
+# cistrans_GoDMC_hvCpG_matched_control <- read.table("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
+# 
+# ## cpg_names_all in here:
+# prepData(analysis="Mariasarrays")
+# length(cpg_names_all); head(cpg_names_all)
+# ## [1] 406036
+# # [1] "cg00000029" "cg00000108" "cg00000109" "cg00000165" "cg00000236" "cg00000289"
+# 
+# ## In which positions are they?
+# cpg_names_all[cpg_names_all %in% cistrans_GoDMC_hvCpG_matched_control$hvCpG_name] %>% length
+# cpg_names_all[cpg_names_all %in% cistrans_GoDMC_hvCpG_matched_control$controlCpG_name]  %>% length
+# 
+# sub_cistrans_GoDMC_hvCpG_matched_control <- cistrans_GoDMC_hvCpG_matched_control[
+#   cistrans_GoDMC_hvCpG_matched_control$hvCpG_name %in% cpg_names_all &
+#     cistrans_GoDMC_hvCpG_matched_control$controlCpG_name %in% cpg_names_all,]
+# 
+# ## Positions of targets in cpg_names:
+# match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names_all)
+# match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names_all)
+# 
+# ## test
+# source_M_1CpG(cpgpos = match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names_all)[2])
+# 
+# pos2check <- c(match(sub_cistrans_GoDMC_hvCpG_matched_control$hvCpG_name, cpg_names_all),
+#                match(sub_cistrans_GoDMC_hvCpG_matched_control$controlCpG_name, cpg_names_all))
+
+# ## Your grid
+# params <- seq(0.4, 1, 0.05)
+# grid <- expand.grid(p0 = params, p1 = params)
+# 
+# apply(grid, 1, function(row) {
+#   runAndSave(analysis = "Maria", cpgPos_vec = pos2check, resultDir="05_hvCpGalgorithm/resultsDir/Mariads/",
+#              NCORES=30, p0=as.numeric(row["p0"]), p1=as.numeric(row["p1"]))
+# })
+
 ######################################################################
 ## Part 2. Subset Maria's data following Atlas data, to check power ##
 ######################################################################
