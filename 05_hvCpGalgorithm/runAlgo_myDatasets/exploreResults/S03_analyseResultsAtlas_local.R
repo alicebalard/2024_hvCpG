@@ -66,95 +66,102 @@ rm(t_combined, t5, t10)
 ## II. Load data & Manhattan plot ##
 ####################################
 
-# Define parent folder containing all "Atlas_batchXXX" folders
-parent_dir <- here("05_hvCpGalgorithm/resultsDir/Atlas10X/")
-
-# Get list of relevant RData files
-rdata_files <- dir(parent_dir, pattern = "results_Atlas10X_[0-9]+CpGs_0_8p0_0_65p1\\.RData$", 
-                   recursive = TRUE, full.names = TRUE)
-
-## Check if all batches have ran
-length(rdata_files) == 231
-
-all_cpg_values <- numeric()
-pb <- progress_bar$new(total = length(rdata_files), format = "📦 :current/:total [:bar] :percent")
-
-for (file in rdata_files) {
-  e <- new.env()
-  load(file, envir = e)
-  obj <- e[[ls(e)[1]]]
-  if (is.matrix(obj)) obj <- obj[, 1]
-  all_cpg_values <- c(all_cpg_values, obj)
-  pb$tick()
+prepAtlasdt <- function(){
+  # Define parent folder containing all "Atlas_batchXXX" folders
+  parent_dir <- here("05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X/")
+  
+  # Get list of relevant RData files
+  rdata_files <- dir(parent_dir, pattern = "results_Atlas10X_[0-9]+CpGs_0_8p0_0_65p1\\.RData$", 
+                     recursive = TRUE, full.names = TRUE)
+  
+  ## Check if all batches have ran
+  length(rdata_files) == 231
+  
+  all_cpg_values <- numeric()
+  pb <- progress_bar$new(total = length(rdata_files), format = "📦 :current/:total [:bar] :percent")
+  
+  for (file in rdata_files) {
+    e <- new.env()
+    load(file, envir = e)
+    obj <- e[[ls(e)[1]]]
+    if (is.matrix(obj)) obj <- obj[, 1]
+    all_cpg_values <- c(all_cpg_values, obj)
+    pb$tick()
+  }
+  
+  # Create data.table from named vector
+  dt <- data.table(
+    name = names(all_cpg_values),
+    alpha = as.numeric(all_cpg_values)
+  )
+  
+  rm(e, pb, all_cpg_values, obj, file, parent_dir, rdata_files)
+  
+  #######################################################################
+  # Parse "chr_start-end" in name into chr, start_pos, end_pos. NB: takes a couple of minutes
+  dt[, c("chr", "start_end") := tstrsplit(name, "_", fixed = TRUE)]
+  dt[, c("start_pos", "end_pos") := tstrsplit(start_end, "-", fixed = TRUE)]
+  
+  # Convert to integer/numeric if not already
+  dt[, start_pos := as.integer(start_pos)]
+  dt[, end_pos := as.integer(end_pos)]
+  
+  ## Check chromosomes present:
+  message("Chromosomes in the dataset:")
+  table(unique(dt$chr))
+  
+  # Convert chr from "chrN" to  factor
+  dt[, chr := sub("chr", "", chr)]
+  dt[, chr := factor(chr, levels = as.character(c(1:22, "X", "Y", "M")))]
+  
+  ## Check chromosomes order:
+  message("Chromosomes in the dataset:")
+  table(unique(dt$chr))
+  
+  ## Add Maria's results
+  source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R"))
+  hvCpGandControls <- prephvCpGandControls(codeDir = here())
+  
+  ## Mark group membership in dt
+  dt[, group := NA_character_]
+  dt[name %in% hvCpGandControls$DerakhshanhvCpGs_names, group := "hvCpG_Derakhshan"]
+  dt[name %in% hvCpGandControls$mQTLcontrols_names, group := "mQTLcontrols"]
+  
+  # Compute cumulative position offsets for Manhattan plot
+  setorder(dt, chr, start_pos)
+  
+  offsets <- dt[, .(max_pos = max(start_pos, na.rm = TRUE)), by = chr]
+  offsets[, cum_offset := c(0, head(cumsum(as.numeric(max_pos)), -1))]
+  
+  dt <- merge(dt, offsets[, .(chr, cum_offset)], by = "chr", all.x = TRUE, sort = FALSE)
+  
+  # Convert to integer/numeric if not already
+  dt[, cum_offset := as.numeric(cum_offset)]
+  dt[, pos2 := start_pos + cum_offset]
+  
+  return(dt)
 }
 
-# Create data.table from named vector
-dt <- data.table(
-  name = names(all_cpg_values),
-  alpha = as.numeric(all_cpg_values)
-)
-
-rm(e, pb, all_cpg_values, obj, file, parent_dir, rdata_files)
-
-#######################################################################
-# Parse "chr_start-end" in name into chr, start_pos, end_pos. NB: takes a couple of minutes
-dt[, c("chr", "start_end") := tstrsplit(name, "_", fixed = TRUE)]
-dt[, c("start_pos", "end_pos") := tstrsplit(start_end, "-", fixed = TRUE)]
-
-# Convert to integer/numeric if not already
-dt[, start_pos := as.integer(start_pos)]
-dt[, end_pos := as.integer(end_pos)]
-
-## Check chromosomes present:
-message("Chromosomes in the dataset:")
-table(unique(dt$chr))
-
-# Convert chr from "chrN" to  factor
-dt[, chr := sub("chr", "", chr)]
-dt[, chr := factor(chr, levels = as.character(c(1:22, "X", "Y")))]
-
-## Check chromosomes order:
-message("Chromosomes in the dataset:")
-table(unique(dt$chr))
-
-## Add Maria's results
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R"))
-hvCpGandControls <- prephvCpGandControls(codeDir = here())
-
-## Mark group membership in dt
-dt[, group := NA_character_]
-dt[name %in% hvCpGandControls$DerakhshanhvCpGs_names, group := "hvCpG_Derakhshan"]
-dt[name %in% hvCpGandControls$mQTLcontrols_names, group := "mQTLcontrols"]
-
-# Compute cumulative position offsets for Manhattan plot
-setorder(dt, chr, start_pos)
-
-offsets <- dt[, .(max_pos = max(start_pos, na.rm = TRUE)), by = chr]
-offsets[, cum_offset := c(0, head(cumsum(as.numeric(max_pos)), -1))]
-
-dt <- merge(dt, offsets[, .(chr, cum_offset)], by = "chr", all.x = TRUE, sort = FALSE)
-
-# Convert to integer/numeric if not already
-dt[, cum_offset := as.numeric(cum_offset)]
-dt[, pos2 := start_pos + cum_offset]
+Atlas_dt <- prepAtlasdt()
+stop("stop here to only prepare atlas_dt")
 
 # Compute chromosome centers for x-axis labeling
-df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y"), levels=as.character(c(1:22, "X", "Y")))),
+df2 <- Atlas_dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
+df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
              df2, by = "chr", all.x = TRUE, sort = TRUE)
 df2 <- na.omit(df2)
 
 plot <- ggplot() +
   # background cloud
-  geom_point_rast(data = dt[is.na(group)], 
+  geom_point_rast(data = Atlas_dt[is.na(group)], 
                   aes(x = pos2, y = alpha),
                   color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
   # hvCpG highlights
-  geom_point(data = dt[group == "hvCpG_Derakhshan"],
+  geom_point(data = Atlas_dt[group == "hvCpG_Derakhshan"],
              aes(x = pos2, y = alpha),
              color = "#DC3220", size = 1, alpha = 0.7) +
   # mQTL controls highlights
-  geom_point(data = dt[group == "mQTLcontrols"],
+  geom_point(data = Atlas_dt[group == "mQTLcontrols"],
              aes(x = pos2, y = alpha),
              color = "#005AB5", size = 1, alpha = 0.7) +
   theme_classic() + theme(legend.position = "none") +
@@ -199,6 +206,10 @@ merged <- pairs %>%
   left_join(ctrl_alpha, by = "control") %>%
   mutate(diffAlpha=alpha_hvCpG-alpha_control)
 
+merged <- merged %>%
+  mutate(chr = str_extract(hvCpG, "^chr[0-9XYM]+"))%>%
+  filter(!is.na(diffAlpha))
+
 pdf(here("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInAtlas.pdf"),
     width = 4, height = 5)
 ggplot(merged, aes(x="diff", y=diffAlpha))+
@@ -211,6 +222,35 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   ggtitle("P(hvCpG) minus P(matching control) in atlas")+
   ylab("Difference of probability")
 dev.off()
+
+ggplot(merged, aes(x="diff", y=diffAlpha))+
+  geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
+  geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
+  geom_violin(width=.5, fill = "grey", alpha=.8) +
+  geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
+  theme_minimal(base_size = 14)+
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
+  ggtitle("P(hvCpG) minus P(matching control) in atlas")+
+  ylab("Difference of probability") +
+  facet_grid(.~chr)
+
+## Is mean/median .02 like plot later comparing different MEs?
+## How different from 50/50 expected? Binomial test
+
+mean_diff <- mean(merged$diffAlpha, na.rm = TRUE)
+median_diff <- median(merged$diffAlpha, na.rm = TRUE)
+summary(merged$diffAlpha)
+# If mean/median ≈ 0.02 (like your later ME plot), it means hvCpGs are slightly enriched for higher hypervariability probability compared to matched controls.
+
+## How different from 50/50 expectation?
+n_pos <- sum(merged$diffAlpha > 0, na.rm = TRUE)
+n_neg <- sum(merged$diffAlpha < 0, na.rm = TRUE)
+n_total <- n_pos + n_neg
+
+binom.test(n_pos, n_total, p = 0.5, alternative = "greater")
+
+## Effect size (proportion above zero)
+n_pos / n_total
 
 #####################################################
 ## III. Test enrichment of features for high alpha ##
@@ -262,11 +302,17 @@ contingency <- rbind(
   HighAlpha = count_high
 )
 print(contingency)
+#            promoter    exon   intron intergenic
+# LowAlpha   3112722 1179458 12071239    4987877
+# HighAlpha    53647   21547   343090     166446
 
 ##  Perform chi-squared test
 chisq.test(contingency)
+# Pearson's Chi-squared test
+# data:  contingency
+# X-squared = 21801, df = 3, p-value < 0.00000000000000022
 
-# HighAlpha CpGs are depleted in promoters/exons and enriched in intergenic regions (with a mild enrichment in introns).
+# promoters and exons are depleted, and intergenic and introns are enriched, in hypervariable CpGs
 
 ################
 ## Barplot ##
@@ -280,7 +326,11 @@ pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesLowHighAlpha.pdf"), width = 5
 ggplot(df_plot, aes(x=Region, y=Percent, fill = AlphaGroup))+
   geom_bar(position="dodge", stat="identity") +
   theme_minimal(base_size = 14)+
-  scale_fill_viridis_d() +
+  scale_fill_manual(
+    values = c("red", "skyblue"),
+    name = "p(hypervariable)",      # optional
+    labels = c(">75%", "<=75%")   # new names for legend keys
+  ) +
   theme(axis.title.x = element_blank())
 dev.off()
 
@@ -324,7 +374,7 @@ keep <- lengths(mapped) == 1
 hg38_unique <- unlist(mapped[keep])
 
 ## find the match with Atlas cpg
-cpg_46 <- read.table("~/Documents/Project_hvCpG/10X/selected_cpgs_min3_in46_datasets.txt")$V1
+cpg_46 <- read.table("~/Documents/Project_hvCpG/selected_cpgs_min3_in46_datasets.txt")$V1
 # Parse with regex
 parsed <- str_match(cpg_46, "(chr[0-9XYM]+)_(\\d+)-(\\d+)")
 # Build GRanges
@@ -341,7 +391,7 @@ CpG_overlapping     <- cpg_46_GR[subjectHits(overlaps)]
 
 KesslerSIV_hg38 <- paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges)
 KesslerSIV_hg38 <- na.omit(KesslerSIV_hg38)
-length(KesslerSIV_hg38) # 940
+length(KesslerSIV_hg38) # 819
 
 #######################################
 ## Gunasekara2019_9926CoRSIVs_10WGBS ##
@@ -361,13 +411,13 @@ CpG_overlapping     <- cpg_46_GR[subjectHits(overlaps)]
 corSIV_hg38 <- paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges)
 
 corSIV_hg38 <- na.omit(corSIV_hg38)
-length(corSIV_hg38) # 71320
+length(corSIV_hg38) # 70352
 
 #######################################
 ## Silver2022_SoCCpGs_10WGBS ##
 arrayRef <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 3, skip = 2)
 SoCCpGs <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 6, skip = 2)
- 
+
 SoCCpGs_GRanges <- GRanges(
   seqnames = paste0("chr", arrayRef$chr[match(SoCCpGs$cpg, arrayRef$cpg)]),
   ranges = IRanges(start = arrayRef$loc[match(SoCCpGs$cpg, arrayRef$cpg)],
@@ -385,7 +435,7 @@ CpG_overlapping     <- cpg_46_GR[subjectHits(overlaps)]
 SoCCpGs_hg38 <- paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges)
 
 SoCCpGs_hg38 <- na.omit(SoCCpGs_hg38)
-length(SoCCpGs_hg38) #204
+length(SoCCpGs_hg38) #177
 
 #################################
 ## Check overlaps with upset plot 
@@ -469,3 +519,61 @@ dev.off()
 
 tail(dt_clean)
 tail(resArray)
+
+###############
+## FIND PAX8
+# Chromosome 2, NC_000002.12 (113215997..113278921,
+
+# 1. Convert array and atlas to GRanges object
+gr_atlas <- GRanges(
+  seqnames = paste0("chr", Atlas_dt$chr),
+  ranges = IRanges(start = Atlas_dt$start_pos, end = Atlas_dt$end_pos),
+  mcols = Atlas_dt
+)
+
+gr_array <- GRanges(
+  seqnames = resArray$chr,
+  ranges = IRanges(start = resArray$pos, end = resArray$pos +1),
+  mcols = resArray
+)
+
+# 2. PAX8 as a GRanges
+gr_PAX8 <- GRanges(
+  seqnames = "chr2",
+  ranges = IRanges(start = 113215997, end = 113278921)
+)
+
+# 3. Find overlaps between CpGs and the gene region
+hits <- findOverlaps(gr_atlas, gr_PAX8)
+hits2 <- findOverlaps(gr_array, gr_PAX8)
+
+# 4. Extract matching rows from original df
+df_hits <- gr_atlas[queryHits(hits), ]
+df_hits2 <- gr_array[queryHits(hits2), ]
+
+ggplot(data.frame(df_hits), aes(x=start)) + 
+  geom_point(aes(y=mcols.alpha)) +
+  # geom_point(data.frame(df_hits2), aes(y=mcols.alpha_array_all, fill=mcols.group), size = 3, pch =21) +
+  theme_minimal(base_size = 14) +
+  # Add the rectangle
+  annotate(
+    "rect",
+    xmin = 113278394,
+    xmax = 113279523,
+    ymin = -Inf,      # spans entire y-range
+    ymax = Inf,
+    alpha = 0.2,
+    fill = "blue"
+  ) +
+  # Add a label for the promoter
+  annotate(
+    "text",
+    x = (113278394 + 113279523) / 2,
+    y = max(df_hits$mcols.alpha, na.rm = TRUE)-.2,
+    label = "promoter",
+    vjust = -1,
+    size = 5,
+    fontface = "bold",
+    color = "blue"
+  )
+  
