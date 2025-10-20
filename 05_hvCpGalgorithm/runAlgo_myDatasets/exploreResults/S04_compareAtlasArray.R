@@ -32,9 +32,11 @@ res_Alpha_Atlas <- dplyr::left_join(resCompArray, Atlas_dt, by = "name") %>%
 ## --- Correlation --- ##
 #########################
 
-summary(lm(alpha_atlas ~ alpha_array_all, data = res_Alpha_Atlas))
+mod <- lm(alpha_atlas ~ alpha_array_all, data = res_Alpha_Atlas)
+correlCoef <- mod$coefficients["alpha_array_all"]
+summary(mod)
 
-p1 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_all, y=alpha_atlas)) +
+p1 <- ggmodp1 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_all, y=alpha_atlas)) +
   geom_point(pch = 21, alpha = 0.05) +
   geom_abline(slope = 1, linetype = 3) +
   geom_smooth(method = "lm", fill = "black") +
@@ -46,34 +48,32 @@ p1 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_all, y=alpha_atlas)) +
         legend.key = element_rect(fill = "white", color = NA)) +
   labs(title = "Probability of being hypervariable",
        x = "P(hv) considering all array data",
-       y = "P(hv) considering all WGBS atlas data")
+       y = "P(hv) considering all WGBS atlas data") + 
+  scale_x_continuous(breaks = seq(0, 1, by = .1)) +
+  scale_y_continuous(breaks = seq(0, 1, by = .1))
 
 pdf(here("05_hvCpGalgorithm/figures/correlation_array_atlas.pdf"), width = 5, height = 5)
 p1
 dev.off()
 
-## Venn
-x <- list("atlas +" = res_Alpha_Atlas$chrpos[res_Alpha_Atlas$alpha_atlas > 0.5],
-          "array +" = res_Alpha_Atlas$chrpos[res_Alpha_Atlas$alpha_array_all > 0.5])
-y <- list("atlas +" = res_Alpha_Atlas$chrpos[res_Alpha_Atlas$alpha_atlas > 0.6],
-          "array +" = res_Alpha_Atlas$chrpos[res_Alpha_Atlas$alpha_array_all > 0.6])
-z <- list("atlas +" = res_Alpha_Atlas$chrpos[res_Alpha_Atlas$alpha_atlas > 0.7],
-          "array +" = res_Alpha_Atlas$chrpos[res_Alpha_Atlas$alpha_array_all > 0.7])
+## What are alpha array for different cutoffs of alpha atlas?
 
-p1 <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF")+
-  guides(fill = "none")   
-p2 <- ggVennDiagram(y, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF")+
-  guides(fill = "none")   
-p3 <- ggVennDiagram(z, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF")+
-  guides(fill = "none")   
+df_plot <- bind_rows(
+  res_Alpha_Atlas %>% filter(alpha_atlas > 0.8) %>% mutate(threshold = "> 0.8"),
+  res_Alpha_Atlas %>% filter(alpha_atlas > 0.7) %>% mutate(threshold = "> 0.7"),
+  res_Alpha_Atlas %>% filter(alpha_atlas > 0.6) %>% mutate(threshold = "> 0.6")
+)
 
-p <- cowplot::plot_grid(p1,p2,p3, ncol = 3,
-                        labels = c("p(hvCpG > 0.5)", "p(hvCpG > 0.6)", "p(hvCpG > 0.7)"))
+pdf(here("05_hvCpGalgorithm/figures/histCutoff-arrayAtlas.pdf"), width = 8, height = 5)
+ggplot(df_plot, aes(x = alpha_array_all, fill=threshold)) +
+  geom_histogram(bins = 30,color = "white") +
+  theme_minimal(base_size = 14) +
+  scale_fill_manual(values = c("yellow", "orange", "red"))+
+  xlab("p(hv) in array") +
+  ylab("Count")
+dev.off()
 
-# 2D Venn diagram
-ggsave(here("05_hvCpGalgorithm/figures/TP-FP-arrayAtlas.pdf"), 
-       plot = p,
-       width = 15, height = 5)
+table(df_plot$threshold)
 
 ######################### 
 ## --- Sex effect? --- ##
