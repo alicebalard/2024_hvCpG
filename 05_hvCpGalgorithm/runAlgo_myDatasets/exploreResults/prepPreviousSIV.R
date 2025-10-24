@@ -1,7 +1,15 @@
 ###############################################
 ## Prepare previous putative ME list on hg38 ##
 ###############################################
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/makeEpicDictionary.R"))
+source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/makeProbes2GenDictionary.R"))
+
+message("Creates:
+        \na vector of 1773 SIV from Harris 2012 (HarrisSIV_hg38)
+        \none of 1579 ESS from Van Baak 2018 (VanBaakESS_hg38)
+        \na GRange object for Kessler 2018 676 SIV regions (KesslerSIV_GRanges_hg38)
+        \na GRange object for Gunasekara 2019 9926 corSIV regions (corSIV_GRanges_hg38)
+        \na vector of 3644 hvCpG from Derakhshan 2022 (DerakhshanhvCpGs_hg38)
+        \na vector for matching mQTL controls (mQTLcontrols_hg38)")
 
 #######################################
 ## Harris2012_1776SIV_10children450k ##
@@ -9,6 +17,7 @@ HarrisSIV <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Harris2012_1776
 HarrisSIV_hg38 <- dico[match(HarrisSIV$Probe, dico$CpG), "chrpos_hg38"]
 HarrisSIV_hg38 <- na.omit(HarrisSIV_hg38)
 length(HarrisSIV_hg38) # 1773
+rm(HarrisSIV)
 
 ###########################
 ## VanBaak2018_ESS_HM450 ##
@@ -18,6 +27,7 @@ VanBaakESS <- VanBaakESS[VanBaakESS$`ESS hit`,]
 VanBaakESS_hg38 <- dico[match(VanBaakESS$CG, dico$CpG), "chrpos_hg38"]
 VanBaakESS_hg38 <- na.omit(VanBaakESS_hg38)
 length(VanBaakESS_hg38) # 1579
+rm(VanBaakESS)
 
 ###########################################
 ## Kessler2018_687SIVregions_2WGBS hg19! ##
@@ -26,36 +36,14 @@ KesslerSIV <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Kessler2018_su
 KesslerSIV_GRanges <- GRanges(
   seqnames = KesslerSIV$Chromosome,
   ranges = IRanges(start = KesslerSIV$`ME start`, 
-                   end = KesslerSIV$`ME end`),
-  strand = "*")
-
-
-
+                   end = KesslerSIV$`ME end`))
 
 ## liftover to hg38, keep uniquely mapping regions
-mapped <- liftOver(KesslerSIV_GRanges, hvCpGandControls$chain)
+mapped <- liftOver(KesslerSIV_GRanges, chain)
 keep <- lengths(mapped) == 1
-hg38_unique <- unlist(mapped[keep])
-
-## find the match with Atlas cpg
-cpg_46 <- read.table("~/Documents/Project_hvCpG/selected_cpgs_min3_in46_datasets.txt")$V1
-# Parse with regex
-parsed <- str_match(cpg_46, "(chr[0-9XYM]+)_(\\d+)-(\\d+)")
-# Build GRanges
-cpg_46_GR <- GRanges(
-  seqnames = parsed[,2],
-  ranges   = IRanges(start = as.numeric(parsed[,3]),
-                     end   = as.numeric(parsed[,4]))
-)
-
-overlaps <- findOverlaps(query = KesslerSIV_GRanges, subject = cpg_46_GR)
-
-# Extract the overlapping ranges
-CpG_overlapping     <- cpg_46_GR[subjectHits(overlaps)]
-
-KesslerSIV_hg38 <- paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges)
-KesslerSIV_hg38 <- na.omit(KesslerSIV_hg38)
-length(KesslerSIV_hg38) # 819
+KesslerSIV_GRanges_hg38 <- unlist(mapped[keep])
+length(KesslerSIV_GRanges_hg38)
+rm(mapped, keep, KesslerSIV, KesslerSIV_GRanges)
 
 #######################################
 ## Gunasekara2019_9926CoRSIVs_10WGBS ##
@@ -69,11 +57,16 @@ corSIV_GRanges_hg38 <- GRanges(
   ranges = IRanges(start = as.integer(corSIV_split[[2]]), end = as.integer(corSIV_split[[3]])),
   strand = "*")
 
-## find the match with Atlas cpg
-overlaps <- findOverlaps(query = corSIV_GRanges_hg38, subject = cpg_46_GR)
-CpG_overlapping     <- cpg_46_GR[subjectHits(overlaps)]
-corSIV_hg38 <- paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges)
+length(corSIV_GRanges_hg38)
+rm(corSIV, corSIV_split)
 
-corSIV_hg38 <- na.omit(corSIV_hg38)
-length(corSIV_hg38) # 70352
+#######################################
+## Derakhshan 2022 (previous hvCpGs) ##
 
+data <- read.table(here("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
+
+DerakhshanhvCpGs_hg38 <- dico[match(data$hvCpG_name, dico$CpG), "chrpos_hg38"]
+
+mQTLcontrols_hg38 <- dico[match(data$controlCpG_name, dico$CpG), "chrpos_hg38"]
+
+rm(data)
