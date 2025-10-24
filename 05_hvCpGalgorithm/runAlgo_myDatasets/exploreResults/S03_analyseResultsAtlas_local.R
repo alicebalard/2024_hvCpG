@@ -349,14 +349,6 @@ Atlas_dt[Atlas_dt$chr == "Y" & Atlas_dt$alpha > 0.7,]
 #                          Atlas_dt$start_pos >= 92911806 & 
 #                          Atlas_dt$end_pos <= 93011805,]
 
-
-
-
-
-
-
-
-
 ###################################################################
 ## Calculate proba hvCpG minus matching control: is it always +? ##
 
