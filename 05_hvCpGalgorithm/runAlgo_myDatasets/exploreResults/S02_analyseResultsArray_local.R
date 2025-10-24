@@ -7,9 +7,9 @@
 library(here)
 
 source(here("05_hvCpGalgorithm/quiet_library.R"))
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R"))
 
-hvCpGandControls <- prephvCpGandControls(codeDir = "~/Documents/GIT/2024_hvCpG/")
+## Add previous MEs including Maria's results
+source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/prepPreviousSIV.R"))
 
 ################################
 ## Load full results on array ##
@@ -21,17 +21,15 @@ resArrayAll <- as.data.frame(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
 rm(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
 
 prepareChrDataset <- function(res){
-  res$chrpos <- hvCpGandControls$dictionary$hg38[
-    match(rownames(res), hvCpGandControls$dictionary$illu450k)]
+  res$chrpos <- dico$chrpos_hg38[
+    match(rownames(res), dico$CpG)]
   
   ## Indicate the hvCpG of Maria and controls
   res$group <- NA
   res$group[
-    res$chrpos %in% 
-      hvCpGandControls$DerakhshanhvCpGs_names] <- "hvCpG_Derakhshan"
+    res$chrpos %in% DerakhshanhvCpGs_hg38] <- "hvCpG_Derakhshan"
   res$group[
-    res$chrpos %in% 
-      hvCpGandControls$mQTLcontrols_names] <- "mQTLcontrols"
+    res$chrpos %in% mQTLcontrols_hg38] <- "mQTLcontrols"
   
   # Parse chromosome and position
   res <- res %>%
@@ -54,17 +52,7 @@ prepareChrDataset <- function(res){
     left_join(chr_sizes, by = "chr") %>%
     mutate(cum_pos = pos + cum_start)
   
-  # Assign alternating black/grey per chromosome
-  chr_colors <- data.frame(
-    chr = chr_order,
-    point_col = rep(c("black", "grey60"), length.out = length(chr_order))
-  )
-  
-  # Merge with res
-  res <- res %>%
-    left_join(chr_colors, by = "chr")
-  
-  # Remove values with no position
+    # Remove values with no position
   res <- res[!is.na(res$chrpos),]
   
   return(res)
@@ -108,10 +96,8 @@ dev.off()
 ## Calculate proba hvCpG minus matching control: is it always +? ##
 ###################################################################
 
-data <- read.table(file.path(codeDir = "~/Documents/GIT/2024_hvCpG/", "03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
-
-x = hvCpGandControls$dictionary$hg38[match(data$hvCpG_name, hvCpGandControls$dictionary$illu450k)]
-y = hvCpGandControls$dictionary$hg38[match(data$controlCpG_name, hvCpGandControls$dictionary$illu450k)]
+x = dico$chrpos_hg38[match(DerakhshanhvCpGs_hg38, dico$CpG)]
+y = dico$chrpos_hg38[match(mQTLcontrols_hg38, dico$CpG)]
 
 # Build mapping from hvCpG -> control
 pairs <- data.frame(
@@ -221,9 +207,9 @@ nrow(resCompArray[resCompArray$alpha_array_all > poscutoff &
 #   tibble::rownames_to_column(var = "cpgprobe") %>%
 #   dplyr::rename(alpha_array_nocor = alpha)
 # 
-# resArrayNoCor$chrpos = hvCpGandControls$dictionary$hg38[
+# resArrayNoCor$chrpos = dico$chrpos_hg38[
 #   match(resArrayNoCor$cpgprobe,
-#         hvCpGandControls$dictionary$illu450k)]
+#         dico$CpG)]
 # 
 # resCommon_Array_Atlas_rawArray <- full_join(res_Alpha_Atlas, resArrayNoCor)
 # 
