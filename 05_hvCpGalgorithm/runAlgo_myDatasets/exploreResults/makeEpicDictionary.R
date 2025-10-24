@@ -74,28 +74,29 @@ hg38_gr <- unlist(mapped[keep])
 
 # --- 6️⃣ Creat9 and hg38 coordinate format ---
 
-anno_combined_hg38 <- anno_combined[keep, ]
+dico <- anno_combined[keep, ]
 
 # Keep both hg19 and add hg38 coordinates
-anno_combined_hg38$chr_hg38 <- as.character(seqnames(hg38_gr))
-anno_combined_hg38$pos_hg38 <- start(hg38_gr)
+dico$chr_hg38 <- as.character(seqnames(hg38_gr))
+dico$pos_hg38 <- start(hg38_gr)
 
 # chr_start-end string for hg38
-anno_combined_hg38$chrpos_hg38 <- paste0(
-  anno_combined_hg38$chr_hg38, "_",
-  anno_combined_hg38$pos_hg38, "-",
-  anno_combined_hg38$pos_hg38 + 1
+dico$chrpos_hg38 <- paste0(
+  dico$chr_hg38, "_",
+  dico$pos_hg38, "-",
+  dico$pos_hg38 + 1
 )
 
 # Find the ones present in both array
-dup <- anno_combined_hg38$chrpos_hg38[duplicated(anno_combined_hg38$chrpos_hg38)]
+dup <- dico$chrpos_hg38[duplicated(dico$chrpos_hg38)]
 
-anno_combined_hg38[anno_combined_hg38$chrpos_hg38 %in% dup,"array"] <- "450k and EPIC"
-anno_combined_hg38 <- unique(anno_combined_hg38)
+dico[dico$chrpos_hg38 %in% dup,"array"] <- "450k and EPIC"
+dico <- unique(dico)
 
-table(anno_combined_hg38$array)
+table(dico$array)
 # 450k     450k and EPIC      EPIC 
 # 33041        452305        413313 
 
-# --- 7️⃣ Save result ---
-saveRDS(anno_combined_hg38, here("05_hvCpGalgorithm/dataOut/anno_combined_probes_hg19_hg38.rds"))
+# --- 7️⃣R m junk ---
+rm("anno_combined", "anno450k", "annoEPIC", "chain_dir", "chain_file", "chain_gz",
+   "dup","hg19_gr", "hg38_gr", "keep", "mapped")
