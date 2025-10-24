@@ -16,7 +16,7 @@ source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S02_analyseResu
 ################################
 ## --- Prepare Atlas data --- ##
 ################################
-
+doIprepAtlas = TRUE
 source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S03_analyseResultsAtlas_local.R"))
 
 ###################################### 
@@ -36,9 +36,10 @@ mod <- lm(alpha_atlas ~ alpha_array_all, data = res_Alpha_Atlas)
 correlCoef <- mod$coefficients["alpha_array_all"]
 summary(mod)
 
-p1 <- ggmodp1 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_all, y=alpha_atlas)) +
+p1 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_all, y=alpha_atlas)) +
   geom_point(pch = 21, alpha = 0.05) +
   geom_abline(slope = 1, linetype = 3) +
+  geom_smooth(linetype = 3)+
   geom_smooth(method = "lm", fill = "black") +
   theme_minimal(base_size = 14) +
   guides(fill = guide_legend(position = "inside"))+
@@ -46,9 +47,9 @@ p1 <- ggmodp1 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_all, y=alpha_atlas)) 
         legend.box = "horizontal", legend.title = element_blank(),
         legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
         legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Probability of being hypervariable",
-       x = "P(hv) considering all array data",
-       y = "P(hv) considering all WGBS atlas data") + 
+  labs(title = "Proba(hypervariable) at common CpGs",
+       x = "P(hv) using array datasets",
+       y = "P(hv) using WGBS atlas datasets") + 
   scale_x_continuous(breaks = seq(0, 1, by = .1)) +
   scale_y_continuous(breaks = seq(0, 1, by = .1))
 

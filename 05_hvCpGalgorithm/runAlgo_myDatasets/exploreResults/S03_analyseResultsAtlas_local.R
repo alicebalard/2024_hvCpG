@@ -18,6 +18,22 @@ hvCpGandControls <- prephvCpGandControls(codeDir = here())
 ### III. Test enrichment of features for high alpha
 ### IV. Test for enrichment in other putative MEs for hvCpGs with alpha > threshold
 
+## Data in WGBS atlas:
+## from the CS cluster: sample_groups <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/all_matrix_noscale.h5","sample_groups")
+sample_groups <- readRDS(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/sample_groups.RDS"))
+
+ggplot(data.frame(table(sample_groups)), aes(x = Freq)) +
+  geom_histogram(bins = 100, fill = "steelblue", color = "white") +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Distribution of number of samples per dataset",
+    x = "Number of samples",
+    y = "Count of datasets"
+  ) +
+  scale_x_continuous(breaks = seq(0, 10, by = 1))
+
+table(sample_groups)
+
 ##############################################
 ## I. Histogram of coverage across datasets ##
 ##############################################
@@ -143,13 +159,26 @@ prepAtlasdt <- function(){
 }
 
 system.time(Atlas_dt <- prepAtlasdt())
-stop("stop here to only prepare atlas_dt")
+
+if (exists(doIprepAtlas)){
+  if (doIprepAtlas == TRUE){
+    stop("stop here to only prepare atlas_dt")
+  }
+}
 
 # Compute chromosome centers for x-axis labeling
 df2 <- Atlas_dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
 df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
              df2, by = "chr", all.x = TRUE, sort = TRUE)
 df2 <- na.omit(df2)
+
+# Compute chromosome boundaries
+df_bounds <- Atlas_dt[, .(min_pos = min(pos2, na.rm = TRUE), 
+                          max_pos = max(pos2, na.rm = TRUE)), by = chr]
+
+# Midpoints between chromosomes = where to draw dotted lines
+df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
+vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
 
 plot <- ggplot() +
   # background cloud
@@ -164,6 +193,28 @@ plot <- ggplot() +
   geom_point(data = Atlas_dt[group == "mQTLcontrols"],
              aes(x = pos2, y = alpha),
              color = "#005AB5", size = 1, alpha = 0.7) +
+  # Add dotted separators
+  geom_vline(data = vlines, aes(xintercept = xintercept),
+             linetype = 3, color = "grey60") +
+  theme_classic() + theme(legend.position = "none") +
+  scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
+  theme_minimal(base_size = 14)
+
+# Save as PDF — rasterization improves performance and file size
+CairoPDF(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_previoushvCpGplotted_atlas.pdf"), width = 15, height = 3)
+print(plot)
+dev.off()
+
+## Without the layer of previous hvCpG and controls plotted:
+plot <- ggplot() +
+  geom_point_rast(data = Atlas_dt, 
+                  aes(x = pos2, y = alpha),
+                  color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
+   # Add dotted separators
+  geom_vline(data = vlines, aes(xintercept = xintercept),
+             linetype = 3, color = "grey60") +
   theme_classic() + theme(legend.position = "none") +
   scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
@@ -174,6 +225,135 @@ plot <- ggplot() +
 CairoPDF(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_atlas.pdf"), width = 15, height = 3)
 print(plot)
 dev.off()
+
+##################################
+## Save names high alpha points ##
+##################################
+table(Atlas_dt$alpha >= 0.7)
+# FALSE     TRUE 
+# 22335423   700603 
+
+head(Atlas_dt[Atlas_dt$alpha >= 0.7,])
+
+
+
+
+
+
+
+
+
+
+
+
+
+##########################################
+## What are the gaps in Manhattan plot? ##
+# Compute the gap between consecutive CpGs on the same chromosome
+Atlas_dt[, gap := start_pos - data.table::shift(end_pos), by = chr]
+
+# Identify large gaps (>= 500k bp)
+gaps_dt <- Atlas_dt[gap >= 500000, .(
+  chr,
+  gap_start = data.table::shift(end_pos),
+  gap_end = start_pos,
+  gap_size = gap
+)]
+
+# Drop first NA (since shift introduces one per chromosome)
+gaps_dt[!is.na(gap_size)]
+## Load the results at https://genome.ucsc.edu/cgi-bin/hgTracks
+
+####################################
+## Mitochondrial DNAm variability ##
+####################################
+# https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-023-09541-9?utm_source=chatgpt.com
+## Near absence of 5mC, so expected
+
+ggplot() +
+  geom_point(data = Atlas_dt[Atlas_dt$chr == "M",], 
+             aes(x = pos2, y = alpha),
+             color = "black", size = 1, alpha = .5)+
+  theme_classic() + theme(legend.position = "none") +
+  scale_x_continuous(breaks = df2[df2$chr == "M","center"],
+                     labels = as.character(df2[df2$chr == "M","chr"]), expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0,.1)) +
+  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
+  theme_minimal(base_size = 14)
+
+###################################
+## Y chromosome DNAm variability ##
+###################################
+ggplot() +
+  geom_point(data = Atlas_dt[Atlas_dt$chr == "Y",], 
+             aes(x = start_pos, y = alpha),
+             color = "black", size = 1, alpha = .5)+
+  theme_classic() + theme(legend.position = "none") +
+  geom_hline(yintercept = .7, linetype = 3)+
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
+  theme_minimal(base_size = 14)
+
+Atlas_dt[Atlas_dt$chr == "Y" & Atlas_dt$alpha > 0.7,]
+# High alpha in 3 regions: chrY:5,043,848-6,534,238, chrY:10,107,290-11,747,410, chrY:56,822,399-56,841,336
+
+#####################################################
+## Find regions of high alpha using sliding window ##
+#####################################################
+# 
+# high_alpha_thresh <- 0.7
+# Atlas_dt[, high_alpha := alpha > high_alpha_thresh]
+# 
+# # Function to compute high-alpha fraction in each window
+# find_high_alpha_windows <- function(dt, window_size, step_size) {
+#   res <- list()
+#   for (ch in unique(dt$chr)) {
+#     chr_dt <- dt[chr == ch]
+#     starts <- seq(min(chr_dt$start_pos), max(chr_dt$end_pos), by = step_size)
+#     for (s in starts) {
+#       e <- s + window_size - 1
+#       w <- chr_dt[start_pos >= s & end_pos <= e]
+#       if (nrow(w) > 0) {
+#         frac <- sum(w$high_alpha) / nrow(w)
+#         res[[length(res)+1]] <- data.table(chr = ch, window_start = s, window_end = e, frac_high_alpha = frac)
+#       }
+#     }
+#   }
+#   rbindlist(res)
+# }
+# 
+# # system.time(high_alpha_windows <- find_high_alpha_windows(Atlas_dt, window_size = 100000, step_size = 50000))
+## 100000, 50000: 10 minutes to run
+# saveRDS(object = high_alpha_windows, 
+#         file = here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/high_alpha_windows.RDS"))
+# 
+# # Keep windows where >50% of CpGs have high alpha
+# hotspots <- high_alpha_windows[frac_high_alpha > 0.5]
+# hotspots
+# chr window_start window_end frac_high_alpha
+# <char>        <num>      <num>           <num>
+#   1:      1       517452     617451       1.0000000
+# 2:      3     92911806   93011805       0.6666667
+# 3:      6     32496889   32596888       0.5670498
+# 4:      6     32546889   32646888       0.5853659
+# 5:      6     32596889   32696888       0.5498721
+# 6:      9     61210596   61310595       0.6666667
+# 7:     15     21850602   21950601       0.6000000
+# 8:     16     37260230   37360229       1.0000000
+# 9:     16     37310230   37410229       1.0000000
+
+
+# subAtlasdt <- Atlas_dt[Atlas_dt$chr ==3 & 
+#                          Atlas_dt$start_pos >= 92911806 & 
+#                          Atlas_dt$end_pos <= 93011805,]
+
+
+
+
+
+
+
+
 
 ###################################################################
 ## Calculate proba hvCpG minus matching control: is it always +? ##

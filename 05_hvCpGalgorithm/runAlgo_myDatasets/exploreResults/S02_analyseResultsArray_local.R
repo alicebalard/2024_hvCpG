@@ -54,7 +54,7 @@ prepareChrDataset <- function(res){
     left_join(chr_sizes, by = "chr") %>%
     mutate(cum_pos = pos + cum_start)
   
-   # Assign alternating black/grey per chromosome
+  # Assign alternating black/grey per chromosome
   chr_colors <- data.frame(
     chr = chr_order,
     point_col = rep(c("black", "grey60"), length.out = length(chr_order))
@@ -161,26 +161,48 @@ names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_3ind"
 resCompArray <- dplyr::left_join(resArray3ind, resArrayAll)
 names(resCompArray)[names(resCompArray) %in% "alpha"] <- "alpha_array_all"
 
-# List of items
-x <- list("Array 3ind/ds" = resCompArray$chrpos[resCompArray$alpha_array_3ind > 0.5& resCompArray$group %in% "hvCpG_Derakhshan"],
-          "Full array" = resCompArray$chrpos[resCompArray$alpha_array_all > 0.5 & resCompArray$group %in% "hvCpG_Derakhshan"])
+p1 <- ggplot(resCompArray, 
+       aes(x=alpha_array_all, y=alpha_array_3ind, fill = group, col = group)) +
+  geom_point(data = resCompArray[is.na(resCompArray$group),],
+             pch = 21, alpha = 0.05) +
+  geom_point(data = resCompArray[!is.na(resCompArray$group),],
+             pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"),
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
+  theme_minimal(base_size = 14) +
+  theme(legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(title = "Probability of being hypervariable",
+       x = "P(hv) using full array datasets",
+       y = "P(hv) using reduced (3 ind/ds) array datasets")
 
-y <- list("Array 3ind/ds" = resCompArray$chrpos[resCompArray$alpha_array_3ind > 0.5],
-          "Full array" = resCompArray$chrpos[resCompArray$alpha_array_all > 0.5])
-          
-p1 <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF")+
-  guides(fill = "none")   
-p2 <- ggVennDiagram(y, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") +
-  guides(fill = "none") 
+pdf(here("05_hvCpGalgorithm/figures/arrayfullvsred3ind_myalgo"), width = 9, height = 7)
+p1
+dev.off()
 
-p <- cowplot::plot_grid(p1,p2, labels = c("Previous hvCpGs\np(hvCpG > 0.5)", "All CpGs on array\np(hvCpG > 0.5)"))
+## What cutoff to get the same number of sites than Maria?
+poscutoff = 0.94
+negcutoff = 0.5
 
-p
+nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,])# == 3535
 
-# 2D Venn diagram
-ggsave(here("05_hvCpGalgorithm/figures/arraymyalgo_Power3ind.pdf"), 
-       plot = ,
-       width = 5, height = 5)
+## True positive: detected with full AND reduced array / all detected with full array
+nrow(resCompArray[resCompArray$alpha_array_all > poscutoff &
+               resCompArray$alpha_array_3ind > poscutoff,]) /
+  nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,]) * 100
+
+## False positive = % CpGs detected only using reduced datasets
+nrow(resCompArray[resCompArray$alpha_array_all < negcutoff &
+                    resCompArray$alpha_array_3ind > poscutoff,]) /
+  nrow(resCompArray[resCompArray$alpha_array_3ind > poscutoff,]) * 100
+
+## False negative = % CpGs detected only using full datasets
+nrow(resCompArray[resCompArray$alpha_array_all > poscutoff &
+                    resCompArray$alpha_array_3ind < negcutoff,]) /
+  nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,]) * 100
 
 ## TBC
 
@@ -266,5 +288,5 @@ ggsave(here("05_hvCpGalgorithm/figures/arraymyalgo_Power3ind.pdf"),
 
 ## rm junk
 rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)
-   
+
 saveRDS(resCompArray, here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
