@@ -33,6 +33,12 @@ anno_combined <- bind_rows(
   annoEPIC %>% mutate(array = "EPIC")
 )
 
+anno_combined$chrpos_hg19 <- paste0(
+  anno_combined$chr, "_",
+  anno_combined$pos, "-",
+  anno_combined$pos + 1
+)
+
 # --- 4️⃣ Download and import hg19 → hg38 chain file ---
 chain_dir <- here("05_hvCpGalgorithm/dataPrev")
 chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
@@ -66,12 +72,15 @@ mapped <- liftOver(hg19_gr, chain)
 keep <- lengths(mapped) == 1
 hg38_gr <- unlist(mapped[keep])
 
-# --- 6️⃣ Create hg38 coordinate format ---
+# --- 6️⃣ Creat9 and hg38 coordinate format ---
+
 anno_combined_hg38 <- anno_combined[keep, ]
+
+# Keep both hg19 and add hg38 coordinates
 anno_combined_hg38$chr_hg38 <- as.character(seqnames(hg38_gr))
 anno_combined_hg38$pos_hg38 <- start(hg38_gr)
 
-# Create chr_start-end coordinate string
+# chr_start-end string for hg38
 anno_combined_hg38$chrpos_hg38 <- paste0(
   anno_combined_hg38$chr_hg38, "_",
   anno_combined_hg38$pos_hg38, "-",
@@ -89,4 +98,4 @@ table(anno_combined_hg38$array)
 # 33041        452305        413313 
 
 # --- 7️⃣ Save result ---
-saveRDS(anno_combined_hg38, here("05_hvCpGalgorithm/dataOut/anno_combined_probes_hg38.rds"))
+saveRDS(anno_combined_hg38, here("05_hvCpGalgorithm/dataOut/anno_combined_probes_hg19_hg38.rds"))
