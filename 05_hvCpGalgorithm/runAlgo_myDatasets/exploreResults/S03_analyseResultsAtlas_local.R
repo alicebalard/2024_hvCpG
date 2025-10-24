@@ -160,10 +160,8 @@ prepAtlasdt <- function(){
 
 system.time(Atlas_dt <- prepAtlasdt())
 
-if (exists(doIprepAtlas)){
-  if (doIprepAtlas == TRUE){
-    stop("stop here to only prepare atlas_dt")
-  }
+if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
+  stop("stop here to only prepare atlas_dt")
 }
 
 # Compute chromosome centers for x-axis labeling
@@ -233,19 +231,23 @@ table(Atlas_dt$alpha >= 0.7)
 # FALSE     TRUE 
 # 22335423   700603 
 
-head(Atlas_dt[Atlas_dt$alpha >= 0.7,])
+## Map on arrays
+dico <- readRDS(here("05_hvCpGalgorithm/dataOut/anno_combined_probes_hg38.rds"))
 
+matches <- match(
+  x = unlist(Atlas_dt[Atlas_dt$alpha >= 0.7, "name"]),
+  table = dico$chrpos_hg38
+)
 
+highAlphaPos <- dico[na.omit(matches), ]
 
+table(highAlphaPos$array)
+# 450k    450k and EPIC      EPIC 
+# 340          4483          3431 
 
+# 4483+340 = 4823 on the 450k array
 
-
-
-
-
-
-
-
+saveRDS(highAlphaPos, here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
 
 ##########################################
 ## What are the gaps in Manhattan plot? ##
