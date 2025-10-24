@@ -60,7 +60,7 @@ with gzip.open(cpg_bed, "rt") as f:  # "rt" = read text mode
     for line in f:
         chrom, pos, _ = line.strip().split("\t")[:3]
         pos = int(pos)
-        cpg_names.append(f"{chrom}_{pos}-{pos+1}")
+        cpg_names.append(f"{chrom}_{pos}")
     
 NR_SITES = len(cpg_names)
 print(f"✅ Loaded {NR_SITES:,} CpG names.")
