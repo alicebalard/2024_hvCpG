@@ -33,11 +33,7 @@ anno_combined <- bind_rows(
   annoEPIC %>% mutate(array = "EPIC")
 )
 
-anno_combined$chrpos_hg19 <- paste0(
-  anno_combined$chr, "_",
-  anno_combined$pos, "-",
-  anno_combined$pos + 1
-)
+anno_combined$chrpos_hg19 <- paste0(anno_combined$chr, "_", anno_combined$pos)
 
 # --- 4️⃣ Download and import hg19 → hg38 chain file ---
 chain_dir <- here("05_hvCpGalgorithm/dataPrev")
@@ -62,7 +58,6 @@ message("🔄 Performing liftover to hg38...")
 hg19_gr <- GRanges(
   seqnames = anno_combined$chr,
   ranges = IRanges(start = anno_combined$pos, width = 1),
-  strand = anno_combined$strand,
   names = anno_combined$CpG
 )
 
@@ -80,12 +75,8 @@ dico <- anno_combined[keep, ]
 dico$chr_hg38 <- as.character(seqnames(hg38_gr))
 dico$pos_hg38 <- start(hg38_gr)
 
-# chr_start-end string for hg38
-dico$chrpos_hg38 <- paste0(
-  dico$chr_hg38, "_",
-  dico$pos_hg38, "-",
-  dico$pos_hg38 + 1
-)
+# chr_pos string for hg38
+dico$chrpos_hg38 <- paste0(dico$chr_hg38, "_", dico$pos_hg38)
 
 # Find the ones present in both array
 dup <- dico$chrpos_hg38[duplicated(dico$chrpos_hg38)]
