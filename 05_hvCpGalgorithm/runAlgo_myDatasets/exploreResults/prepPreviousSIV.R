@@ -9,7 +9,8 @@ message("Creates:
         \na GRange object for Kessler 2018 676 SIV regions (KesslerSIV_GRanges_hg38)
         \na GRange object for Gunasekara 2019 9926 corSIV regions (corSIV_GRanges_hg38)
         \na vector of 3644 hvCpG from Derakhshan 2022 (DerakhshanhvCpGs_hg38)
-        \na vector for matching mQTL controls (mQTLcontrols_hg38)")
+        \na vector for matching mQTL controls (mQTLcontrols_hg38)
+        \na vector for 259 Silver 2022 SoCCpGs on 10WGBS (SoCCpGs_hg38)")
 
 #######################################
 ## Harris2012_1776SIV_10children450k ##
@@ -64,9 +65,13 @@ rm(corSIV, corSIV_split)
 ## Derakhshan 2022 (previous hvCpGs) ##
 
 data <- read.table(here("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
-
 DerakhshanhvCpGs_hg38 <- dico[match(data$hvCpG_name, dico$CpG), "chrpos_hg38"]
-
 mQTLcontrols_hg38 <- dico[match(data$controlCpG_name, dico$CpG), "chrpos_hg38"]
 
 rm(data)
+
+###############################
+## Silver2022_SoCCpGs_10WGBS ##
+SoCCpGs <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 6, skip = 2)
+SoCCpGs_hg38 <- na.omit(dico[match(SoCCpGs$cpg, dico$CpG), "chrpos_hg38"])
+length(SoCCpGs_hg38) #259
