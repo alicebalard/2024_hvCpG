@@ -58,30 +58,35 @@ quiet_library_all(c("dplyr", "data.table", "matrixStats", "reshape2", "ggrepel",
 ## Data load ##
 ###############
 
-prepData <- function(analysis, dataDir) {   
-  if (grepl("MariasarraysREDUCED", analysis)) {
-    x <- sub("MariasarraysREDUCED", "", analysis)
-    basepath <- file.path("/home/alice/arraysh5_reducedMimicAtlas", x)
-    metapath <- file.path(basepath, "all_metadata.tsv")
-    if (!file.exists(metapath)) {
-      stop("❌ Run 03_prepDatasetsMaria/S02.prepare_REDUCED_arrays_mimicAtlas.py")
+prepData <- function(analysis, dataDir, subsetMetadata) {   
+    if (grepl("MariasarraysREDUCED", analysis)) {
+        x <- sub("MariasarraysREDUCED", "", analysis)
+        basepath <- file.path("/home/alice/arraysh5_reducedMimicAtlas", x)
+        metapath <- file.path(basepath, "all_metadata.tsv")
+        if (!file.exists(metapath)) {
+            stop("❌ Run 03_prepDatasetsMaria/S02.prepare_REDUCED_arrays_mimicAtlas.py")
+        }
+        metadata <- read.table(metapath, sep = "\t", header = TRUE)
+        medsd_lambdas <- read.table(file.path(basepath, "all_medsd_lambda.tsv"), sep = "\t", header = TRUE)
+        cpg_names_all <- h5read(file.path(basepath, "all_scaled_matrix.h5"), "cpg_names")
+        h5file <- file.path(basepath, "all_scaled_matrix.h5")        
+    } else {
+        metadata <- read.table(file.path(dataDir, "sample_metadata.tsv"), sep = "\t", header = TRUE)
+        medsd_lambdas <- read.table(file.path(dataDir, "all_medsd_lambda.tsv"), sep = "\t", header = TRUE)
+        cpg_names_all <- h5read(file.path(dataDir, "all_matrix_noscale.h5"), "cpg_names")
+        h5file <- file.path(dataDir, "all_matrix_noscale.h5")
     }
-    metadata <- read.table(metapath, sep = "\t", header = TRUE)
-    medsd_lambdas <- read.table(file.path(basepath, "all_medsd_lambda.tsv"), sep = "\t", header = TRUE)
-    cpg_names_all <- h5read(file.path(basepath, "all_scaled_matrix.h5"), "cpg_names")
-    h5file <- file.path(basepath, "all_scaled_matrix.h5")        
-  } else {
-    metadata <- read.table(file.path(dataDir, "sample_metadata.tsv"), sep = "\t", header = TRUE)
-    medsd_lambdas <- read.table(file.path(dataDir, "all_medsd_lambda.tsv"), sep = "\t", header = TRUE)
-    cpg_names_all <- h5read(file.path(dataDir, "all_matrix_noscale.h5"), "cpg_names")
-    h5file <- file.path(dataDir, "all_matrix_noscale.h5")
-  }
-  return(list(
-    metadata = metadata,
-    medsd_lambdas = medsd_lambdas,
-    cpg_names_all = cpg_names_all,
-    h5file = h5file
-  ))
+    ## Possible subset of samples or datasets
+    if (!isFALSE(subsetMetadata)) {
+        message("The algorithm runs on a subset of metadata")
+        metadata = subsetMetadata
+    }
+    return(list(
+        metadata = metadata,
+        medsd_lambdas = medsd_lambdas,
+        cpg_names_all = cpg_names_all,
+        h5file = h5file
+    ))
 }
 
 ###########################################
@@ -265,10 +270,10 @@ getAllOptimAlpha_parallel_batch_fast <- function(cpg_names_vec, NCORES, p0, p1, 
 ##   Atlas10X = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/",
 ##   Maria = "/home/alice/arraysh5"
 
-runAndSave_fast <- function(analysis, cpg_names_vec, resultDir, NCORES, p0, p1, overwrite = FALSE, batch_size = 1000, dataDir, skipsave=FALSE, Nds=3) {
-  
-  t <- Sys.time()
-  prep <- prepData(analysis, dataDir)
+runAndSave_fast <- function(analysis, cpg_names_vec, resultDir, NCORES, p0, p1, overwrite = FALSE,
+                            batch_size = 1000, dataDir, skipsave=FALSE, Nds=3, subsetMetadata = FALSE) {
+    t <- Sys.time()
+  prep <- prepData(analysis, dataDir, subsetMetadata)
   message("Preparing the data took ", round(Sys.time() - t), " seconds")
   
   obj_name <- paste0("results_", analysis, "_", length(cpg_names_vec), "CpGs_", p0, "p0_", p1, "p1")
