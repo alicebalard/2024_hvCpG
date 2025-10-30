@@ -398,272 +398,202 @@ Atlas_dt[Atlas_dt$chr == "Y" & Atlas_dt$alpha > 0.7,]
 ## III. Test enrichment of features for high alpha ##
 #####################################################
 
-retestAnnot = FALSE
+# retestAnnot = FALSE
 
-if (retestAnnot){
-  ##############
-  threshold=0.7#
-  ##############
-  
-  # Create GRanges
-  gr_cpg <- GRanges(
-    seqnames = paste0("chr", Atlas_dt$chr),
-    ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
-    alpha = Atlas_dt$alpha
-  )
-  
-  # Import bed file
-  bed_features <- genomation::readTranscriptFeatures(
-    "~/Documents/Project_hvCpG/hg38_GENCODE_V47.bed")
-  
-  # annotate CpGs with high alpha (>threshold):
-  anno_result_highalpha <- genomation::annotateWithGeneParts(
-    target = gr_cpg[!is.na(mcols(gr_cpg)$alpha) & mcols(gr_cpg)$alpha > threshold],
-    feature = bed_features)
-  
-  # annotate CpGs with low alpha (<=threshold):
-  anno_result_lowalpha <- genomation::annotateWithGeneParts(
-    target = gr_cpg[!is.na(mcols(gr_cpg)$alpha) & mcols(gr_cpg)$alpha <= threshold],
-    feature = bed_features)
-  
-  # Percentages from annotations
-  low_anno <- anno_result_lowalpha@precedence
-  high_anno <- anno_result_highalpha@precedence
-  ## Convert percentages to counts
-  N_low <- nrow(Atlas_dt[alpha <= threshold])
-  N_high <- nrow(Atlas_dt[alpha > threshold])
-  
-  # Reconstruct counts from percentages
-  count_low <- round(low_anno / 100 * N_low)
-  count_high <- round(high_anno / 100 * N_high)
-  
-  ## Build contingency table
-  contingency <- rbind(
-    LowAlpha = count_low,
-    HighAlpha = count_high
-  )
-  print(contingency)
-  #            promoter    exon   intron intergenic
-  # LowAlpha   3263097 1236235 12641037    5195054
-  # HighAlpha    68158   26465   404505     201475
-  
-  ##  Perform chi-squared test
-  chisq.test(contingency)
-  # Pearson's Chi-squared test
-  # data:  contingency
-  # X-squared = 23940, df = 3, p-value < 2.2e-16
-  
-  # promoters and exons are depleted, and intergenic and introns are enriched, in hypervariable CpGs
-  
-  ################
-  ## Barplot ##
-  df_plot <- as.data.frame(contingency) %>%
-    tibble::rownames_to_column("AlphaGroup") %>%
-    tidyr::pivot_longer(-AlphaGroup, names_to = "Region", values_to = "Count") %>%
-    group_by(AlphaGroup) %>%
-    mutate(Percent = Count / sum(Count) * 100)
-  
-  pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesLowHighAlpha.pdf"), width = 5, height = 4)
-  ggplot(df_plot, aes(x=Region, y=Percent, fill = AlphaGroup))+
-    geom_bar(position="dodge", stat="identity") +
-    theme_minimal(base_size = 14)+
-    scale_fill_manual(
-      values = c("red", "skyblue"),
-      name = "p(hv)",      # optional
-      labels = c(">70%", "<=70%")   # new names for legend keys
-    ) +
-    theme(axis.title.x = element_blank())
-  dev.off()
-  
-  rm(anno_result_highalpha, anno_result_lowalpha)
-}
+# if (retestAnnot){
+##############
+# threshold=0.7#
+##############
+
+# Create GRanges
+gr_cpg <- GRanges(
+  seqnames = paste0("chr", Atlas_dt$chr),
+  ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
+  alpha = Atlas_dt$alpha
+)
+
+# Import bed file
+bed_features <- genomation::readTranscriptFeatures(
+  "~/Documents/Project_hvCpG/hg38_GENCODE_V47.bed")
+
+# Annotate CpGs and see which regions have higher alpha
+anno_result <- genomation::annotateWithGeneParts(
+  target = gr_cpg, feature = bed_features)
+
+anno_result@perc.of.OlapFeat
+# promoter     exon   intron 
+# 96.61240 74.37305 89.72931 
+
+region_type <- ifelse(anno_result@members[, "prom"] == 1, "prom",
+                      ifelse(anno_result@members[, "exon"] == 1, "exon",
+                             ifelse(anno_result@members[, "intron"] == 1, "intron", "intergenic")))
+
+# add annotation to Atlas_dt
+Atlas_dt <- cbind(Atlas_dt, data.frame(region_type = region_type))
+Atlas_dt$region_type <- factor(Atlas_dt$region_type, levels = c("prom", "exon", "intron","intergenic"))
+
+## Calculate high alpha
+Atlas_dt[, high_alpha := alpha >0.7]
+
+summary_dt <- Atlas_dt[, .(
+  total = .N,
+  high_alpha_count = sum(high_alpha)
+), by = region_type]
+
+summary_dt[, high_alpha_frac := high_alpha_count / total]
+summary_dt
+
+# Contingency table: rows=category, columns=high vs not high
+tab <- Atlas_dt[, .N, by = .(region_type, high_alpha)]
+cont_tab <- xtabs(N ~ region_type + high_alpha, data = tab)
+
+chisq.test(cont_tab)
+# X-squared = 23940, df = 3, p-value < 2.2e-16
+
+pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesbyAlpha.pdf"), width = 5, height = 4)
+ggplot(summary_dt, aes(x = region_type, y = high_alpha_frac, fill = region_type)) +
+  geom_col() +
+  geom_text(aes(label = paste0("N=", high_alpha_count)), vjust = -0.1) +
+  labs(y = "Fraction high alpha (>70%)", x = "Category") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none") +
+  scale_fill_viridis_d()
+dev.off()
+
+sum(Atlas_dt$alpha > 0.7) # 700603
+sum(summary_dt$high_alpha_count)
 
 #################################################################################
 ## Test for enrichment in other putative MEs for hvCpGs with alpha > threshold ##
 #################################################################################
 
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/prepPreviousSIV.R"))
+# Parse with regex all the cpg tested
+parsed <- str_match(Atlas_dt$name, "(chr[0-9XYM]+)_(\\d+)")
 
-### TBC
+# Build GRanges
+allcpg_GR <- GRanges(
+  seqnames = parsed[,2],
+  ranges   = IRanges(start = as.numeric(parsed[,3]),
+                     end   = as.numeric(parsed[,3]))
+); rm(parsed)
 
-# 
-# ###########################################
-# ## Kessler2018_687SIVregions_2WGBS hg19! ##
-# KesslerSIV <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Kessler2018_supTables.xlsx"), sheet = 2, skip = 1)
-# 
-# KesslerSIV_GRanges <- GRanges(
-#   seqnames = KesslerSIV$Chromosome,
-#   ranges = IRanges(start = KesslerSIV$`ME start`, 
-#                    end = KesslerSIV$`ME end`),
-#   strand = "*")
-# 
-# ## liftover to hg38, keep uniquely mapping regions
-# mapped <- liftOver(KesslerSIV_GRanges, hvCpGandControls$chain)
-# keep <- lengths(mapped) == 1
-# hg38_unique <- unlist(mapped[keep])
-# 
-# ## find the match with Atlas cpg
-# cpg_46 <- read.table("~/Documents/Project_hvCpG/selected_cpgs_min3_in46_datasets.txt")$V1
-# # Parse with regex
-# parsed <- str_match(cpg_46, "(chr[0-9XYM]+)_(\\d+)-(\\d+)")
-# # Build GRanges
-# cpg_46_GR <- GRanges(
-#   seqnames = parsed[,2],
-#   ranges   = IRanges(start = as.numeric(parsed[,3]),
-#                      end   = as.numeric(parsed[,4]))
-# )
-# 
-# overlaps <- findOverlaps(query = KesslerSIV_GRanges, subject = cpg_46_GR)
-# 
-# # Extract the overlapping ranges
-# CpG_overlapping     <- cpg_46_GR[subjectHits(overlaps)]
-# 
-# KesslerSIV_hg38 <- paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges)
-# KesslerSIV_hg38 <- na.omit(KesslerSIV_hg38)
-# length(KesslerSIV_hg38) # 819
-# 
-# #######################################
-# ## Gunasekara2019_9926CoRSIVs_10WGBS ##
-# # Load corSIV intervals (already in hg38)
-# corSIV <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Gunasekara2019_9926CoRSIVs_10WGBS.xls"), sheet = 3)
-# corSIV <- unique(corSIV$USCS_Coordinates_CoRSIV)
-# corSIV_split <- tstrsplit(corSIV, "[:-]", fixed = FALSE)
-# 
-# corSIV_GRanges_hg38 <- GRanges(
-#   seqnames = corSIV_split[[1]],
-#   ranges = IRanges(start = as.integer(corSIV_split[[2]]), end = as.integer(corSIV_split[[3]])),
-#   strand = "*")
-# 
-# ## find the match with Atlas cpg
-# overlaps <- findOverlaps(query = corSIV_GRanges_hg38, subject = cpg_46_GR)
-# CpG_overlapping     <- cpg_46_GR[subjectHits(overlaps)]
-# corSIV_hg38 <- paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges)
-# 
-# corSIV_hg38 <- na.omit(corSIV_hg38)
-# length(corSIV_hg38) # 70352
-# 
-# #######################################
-# ## Silver2022_SoCCpGs_10WGBS ##
-# arrayRef <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 3, skip = 2)
-# SoCCpGs <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 6, skip = 2)
-# 
-# SoCCpGs_GRanges <- GRanges(
-#   seqnames = paste0("chr", arrayRef$chr[match(SoCCpGs$cpg, arrayRef$cpg)]),
-#   ranges = IRanges(start = arrayRef$loc[match(SoCCpGs$cpg, arrayRef$cpg)],
-#                    end = arrayRef$loc[match(SoCCpGs$cpg, arrayRef$cpg)] + 1),
-#   strand = "*")
-# 
-# ## liftover to hg38, keep uniquely mapping regions
-# mapped <- liftOver(SoCCpGs_GRanges, hvCpGandControls$chain)
-# keep <- lengths(mapped) == 1
-# hg38_unique <- unlist(mapped[keep])
-# 
-# ## find the match with Atlas cpg
-# overlaps <- findOverlaps(query = hg38_unique, subject = cpg_46_GR)
-# CpG_overlapping     <- cpg_46_GR[subjectHits(overlaps)]
-# SoCCpGs_hg38 <- paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges)
-# 
-# SoCCpGs_hg38 <- na.omit(SoCCpGs_hg38)
-# length(SoCCpGs_hg38) #177
-# 
-# #################################
-# ## Check overlaps with upset plot 
-# sets <- list(
-#   HarrisSIV = HarrisSIV_hg38,
-#   VanBaakESS = VanBaakESS_hg38,
-#   KesslerSIV = KesslerSIV_hg38,
-#   CoRSIV = corSIV_hg38,
-#   SoCCpGs = SoCCpGs_hg38,
-#   hvCpG = hvCpGandControls$DerakhshanhvCpGs_names,
-#   mQTLcontrols = hvCpGandControls$mQTLcontrols_names
-# )
-# 
-# # Create the plot in a base graphics device
-# pdf(NULL)  # draw to null device to avoid displaying
-# upset(fromList(sets), nsets = 7, order.by = "freq")
-# grid_plot <- grid.grab()  # Capture as a grid object
-# dev.off()
-# 
-# # Now save the captured grid object to a real PDF
-# pdf(here("05_hvCpGalgorithm/figures/upsetPreviousME.pdf"), width = 12, height = 5)
-# grid.draw(grid_plot)
-# dev.off()
-# 
-# #######################################################
-# ## Check alpha for the different MEs: are they high? ##
-# 
-# MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
-#   Atlas_dt[.(sets[[nm]]), on = .(name), .(name, alpha)][, ME := nm]
-# }))
-# 
-# MEsetdt <- na.omit(MEsetdt) ## 33478 so far (2 sept)
-# 
-# ## Control as baseline
-# MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
-# 
-# p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha)) +
-#   geom_jitter(data = MEsetdt,
-#               aes(fill=ME), pch=21, size = 3, alpha = .1)+
-#   geom_violin(aes(col=ME))+
-#   geom_boxplot(aes(col=ME), width = .1) +
-#   theme_minimal(base_size = 14) +
-#   theme(legend.position = "none", axis.title.x = element_blank()) +
-#   ylab("Probability of being a hvCpG")
-# 
-# p1
-# 
-# ## Statistical comparisons of alpha between MEs
-# 
-# # 1️⃣ Fit the model with mQTLcontrols as baseline
-# fit <- lm(alpha ~ ME, data = MEsetdt)
-# 
-# # 2️⃣ Get estimated marginal means and contrasts vs baseline
-# emm <- emmeans(fit, ~ ME)
-# contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
-#   as.data.frame()
-# 
-# # 3️⃣ Prepare for plotting
-# contrasts <- contrasts %>%
-#   mutate(ME = contrast,  # rename for clarity
-#          lower = estimate - 1.96*SE,
-#          upper = estimate + 1.96*SE)
-# 
-# # 4️⃣ Plot
-# p2 <- ggplot(contrasts, aes(x = ME, y = estimate)) +
-#   geom_point(size = 3) +
-#   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-#   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-#   coord_flip() +
-#   labs(
-#     y = "Difference in alpha vs mQTLcontrols",
-#     x = "ME group",
-#     title = "Comparison of ME groups to mQTLcontrols",
-#     subtitle = "lm with multiple comparison correction (Sidak)"
-#   ) +
-#   theme_minimal()
-# 
-# pdf(here("05_hvCpGalgorithm/figures/alphaComparisonBetweenMEtypes.pdf"), width = 13, height = 4)
-# cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
-# dev.off()
-# 
-# #################################
-# ### Regions of hypervariation ###
-# #################################
-# plot <- ggplot() +
-#   geom_point_rast(data = Atlas_dt, aes(x = pos2, y = alpha), color = "black",
-#                   size = 0.01, alpha = 0.01, raster.dpi = 72) +
-#   theme_classic() + theme(legend.position = "none") +
-#   scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
-#   scale_y_continuous(expand = c(0, 0)) +
-#   labs(x = "Chromosome", y = "Probability of being a hvCpG")+
-#   theme_minimal(base_size = 14)
-# 
-# # Save as PDF — rasterization improves performance and file size
-# CairoPDF(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_atlas_2.pdf"), width = 15, height = 3)
-# print(plot)
-# dev.off()
-# 
-# ## TBC
+###########################################
+## meQTL (vmeQTL) identified in MZ twins by Jordana Bell 
+vmeQTL_hg19probes <- readxl::read_xlsx(here("05_hvCpGalgorithm/dataPrev/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
+vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]) ; rm(vmeQTL_hg19probes)
+
+# a vector of 1773 SIV from Harris 2012 (HarrisSIV_hg38)
+HarrisSIV_hg38
+
+# one of 1579 ESS from Van Baak 2018 (VanBaakESS_hg38)
+VanBaakESS_hg38
+ 
+# a GRange object for Kessler 2018 676 SIV regions (KesslerSIV_GRanges_hg38)
+overlaps <- findOverlaps(query = KesslerSIV_GRanges_hg38, subject = allcpg_GR)
+# Extract the overlapping ranges
+CpG_overlapping     <- allcpg_GR[subjectHits(overlaps)]
+KesslerSIV_hg38 <- na.omit(paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges))
+length(KesslerSIV_hg38) # 2700
+
+# a GRange object for Gunasekara 2019 9926 corSIV regions (corSIV_GRanges_hg38)
+overlaps <- findOverlaps(query = corSIV_GRanges_hg38, subject = allcpg_GR)
+# Extract the overlapping ranges
+CpG_overlapping     <- allcpg_GR[subjectHits(overlaps)]
+corSIV_hg38 <- na.omit(paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges))
+length(corSIV_hg38) # 70222
+
+# a vector of 3644 hvCpG from Derakhshan 2022 (DerakhshanhvCpGs_hg38)
+DerakhshanhvCpGs_hg38
+
+# a vector for matching mQTL controls (mQTLcontrols_hg38)
+mQTLcontrols_hg38
+
+# Silver2022_SoCCpGs_10WGBS 
+SoCCpGs_hg38
+
+#################################
+## Check overlaps with upset plot
+sets <- list(
+  vmeQTL = vmeQTL_hg38,
+  HarrisSIV = HarrisSIV_hg38,
+  VanBaakESS = VanBaakESS_hg38,
+  KesslerSIV = KesslerSIV_hg38,
+  CoRSIV = corSIV_hg38,
+  SoCCpGs = SoCCpGs_hg38,
+  hvCpG = DerakhshanhvCpGs_hg38,
+  mQTLcontrols = mQTLcontrols_hg38
+)
+
+# Create the plot in a base graphics device
+pdf(NULL)  # draw to null device to avoid displaying
+upset(fromList(sets), nsets = 7, order.by = "freq")
+grid_plot <- grid.grab()  # Capture as a grid object
+dev.off()
+
+# Now save the captured grid object to a real PDF
+pdf(here("05_hvCpGalgorithm/figures/upsetPreviousME.pdf"), width = 12, height = 5)
+grid.draw(grid_plot)
+dev.off()
+
+#######################################################
+## Check alpha for the different MEs: are they high? ##
+
+MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+  Atlas_dt[.(sets[[nm]]), on = .(name), .(name, alpha)][, ME := nm]
+}))
+
+MEsetdt <- na.omit(MEsetdt) ## 33478 so far (2 sept)
+
+## Control as baseline
+MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
+
+p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha)) +
+  geom_jitter(data = MEsetdt,
+              aes(fill=ME), pch=21, size = 3, alpha = .1)+
+  geom_violin(aes(col=ME))+
+  geom_boxplot(aes(col=ME), width = .1) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none", axis.title.x = element_blank()) +
+  ylab("Probability of being a hvCpG")
+
+p1
+
+## Statistical comparisons of alpha between MEs
+
+# 1️⃣ Fit the model with mQTLcontrols as baseline
+fit <- lm(alpha ~ ME, data = MEsetdt)
+
+# 2️⃣ Get estimated marginal means and contrasts vs baseline
+emm <- emmeans(fit, ~ ME)
+contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
+  as.data.frame()
+
+# 3️⃣ Prepare for plotting
+contrasts <- contrasts %>%
+  mutate(ME = contrast,  # rename for clarity
+         lower = estimate - 1.96*SE,
+         upper = estimate + 1.96*SE)
+
+# 4️⃣ Plot
+p2 <- ggplot(contrasts, aes(x = ME, y = estimate)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  coord_flip() +
+  labs(
+    y = "Difference in alpha vs mQTLcontrols",
+    x = "ME group",
+    title = "Comparison of ME groups to mQTLcontrols",
+    subtitle = "lm with multiple comparison correction (Sidak)"
+  ) +
+  theme_minimal()
+
+pdf(here("05_hvCpGalgorithm/figures/alphaComparisonBetweenMEtypes.pdf"), width = 14, height = 4)
+cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
+dev.off()
+
+
+## TBC
 
 
 
