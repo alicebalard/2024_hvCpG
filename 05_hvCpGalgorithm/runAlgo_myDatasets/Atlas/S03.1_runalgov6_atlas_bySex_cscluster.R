@@ -23,7 +23,7 @@ subset_cpgs <- cpg_46[start_idx:end_idx]
 #############******Prepare 4 subsets of data*********#############
 
 # Load metadata to use for the algorithm
-metadata <- read.table(file.path(dataDir, "sample_metadata.tsv"), sep = "\t", header = TRUE)
+metadata <- read.table(file.path(data_dir, "sample_metadata.tsv"), sep = "\t", header = TRUE)
 
 # Load data with sex
 meta2 <- read.csv("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/SupTab1_Loyfer2023.csv")
