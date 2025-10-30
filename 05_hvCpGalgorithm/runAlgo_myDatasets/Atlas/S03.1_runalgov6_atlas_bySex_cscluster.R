@@ -20,6 +20,9 @@ if (start_idx > length(cpg_46)) {
 
 subset_cpgs <- cpg_46[start_idx:end_idx]
 
+## Load algorithm (and associated libraries)
+source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v6.R")
+
 #############******Prepare 4 subsets of data*********#############
 
 # Load metadata to use for the algorithm
@@ -108,9 +111,6 @@ runByGroup <- function(mySubsetMetadata, subdir){
     dir.create(result_dir, recursive = TRUE, showWarnings = FALSE)
 
     message(paste0("If new, results will be saved in dir: ", result_dir))
-
-    ## Load algorithm
-    source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v6.R")
 
     ## Run
     myNthreads <- as.numeric(Sys.getenv("NSLOTS", unset = "1"))  # Use all cores
