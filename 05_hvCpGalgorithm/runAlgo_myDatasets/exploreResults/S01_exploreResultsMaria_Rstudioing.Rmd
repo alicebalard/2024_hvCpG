@@ -77,6 +77,8 @@ ggplot(df, aes(x = n_samples)) +
     y = "Count of datasets"
   )
 
+df
+
 rm(all_cpgs, cpg_counts,folder1, rds_files1, cistrans_GoDMC_hvCpG_matched_control)
 ```
 
