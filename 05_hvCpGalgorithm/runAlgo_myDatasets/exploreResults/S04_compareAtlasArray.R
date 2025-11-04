@@ -2,22 +2,18 @@
 ## Overlap plot: Atlas (x) vs Array (y)    ##
 #############################################
 library(here)
-source(here("05_hvCpGalgorithm/quiet_library.R"))
-
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/prephvCpGandControls.R"))
-hvCpGandControls <- prephvCpGandControls(codeDir = "~/Documents/GIT/2024_hvCpG/")
-
-################################ 
-## --- Prepare Array data --- ##
-################################ 
-
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S02_analyseResultsArray_local.R"))
 
 ################################
 ## --- Prepare Atlas data --- ##
 ################################
 doIprepAtlas = TRUE
 source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S03_analyseResultsAtlas_local.R"))
+
+################################ 
+## --- Prepare Array data --- ##
+################################ 
+
+source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S02_analyseResultsArray_local.R"))
 
 ###################################### 
 ## --- Merge Array & Atlas data --- ##
@@ -35,6 +31,8 @@ res_Alpha_Atlas <- dplyr::left_join(resCompArray, Atlas_dt, by = "name") %>%
 mod <- lm(alpha_atlas ~ alpha_array_all, data = res_Alpha_Atlas)
 correlCoef <- mod$coefficients["alpha_array_all"]
 summary(mod)
+
+cor.test(res_Alpha_Atlas$alpha_atlas, res_Alpha_Atlas$alpha_array_all, method = "pearson")
 
 p1 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_all, y=alpha_atlas)) +
   geom_point(pch = 21, alpha = 0.05) +
