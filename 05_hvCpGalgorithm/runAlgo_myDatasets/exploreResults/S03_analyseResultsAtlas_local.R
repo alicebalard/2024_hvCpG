@@ -401,9 +401,6 @@ Atlas_dt[Atlas_dt$chr == "Y" & Atlas_dt$alpha > 0.7,]
 # retestAnnot = FALSE
 
 # if (retestAnnot){
-##############
-# threshold=0.7#
-##############
 
 # Create GRanges
 gr_cpg <- GRanges(
@@ -424,44 +421,78 @@ anno_result@perc.of.OlapFeat
 # promoter     exon   intron 
 # 96.61240 74.37305 89.72931 
 
-region_type <- ifelse(anno_result@members[, "prom"] == 1, "prom",
+region_type <- ifelse(anno_result@members[, "prom"] == 1, "promoter",
                       ifelse(anno_result@members[, "exon"] == 1, "exon",
                              ifelse(anno_result@members[, "intron"] == 1, "intron", "intergenic")))
 
+# find exon-intron junction
+txdb <- txdbmaker::makeTxDbFromGFF("~/Documents/Project_hvCpG/gencode.v38.annotation.gtf", format = "gtf")
+
+exons <- GenomicFeatures::exons(txdb)
+introns <- GenomicFeatures::intronsByTranscript(txdb)
+
+# Flatten intron list
+introns_flat <- unlist(introns, use.names = FALSE)
+
+# Define a small window (±25 bp) around exon–intron boundaries
+junction_window <- 25
+
+# Create exon-intron junction regions (exon ends + intron starts)
+exon_ends <- resize(exons, width = 1, fix = "end")
+intron_starts <- resize(introns_flat, width = 1, fix = "start")
+
+# Combine and expand around the junction
+junctions <- suppressWarnings(reduce(c(
+  flank(exon_ends, width = junction_window, both = TRUE),
+  flank(intron_starts, width = junction_window, both = TRUE)
+)))
+
+# Identify CpGs overlapping exon–intron junctions
+is_junction <- countOverlaps(gr_cpg, junctions) > 0
+region_type[is_junction] <- "ex-intr junction"
+
 # add annotation to Atlas_dt
 Atlas_dt <- cbind(Atlas_dt, data.frame(region_type = region_type))
-Atlas_dt$region_type <- factor(Atlas_dt$region_type, levels = c("prom", "exon", "intron","intergenic"))
+Atlas_dt$region_type <- factor(region_type,
+                               levels = c("promoter", "exon", "ex-intr junction", "intron", "intergenic"))
 
-## Calculate high alpha
-Atlas_dt[, high_alpha := alpha >0.7]
-
-summary_dt <- Atlas_dt[, .(
-  total = .N,
-  high_alpha_count = sum(high_alpha)
-), by = region_type]
-
-summary_dt[, high_alpha_frac := high_alpha_count / total]
-summary_dt
-
-# Contingency table: rows=category, columns=high vs not high
-tab <- Atlas_dt[, .N, by = .(region_type, high_alpha)]
-cont_tab <- xtabs(N ~ region_type + high_alpha, data = tab)
-
-chisq.test(cont_tab)
-# X-squared = 23940, df = 3, p-value < 2.2e-16
-
-pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesbyAlpha.pdf"), width = 5, height = 4)
-ggplot(summary_dt, aes(x = region_type, y = high_alpha_frac, fill = region_type)) +
-  geom_col() +
-  geom_text(aes(label = paste0("N=", high_alpha_count)), vjust = -0.1) +
-  labs(y = "Fraction high alpha (>70%)", x = "Category") +
+# visualize methylation levels by region
+pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesbyAlpha.pdf"), width = 6, height = 4)
+ggplot(Atlas_dt, aes(x = region_type, y = alpha, fill = region_type)) +
+  geom_violin()+
+  geom_boxplot(outlier.size = 0.5, alpha = 0.8, width = .3) +
   theme_minimal(base_size = 14) +
-  theme(legend.position = "none") +
-  scale_fill_viridis_d()
+  labs(y = "p(hv)") + 
+  scale_fill_brewer(palette = "Set2") +
+  theme(legend.position = "none", axis.title.x = element_blank())
 dev.off()
 
-sum(Atlas_dt$alpha > 0.7) # 700603
-sum(summary_dt$high_alpha_count)
+saveRDS(Atlas_dt, "~/Documents/Project_hvCpG/Atlas_dt-3nov25.RDS")
+
+######################################################################################
+## NB: to save time, we can start directly here during development of the analysis! ##
+Atlas_dt <- readRDS("~/Documents/Project_hvCpG/Atlas_dt-3nov25.RDS")
+
+## Kruskal–Wallis test: are the groups different in alpha values?
+kruskal.test(alpha ~ region_type, data = Atlas_dt)
+# Kruskal-Wallis chi-squared = 253854, df = 4, p-value < 2.2e-16
+
+## Post-hoc pairwise comparison
+pairwise_results <- pairwise.wilcox.test(
+  Atlas_dt$alpha,
+  Atlas_dt$region_type,
+  p.adjust.method = "fdr"
+)
+pairwise_results
+# Pairwise comparisons using Wilcoxon rank sum test with continuity correction 
+# data:  Atlas_dt$alpha and Atlas_dt$region_type 
+#                   promoter exon   ex-intr junction intron
+#   exon             <2e-16   -      -                -     
+#   ex-intr junction <2e-16   <2e-16 -                -     
+#   intron           <2e-16   <2e-16 <2e-16           -     
+#   intergenic       <2e-16   <2e-16 <2e-16           <2e-16
+# 
+# P value adjustment method: fdr 
 
 #################################################################################
 ## Test for enrichment in other putative MEs for hvCpGs with alpha > threshold ##
@@ -487,7 +518,7 @@ HarrisSIV_hg38
 
 # one of 1579 ESS from Van Baak 2018 (VanBaakESS_hg38)
 VanBaakESS_hg38
- 
+
 # a GRange object for Kessler 2018 676 SIV regions (KesslerSIV_GRanges_hg38)
 overlaps <- findOverlaps(query = KesslerSIV_GRanges_hg38, subject = allcpg_GR)
 # Extract the overlapping ranges
@@ -592,71 +623,40 @@ pdf(here("05_hvCpGalgorithm/figures/alphaComparisonBetweenMEtypes.pdf"), width =
 cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
 dev.off()
 
+###############
+## FIND PAX8
+# Chromosome 2, NC_000002.12 (113215997..113278921,
 
-## TBC
+# PAX8 as a GRanges
+gr_PAX8 <- c(bed_features$promoters[grep("ENST00000429538.8", bed_features$promoters$name)],
+  bed_features$exons[grep("ENST00000429538.8", bed_features$exons$name)],
+  bed_features$introns[grep("ENST00000429538.8", bed_features$introns$name)],
+  bed_features$TSSes[grep("ENST00000429538.8", bed_features$TSSes$name)])
 
+# Find overlaps between CpGs and the gene region
+hits <- findOverlaps(gr_cpg, gr_PAX8)
 
+# Extract matching rows from original df
+df_hits <- gr_cpg[queryHits(hits), ]
 
+# Add all annotations
+df_hits <- Atlas_dt[match(paste0(df_hits@seqnames, "_", df_hits@ranges), Atlas_dt$name)]
 
+# Determine limits and breaks
+x_min <- floor(min(df_hits$pos) / 5000) * 5000
+x_max <- ceiling(max(df_hits$pos) / 5000) * 5000
+breaks_seq <- seq(x_min, x_max, by = 5000)
 
-
-
-
-
-# 
-# ###############
-# ## FIND PAX8
-# # Chromosome 2, NC_000002.12 (113215997..113278921,
-# 
-# # 1. Convert array and atlas to GRanges object
-# gr_atlas <- GRanges(
-#   seqnames = paste0("chr", Atlas_dt$chr),
-#   ranges = IRanges(start = Atlas_dt$start_pos, end = Atlas_dt$end_pos),
-#   mcols = Atlas_dt
-# )
-# 
-# gr_array <- GRanges(
-#   seqnames = resArray$chr,
-#   ranges = IRanges(start = resArray$pos, end = resArray$pos +1),
-#   mcols = resArray
-# )
-# 
-# # 2. PAX8 as a GRanges
-# gr_PAX8 <- GRanges(
-#   seqnames = "chr2",
-#   ranges = IRanges(start = 113215997, end = 113278921)
-# )
-# 
-# # 3. Find overlaps between CpGs and the gene region
-# hits <- findOverlaps(gr_atlas, gr_PAX8)
-# hits2 <- findOverlaps(gr_array, gr_PAX8)
-# 
-# # 4. Extract matching rows from original df
-# df_hits <- gr_atlas[queryHits(hits), ]
-# df_hits2 <- gr_array[queryHits(hits2), ]
-# 
-# ggplot(data.frame(df_hits), aes(x=start)) + 
-#   geom_point(aes(y=mcols.alpha)) +
-#   # geom_point(data.frame(df_hits2), aes(y=mcols.alpha_array_all, fill=mcols.group), size = 3, pch =21) +
-#   theme_minimal(base_size = 14) +
-#   # Add the rectangle
-#   annotate(
-#     "rect",
-#     xmin = 113278394,
-#     xmax = 113279523,
-#     ymin = -Inf,      # spans entire y-range
-#     ymax = Inf,
-#     alpha = 0.2,
-#     fill = "blue"
-#   ) +
-#   # Add a label for the promoter
-#   annotate(
-#     "text",
-#     x = (113278394 + 113279523) / 2,
-#     y = max(df_hits$mcols.alpha, na.rm = TRUE)-.2,
-#     label = "promoter",
-#     vjust = -1,
-#     size = 5,
-#     fontface = "bold",
-#     color = "blue"
-#   )
+ggplot(df_hits, aes(x = pos, y = alpha)) +
+  geom_smooth(col = "black") +
+  geom_point(aes(fill = region_type), pch = 21) +
+  theme_minimal(base_size = 14) +
+  ylab("p(hv)") +
+  scale_x_continuous(
+    breaks = breaks_seq,
+    labels = function(x) paste0(formatC(x / 1000, format = "f", digits = 0), "k")
+  ) +
+  xlab("Genomic position (chr2)") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
