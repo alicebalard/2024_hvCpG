@@ -119,7 +119,9 @@ p1 <- ggplot(interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill =
   geom_violin(width=1.4) +
   geom_boxplot(width=0.1, color="grey", alpha=0.2) +
   scale_fill_viridis(discrete = TRUE) +
-  theme_minimal(base_size = 14)
+  theme_minimal(base_size = 14) +
+  labs(y = "Mean inter-germ layer correlation\n(Person r)")+
+  theme(axis.title.x = element_blank(), legend.position = "none") 
 
 p1
 
@@ -144,7 +146,8 @@ table(CpG_summary$group)
 p2 <- ggplot(CpG_summary, aes(x = interindividual_var, color = group)) +
   geom_density(alpha = 0.5)+
   scale_colour_viridis(discrete = TRUE) +
-  theme_minimal(base_size = 14)
+  theme_minimal(base_size = 14) +
+  labs(x = "Interindividual variation")
 
 p2
 
@@ -200,7 +203,7 @@ p3 <- ggplot(binned_summary_boot,
   theme_minimal(base_size = 14) +
   labs(
     x = "Interindividual variation",
-    y = "Inter-germ layer correlation (median ± bootstrap CI)"
+    y = "Inter-germ layer correlation \n(median ± bootstrap CI)"
   ) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
@@ -211,6 +214,6 @@ p3
 final_plot <- plot_grid(p1, plot_grid(p2, p3, ncol = 1, align = "v"),
                         ncol = 2, rel_widths = c(.7, 1))
 pdf(here("05_hvCpGalgorithm/figures/intercorrelationSIVfetal_highAlphaAtlaspos70pc.pdf"),
-    width = 8, height = 5)
+    width = 10, height = 7)
 final_plot
 dev.off()
