@@ -55,6 +55,34 @@ pdf(here("05_hvCpGalgorithm/figures/correlation_array_atlas.pdf"), width = 5, he
 p1
 dev.off()
 
+## Is the slope different if I take array reduced to 3 ind/ds?
+mod <- lm(alpha_atlas ~ alpha_array_3ind, data = res_Alpha_Atlas)
+correlCoef <- mod$coefficients["alpha_array_3ind"]
+summary(mod)
+
+cor.test(res_Alpha_Atlas$alpha_atlas, res_Alpha_Atlas$alpha_array_3ind, method = "pearson")
+
+p2 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_3ind, y=alpha_atlas)) +
+  geom_point(pch = 21, alpha = 0.05) +
+  geom_abline(slope = 1, linetype = 3) +
+  geom_smooth(linetype = 3)+
+  geom_smooth(method = "lm", fill = "black") +
+  theme_minimal(base_size = 14) +
+  guides(fill = guide_legend(position = "inside"))+
+  theme(legend.position.inside = c(0.18,0.85),
+        legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  labs(title = "Proba(hypervariable) at common CpGs",
+       x = "P(hv) using reduced array datasets",
+       y = "P(hv) using WGBS atlas datasets") + 
+  scale_x_continuous(breaks = seq(0, 1, by = .1)) +
+  scale_y_continuous(breaks = seq(0, 1, by = .1))
+
+pdf(here("05_hvCpGalgorithm/figures/correlation_arrayRED3_atlas.pdf"), width = 5, height = 5)
+p2
+dev.off()
+
 ## What are alpha array for different cutoffs of alpha atlas?
 
 df_plot <- bind_rows(
