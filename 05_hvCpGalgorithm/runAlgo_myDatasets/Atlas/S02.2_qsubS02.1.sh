@@ -8,10 +8,7 @@
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
 #$ -t 1-240
-<<<<<<< HEAD
-=======
 #$ -tc 30
->>>>>>> 499f91a94f459808c6acfc15b74437747cb6f4bc
 
 CHUNK_SIZE=100000 ## How big are chunks sent to arrays?
 BATCH_SIZE=10000 ## How many CpGs are loaded at the same time?
