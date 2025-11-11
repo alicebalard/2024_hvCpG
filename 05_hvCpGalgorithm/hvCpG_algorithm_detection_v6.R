@@ -264,6 +264,8 @@ runAndSave_fast <- function(analysis, cpg_names_vec, resultDir, NCORES, p0, p1, 
 ###### Part 2: (log) Probability per tissue #######
 ###################################################
 
+## For each CpG, compute the log posterior odds that it belongs to the “variable” state
+## vs the “stable” state across individuals in a dataset.
 getLogPhv_oneCpG_byTissue <- function(Mdf, metadata, dataset_groups, ds_params, p1) {
     
     datasets <- unique(metadata$dataset)
@@ -277,7 +279,7 @@ getLogPhv_oneCpG_byTissue <- function(Mdf, metadata, dataset_groups, ds_params, 
 
         if (length(Mij_vals) < 3 || all(is.na(Mij_vals))) next 
         
-                                        # Precompute mean and SDs
+        ## Precompute mean and SDs
         mu_jk <- mean(Mij_vals, na.rm = TRUE)
         
         ## Call precomputed sds for both cases
@@ -288,11 +290,12 @@ getLogPhv_oneCpG_byTissue <- function(Mdf, metadata, dataset_groups, ds_params, 
         
         ## Vectorized density
         norm_probs <- matrix(0, nrow = length(Mij_vals_3), ncol = 2)
-        norm_probs[,1] <- dnorm(Mij_vals_3, mu_jk, params$sd0)
-        norm_probs[,2] <- dnorm(Mij_vals_3, mu_jk, params$sd1)
+        norm_probs_stable <- dnorm(Mij_vals_3, mu_jk, params$sd0)
+        norm_probs_variable <- dnorm(Mij_vals_3, mu_jk, params$sd1)
         
         ## Compute log(Phv|Dk) as the sum of logs on all individuals
-        dataset_logphv <- sum(log((norm_probs[,1]*p1)/(norm_probs[,1]*p1 + norm_probs[,2]*(1-p1))))
+        dataset_logphv <- sum(log((norm_probs_variable*p1)/
+                                    (norm_probs_variable*p1 + norm_probs_stable*(1-p1))))
         vector_datasets_logphv[[k]] <- dataset_logphv
     }
     return(vector_datasets_logphv) # named vector of a logPr per dataset for this CpG
