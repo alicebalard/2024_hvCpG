@@ -49,7 +49,8 @@ quiet_library_all(
     "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra",  "ggVennDiagram",## graphical
     "boot", "emmeans", ## stats
     "methylKit", "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
-    "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges" ## methylation 
+    "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", ## methylation
+    "testthat" # grammar & packaging
   ))
 ## NB: not all libraries are necessary; to clean when packaging
 
