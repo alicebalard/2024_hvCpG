@@ -498,38 +498,6 @@ mcols(gr_cpg) %>% as.data.frame() %>%
 # 3 intron          0.158      0.0755
 # 4 promoter        0.147      0.0587 ********* The lowest
 
-# visualize methylation levels by region
-pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesbyAlpha.pdf"), width = 6, height = 4)
-ggplot(mcols(gr_cpg), aes(x = preciseFeatureType, y = alpha, fill = preciseFeatureType)) +
-  geom_violin()+
-  geom_boxplot(outlier.size = 0.5, alpha = 0.8, width = .3) +
-  theme_minimal(base_size = 14) +
-  labs(y = "p(hv)") + 
-  scale_fill_brewer(palette = "Set2") +
-  theme(legend.position = "none", axis.title.x = element_blank())
-dev.off()
-
-# saveRDS(Atlas_dt, "~/Documents/Project_hvCpG/Atlas_dt-3nov25.RDS")
-
-
-# Promoters/enhancers: FANTOM5 database: https://fantom.gsc.riken.jp/5/
-#   
-#   I think it would also be interesting to look at chromatin states using ChromHMM  to get a sense of regions that are transcriptionally active etc (as we’ve done in several of our papers):
-#   ChromHMM: https://compbio.mit.edu/ChromHMM/
-#   R package to work with ChromHMM: https://www.bioconductor.org/packages/release/bioc/vignettes/segmenter/inst/doc/segmenter.html
-# 
-# Tissue-specificity is a major complicating factor of course. Even though we’re dealing with MEs, functional relevance could vary according to cell type, as we’ve found with PAX8, POMC and LY6S!
-
-
-
-######################################################################################
-## NB: to save time, we can start directly here during development of the analysis! ##
-# Atlas_dt <- readRDS("~/Documents/Project_hvCpG/Atlas_dt-3nov25.RDS")
-
-
-mcols(gr_cpg) %>% as.data.frame() %>%
-  dplyr::group_by(preciseFeatureType) %>%
-  dplyr::summarise(meanAlpha = mean(alpha))
 
 ## Kruskal–Wallis test: are the groups different in alpha values?
 kruskal.test(alpha ~ preciseFeatureType, data = mcols(gr_cpg))
@@ -552,6 +520,51 @@ pairwise_results
 #   promoter       < 2e-16          < 2e-16 < 2e-16    < 2e-16        < 2e-16    < 2e-16
 # 
 # P value adjustment method: fdr 
+
+# visualize methylation levels by region
+pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesbyAlpha.pdf"), width = 6, height = 4)
+ggplot(mcols(gr_cpg), aes(x = preciseFeatureType, y = alpha, fill = preciseFeatureType)) +
+  geom_violin()+
+  geom_boxplot(outlier.size = 0.5, alpha = 0.8, width = .3) +
+  theme_minimal(base_size = 14) +
+  labs(y = "p(hv)") + 
+  scale_fill_brewer(palette = "Set2") +
+  theme(legend.position = "none", axis.title.x = element_blank())
+dev.off()
+
+## TBC
+
+##############
+## Test TE hpv
+
+## Retrieve annotations of TE
+## Tutorial: https://www.bioconductor.org/packages/release/data/annotation/vignettes/UCSCRepeatMasker/inst/doc/UCSCRepeatMasker.html
+## Ran in local machine Alice in Nov 2025 (create DB in cache)
+
+library(AnnotationHub)
+ah <- AnnotationHub()
+query(ah, c("UCSC", "RepeatMasker", "Homo sapiens"))
+
+## Disable SSL verification temporarily
+library(httr)
+set_config(config(ssl_verifypeer = FALSE))
+
+rmskhg38 <- ah[["AH111333"]]
+rmskhg38
+
+## Find different classes
+table(rmskhg38$repClass)
+
+# Promoters/enhancers: FANTOM5 database: https://fantom.gsc.riken.jp/5/
+#   
+#   I think it would also be interesting to look at chromatin states using ChromHMM  to get a sense of regions that are transcriptionally active etc (as we’ve done in several of our papers):
+#   ChromHMM: https://compbio.mit.edu/ChromHMM/
+#   R package to work with ChromHMM: https://www.bioconductor.org/packages/release/bioc/vignettes/segmenter/inst/doc/segmenter.html
+# 
+# Tissue-specificity is a major complicating factor of course. Even though we’re dealing with MEs, functional relevance could vary according to cell type, as we’ve found with PAX8, POMC and LY6S!
+
+
+
 
 #################################################################################
 ## Test for enrichment in other putative MEs for hvCpGs with alpha > threshold ##
