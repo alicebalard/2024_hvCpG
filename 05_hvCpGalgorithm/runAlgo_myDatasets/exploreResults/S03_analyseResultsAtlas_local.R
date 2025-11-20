@@ -398,11 +398,7 @@ Atlas_dt[Atlas_dt$chr == "Y" & Atlas_dt$alpha > 0.7,]
 ## III. Test enrichment of features for high alpha ##
 #####################################################
 
-# retestAnnot = FALSE
-
-# if (retestAnnot){
-
-# Create GRanges
+# Create GRanges of 23036026 CpGs
 gr_cpg <- GRanges(
   seqnames = paste0("chr", Atlas_dt$chr),
   ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
@@ -421,11 +417,13 @@ anno_result@perc.of.OlapFeat
 # promoter     exon   intron 
 # 96.61240 74.37305 89.72931 
 
-region_type <- ifelse(anno_result@members[, "prom"] == 1, "promoter",
-                      ifelse(anno_result@members[, "exon"] == 1, "exon",
-                             ifelse(anno_result@members[, "intron"] == 1, "intron", "intergenic")))
+## Add info from annotation to our GRange object
+gr_cpg$featureType <- ifelse(anno_result@members[, "prom"] == 1, "promoter",
+                             ifelse(anno_result@members[, "exon"] == 1, "exon",
+                                    ifelse(anno_result@members[, "intron"] == 1, "intron", "intergenic")))
 
-# find exon-intron junction
+############################
+## find exon-intron junction
 txdb <- txdbmaker::makeTxDbFromGFF("~/Documents/Project_hvCpG/gencode.v38.annotation.gtf", format = "gtf")
 
 exons <- GenomicFeatures::exons(txdb)
@@ -451,14 +449,58 @@ junctions <- suppressWarnings(reduce(c(
 is_junction <- countOverlaps(gr_cpg, junctions) > 0
 region_type[is_junction] <- "ex-intr junction"
 
-# add annotation to Atlas_dt
-Atlas_dt <- cbind(Atlas_dt, data.frame(region_type = region_type))
-Atlas_dt$region_type <- factor(region_type,
-                               levels = c("promoter", "exon", "ex-intr junction", "intron", "intergenic"))
+# add annotation to GRanges object
+gr_cpg$preciseFeatureType <- region_type
+
+## check that the only diff is ex-intr junction
+table(gr_cpg[gr_cpg$featureType != gr_cpg$preciseFeatureType,]$preciseFeatureType) 
+
+#########################################################################
+## Find the first promoter and the first exon by absolute distance to TSS
+gr_cpg$dist2TSS <- anno_result@dist.to.TSS$dist.to.feature
+gr_cpg$TSSname <- anno_result@dist.to.TSS$feature.name
+
+mcols(gr_cpg) <- mcols(gr_cpg) %>% as.data.frame() %>% 
+  dplyr::group_by(TSSname, featureType) %>% 
+  dplyr::mutate(pos = min_rank(abs(dist2TSS))) %>% data.frame()
+
+mcols(gr_cpg) <- mcols(gr_cpg) %>% as.data.frame() %>% 
+  mutate(
+    preciseFeatureType = case_when(
+      featureType == "promoter" & pos == 1 ~ "first promoter",
+      featureType == "exon" & pos == 1 ~ "first exon",
+      TRUE ~ as.character(preciseFeatureType)  # keep existing otherwise
+    )
+  )
+
+mcols(gr_cpg) %>% as.data.frame() %>%
+  dplyr::group_by(preciseFeatureType) %>%
+  dplyr::summarise(meanAlpha = mean(alpha),
+                   medianAlpha = median(alpha))
+# preciseFeatureType meanAlpha medianAlpha
+# <chr>                  <dbl>       <dbl>
+# 1 ex-intr junction       0.128      0.0476 ********* The lowest! Very conserved
+# 2 exon                   0.148      0.0703
+# 3 first exon             0.169      0.0994
+# 4 first promoter         0.163      0.0784
+# 5 intergenic             0.196      0.121 ********* The higghest
+# 6 intron                 0.158      0.0755
+# 7 promoter               0.147      0.0591
+
+mcols(gr_cpg) %>% as.data.frame() %>%
+  dplyr::group_by(featureType) %>%
+  dplyr::summarise(meanAlpha = mean(alpha),
+                   medianAlpha = median(alpha))
+# featureType meanAlpha medianAlpha
+# <chr>           <dbl>       <dbl>
+# 1 exon            0.148      0.0710
+# 2 intergenic      0.196      0.121 ********* The higghest
+# 3 intron          0.158      0.0755
+# 4 promoter        0.147      0.0587 ********* The lowest
 
 # visualize methylation levels by region
 pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesbyAlpha.pdf"), width = 6, height = 4)
-ggplot(Atlas_dt, aes(x = region_type, y = alpha, fill = region_type)) +
+ggplot(mcols(gr_cpg), aes(x = preciseFeatureType, y = alpha, fill = preciseFeatureType)) +
   geom_violin()+
   geom_boxplot(outlier.size = 0.5, alpha = 0.8, width = .3) +
   theme_minimal(base_size = 14) +
@@ -467,30 +509,47 @@ ggplot(Atlas_dt, aes(x = region_type, y = alpha, fill = region_type)) +
   theme(legend.position = "none", axis.title.x = element_blank())
 dev.off()
 
-saveRDS(Atlas_dt, "~/Documents/Project_hvCpG/Atlas_dt-3nov25.RDS")
+# saveRDS(Atlas_dt, "~/Documents/Project_hvCpG/Atlas_dt-3nov25.RDS")
+
+
+# Promoters/enhancers: FANTOM5 database: https://fantom.gsc.riken.jp/5/
+#   
+#   I think it would also be interesting to look at chromatin states using ChromHMM  to get a sense of regions that are transcriptionally active etc (as we’ve done in several of our papers):
+#   ChromHMM: https://compbio.mit.edu/ChromHMM/
+#   R package to work with ChromHMM: https://www.bioconductor.org/packages/release/bioc/vignettes/segmenter/inst/doc/segmenter.html
+# 
+# Tissue-specificity is a major complicating factor of course. Even though we’re dealing with MEs, functional relevance could vary according to cell type, as we’ve found with PAX8, POMC and LY6S!
+
+
 
 ######################################################################################
 ## NB: to save time, we can start directly here during development of the analysis! ##
-Atlas_dt <- readRDS("~/Documents/Project_hvCpG/Atlas_dt-3nov25.RDS")
+# Atlas_dt <- readRDS("~/Documents/Project_hvCpG/Atlas_dt-3nov25.RDS")
+
+
+mcols(gr_cpg) %>% as.data.frame() %>%
+  dplyr::group_by(preciseFeatureType) %>%
+  dplyr::summarise(meanAlpha = mean(alpha))
 
 ## Kruskal–Wallis test: are the groups different in alpha values?
-kruskal.test(alpha ~ region_type, data = Atlas_dt)
-# Kruskal-Wallis chi-squared = 253854, df = 4, p-value < 2.2e-16
+kruskal.test(alpha ~ preciseFeatureType, data = mcols(gr_cpg))
+# Kruskal-Wallis chi-squared = 256663, df = 6, p-value < 2.2e-16
 
 ## Post-hoc pairwise comparison
 pairwise_results <- pairwise.wilcox.test(
-  Atlas_dt$alpha,
-  Atlas_dt$region_type,
+  mcols(gr_cpg)$alpha,
+  mcols(gr_cpg)$preciseFeatureType,
   p.adjust.method = "fdr"
 )
 pairwise_results
 # Pairwise comparisons using Wilcoxon rank sum test with continuity correction 
-# data:  Atlas_dt$alpha and Atlas_dt$region_type 
-#                   promoter exon   ex-intr junction intron
-#   exon             <2e-16   -      -                -     
-#   ex-intr junction <2e-16   <2e-16 -                -     
-#   intron           <2e-16   <2e-16 <2e-16           -     
-#   intergenic       <2e-16   <2e-16 <2e-16           <2e-16
+#                 ex-intr junction  exon    first exon first promoter intergenic intron 
+#   exon           < 2e-16          -       -          -              -          -      
+#   first exon     < 2e-16          < 2e-16 -          -              -          -      
+#   first promoter < 2e-16          3.5e-05 < 2e-16    -              -          -      
+#   intergenic     < 2e-16          < 2e-16 < 2e-16    < 2e-16        -          -      
+#   intron         < 2e-16          < 2e-16 < 2e-16    < 2e-16        < 2e-16    -      
+#   promoter       < 2e-16          < 2e-16 < 2e-16    < 2e-16        < 2e-16    < 2e-16
 # 
 # P value adjustment method: fdr 
 
