@@ -1,5 +1,9 @@
 #!/usr/bin/env Rscript
 
+## Load hyperVarMeth (installed in my local R.4.2 directory)
+library(hyperVarMeth)
+#####################
+
 args <- commandArgs(trailingOnly = TRUE)
 
 data_dir <- args[1] ## where the data is
@@ -21,20 +25,17 @@ if (start_idx > length(cpg_46)) {
 subset_cpgs <- cpg_46[start_idx:end_idx]
 
 # Output directory
-result_dir <- sprintf("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X/Atlas_batch%03d", task_id)
+result_dir <- sprintf("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X_AlgoPackaged/Atlas_batch%03d", task_id)
 dir.create(result_dir, recursive = TRUE, showWarnings = FALSE)
 
 message(paste0("If new, results will be saved in dir: ", result_dir))
-
-## Load algorithm
-source("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/hvCpG_algorithm_detection_v6.R")
 
 ## Run
 myNthreads <- as.numeric(Sys.getenv("NSLOTS", unset = "1"))  # Use all cores
 
 message("Run algo:")
 
-system.time(runAndSave_fast(
+system.time(hyperVarMeth::runAndSave_fast(
     analysis = "Atlas10X",
     cpg_names_vec = subset_cpgs,
     dataDir = data_dir,

@@ -107,7 +107,7 @@ runByGroup <- function(mySubsetMetadata, subdir){
     }
     
     ## Output directory
-    result_dir <- make_result_dir("AtlasMalesOnly", task_id)
+    result_dir <- make_result_dir(subdir, task_id)
     dir.create(result_dir, recursive = TRUE, showWarnings = FALSE)
 
     message(paste0("If new, results will be saved in dir: ", result_dir))
@@ -118,7 +118,7 @@ runByGroup <- function(mySubsetMetadata, subdir){
     message("Run algo:")
 
     system.time(runAndSave_fast(
-        analysis = "Atlas10X",
+        analysis = subdir,
         cpg_names_vec = subset_cpgs,
         dataDir = data_dir,
         resultDir = result_dir,
