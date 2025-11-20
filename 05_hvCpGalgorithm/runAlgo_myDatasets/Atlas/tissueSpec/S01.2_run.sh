@@ -1,0 +1,24 @@
+#!/bin/bash
+#$ -N runtissuealgo_atlas_100k.5T.10G
+#$ -S /bin/bash
+#$ -pe smp 5
+#$ -l tmem=2G
+#$ -l h_vmem=2G
+#$ -l h_rt=48:00:00
+#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
+#$ -R y
+#$ -t 1-240
+#$ -tc 30
+
+CHUNK_SIZE=100000 ## How big are chunks sent to arrays?
+BATCH_SIZE=10000 ## How many CpGs are loaded at the same time?
+
+echo "**** Job $JOB_NAME.$SGE_TASK_ID started at $(date) ****"
+
+DATA_DIR="/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/"
+
+Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/tissueSpec/S01.1_runTissueSpecificAlgo.R "$DATA_DIR" "$SGE_TASK_ID" "$CHUNK_SIZE" "$BA
+TCH_SIZE"
+
+echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"
+
