@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-## Load hyperVarMeth (installed in my local R.4.2 directory)
+## Load hyperVarMeth (installed in my CS HPC home R.4.2 directory)
 library(hyperVarMeth)
 #####################
 
@@ -10,6 +10,7 @@ data_dir <- args[1] ## where the data is
 task_id <- as.integer(args[2]) ## which task on the array
 chunk_size <- as.integer(args[3]) ## what is the size of the chunk
 batch_size <- as.integer(args[4]) ## how many CpGs are loaded at once
+res_dir <- args[5] ## where the results should be stored
 
 ## Run on CpGs which are covered in all 46 cells 
 cpg_46 <- read.table(file.path(data_dir, "selected_cpgs_min3_in46_datasets.txt"))$V1
@@ -25,7 +26,8 @@ if (start_idx > length(cpg_46)) {
 subset_cpgs <- cpg_46[start_idx:end_idx]
 
 # Output directory
-result_dir <- sprintf("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X_AlgoPackaged/Atlas_batch%03d", task_id)
+result_dir <- sprintf(paste0(res_dir, "Atlas_batch%03d"), task_id)
+
 dir.create(result_dir, recursive = TRUE, showWarnings = FALSE)
 
 message(paste0("If new, results will be saved in dir: ", result_dir))
