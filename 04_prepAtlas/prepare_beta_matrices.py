@@ -34,11 +34,10 @@ parser.add_argument("--meta", required=True, help="Metadata CSV file")
 parser.add_argument("--minCov", type=int, default=10, help="Minimum coverage")
 parser.add_argument("--min_samples", type=int, default=3, help="Minimum samples per group")
 parser.add_argument("--min_datasets", type=int, default=46, help="Minimum datasets per CpG")
-parser.add_argument("--chunk_size", type=int, default=100000, help="Chunk size for processing")
-
+parser.add_argument("--chunk_size", type=int, default=100000, help="(Unused in optimized write) Row chunk size if needed")
 args = parser.parse_args()
 
-# Then replace hardcoded variables with args.*
+# Resolve args
 beta_files = glob.glob(args.beta_files)
 cpg_bed = args.cpg_bed
 output_folder = args.output_folder
@@ -46,7 +45,7 @@ meta = pd.read_csv(args.meta)
 minCov = args.minCov
 MIN_SAMPLES_PER_GROUP = args.min_samples
 MIN_DATASETS = args.min_datasets
-CHUNK_SIZE = args.chunk_size
+CHUNK_SIZE = args.chunk_size  # kept for compatibility, not used in column-wise write
 
 #################
 ## Main script ##
@@ -72,16 +71,29 @@ samples_per_group_short = {
     for g, samples in samples_per_group.items()
 }
 
+# Build a fast map from short sample id to beta file path (avoid repeated regex scanning)
+sample_to_path = {}
+dup_count = 0
+for fn in beta_files:
+    m = re.search(r"-([A-Za-z0-9_]+)\.hg38\.beta$", os.path.basename(fn))
+    if m:
+        key = m.group(1)
+        if key in sample_to_path:
+            dup_count += 1
+        sample_to_path[key] = fn
+if dup_count:
+    print(f"⚠️ Warning: {dup_count} duplicate sample IDs in beta files; last one wins.")
+
 # Load CpG names
-cpg_names = []
-with gzip.open(cpg_bed, "rt") as f: # "rt" = read text mode
+cpg_names_start = []
+with gzip.open(cpg_bed, "rt") as f:  # "rt" = read text mode
     for line in f:
         chrom, pos = line.strip().split("\t")[:2]
         pos = int(pos)
-        cpg_names.append(f"{chrom}_{pos}")
+        cpg_names_start.append(f"{chrom}_{pos}")
 
-NR_SITES = len(cpg_names)
-print(f"Loaded {NR_SITES:,} CpG names.")
+NR_SITES = len(cpg_names_start)
+print(f"✅ Loaded {NR_SITES:,} CpG names.")
 
 # Helper: Load beta + coverage
 def load_beta(path):
@@ -92,93 +104,116 @@ def load_beta(path):
         beta = np.where(cov == 0, np.nan, meth / cov).astype(np.float32)
     return beta, cov
 
-# Pass 1: Compute coverage counts
-
-# Track CpG coverage across datasets
+# Pass 1: Compute coverage counts (no HDF5 writes)
 dataset_pass_count = np.zeros(NR_SITES, dtype=np.uint16)
-
 sample_names = []
 sample_groups = []
-sample_idx = 0
 all_sample_names = []
 all_sample_groups = []
 group_medians = {}
 group_lambdas = {}
+sample_idx = 0
 
 print("Pass 1: Computing coverage counts...")
-# Process groups
 for group, samples in samples_per_group_short.items():
-    group_start_idx = sample_idx
     group_betas = []
+    group_added = 0
     for s in samples:
-        matches = [fn for fn in beta_files if re.search(f"-{s}\\.hg38\\.beta$", fn)]
-        if not matches:
+        path = sample_to_path.get(s)
+        if path is None:
+            print(f"⚠️ No beta file found for short sample ID: {s}")
             continue
-        beta, cov = load_beta(matches[0])
+        beta, cov = load_beta(path)
+        if len(beta) != NR_SITES:
+            raise ValueError(f"Mismatch: {s} has {len(beta)} CpGs, expected {NR_SITES}")
         beta[cov < minCov] = np.nan
         group_betas.append(beta)
+
+        # Track sample info (strings stored as UTF-8 later)
         sample_names.append(s)
         sample_groups.append(group)
         all_sample_names.append(s)
         all_sample_groups.append(group)
         sample_idx += 1
+        group_added += 1
 
-    if not group_betas:
+    if group_added == 0:
+        print(f"⚠️ Skipping {group}: no valid samples")
         continue
-    mat = np.column_stack(group_betas)
+
+    # Stack CpGs x group_samples
+    mat = np.column_stack(group_betas).astype(np.float32)
+
+    # Enforce per-group coverage rule
     valid_counts = np.sum(~np.isnan(mat), axis=1)
     mat[valid_counts < MIN_SAMPLES_PER_GROUP, :] = np.nan
+
+    # Update global dataset pass counts
     coverage_counts = np.sum(~np.isnan(mat), axis=1)
     dataset_pass_count[coverage_counts >= MIN_SAMPLES_PER_GROUP] += 1
 
+    # Group SD stats
     row_sds = bn.nanstd(mat, axis=1)
-    group_medians[group] = np.nanmedian(row_sds)
-    group_lambdas[group] = np.nanpercentile(row_sds, 95) / group_medians[group]
-    print(f"{group}: median_sd = {median_sd:.4f}, lambda = {lambda_value:.4f}")
+    if np.all(np.isnan(row_sds)):
+        median_sd = np.nan
+        lambda_value = np.nan
+    else:
+        median_sd = float(np.nanmedian(row_sds))
+        perc95 = float(np.nanpercentile(row_sds, 95))
+        lambda_value = (perc95 / median_sd) if (median_sd and np.isfinite(median_sd)) else np.nan
+
+    group_medians[group] = median_sd
+    group_lambdas[group] = lambda_value
+    print(f"✅ {group}: median_sd = {median_sd:.4f}, lambda = {lambda_value:.4f}")
 
 # Apply CpG selection
 final_mask = dataset_pass_count >= MIN_DATASETS
-selected_cpgs = np.array(cpg_names)[final_mask]
-print(f"Selected {len(selected_cpgs):,} CpGs covered in >= {MIN_SAMPLES_PER_GROUP} samples in >= {MIN_DATASETS} datasets.")
+selected_cpgs = np.array(cpg_names_start)[final_mask]
+n_sel = int(np.sum(final_mask))
+n_cols = sample_idx
+print(f"✅ Selected {n_sel:,} CpGs covered in >= {MIN_SAMPLES_PER_GROUP} samples in >= {MIN_DATASETS} datasets.")
 
-# Pass 2: Write filtered matrix directly to HDF5
+# Pass 2: Write filtered matrix directly to HDF5 (column-wise; load each beta once)
 output_path = os.path.join(output_folder, output_file)
 with h5py.File(output_path, "w") as h5f:
-    n_sel = np.sum(final_mask)
-    n_cols = sample_idx
-    filtered_dset = h5f.create_dataset("matrix", shape=(n_sel, n_cols),
-                                       dtype="float32", compression="gzip")
+    matrix_dset = h5f.create_dataset(
+        "matrix",
+        shape=(n_sel, n_cols),
+        dtype="float32",
+        compression="gzip"
+    )
 
-    print("Pass 2: Writing filtered matrix...")
-    row_indices = np.where(final_mask)[0]
-    chunk = CHUNK_SIZE
-    for start in range(0, n_sel, chunk):
-        end = min(start + chunk, n_sel)
-        rows = row_indices[start:end]
-        chunk_data = np.empty((len(rows), n_cols), dtype=np.float32)
-        col_idx = 0
-        for group, samples in samples_per_group_short.items():
-            for s in samples:
-                matches = [fn for fn in beta_files if re.search(f"-{s}\\.hg38\\.beta$", fn)]
-                if not matches:
-                    continue
-                beta, cov = load_beta(matches[0])
-                beta[cov < minCov] = np.nan
-                chunk_data[:, col_idx] = beta[rows]
+    print("Pass 2: Writing filtered matrix (column-wise)...")
+    col_idx = 0
+    for group, samples in samples_per_group_short.items():
+        for s in samples:
+            path = sample_to_path.get(s)
+            if path is None:
+                # keep column as NaN (already initialized by HDF5 zeros; set to NaN explicitly)
+                matrix_dset[:, col_idx] = np.full(n_sel, np.nan, dtype=np.float32)
                 col_idx += 1
-        filtered_dset[start:end, :] = chunk_data
+                continue
+            beta, cov = load_beta(path)
+            if len(beta) != NR_SITES:
+                raise ValueError(f"Mismatch on write: {s} has {len(beta)} CpGs, expected {NR_SITES}")
+            beta[cov < minCov] = np.nan
+            # write only selected rows to this column
+            matrix_dset[:, col_idx] = beta[final_mask]
+            col_idx += 1
 
     # Save metadata
-    h5f.create_dataset("selected_cpg_names", data=selected_cpgs.astype("S"))
-    h5f.create_dataset("samples", data=np.array(sample_names, dtype=h5py.string_dtype()))
-    h5f.create_dataset("sample_groups", data=np.array(sample_groups, dtype=h5py.string_dtype()))
-
+    h5f.create_dataset("cpg_names", data=selected_cpgs.astype("S"))
+    h5f.create_dataset("samples", data=[str(s) for s in sample_names], dtype=h5py.string_dtype(encoding='utf-8'))
+    h5f.create_dataset("sample_groups", data=[str(g) for g in sample_groups], dtype=h5py.string_dtype(encoding='utf-8'))
+    
 print("\n✅ Validation:")
 print(f"Matrix shape: {n_sel:,} CpGs x {n_cols:,} samples")
+print(f"Saved filtered matrix to: {output_path}")
 
 # Save metadata TSV
 meta_df = pd.DataFrame({"sample": all_sample_names, "dataset": all_sample_groups})
 meta_df.to_csv(metadata_file, sep="\t", index=False)
+print(f"✅ Saved metadata to: {metadata_file}")
 
 # Save medians and lambdas
 df = pd.DataFrame({
@@ -187,5 +222,6 @@ df = pd.DataFrame({
     "lambda": [group_lambdas[k] for k in group_medians.keys()]
 })
 df.to_csv(output_file_medsd_lambda, sep="\t", index=False)
+print(f"✅ Saved medians and lambdas to TSV: {output_file_medsd_lambda}")
 
 print("\n🎉 All done.")
