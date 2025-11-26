@@ -20,12 +20,11 @@ import re
 import h5py
 import bottleneck as bn
 import gzip
+import argparse
 
 ###############
 ## Arguments ##
 ###############
-
-import argparse
 
 parser = argparse.ArgumentParser(description="Prepare Loyfer WGBS Atlas Data")
 parser.add_argument("--beta_files", required=True, help="Files pattern for beta files")
@@ -93,17 +92,7 @@ def load_beta(path):
         beta = np.where(cov == 0, np.nan, meth / cov).astype(np.float32)
     return beta, cov
 
-# Prepare HDF5
-all_valid_samples = [s for group in samples_per_group_short.values() for s in group]
-output_path = os.path.join(output_folder, output_file)
-h5f = h5py.File(output_path, "w")
-
-matrix_dset = h5f.create_dataset(
-    "matrix",
-    shape=(NR_SITES, len(all_valid_samples)),
-    dtype="float32",
-    compression="gzip"
-)
+# Pass 1: Compute coverage counts
 
 # Track CpG coverage across datasets
 dataset_pass_count = np.zeros(NR_SITES, dtype=np.uint16)
@@ -116,48 +105,35 @@ all_sample_groups = []
 group_medians = {}
 group_lambdas = {}
 
+print("Pass 1: Computing coverage counts...")
 # Process groups
 for group, samples in samples_per_group_short.items():
-    print(f"🔄 Processing {group} ({len(samples)} samples)")
     group_start_idx = sample_idx
+    group_betas = []
     for s in samples:
         matches = [fn for fn in beta_files if re.search(f"-{s}\\.hg38\\.beta$", fn)]
         if not matches:
-            print(f"⚠️ No beta file found for: {s}")
             continue
         beta, cov = load_beta(matches[0])
-        if len(beta) != NR_SITES:
-            raise ValueError(f"Mismatch: {s} has {len(beta)} CpGs, expected {NR_SITES}")
         beta[cov < minCov] = np.nan
-        matrix_dset[:, sample_idx] = beta
-        sample_names.append(s.encode())
-        sample_groups.append(group.encode())
+        group_betas.append(beta)
+        sample_names.append(s)
+        sample_groups.append(group)
         all_sample_names.append(s)
         all_sample_groups.append(group)
         sample_idx += 1
 
-    # Group-level stats
-    group_sample_indices = list(range(group_start_idx, sample_idx))
-    if len(group_sample_indices) == 0:
-        print(f"!!Skipping {group}: no valid samples")
+    if not group_betas:
         continue
-    mat = matrix_dset[:, group_sample_indices]
+    mat = np.column_stack(group_betas)
     valid_counts = np.sum(~np.isnan(mat), axis=1)
     mat[valid_counts < MIN_SAMPLES_PER_GROUP, :] = np.nan
-    matrix_dset[:, group_sample_indices] = mat
-
-    # Update CpG coverage tracker
     coverage_counts = np.sum(~np.isnan(mat), axis=1)
-    mask = coverage_counts >= MIN_SAMPLES_PER_GROUP
-    dataset_pass_count[mask] += 1
+    dataset_pass_count[coverage_counts >= MIN_SAMPLES_PER_GROUP] += 1
 
-    # Compute SD stats
     row_sds = bn.nanstd(mat, axis=1)
-    median_sd = np.nanmedian(row_sds)
-    percentile_95 = np.nanpercentile(row_sds, 95)
-    lambda_value = percentile_95 / median_sd
-    group_medians[group] = median_sd
-    group_lambdas[group] = lambda_value
+    group_medians[group] = np.nanmedian(row_sds)
+    group_lambdas[group] = np.nanpercentile(row_sds, 95) / group_medians[group]
     print(f"{group}: median_sd = {median_sd:.4f}, lambda = {lambda_value:.4f}")
 
 # Apply CpG selection
@@ -165,41 +141,44 @@ final_mask = dataset_pass_count >= MIN_DATASETS
 selected_cpgs = np.array(cpg_names)[final_mask]
 print(f"Selected {len(selected_cpgs):,} CpGs covered in >= {MIN_SAMPLES_PER_GROUP} samples in >= {MIN_DATASETS} datasets.")
 
-# Save filtered matrix in chunks
-sel_rows = np.where(final_mask)[0]
-n_sel = len(sel_rows)
-n_cols = sample_idx
+# Pass 2: Write filtered matrix directly to HDF5
+output_path = os.path.join(output_folder, output_file)
+with h5py.File(output_path, "w") as h5f:
+    n_sel = np.sum(final_mask)
+    n_cols = sample_idx
+    filtered_dset = h5f.create_dataset("matrix", shape=(n_sel, n_cols),
+                                       dtype="float32", compression="gzip")
 
-filtered_dset = h5f.create_dataset("filtered_matrix", shape=(n_sel, n_cols),
-                                   dtype="float32", compression="gzip")
+    print("Pass 2: Writing filtered matrix...")
+    row_indices = np.where(final_mask)[0]
+    chunk = CHUNK_SIZE
+    for start in range(0, n_sel, chunk):
+        end = min(start + chunk, n_sel)
+        rows = row_indices[start:end]
+        chunk_data = np.empty((len(rows), n_cols), dtype=np.float32)
+        col_idx = 0
+        for group, samples in samples_per_group_short.items():
+            for s in samples:
+                matches = [fn for fn in beta_files if re.search(f"-{s}\\.hg38\\.beta$", fn)]
+                if not matches:
+                    continue
+                beta, cov = load_beta(matches[0])
+                beta[cov < minCov] = np.nan
+                chunk_data[:, col_idx] = beta[rows]
+                col_idx += 1
+        filtered_dset[start:end, :] = chunk_data
 
-for start in range(0, n_sel, CHUNK_SIZE):
-    end = min(start + CHUNK_SIZE, n_sel)
-    rows = sel_rows[start:end]
-    filtered_dset[start:end, :] = matrix_dset[rows, :n_cols]
+    # Save metadata
+    h5f.create_dataset("selected_cpg_names", data=selected_cpgs.astype("S"))
+    h5f.create_dataset("samples", data=np.array(sample_names, dtype=h5py.string_dtype()))
+    h5f.create_dataset("sample_groups", data=np.array(sample_groups, dtype=h5py.string_dtype()))
 
-# Replace original matrix with filtered one
-del h5f["matrix"]
-h5f.move("filtered_matrix", "matrix")
-
-# Save metadata in HDF5
-h5f.create_dataset("selected_cpg_names", data=selected_cpgs.astype("S"))
-max_len = max(len(s) for s in sample_names)
-h5f.create_dataset("samples", data=np.array(sample_names, dtype=f"S{max_len}"))
-max_len = max(len(s) for s in sample_groups)
-h5f.create_dataset("sample_groups", data=np.array(sample_groups, dtype=f"S{max_len}"))
-h5f.close()
-print(f"Saved all samples to: {output_path}")
-
-print("\nValidation:")
+print("\n✅ Validation:")
 print(f"Matrix shape: {n_sel:,} CpGs x {n_cols:,} samples")
-print(f"Number of selected CpGs: {len(selected_cpgs):,}")
-print(f"Number of samples: {n_cols:,}")
 
 # Save metadata TSV
 meta_df = pd.DataFrame({"sample": all_sample_names, "dataset": all_sample_groups})
 meta_df.to_csv(metadata_file, sep="\t", index=False)
-print(f"Saved metadata to: {metadata_file}")
 
 # Save medians and lambdas
 df = pd.DataFrame({
@@ -208,7 +187,5 @@ df = pd.DataFrame({
     "lambda": [group_lambdas[k] for k in group_medians.keys()]
 })
 df.to_csv(output_file_medsd_lambda, sep="\t", index=False)
-print(f"Saved medians and lambdas to TSV: {output_file_medsd_lambda}")
 
-print("\nAll done.")
-
+print("\n🎉 All done.")
