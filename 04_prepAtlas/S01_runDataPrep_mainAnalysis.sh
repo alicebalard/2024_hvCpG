@@ -3,7 +3,7 @@
 #$ -S /bin/bash
 #$ -l tmem=10G
 #$ -l h_vmem=10G
-#$ -l h_rt=48:00:00
+#$ -l h_rt=3:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
 
