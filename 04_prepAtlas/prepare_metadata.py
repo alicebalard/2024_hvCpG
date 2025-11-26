@@ -31,4 +31,4 @@ meta_out = args.output if args.output else os.path.splitext(args.meta)[0] + ".wi
 
 # Save
 df.to_csv(meta_out, index=False)
-print(f"✅ Wrote amodified metadata to: {meta_out}")
+print(f"✅ Wrote a modified metadata to: {meta_out}")
