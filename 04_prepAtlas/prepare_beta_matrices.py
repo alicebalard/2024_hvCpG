@@ -45,7 +45,7 @@ meta = pd.read_csv(args.meta)
 minCov = args.minCov
 MIN_SAMPLES_PER_GROUP = args.min_samples
 MIN_DATASETS = args.min_datasets
-CHUNK_SIZE = args.chunk_size  # kept for compatibility, not used in column-wise write
+CHUNK_SIZE = args.chunk_size
 
 #################
 ## Main script ##
@@ -141,19 +141,29 @@ for group, samples in samples_per_group_short.items():
         print(f"⚠️ Skipping {group}: no valid samples")
         continue
 
-    # Stack CpGs x group_samples
-    mat = np.column_stack(group_betas).astype(np.float32)
-
-    # Enforce per-group coverage rule
-    valid_counts = np.sum(~np.isnan(mat), axis=1)
-    mat[valid_counts < MIN_SAMPLES_PER_GROUP, :] = np.nan
-
-    # Update global dataset pass counts
-    coverage_counts = np.sum(~np.isnan(mat), axis=1)
-    dataset_pass_count[coverage_counts >= MIN_SAMPLES_PER_GROUP] += 1
-
-    # Group SD stats
-    row_sds = bn.nanstd(mat, axis=1)
+    chunk_size = 100_000  # same as old script
+    row_sds_all = []
+    
+    for start in range(0, NR_SITES, chunk_size):
+        end = min(start + chunk_size, NR_SITES)
+    
+        # Build chunk matrix for this CpG slice
+        mat_chunk = np.column_stack([beta[start:end] for beta in group_betas]).astype(np.float32)
+    
+        # Enforce per-group coverage rule
+        valid_counts = np.sum(~np.isnan(mat_chunk), axis=1)
+        mat_chunk[valid_counts < MIN_SAMPLES_PER_GROUP, :] = np.nan
+    
+        # Update global dataset pass counts
+        coverage_counts = np.sum(~np.isnan(mat_chunk), axis=1)
+        dataset_pass_count[start:end][coverage_counts >= MIN_SAMPLES_PER_GROUP] += 1
+    
+        # Compute SD for this chunk
+        row_sds_chunk = bn.nanstd(mat_chunk, axis=1)
+        row_sds_all.append(row_sds_chunk)
+    
+    # Combine SDs across chunks
+    row_sds = np.concatenate(row_sds_all)
     if np.all(np.isnan(row_sds)):
         median_sd = np.nan
         lambda_value = np.nan
@@ -161,7 +171,7 @@ for group, samples in samples_per_group_short.items():
         median_sd = float(np.nanmedian(row_sds))
         perc95 = float(np.nanpercentile(row_sds, 95))
         lambda_value = (perc95 / median_sd) if (median_sd and np.isfinite(median_sd)) else np.nan
-
+    
     group_medians[group] = median_sd
     group_lambdas[group] = lambda_value
     print(f"✅ {group}: median_sd = {median_sd:.4f}, lambda = {lambda_value:.4f}")
