@@ -34,7 +34,6 @@ parser.add_argument("--meta", required=True, help="Metadata CSV file")
 parser.add_argument("--minCov", type=int, default=10, help="Minimum coverage")
 parser.add_argument("--min_samples", type=int, default=3, help="Minimum samples per group")
 parser.add_argument("--min_datasets", type=int, default=46, help="Minimum datasets per CpG")
-parser.add_argument("--chunk_size", type=int, default=100000, help="(Unused in optimized write) Row chunk size if needed")
 args = parser.parse_args()
 
 # Resolve args
@@ -45,7 +44,6 @@ meta = pd.read_csv(args.meta)
 minCov = args.minCov
 MIN_SAMPLES_PER_GROUP = args.min_samples
 MIN_DATASETS = args.min_datasets
-CHUNK_SIZE = args.chunk_size
 
 #################
 ## Main script ##
@@ -116,20 +114,17 @@ sample_idx = 0
 
 print("Pass 1: Computing coverage counts...")
 for group, samples in samples_per_group_short.items():
-    group_betas = []
+    group_paths = []
     group_added = 0
     for s in samples:
         path = sample_to_path.get(s)
         if path is None:
             print(f"⚠️ No beta file found for short sample ID: {s}")
             continue
-        beta, cov = load_beta(path)
-        if len(beta) != NR_SITES:
-            raise ValueError(f"Mismatch: {s} has {len(beta)} CpGs, expected {NR_SITES}")
-        beta[cov < minCov] = np.nan
-        group_betas.append(beta)
-
-        # Track sample info (strings stored as UTF-8 later)
+        # Defer reading; just remember the path
+        group_paths.append(path)
+    
+        # Track sample info
         sample_names.append(s)
         sample_groups.append(group)
         all_sample_names.append(s)
@@ -148,8 +143,24 @@ for group, samples in samples_per_group_short.items():
         end = min(start + chunk_size, NR_SITES)
     
         # Build chunk matrix for this CpG slice
-        mat_chunk = np.column_stack([beta[start:end] for beta in group_betas]).astype(np.float32)
-    
+        
+        mat_cols = []
+        for path in group_paths:
+            # Read only the slice we need for this sample
+            mm = np.memmap(path, dtype=np.uint8, mode='r').reshape(-1, 2)
+            meth_slice = mm[start:end, 0].astype(np.float32, copy=False)
+            cov_slice  = mm[start:end, 1]  # uint8
+        
+            col = np.empty_like(meth_slice, dtype=np.float32)
+            np.divide(meth_slice, cov_slice, out=col, where=(cov_slice != 0))
+            # Apply coverage mask
+            col[cov_slice < minCov] = np.nan
+        
+            mat_cols.append(col)
+        
+        # Build the chunk matrix (chunk_size × n_samples_in_group)
+        mat_chunk = np.column_stack(mat_cols)  # float32
+            
         # Enforce per-group coverage rule
         valid_counts = np.sum(~np.isnan(mat_chunk), axis=1)
         mat_chunk[valid_counts < MIN_SAMPLES_PER_GROUP, :] = np.nan
