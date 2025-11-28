@@ -2,3 +2,6 @@
 logs
 .git/objects/
 05_hvCpGalgorithm/resultsDir/Atlas/correctCpGnamesAtlas.txt.gz
+
+## The tissue results are too big for git
+/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X_tissueAnalysis_NONGITED
