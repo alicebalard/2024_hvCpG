@@ -2,4 +2,10 @@
 logs
 .git/objects/
 05_hvCpGalgorithm/resultsDir/Atlas/correctCpGnamesAtlas.txt.gz
+<<<<<<< HEAD
 gitignore
+=======
+
+## The tissue results are too big for git
+/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X_tissueAnalysis_NONGITED
+>>>>>>> b5980f30c7b5921c9c2ed88e091b0045ae1304f7
