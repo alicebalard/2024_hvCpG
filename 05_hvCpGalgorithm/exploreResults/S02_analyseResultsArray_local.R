@@ -9,7 +9,7 @@ library(here)
 source(here("05_hvCpGalgorithm/quiet_library.R"))
 
 ## Add previous MEs including Maria's results
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/prepPreviousSIV.R"))
+source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
 
 ################################
 ## Load full results on array ##
