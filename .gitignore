@@ -5,4 +5,4 @@ logs
 gitignore
 
 ## The Atlas results are too big for git
-/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/
+05_hvCpGalgorithm/resultsDir/Atlas
