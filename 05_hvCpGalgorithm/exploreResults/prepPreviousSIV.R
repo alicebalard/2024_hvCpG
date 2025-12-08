@@ -1,7 +1,7 @@
 ###############################################
 ## Prepare previous putative ME list on hg38 ##
 ###############################################
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/makeProbes2GenDictionary.R"))
+source(here("05_hvCpGalgorithm/exploreResults/makeProbes2GenDictionary.R"))
 
 message("Creates:
         \na vector of 1773 SIV from Harris 2012 (HarrisSIV_hg38)

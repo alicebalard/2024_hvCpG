@@ -30,9 +30,9 @@ makeSummaryDT <- function(rds_files, selectSomeCpGs = FALSE, CpGs = NA){
     
     if (selectSomeCpGs){
       ## Select only some
-      mat <- mat[sub("-.*", "", rownames(mat)) %in% CpGs,]
+      mat <- mat[sub("-.*", "", rownames(mat)) %in% CpGs, ,drop = F]
     }
-    
+
     # Update accumulators
     sum_vals <- sum_vals + colSums(mat, na.rm = TRUE)
     sum_sq <- sum_sq + colSums(mat^2, na.rm = TRUE)
@@ -151,3 +151,74 @@ ggplot(summary_dt_top100, aes(x = isBlood, y = mean, group = isBlood)) +
   theme_minimal(base_size = 14) +
   theme(axis.title.x = element_blank())
 
+######################################################################
+## What about looking at the top alpha for array and low for atlas? ##
+######################################################################
+
+############### 95+50-
+CpGArray95moreAtlas50less <- readRDS(here("05_hvCpGalgorithm/dataOut/CpGArray95moreAtlas50less.RDS"))$chrpos
+
+summary_dt_CpGArray95moreAtlas50less <- makeSummaryDT(rds_files, selectSomeCpGs = TRUE, CpGs = CpGArray95moreAtlas50less)
+
+ggplot(summary_dt_CpGArray95moreAtlas50less, aes(x = dataset, y = meanexp, col = Germ.layer)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = ci_lowerexp, ymax = ci_upperexp)) +
+  theme_minimal(base_size = 14) +
+  labs(title = "Mean probability of being hypervariable, with 95% CI", 
+       subtitle = "Array95+Atlas50-", x = "Dataset", y = "Mean p(hv)") +
+  theme(axis.text.x = element_text(angle = 70, hjust = 1)) +
+  scale_color_viridis_d()
+
+## Differences between germ layers
+kruskal.test(mean ~ Germ.layer, data = summary_dt_CpGArray95moreAtlas50less)
+
+## Blood vs rest
+kruskal.test(mean ~ isBlood, data = summary_dt_CpGArray95moreAtlas50less)
+
+ggplot(summary_dt_CpGArray95moreAtlas50less, aes(x = isBlood, y = mean, group = isBlood)) +
+  geom_boxplot() + 
+  geom_jitter(height = 0, width = .2) +
+  theme_minimal(base_size = 14) +
+  theme(axis.title.x = element_blank())
+
+############### 95+50+ 
+CpGArray95moreAtlas50more <- readRDS(here("05_hvCpGalgorithm/dataOut/CpGArray95moreAtlas50more.RDS"))$chrpos
+
+summary_dt_CpGArray95moreAtlas50more <- makeSummaryDT(rds_files, selectSomeCpGs = TRUE, CpGs = CpGArray95moreAtlas50more)
+
+ggplot(summary_dt_CpGArray95moreAtlas50more, aes(x = dataset, y = meanexp, col = Germ.layer)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = ci_lowerexp, ymax = ci_upperexp)) +
+  theme_minimal(base_size = 14) +
+  labs(title = "Mean probability of being hypervariable, with 95% CI", 
+       subtitle = "Array95+Atlas50+", x = "Dataset", y = "Mean p(hv)") +
+  theme(axis.text.x = element_text(angle = 70, hjust = 1)) +
+  scale_color_viridis_d()
+
+## Statistical differences between germ layers in terms of variability?
+
+## Differneces between germ layers
+kruskal.test(mean ~ Germ.layer, data = summary_dt_CpGArray95moreAtlas50more)
+
+## Blood vs rest
+kruskal.test(mean ~ isBlood, data = summary_dt_CpGArray95moreAtlas50more)
+
+ggplot(summary_dt_CpGArray95moreAtlas50more, aes(x = isBlood, y = mean, group = isBlood)) +
+  geom_boxplot() + 
+  geom_jitter(height = 0, width = .2) +
+  theme_minimal(base_size = 14) +
+  theme(axis.title.x = element_blank())
+
+############### 50+50+ 
+CpGArray50moreAtlas50more <- readRDS(here("05_hvCpGalgorithm/dataOut/CpGArray50moreAtlas50more.RDS"))$chrpos
+
+summary_dt_CpGArray50moreAtlas50more <- makeSummaryDT(rds_files, selectSomeCpGs = TRUE, CpGs = CpGArray50moreAtlas50more)
+
+ggplot(summary_dt_CpGArray50moreAtlas50more, aes(x = dataset, y = meanexp, col = Germ.layer)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = ci_lowerexp, ymax = ci_upperexp)) +
+  theme_minimal(base_size = 14) +
+  labs(title = "Mean probability of being hypervariable, with 95% CI", 
+       subtitle = "Array50+Atlas50+", x = "Dataset", y = "Mean p(hv)") +
+  theme(axis.text.x = element_text(angle = 70, hjust = 1)) +
+  scale_color_viridis_d()

@@ -7,13 +7,13 @@ library(here)
 ## --- Prepare Atlas data --- ##
 ################################
 doIprepAtlas = TRUE
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S03_analyseResultsAtlas_local.R"))
+source(here("05_hvCpGalgorithm/exploreResults/S03_analyseResultsAtlas_local.R"))
 
 ################################ 
 ## --- Prepare Array data --- ##
 ################################ 
 
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/S02_analyseResultsArray_local.R"))
+source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))
 
 ###################################### 
 ## --- Merge Array & Atlas data --- ##
@@ -74,7 +74,7 @@ p2 <- ggplot(res_Alpha_Atlas, aes(x=alpha_array_3ind, y=alpha_atlas)) +
         legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
         legend.key = element_rect(fill = "white", color = NA)) +
   labs(title = "Proba(hypervariable) at common CpGs",
-       x = "P(hv) using reduced array datasets",
+       x = "P(hv) using array datasets with only 3 ind/ds",
        y = "P(hv) using WGBS atlas datasets") + 
   scale_x_continuous(breaks = seq(0, 1, by = .1)) +
   scale_y_continuous(breaks = seq(0, 1, by = .1))
@@ -101,6 +101,28 @@ ggplot(df_plot, aes(x = alpha_array_all, fill=threshold)) +
 dev.off()
 
 table(df_plot$threshold)
+
+########################################################################
+## What are the positions with a high alpha in array but low in WGBS? ##
+########################################################################
+
+saveRDS(object = res_Alpha_Atlas[!is.na(res_Alpha_Atlas$alpha_array_all) & !is.na(res_Alpha_Atlas$alpha_atlas) &
+                  res_Alpha_Atlas$alpha_array_all > 0.95 & res_Alpha_Atlas$alpha_atlas < 0.5,] %>% 
+  dplyr::select(chrpos) %>% as.vector(), here("05_hvCpGalgorithm/dataOut/CpGArray95moreAtlas50less.RDS"))
+
+saveRDS(object = res_Alpha_Atlas[!is.na(res_Alpha_Atlas$alpha_array_all) & !is.na(res_Alpha_Atlas$alpha_atlas) &
+                                   res_Alpha_Atlas$alpha_array_all > 0.95 & res_Alpha_Atlas$alpha_atlas > 0.5,] %>% 
+          dplyr::select(chrpos) %>% as.vector(), here("05_hvCpGalgorithm/dataOut/CpGArray95moreAtlas50more.RDS"))
+
+saveRDS(object = res_Alpha_Atlas[!is.na(res_Alpha_Atlas$alpha_array_all) & !is.na(res_Alpha_Atlas$alpha_atlas) &
+                                   res_Alpha_Atlas$alpha_array_all > 0.5 & res_Alpha_Atlas$alpha_atlas > 0.5,] %>% 
+          dplyr::select(chrpos) %>% as.vector(), here("05_hvCpGalgorithm/dataOut/CpGArray50moreAtlas50more.RDS"))
+
+
+
+
+
+## TBC
 
 ######################### 
 ## --- Sex effect? --- ##

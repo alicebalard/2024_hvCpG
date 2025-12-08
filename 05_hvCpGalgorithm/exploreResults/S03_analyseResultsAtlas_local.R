@@ -9,7 +9,7 @@ source(here("05_hvCpGalgorithm", "quiet_library.R"))
 resArray <- readRDS(here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
 
 ## Add previous MEs including Maria's results
-source(here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/prepPreviousSIV.R"))
+source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
 
 ## This code does:
 ### I. Histogram of coverage across datasets
