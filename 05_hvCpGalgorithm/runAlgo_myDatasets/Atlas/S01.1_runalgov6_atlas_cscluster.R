@@ -6,11 +6,18 @@ library(hyperVarMeth)
 
 args <- commandArgs(trailingOnly = TRUE)
 
-data_dir <- args[1] ## where the data is
+analysis <- args[1] 
 task_id <- as.integer(args[2]) ## which task on the array
-chunk_size <- as.integer(args[3]) ## what is the size of the chunk
+chunk_size <- as.integer(args[3]) ## what is the size of the chunk per array task
 batch_size <- as.integer(args[4]) ## how many CpGs are loaded at once
-res_dir <- args[5] ## where the results should be stored
+p0 <- as.numeric(args[5])
+p1 <- as.numeric(args[6])
+
+## where the data is:
+data_dir <- paste0("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer", analysis)
+
+## where the results should be stored
+res_dir <- past0("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/", analysis) ## NB non gitted, too heavy!
 
 ## Run on CpGs which are covered
 cpg_names <- rhdf5::h5read(paste0(data_dir, "all_matrix_noscale.h5"), "cpg_names")
@@ -38,12 +45,12 @@ myNthreads <- as.numeric(Sys.getenv("NSLOTS", unset = "1"))  # Use all cores
 message("Run algo:")
 
 system.time(hyperVarMeth::runAndSave_fast(
-    analysis = "Atlas10X",
+    analysis = analysis,
     cpg_names_vec = subset_cpgs,
     dataDir = data_dir,
     resultDir = result_dir,
     NCORES = myNthreads,
-    p0 = 0.80,
-    p1 = 0.65,
+    p0 = p0,
+    p1 = p1,
     batch_size = batch_size)
-)
+    )
