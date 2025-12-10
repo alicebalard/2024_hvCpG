@@ -14,13 +14,13 @@ p0 <- as.numeric(args[5])
 p1 <- as.numeric(args[6])
 
 ## where the data is:
-data_dir <- paste0("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer", analysis)
+data_dir <- file.path("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer", analysis)
 
 ## where the results should be stored
-res_dir <- paste0("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/", analysis) ## NB non gitted, too heavy!
+res_dir <- file.path("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas", analysis) ## NB non gitted, too heavy!
 
 ## Run on CpGs which are covered
-cpg_names <- rhdf5::h5read(paste0(data_dir, "/all_matrix_noscale.h5"), "cpg_names")
+cpg_names <- rhdf5::h5read(file.path(data_dir, "all_matrix_noscale.h5"), "cpg_names")
 
 ## Batch
 start_idx <- (task_id - 1) * chunk_size + 1
@@ -33,7 +33,7 @@ if (start_idx > length(cpg_names)) {
 subset_cpgs <- cpg_names[start_idx:end_idx]
 
 # Output directory
-result_dir <- sprintf(paste0(res_dir, "Atlas_batch%03d"), task_id)
+result_dir <- sprintf(file.path(res_dir, "Atlas_batch%03d"), task_id)
 
 dir.create(result_dir, recursive = TRUE, showWarnings = FALSE)
 
