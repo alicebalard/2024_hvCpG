@@ -12,8 +12,8 @@
 source /share/apps/source_files/python/python-3.13.0a6.source
 
 DIR_DATA="/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/"
-META_IN="${DIR_DATA}SupTab1_Loyfer2023_amended.csv"
 DIR_CODE="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/"
+META_IN="${DIR_CODE}SupTab1_Loyfer2023_amended.csv"
 
 prep_atlas() {
     # Arguments
@@ -45,25 +45,25 @@ prep_atlas() {
 
 ## 1/ Endo, meso, ecto --> byDevLayer
 # CODE_1="${DIR_CODE}prepare_metadata_1_byDevLayer.py"
-prep_atlas 1 "byDevLayer" 3
+# prep_atlas 1 "byDevLayer" 3
 
 ## 2/ Rm samples which have multiple cell types sampled --> rmMultSamples
-prep_atlas 2 "rmMultSamples" 25 ## 25 groups with >=3 samples, calculated before
+# prep_atlas 2 "rmMultSamples" 25 ## 25 groups with >=3 samples, calculated before
 
 ## 3/ Keep only cells found in Maria datasets --> correspMariaTissues
-prep_atlas 3 "correspMariaTissues" 27
+# prep_atlas 3 "correspMariaTissues" 27
 
 ## 4/ male only --> maleOnly
-prep_atlas 4 "maleOnly" 6
+# prep_atlas 4 "maleOnly" 6
 
 ## 5/ all but male only --> allButMaleOnly
-prep_atlas 5 "allButMaleOnly" 40
+# prep_atlas 5 "allButMaleOnly" 40
 
 ## 6/ female only --> femaleOnly
-prep_atlas 6 "femaleOnly" 15
+# prep_atlas 6 "femaleOnly" 15
 
 ## 7/ all but female only --> allButfemaleOnly
-prep_atlas 7 "allButfemaleOnly" 31
+# prep_atlas 7 "allButfemaleOnly" 31
 
 ## 8/ by tissue rather than by cell type --> byTissue
-prep_atlas 8 "byTissue" 22
+# prep_atlas 8 "byTissue" 22
