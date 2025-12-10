@@ -67,3 +67,9 @@ prep_atlas() {
 
 ## 8/ by tissue rather than by cell type --> byTissue
 # prep_atlas 8 "byTissue" 22
+
+## 9/ only immune cells
+prep_atlas 9 "immuneOnly" 11
+
+## 8/ all but immune cells
+prep_atlas 10 "noImmune" 35
