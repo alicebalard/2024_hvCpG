@@ -20,7 +20,7 @@ data_dir <- paste0("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasL
 res_dir <- paste0("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/", analysis) ## NB non gitted, too heavy!
 
 ## Run on CpGs which are covered
-cpg_names <- rhdf5::h5read(paste0(data_dir, "all_matrix_noscale.h5"), "cpg_names")
+cpg_names <- rhdf5::h5read(paste0(data_dir, "/all_matrix_noscale.h5"), "cpg_names")
 
 ## Batch
 start_idx <- (task_id - 1) * chunk_size + 1
