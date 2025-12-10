@@ -17,7 +17,7 @@ p1 <- as.numeric(args[6])
 data_dir <- paste0("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer", analysis)
 
 ## where the results should be stored
-res_dir <- past0("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/", analysis) ## NB non gitted, too heavy!
+res_dir <- paste0("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas/", analysis) ## NB non gitted, too heavy!
 
 ## Run on CpGs which are covered
 cpg_names <- rhdf5::h5read(paste0(data_dir, "all_matrix_noscale.h5"), "cpg_names")
