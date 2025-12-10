@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Prepare metadata for WGBS Atlas analysis
-Select only immune cells
+Select all but immune cells
 Author: Alice Balard
 """
 
@@ -20,11 +20,11 @@ df = pd.read_csv(args.meta)
 # Add Analysis group
 df["Analysis group"] = df["Source Tissue"].astype(str) + " - " + df["Cell type"].astype(str)
 
-# Keep only rows where "Immune?" is True
-df_filtered = df[df["Immune?"] == True]
+# Keep only rows where "Immune?" is False
+df_filtered = df[df["Immune?"] == False]
 
 # Determine output path
-meta_out = args.output if args.output else os.path.splitext(args.meta)[0] + "_9_immuneOnly.csv"
+meta_out = args.output if args.output else os.path.splitext(args.meta)[0] + "_10_noImmune.csv"
 
 # Save
 df_filtered.to_csv(meta_out, index=False)
