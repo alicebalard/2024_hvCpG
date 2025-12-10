@@ -12,18 +12,18 @@ chunk_size <- as.integer(args[3]) ## what is the size of the chunk
 batch_size <- as.integer(args[4]) ## how many CpGs are loaded at once
 res_dir <- args[5] ## where the results should be stored
 
-## Run on CpGs which are covered in all 46 cells 
-cpg_46 <- read.table(file.path(data_dir, "selected_cpgs_min3_in46_datasets.txt"))$V1
+## Run on CpGs which are covered
+cpg_names <- rhdf5::h5read(paste0(data_dir, "all_matrix_noscale.h5"), "cpg_names")
 
 ## Batch
 start_idx <- (task_id - 1) * chunk_size + 1
-end_idx <- min(task_id * chunk_size, length(cpg_46))
+end_idx <- min(task_id * chunk_size, length(cpg_names))
 
-if (start_idx > length(cpg_46)) {
+if (start_idx > length(cpg_names)) {
   stop("Start index beyond end of CpG list.")
 }
 
-subset_cpgs <- cpg_46[start_idx:end_idx]
+subset_cpgs <- cpg_names[start_idx:end_idx]
 
 # Output directory
 result_dir <- sprintf(paste0(res_dir, "Atlas_batch%03d"), task_id)
