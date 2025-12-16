@@ -46,12 +46,14 @@ quiet_library_all(
   c("dplyr", "data.table", "matrixStats", "reshape2","tidyr", "tibble", ## data formatting
     "parallel", "rhdf5",  "stringr", ## data handling
     "ggplot2", "progress", "ggrastr", "Cairo", "ggrepel", "scales", 
-    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra",  "ggVennDiagram",## graphical
+    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra",  "ggVennDiagram", "geomtextpath", ## graphical
     "boot", "emmeans", ## stats
     "methylKit", "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
-    "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", ## methylation
+    "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", "rGREAT", ## methylation
     "testthat" # grammar & packaging
   ))
 ## NB: not all libraries are necessary; to clean when packaging
 
 rm(quiet_library_all, quiet_library)
+
+libLoaded = TRUE
