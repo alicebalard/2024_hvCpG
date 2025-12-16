@@ -45,15 +45,20 @@ quiet_library_all <- function(pkgs) {
 quiet_library_all(
   c("dplyr", "data.table", "matrixStats", "reshape2","tidyr", "tibble", ## data formatting
     "parallel", "rhdf5",  "stringr", ## data handling
-    "ggplot2", "progress", "ggrastr", "Cairo", "ggrepel", "scales", 
-    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra",  "ggVennDiagram", "geomtextpath", ## graphical
+    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", 
+    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra", ## graphical
     "boot", "emmeans", ## stats
-    "methylKit", "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
+    "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
     "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", "rGREAT", ## methylation
     "testthat" # grammar & packaging
   ))
 ## NB: not all libraries are necessary; to clean when packaging
 
 rm(quiet_library_all, quiet_library)
+
+## load only in local, error in HPC CS
+#ggVennDiagram
+#methylKit
+#Cairo
 
 libLoaded = TRUE
