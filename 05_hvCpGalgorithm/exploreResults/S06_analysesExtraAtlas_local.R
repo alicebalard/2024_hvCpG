@@ -11,9 +11,9 @@ if (!exists("functionsLoaded")) {
   source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
 }
 
-if (!exists("resCompArray")) {
-  source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))  
-}
+#if (!exists("resCompArray")) {
+#  source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))  
+#}
 
 ##################################
 ## Save all data in RDS objects ##
