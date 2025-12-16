@@ -210,57 +210,33 @@ makeGR_CpGset <- function(ids){
 
 gr_bgr <- makeGR_CpGset(Z_inner_immvsnoimm$name)
 
-# if (!file.exists(here("gitignore/res_cellUniversal.RDS"))){
-#   gr_cellUniversal <- makeGR_CpGset(cellUniversal)
-#   res_cellUniversal <- great(gr_cellUniversal, "GO:BP", "hg38", background = gr_bgr)
-#   saveRDS(res_cellUniversal, file = here("gitignore/res_cellUniversal.RDS"))
-# }
+for (x in c("cellUniversal", "immune", "rest", "stable")){
+  if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))){
+    gr <- makeGR_CpGset(get(x))
+    res <- great(gr, "C5", "hg38", background = gr_bgr)
+    saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
+  }
+}
 
 
-gr_immune <- makeGR_CpGset(immune)
-res_immune <- great(gr = gr_immune[1:100],
-                    gene_sets = "GO:BP", 
-                    tss_source = "hg38", 
-                    background = gr_bgr,
-                    exclude   = "gap")
+## Info:
+# https://www.youtube.com/watch?v=_ycOp3P4AG0
 
+tb <- getEnrichmentTable(res_immune)
 
+head(tb)
 
-# saveRDS(res_immune, file = here("gitignore/res_immune.RDS"))
+head(tb[["GO Biological Process"]])
+## Use "binom" no "hyper"
 
+plotVolcano(res_immune)
 
-# if (!file.exists(here("gitignore/res_rest.RDS"))){
-#   gr_rest <- makeGR_CpGset(rest)
-#   res_rest <- great(gr_rest, "GO:BP", "hg38", background = gr_bgr)
-#   saveRDS(res_rest, file = here("gitignore/res_rest.RDS"))
-# }
-# 
-# if (!file.exists(here("gitignore/res_stable.RDS"))){
-#   gr_stable <- makeGR_CpGset(stable)
-#   res_stable <- great(gr_stable, "GO:BP", "hg38", background = gr_bgr)
-#   saveRDS(res_stable, file = here("gitignore/res_stable.RDS"))
-# }
+## To get info for a given region
+getRegionGeneAssociations()
 
-# 
-# 
-# ## Info: 
-# # https://www.youtube.com/watch?v=_ycOp3P4AG0
-# 
-# tb <- getEnrichmentTable(res_immune)
-# 
-# head(tb)
-# 
-# head(tb[["GO Biological Process"]])
-# ## Use "binom" no "hyper"
-# 
-# plotVolcano(res_immune)
-# 
-# ## To get info for a given region
-# getRegionGeneAssociations()
-# 
-# ## Simplify GO terms
-# simplifyGO
-# 
+## Simplify GO terms
+simplifyGO
+
 
 
 ## Prediction 2:
@@ -301,7 +277,7 @@ p <- data.frame(x=seq(0,1,0.01)) %>%
   scale_color_viridis_d() +
   theme_minimal(base_size = 14) +
   labs(x = "Pr(hv) array datasets", y = "Pr(hv) WGBS datasets", col = "WGBS datasets") +
-  ylim(c(0,1)) 
+  ylim(c(0,1))
 
 ggplot2::ggsave(
   filename = here::here("05_hvCpGalgorithm/figures/correlations/correlation_prediction2.pdf"),
