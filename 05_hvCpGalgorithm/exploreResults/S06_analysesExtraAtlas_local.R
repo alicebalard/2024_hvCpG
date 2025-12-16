@@ -210,7 +210,12 @@ makeGR_CpGset <- function(ids){
 
 gr_bgr <- makeGR_CpGset(Z_inner_immvsnoimm$name)
 
-for (x in c("cellUniversal", "immune", "rest", "stable")){
+
+## restrict
+cellUniversal <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.9 & Z_inner_immvsnoimm$alpha_Y > 0.9]
+immune <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.5 & Z_inner_immvsnoimm$alpha_Y > 0.9]
+
+for (x in c("cellUniversal", "immune")){
   if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))){
     gr <- makeGR_CpGset(get(x))
     res <- great(gr, "C5", "hg38", background = gr_bgr)
