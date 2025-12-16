@@ -1,24 +1,35 @@
-####################################################################
+###################################################################
 ## Plot secondary analyses results of algorithm ran on atlas data ##
 ####################################################################
 library(here)
 
-source(here("05_hvCpGalgorithm", "quiet_library.R"))
-source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
+if (!exists("libLoaded")) {
+  source(here("05_hvCpGalgorithm", "quiet_library.R"))
+}
+
+if (!exists("functionsLoaded")) {
+  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
+}
+
+if (!exists("resCompArray")) {
+  source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))  
+}
 
 ##################################
 ## Save all data in RDS objects ##
 ##################################
-saveAgain = FALSE
-if (saveAgain){
-  ## Add previous MEs including Maria's results
-  source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
-  
-  for (file in list.files(here("05_hvCpGalgorithm/resultsDir/Atlas/"))){
+
+for (file in list.files(here("05_hvCpGalgorithm/resultsDir/Atlas/"))){
+  if (!file.exists(here(paste0("gitignore/fullres_", file)))){
+    ## Add previous MEs including Maria's results if not sourced yet
+    if (!exists("KesslerSIV_GRanges_hg38")) {
+      source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+    }
+    
     system.time(Atlas_dt <- prepAtlasdt(file))
     
     print("Number of CpG tested:")
-    print(nrow(Atlas_dt)) # 23036026
+    print(nrow(Atlas_dt))
     
     print(paste0("Saving results for ", file, "in ", here(paste0("gitignore/fullres_", file))))
     saveRDS(Atlas_dt, file = here(paste0("gitignore/fullres_", file)))
@@ -30,325 +41,269 @@ if (saveAgain){
 ## 1_byDevLayer ## --> not very useful
 ##################
 
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_1_byDevLayer.pdf")))){
+  makeCompPlot(
+    X = readRDS(here::here("gitignore/fullres_Atlas10X")),
+    Y = readRDS(here::here("gitignore/fullres_Atlas10X_1_byDevLayer")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_0_vs_1_byDevLayer",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets cut in 3 groups (germ layers)")
+}
+
 #####################
 ## 2_rmMultSamples ## 
 #####################
 
 ## Some individuals have multiple cells sampled. Does that affect our results? NOPE
-
-list.files(here("gitignore"))
-
-X <- readRDS(here("gitignore/fullres_Atlas10X"))
-Y <- readRDS(here("gitignore/fullres_Atlas10X_2_rmMultSamples"))
-
-# Ensure data.table types
-setDT(X); setDT(Y)
-
-# Keep only what you need
-X <- X[, .(name, alpha_X = alpha)]
-Y <- Y[, .(name, alpha_Y = alpha)]
-
-# Set keys for efficient joins (optional but helpful on very large data)
-setkey(X, name)
-setkey(Y, name)
-
-# Inner join (only names present in both)
-Z_inner <- X[Y, nomatch = 0]
-
-c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
-
-set.seed(1234)
-Z_inner_1M <- Z_inner[sample(nrow(Z_inner), min(nrow(Z_inner), 1000000)),]
-
-p1 <- ggplot(Z_inner_1M, aes(x=alpha_X, y=alpha_Y)) +
-  geom_point(pch = 21, alpha = 0.05) +
-  geom_abline(slope = 1, linetype = 3) +
-  geom_smooth(linetype = 3)+
-  geom_smooth(method = "lm", fill = "black") +
-  theme_minimal(base_size = 14) +
-  guides(fill = guide_legend(position = "inside"))+
-  annotate("text", x=.2, y=.8, label= paste0("R2 : ", round(c$estimate,2))) + 
-  theme(legend.position.inside = c(0.18,0.85),
-        legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Effect of multiple samples per individual",
-       x = "Pr(hv) calculated on WGBS atlas datasets with all samples",
-       y = "Pr(hv) calculated on WGBS atlas datasets removing multiple samples in individuals") + 
-  scale_x_continuous(breaks = seq(0, 1, by = .1)) +
-  scale_y_continuous(breaks = seq(0, 1, by = .1))
-
-pdf(here("05_hvCpGalgorithm/figures/correlation_Atlas10X_0_vs_2_rmMultSamples.pdf"), width = 8, height = 8)
-p1
-dev.off()
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_2_rmMultSamples.pdf")))){
+  makeCompPlot(
+    X = readRDS(here::here("gitignore/fullres_Atlas10X")),
+    Y = readRDS(here::here("gitignore/fullres_Atlas10X_2_rmMultSamples")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_0_vs_2_rmMultSamples",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets keeping one sample/individual only")
+}
 
 ###########################
 ## 3_correspMariaTissues ## --> very similar than full atlas
 ###########################
 
-list.files(here("gitignore"))
-
-## Prepare Array data 
-source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))
-X <- resCompArray
-Y <- readRDS(here("gitignore/fullres_Atlas10X_3_correspMariaTissues"))
-
-# Ensure data.table types
-setDT(X); setDT(Y)
-
-# Keep only what you need
-X <- X[, .(name = chrpos, alpha_X = alpha_array_all)]
-Y <- Y[, .(name, alpha_Y = alpha)]
-
-# Set keys for efficient joins (optional but helpful on very large data)
-setkey(X, name)
-setkey(Y, name)
-
-# Inner join (only names present in both)
-Z_inner <- X[Y, nomatch = 0]
-
-c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
-
-set.seed(1234)
-Z_inner_1M <- Z_inner[sample(nrow(Z_inner), min(nrow(Z_inner), 1000000)),]
-
-p1 <- ggplot(Z_inner_1M, aes(x=alpha_X, y=alpha_Y)) +
-  geom_point(pch = 21, alpha = 0.05) +
-  geom_abline(slope = 1, linetype = 3) +
-  geom_smooth(linetype = 3)+
-  geom_smooth(method = "lm", fill = "black") +
-  theme_minimal(base_size = 14) +
-  guides(fill = guide_legend(position = "inside"))+
-  annotate("text", x=.2, y=.8, label= paste0("R2 : ", round(c$estimate,2))) + 
-  theme(legend.position.inside = c(0.18,0.85),
-        legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  labs(x = "Pr(hv) calculated on array datasets",
-       y = "Pr(hv) calculated on WGBS atlas datasets with only cell types found in array's datasets") + 
-  scale_x_continuous(breaks = seq(0, 1, by = .1)) +
-  scale_y_continuous(breaks = seq(0, 1, by = .1))
-
-pdf(here("05_hvCpGalgorithm/figures/correlation_Atlas10X_0_vs_3_correspMariaTissues.pdf"), width = 8, height = 8)
-p1
-dev.off()
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_3_correspMariaTissues.pdf")))){
+  makeCompPlot(
+    X = readRDS(here("gitignore/fullres_Atlas10X")),
+    Y = readRDS(here("gitignore/fullres_Atlas10X_3_correspMariaTissues")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_0_vs_3_correspMariaTissues",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets with only cells found in array")
+}
 
 ################
 ## Sex effect ##
 ################
 
-list.files(here("gitignore"))
-
 ## 1/ male
-
-X <- readRDS(here("gitignore/fullres_Atlas10X_4_maleOnly"))
-Y <- readRDS(here("gitignore/fullres_Atlas10X_5_allButMaleOnly"))
-
-# Ensure data.table types
-setDT(X); setDT(Y)
-
-# Keep only what you need
-X <- X[, .(name, alpha_X = alpha)]
-Y <- Y[, .(name, alpha_Y = alpha)]
-
-# Set keys for efficient joins (optional but helpful on very large data)
-setkey(X, name)
-setkey(Y, name)
-
-# Inner join (only names present in both)
-Z_inner <- X[Y, nomatch = 0]
-
-c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
-
-# split chrX vs autosomes
-Z_inner <- Z_inner[!grepl("chrM", Z_inner$name)& !grepl("chrY", Z_inner$name),]
-Z_inner$chrtype <- "autosome"
-Z_inner[grepl("chrX", Z_inner$name),"chrtype"] <- "chrX"
-
-c1 <- cor.test(Z_inner$alpha_X[Z_inner$chrtype  %in% "autosome"], Z_inner$alpha_Y[Z_inner$chrtype  %in% "autosome"])
-c2 <- cor.test(Z_inner$alpha_X[Z_inner$chrtype  %in% "chrX"], Z_inner$alpha_Y[Z_inner$chrtype  %in% "chrX"])
-
-c1
-c2
-
-set.seed(1234)
-Z_inner_1M <- Z_inner[sample(nrow(Z_inner), min(nrow(Z_inner), 1000000)),]
-
-p1 <- ggplot(Z_inner_1M, aes(x=alpha_X, y=alpha_Y)) +
-  geom_point(pch = 21, alpha = 0.05) +
-  geom_abline(slope = 1, linetype = 3) +
-  geom_smooth(linetype = 3)+
-  geom_smooth(method = "lm", fill = "black") +
-  facet_grid(.~chrtype)+
-  theme_minimal(base_size = 14) +
-  guides(fill = guide_legend(position = "inside"))+
-  theme(legend.position.inside = c(0.18,0.85),
-        legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Effect of sex (males only vs rest)",
-       x = "Pr(hv) calculated on WGBS atlas datasets with only males",
-       y = "Pr(hv) calculated on all other WGBS atlas datasets") + 
-  scale_x_continuous(breaks = seq(0, 1, by = .1)) +
-  scale_y_continuous(breaks = seq(0, 1, by = .1))
-
-pdf(here("05_hvCpGalgorithm/figures/correlation_Atlas10X_0_vs_4-5_maleEffect.pdf"), width = 16, height = 8)
-p1
-dev.off()
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_4_vs_5_maleEffect.pdf")))){
+  makeCompPlot(
+    X = readRDS(here("gitignore/fullres_Atlas10X_4_maleOnly")),
+    Y = readRDS(here("gitignore/fullres_Atlas10X_5_allButMaleOnly")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_4_vs_5_maleEffect",
+    xlab = "Pr(hv) calculated on WGBS atlas males only datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas all but males only datasets")
+}
 
 ## 2/ female
-
-X <- readRDS(here("gitignore/fullres_Atlas10X_6_femaleOnly"))
-Y <- readRDS(here("gitignore/fullres_Atlas10X_7_allButfemaleOnly"))
-
-# Ensure data.table types
-setDT(X); setDT(Y)
-
-# Keep only what you need
-X <- X[, .(name, alpha_X = alpha)]
-Y <- Y[, .(name, alpha_Y = alpha)]
-
-# Set keys for efficient joins (optional but helpful on very large data)
-setkey(X, name)
-setkey(Y, name)
-
-# Inner join (only names present in both)
-Z_inner <- X[Y, nomatch = 0]
-
-c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
-
-# split chrX vs autosomes
-Z_inner <- Z_inner[!grepl("chrM", Z_inner$name)& !grepl("chrY", Z_inner$name),]
-Z_inner$chrtype <- "autosome"
-Z_inner[grepl("chrX", Z_inner$name),"chrtype"] <- "chrX"
-
-c1 <- cor.test(Z_inner$alpha_X[Z_inner$chrtype  %in% "autosome"], Z_inner$alpha_Y[Z_inner$chrtype  %in% "autosome"])
-c2 <- cor.test(Z_inner$alpha_X[Z_inner$chrtype  %in% "chrX"], Z_inner$alpha_Y[Z_inner$chrtype  %in% "chrX"])
-
-c1
-c2
-
-set.seed(1234)
-Z_inner_1M <- Z_inner[sample(nrow(Z_inner), min(nrow(Z_inner), 1000000)),]
-
-p1 <- ggplot(Z_inner_1M, aes(x=alpha_X, y=alpha_Y)) +
-  geom_point(pch = 21, alpha = 0.05) +
-  geom_abline(slope = 1, linetype = 3) +
-  geom_smooth(linetype = 3)+
-  geom_smooth(method = "lm", fill = "black") +
-  facet_grid(.~chrtype)+
-  theme_minimal(base_size = 14) +
-  guides(fill = guide_legend(position = "inside"))+
-  theme(legend.position.inside = c(0.18,0.85),
-        legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Effect of sex (females only vs rest)",
-       x = "Pr(hv) calculated on WGBS atlas datasets with only females",
-       y = "Pr(hv) calculated on all other WGBS atlas datasets") + 
-  scale_x_continuous(breaks = seq(0, 1, by = .1)) +
-  scale_y_continuous(breaks = seq(0, 1, by = .1))
-
-pdf(here("05_hvCpGalgorithm/figures/correlation_Atlas10X_0_vs_6-7_femaleEffect.pdf"), width = 16, height = 8)
-p1
-dev.off()
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_6_vs_7_femaleEffect.pdf")))){
+  makeCompPlot(
+    X = readRDS(here("gitignore/fullres_Atlas10X_6_femaleOnly")),
+    Y = readRDS(here("gitignore/fullres_Atlas10X_7_allButfemaleOnly")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_6_vs_7_femaleEffect",
+    xlab = "Pr(hv) calculated on WGBS atlas females only datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas all but females only datasets")
+}
 
 ################
 ## 8_byTissue ##
 ################
 
-## Cut by tissue rather than by cell type. Is is closer to array data?
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_8_byTissue.pdf")))){
+  ## Cut by tissue rather than by cell type. Is is closer to array data?
+  makeCompPlot(
+    X = readRDS(here::here("gitignore/fullres_Atlas10X")),
+    Y = readRDS(here::here("gitignore/fullres_Atlas10X_8_byTissue")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_0_vs_8_byTissue",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets (cut by cell types)",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets cut by tissues")
+}
 
-## Prepare Array data 
-source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))
-X <- resCompArray
-Y <- readRDS(here("gitignore/fullres_Atlas10X_8_byTissue"))
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Array_vs_8_byTissue.pdf")))){
+  makeCompPlot(
+    X = resCompArray,
+    Y = readRDS(here::here("gitignore/fullres_Atlas10X_8_byTissue")),
+    whichAlphaX = "alpha_array_all",
+    whichAlphaY = "alpha",          
+    title = "Array_vs_8_byTissue",
+    xlab = "Pr(hv) calculated on array datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets cut by tissues")
+}
 
-# Ensure data.table types
-setDT(X); setDT(Y)
+#########################
+## 9_immune cells only ##
+#########################
 
-# Keep only what you need
-X <- X[, .(name = chrpos, alpha_X = alpha_array_all)]
-Y <- Y[, .(name, alpha_Y = alpha)]
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_9_immuneOnly.pdf")))){
+  makeCompPlot(
+    X = readRDS(here::here("gitignore/fullres_Atlas10X")),
+    Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_0_vs_9_immuneOnly",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets, immune cells only")
+}
 
-# Set keys for efficient joins (optional but helpful on very large data)
-setkey(X, name)
-setkey(Y, name)
+#############################
+## 10_immune cells removed ##
+#############################
 
-# Inner join (only names present in both)
-Z_inner <- X[Y, nomatch = 0]
+## Hypothesis testing:
 
-c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
+## Prediction 1:
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_10_vs_9_immuneEffect.pdf")))){
+  makeCompPlot(
+    X = readRDS(here::here("gitignore/fullres_Atlas10X_10_noImmune")),
+    Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_10_vs_9_immuneEffect",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets, immune cells removed",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets, only immune cells")
+}
 
-set.seed(1234)
-Z_inner_1M <- Z_inner[sample(nrow(Z_inner), min(nrow(Z_inner), 1000000)),]
+Z_inner_immvsnoimm <- makeZ_inner(
+  X = readRDS(here::here("gitignore/fullres_Atlas10X_10_noImmune")),
+  Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
+  whichAlphaX = "alpha",
+  whichAlphaY = "alpha")
 
-p1 <- ggplot(Z_inner_1M, aes(x=alpha_X, y=alpha_Y)) +
-  geom_point(pch = 21, alpha = 0.05) +
+stable <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.5 & Z_inner_immvsnoimm$alpha_Y < 0.5]
+cellUniversal <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.5 & Z_inner_immvsnoimm$alpha_Y > 0.5]
+immune <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.5 & Z_inner_immvsnoimm$alpha_Y > 0.5]
+rest <-  Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.5 & Z_inner_immvsnoimm$alpha_Y < 0.5]
+
+message(paste0("We found ", 
+               length(stable), " (", round(length(stable)/length(Z_inner_immvsnoimm$name)*100), "%) stable CpGs, ",
+               length(cellUniversal), " (", round(length(cellUniversal)/length(Z_inner_immvsnoimm$name)*100), "%) cell universal hvCpGs, ", 
+               length(immune), " (", round(length(immune)/length(Z_inner_immvsnoimm$name)*100), "%) immune cell hvCpGs and ",
+               length(rest), " (", round(length(rest)/length(Z_inner_immvsnoimm$name)*100), "%) hvCpGs undetected in immune cells, out of a total of ",
+               length(Z_inner_immvsnoimm$name), " CpGs investigated"))
+
+## We found 19672473 (86%) stable CpGs, 1047081 (5%) cell universal hvCpGs and 1464480 (6%) immune cell hvCpGs, out of a total of 22805115 CpGs investigated
+
+## Test enrichment in the 3 categories
+
+## Create GRange objects
+makeGR_CpGset <- function(ids){
+  chr = sub("_.+$", "", ids, perl = TRUE)
+  pos = as.integer(sub("^.*_", "", ids, perl = TRUE))
+  
+  gr = GRanges(
+    seqnames = Rle(chr),
+    ranges   = IRanges(start = pos, width = 1),
+    genome   = "hg38")
+  
+  gr = keepStandardChromosomes(gr, pruning.mode = "coarse")
+  seqlevelsStyle(gr) <- "UCSC"   # Keep standard chroms
+  return(gr)
+}
+
+gr_bgr <- makeGR_CpGset(Z_inner_immvsnoimm$name)
+
+# if (!file.exists(here("gitignore/res_cellUniversal.RDS"))){
+#   gr_cellUniversal <- makeGR_CpGset(cellUniversal)
+#   res_cellUniversal <- great(gr_cellUniversal, "GO:BP", "hg38", background = gr_bgr)
+#   saveRDS(res_cellUniversal, file = here("gitignore/res_cellUniversal.RDS"))
+# }
+
+
+gr_immune <- makeGR_CpGset(immune)
+res_immune <- great(gr = gr_immune[1:100],
+                    gene_sets = "GO:BP", 
+                    tss_source = "hg38", 
+                    background = gr_bgr,
+                    exclude   = "gap")
+
+
+
+# saveRDS(res_immune, file = here("gitignore/res_immune.RDS"))
+
+
+# if (!file.exists(here("gitignore/res_rest.RDS"))){
+#   gr_rest <- makeGR_CpGset(rest)
+#   res_rest <- great(gr_rest, "GO:BP", "hg38", background = gr_bgr)
+#   saveRDS(res_rest, file = here("gitignore/res_rest.RDS"))
+# }
+# 
+# if (!file.exists(here("gitignore/res_stable.RDS"))){
+#   gr_stable <- makeGR_CpGset(stable)
+#   res_stable <- great(gr_stable, "GO:BP", "hg38", background = gr_bgr)
+#   saveRDS(res_stable, file = here("gitignore/res_stable.RDS"))
+# }
+
+# 
+# 
+# ## Info: 
+# # https://www.youtube.com/watch?v=_ycOp3P4AG0
+# 
+# tb <- getEnrichmentTable(res_immune)
+# 
+# head(tb)
+# 
+# head(tb[["GO Biological Process"]])
+# ## Use "binom" no "hyper"
+# 
+# plotVolcano(res_immune)
+# 
+# ## To get info for a given region
+# getRegionGeneAssociations()
+# 
+# ## Simplify GO terms
+# simplifyGO
+# 
+
+
+## Prediction 2:
+Z_inner_all <- makeZ_inner(
+  X = resCompArray,
+  Y = readRDS(here::here("gitignore/fullres_Atlas10X")),
+  whichAlphaX = "alpha_array_all",
+  whichAlphaY = "alpha")
+
+Z_inner_noimm <- makeZ_inner(
+  X = resCompArray,
+  Y = readRDS(here::here("gitignore/fullres_Atlas10X_10_noImmune")),
+  whichAlphaX = "alpha_array_all",
+  whichAlphaY = "alpha")
+
+Z_inner_onlyimm <- makeZ_inner(
+  X = resCompArray,
+  Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
+  whichAlphaX = "alpha_array_all",
+  whichAlphaY = "alpha")
+
+c_noimm <- cor.test(Z_inner_noimm$alpha_X, Z_inner_noimm$alpha_Y)
+c_all <- cor.test(Z_inner_all$alpha_X, Z_inner_all$alpha_Y)
+c_onlyimm <- cor.test(Z_inner_onlyimm$alpha_X, Z_inner_onlyimm$alpha_Y)
+
+slope_noimm <- lm(data = Z_inner_noimm, alpha_Y ~ alpha_X)$coefficients[["alpha_X"]]
+slope_all <- lm(data = Z_inner_all,  alpha_Y ~ alpha_X)$coefficients[["alpha_X"]]
+slope_onlyimm <- lm(data = Z_inner_onlyimm,  alpha_Y ~ alpha_X)$coefficients[["alpha_X"]]
+
+p <- data.frame(x=seq(0,1,0.01)) %>%
+  dplyr::mutate(noImmun = slope_noimm * x,
+                all = slope_all * x,
+                onlyimm = slope_onlyimm * x) %>%
+  pivot_longer(cols = c(noImmun, all, onlyimm)) %>%
+  ggplot(aes(x = x, y = value, group = name, col = name)) +
   geom_abline(slope = 1, linetype = 3) +
-  geom_smooth(linetype = 3)+
-  geom_smooth(method = "lm", fill = "black") +
+  geom_line(linewidth = 2) +
+  scale_color_viridis_d() +
   theme_minimal(base_size = 14) +
-  guides(fill = guide_legend(position = "inside"))+
-  annotate("text", x=.2, y=.8, label= paste0("R2 : ", round(c$estimate,2))) + 
-  theme(legend.position.inside = c(0.18,0.85),
-        legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Effect of tissue vs cell type grouping",
-       x = "Pr(hv) calculated on array datasets",
-       y = "Pr(hv) calculated on WGBS atlas datasets separated by tissue (and not cell type)") + 
-  scale_x_continuous(breaks = seq(0, 1, by = .1)) +
-  scale_y_continuous(breaks = seq(0, 1, by = .1))
+  labs(x = "Pr(hv) array datasets", y = "Pr(hv) WGBS datasets", col = "WGBS datasets") +
+  ylim(c(0,1)) 
 
-pdf(here("05_hvCpGalgorithm/figures/correlation_Array_vs_Atlas_8_byTissue.pdf"), width = 8, height = 8)
-p1
-dev.off()
-
-## Cut by tissue rather than by cell type. Is is closer to array data?
-
-## Prepare Array data 
-source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))
-X <- readRDS(here("gitignore/fullres_Atlas10X"))
-Y <- readRDS(here("gitignore/fullres_Atlas10X_8_byTissue"))
-
-# Ensure data.table types
-setDT(X); setDT(Y)
-
-# Keep only what you need
-X <- X[, .(name, alpha_X = alpha)]
-Y <- Y[, .(name, alpha_Y = alpha)]
-
-# Set keys for efficient joins (optional but helpful on very large data)
-setkey(X, name)
-setkey(Y, name)
-
-# Inner join (only names present in both)
-Z_inner <- X[Y, nomatch = 0]
-
-c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
-
-set.seed(1234)
-Z_inner_1M <- Z_inner[sample(nrow(Z_inner), min(nrow(Z_inner), 1000000)),]
-
-p1 <- ggplot(Z_inner_1M, aes(x=alpha_X, y=alpha_Y)) +
-  geom_point(pch = 21, alpha = 0.05) +
-  geom_abline(slope = 1, linetype = 3) +
-  geom_smooth(linetype = 3)+
-  geom_smooth(method = "lm", fill = "black") +
-  theme_minimal(base_size = 14) +
-  guides(fill = guide_legend(position = "inside"))+
-  annotate("text", x=.2, y=.8, label= paste0("R2 : ", round(c$estimate,2))) + 
-  theme(legend.position.inside = c(0.18,0.85),
-        legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Effect of tissue vs cell type grouping",
-       x = "Pr(hv) calculated on WGBS atlas datasets separated by cell type",
-       y = "Pr(hv) calculated on WGBS atlas datasets separated by tissue") + 
-  scale_x_continuous(breaks = seq(0, 1, by = .1)) +
-  scale_y_continuous(breaks = seq(0, 1, by = .1))
-
-pdf(here("05_hvCpGalgorithm/figures/correlation_Atlas10X_0_vs_8_byTissue.pdf"), width = 8, height = 8)
-p1
-dev.off()
+ggplot2::ggsave(
+  filename = here::here("05_hvCpGalgorithm/figures/correlations/correlation_prediction2.pdf"),
+  plot = p, width = 9, height = 7
+)

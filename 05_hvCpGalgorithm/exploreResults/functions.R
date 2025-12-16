@@ -60,3 +60,85 @@ prepAtlasdt <- function(dir = "Atlas10X"){
   
   return(dt)
 }
+
+# ---- Inner helper for makeCompPlot: build Z_inner ----
+makeZ_inner <- function(X, Y, whichAlphaX = NULL, whichAlphaY = NULL) {
+  setDT(X); setDT(Y)
+  
+  # Determine X side
+  is_array_X <- any(grepl("array", names(X)))
+  if (is_array_X) {
+    if (is.null(whichAlphaX)) {
+      stop("X looks like an *array* table (columns contain 'array'). ",
+           "Please provide whichAlphaX, e.g. 'alpha_array_all'.")
+    }
+    colX <- if (is.character(whichAlphaX)) whichAlphaX else deparse(substitute(whichAlphaX))
+    stopifnot("chrpos" %in% names(X), colX %in% names(X))
+    X <- X[, .(name = chrpos, alpha_X = get(colX))]
+  } else {
+    stopifnot(all(c("name", "alpha") %in% names(X)))
+    X <- X[, .(name, alpha_X = alpha)]
+  }
+  
+  # Determine Y side
+  is_array_Y <- any(grepl("array", names(Y)))
+  if (is_array_Y) {
+    if (is.null(whichAlphaY)) {
+      stop("Y looks like an *array* table (columns contain 'array'). ",
+           "Please provide whichAlphaY.")
+    }
+    colY <- if (is.character(whichAlphaY)) whichAlphaY else deparse(substitute(whichAlphaY))
+    stopifnot("chrpos" %in% names(Y), colY %in% names(Y))
+    Y <- Y[, .(name = chrpos, alpha_Y = get(colY))]
+  } else {
+    stopifnot(all(c("name", "alpha") %in% names(Y)))
+    Y <- Y[, .(name, alpha_Y = alpha)]
+  }
+  
+  # Ensure same type for join column
+  X[, name := as.character(name)]
+  Y[, name := as.character(name)]
+  
+  # Explicit inner join on 'name'
+  Z_inner <- X[Y, on = "name", nomatch = 0]
+  return(Z_inner)
+}
+
+makeCompPlot <- function(X, Y, title, xlab, ylab,
+                         whichAlphaX = NULL, whichAlphaY = NULL,
+                         minplot = 1000000) {
+  
+  # ---- Build Z_inner *and assign it* ----
+  Z_inner <- makeZ_inner(X, Y, whichAlphaX = whichAlphaX, whichAlphaY = whichAlphaY)
+  
+  # ---- Plot & save ----
+  c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
+  
+  set.seed(1234)
+  if(nrow(Z_inner) > minplot){
+    Z_inner_plot = Z_inner[sample(nrow(Z_inner), minplot),]  
+  } else {
+    Z_inner_plot = Z_inner  
+  }
+  p1 <- ggplot(Z_inner_plot, aes(alpha_X, alpha_Y)) +
+    geom_point(pch = 21, alpha = 0.05) +
+    geom_abline(slope = 1, linetype = 3) +
+    geom_smooth(linetype = 3) +
+    geom_smooth(method = "lm", fill = "black") +
+    theme_minimal(base_size = 14) +
+    annotate("text", x = .2, y = .8, label = paste0("R : ", round(c$estimate, 2))) +
+    labs(title = title, x = xlab, y = ylab)
+  
+  # Make sure the folder exists
+  dir.create(here::here("05_hvCpGalgorithm/figures/correlations"),
+             recursive = TRUE, showWarnings = FALSE)
+  
+  ggplot2::ggsave(
+    filename = here::here(paste0("05_hvCpGalgorithm/figures/correlations/correlation_", title, ".pdf")),
+    plot = p1, width = 8, height = 8
+  )
+  
+  invisible(Z_inner)
+}
+
+functionsLoaded = TRUE
