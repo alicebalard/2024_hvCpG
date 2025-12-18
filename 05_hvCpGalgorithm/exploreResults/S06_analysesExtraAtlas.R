@@ -171,11 +171,11 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
     ylab = "Pr(hv) calculated on WGBS atlas datasets, only immune cells")
 }
 
-Z_inner_immvsnoimm <- makeZ_inner(
+system.time(Z_inner_immvsnoimm <- makeZ_inner(
   X = readRDS(here::here("gitignore/fullres_Atlas10X_10_noImmune")),
   Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
   whichAlphaX = "alpha",
-  whichAlphaY = "alpha")
+  whichAlphaY = "alpha")) ## takes 2 minutes
 
 stable <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.5 & Z_inner_immvsnoimm$alpha_Y < 0.5]
 cellUniversal <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.5 & Z_inner_immvsnoimm$alpha_Y > 0.5]
@@ -192,31 +192,34 @@ message(paste0("We found ",
 ## We found 19672473 (86%) stable CpGs, 1047081 (5%) cell universal hvCpGs and 1464480 (6%) immune cell hvCpGs, out of a total of 22805115 CpGs investigated
 
 ## Test enrichment in the 3 categories
-library(GenomicRanges)
-## Create GRange objects
+
 makeGR_CpGset <- function(ids){
+  ## Make GRanges object
   chr = sub("_.+$", "", ids, perl = TRUE)
   pos = as.integer(sub("^.*_", "", ids, perl = TRUE))
-  
   gr = GRanges(
     seqnames = Rle(chr),
     ranges   = IRanges(start = pos, width = 1),
     genome   = "hg38")
   
+  ## Sanity check: keep standard chromosomes
   gr = keepStandardChromosomes(gr, pruning.mode = "coarse")
-  seqlevelsStyle(gr) <- "UCSC"   # Keep standard chroms
-
-  gr = reduce(gr, minmerged_cpgs <- reduce(gr, min.gapwidth = 100L)  # merge CpGs ≤100 bp apart
-
+  seqlevelsStyle(gr) <- "UCSC"  
+  
+  ## Merge CpGs ≤50 bp apart in regions
+  gr = reduce(gr, min.gapwidth = 50L)
+  
+  ## Remove isolated CpGs
+  gr = gr[gr@ranges@width > 1,]
+  
+  ## return regions object
   return(gr)
 }
 
-gr_bgr <- makeGR_CpGset(Z_inner_immvsnoimm$name)
-
-for (x in c("cellUniversal", "immune", "stable")){
+for (x in c("cellUniversal", "immune")){
   if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))){
     gr <- makeGR_CpGset(get(x))
-    res <- great(gr, "GO:BP", "hg38", background = gr_bgr, cores = 16)
+    system.time(res <- great(gr, "GO:BP", "hg38", cores = 20))
     saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
   }
 }
@@ -240,6 +243,21 @@ getRegionGeneAssociations()
 
 ## Simplify GO terms
 simplifyGO
+
+
+# 
+# gr_immune_test <- makeGR_CpGset(head(immune, 1000))
+
+# system.time(res <- great(gr_immune_test, "GO:BP", "hg38", cores = 10))
+
+# 45 sec for 1000 CpGs, 158 regions
+# getEnrichmentTable(res)
+
+# plotVolcano(res)
+
+## Simplify GO terms
+# library(simplifyEnrichment)
+# simplifyGO(mat = res@table$id)
 
 
 
