@@ -144,7 +144,8 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
 
 if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_9_immuneOnly.pdf")))){
   makeCompPlot(
-    X = readRDS(here::here("gitignore/fullres_Atlas10X")),
+
+      X = readRDS(here::here("gitignore/fullres_Atlas10X")),
     Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
@@ -177,6 +178,8 @@ system.time(Z_inner_immvsnoimm <- makeZ_inner(
   whichAlphaX = "alpha",
   whichAlphaY = "alpha")) ## takes 2 minutes
 
+print("Z_inner_immvsnoimm created")
+
 stable <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.5 & Z_inner_immvsnoimm$alpha_Y < 0.5]
 cellUniversal <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.5 & Z_inner_immvsnoimm$alpha_Y > 0.5]
 immune <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.5 & Z_inner_immvsnoimm$alpha_Y > 0.5]
@@ -191,7 +194,7 @@ message(paste0("We found ",
 
 ## We found 19672473 (86%) stable CpGs, 1047081 (5%) cell universal hvCpGs and 1464480 (6%) immune cell hvCpGs, out of a total of 22805115 CpGs investigated
 
-## Test enrichment in the 3 categories
+print("Test enrichment in the 3 categories:")
 
 makeGR_CpGset <- function(ids){
   ## Make GRanges object
@@ -219,8 +222,9 @@ makeGR_CpGset <- function(ids){
 for (x in c("cellUniversal", "immune")){
   if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))){
     gr <- makeGR_CpGset(get(x))
-    system.time(res <- great(gr, "GO:BP", "hg38", cores = 20))
+    system.time(res <- great(gr, "GO:BP", "hg38", cores = 10))
     saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
+    print(paste0("Annotation for ", x, " done!"))
   }
 }
 
