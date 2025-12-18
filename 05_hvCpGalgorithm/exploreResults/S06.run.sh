@@ -1,0 +1,11 @@
+#!/bin/bash
+#$ -N runannotrGREAT
+#$ -S /bin/bash
+#$ -pe smp 16
+#$ -l tmem=16G
+#$ -l h_vmem=16G
+#$ -l h_rt=10:00:00
+#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
+#$ -R y
+
+Rscript /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/exploreResults/S06_analysesExtraAtlas.R
