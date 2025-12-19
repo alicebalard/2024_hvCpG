@@ -144,8 +144,8 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
 
 if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_9_immuneOnly.pdf")))){
   makeCompPlot(
-
-      X = readRDS(here::here("gitignore/fullres_Atlas10X")),
+    
+    X = readRDS(here::here("gitignore/fullres_Atlas10X")),
     Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
@@ -194,9 +194,17 @@ message(paste0("We found ",
 
 ## We found 19672473 (86%) stable CpGs, 1047081 (5%) cell universal hvCpGs and 1464480 (6%) immune cell hvCpGs, out of a total of 22805115 CpGs investigated
 
-print("Test enrichment in the 3 categories:")
+print("Test enrichment in the 2 important categories:")
 
-makeGR_CpGset <- function(ids){
+## Info:
+# https://www.youtube.com/watch?v=_ycOp3P4AG0
+
+# gr: GRanges of CpG positions (width=1)
+# max_gap: maximum distance allowed between adjacent CpGs within a region
+# min_cpg: minimum number of CpGs per merged region
+# min_width: minimum merged width (bp)
+
+mergeCpGsByGap <- function(ids, max_gap = 200, min_cpg = 3, min_width = 50) {
   ## Make GRanges object
   chr = sub("_.+$", "", ids, perl = TRUE)
   pos = as.integer(sub("^.*_", "", ids, perl = TRUE))
@@ -209,63 +217,69 @@ makeGR_CpGset <- function(ids){
   gr = keepStandardChromosomes(gr, pruning.mode = "coarse")
   seqlevelsStyle(gr) <- "UCSC"  
   
-  ## Merge CpGs ≤50 bp apart in regions
-  gr = reduce(gr, min.gapwidth = 50L)
+  # Ensure sorted input
+  gr <- sort(gr)
   
-  ## Remove isolated CpGs
-  gr = gr[gr@ranges@width > 1,]
+  # Reduce with a minimum gap width rule:
+  # IRanges::reduce merges consecutive ranges if the gap BETWEEN them is <= max_gap
+  merged <- reduce(gr, min.gapwidth = max_gap + 1)
   
-  ## return regions object
+  # Count CpGs per merged region
+  ov <- findOverlaps(gr, merged, ignore.strand = TRUE)
+  cpg_counts <- tabulate(subjectHits(ov), nbins = length(merged))
+  merged$CpG_count <- cpg_counts
+  merged$width <- width(merged)
+  
+  # Filter by counts and width
+  keep <- (merged$CpG_count >= min_cpg) & (merged$width >= min_width)
+  
+  ## rm metadata which pose problem later on
+  gr = merged[keep]
+  mcols(gr) <- NULL
+  
   return(gr)
 }
 
 for (x in c("cellUniversal", "immune")){
+  gr <- mergeCpGsByGap(ids = get(x))
+  ## rm metadata which pose problem later on
+  mcols(gr) <- NULL
+  
   if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))){
-    gr <- makeGR_CpGset(get(x))
     system.time(res <- great(gr, "GO:BP", "hg38", cores = 10))
     saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
     print(paste0("Annotation for ", x, " done!"))
   }
 }
 
-stop("annotation done!")
+## Plot simplify GO for the regions
+for (x in c("cellUniversal", "immune")){
+  if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/plot_", x, "_heatmap.pdf")))){
+    res = readRDS(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
+    tab = res@table
+    print("Pruning poorly informative and redundant enriched terms...")
+    system.time(simplifiedGOterms <- compEpiTools::simplifyGOterms(
+      goterms=tab$id, maxOverlap= 0.1, ontology='BP', go2allEGs = org.Hs.egGO2ALLEGS))
+    print(paste0("Length simplifiedGOterms: ", length(simplifiedGOterms)))
+    saveRDS(simplifiedGOterms, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/simplifiedGOterms_", x, ".RDS")))
+    print("Simplify and plot...")
+    pdf(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/plot_", x, "_heatmap.pdf")), width = 8, height = 6)
+    simplifyEnrichment::simplifyGO(mat = simplifiedGOterms)
+    dev.off()
+  }
+}
 
-## Info:
-# https://www.youtube.com/watch?v=_ycOp3P4AG0
+print("Enrichment done!")
 
-tb <- getEnrichmentTable(res_immune)
+simplifiedGOterms_immune <- readRDS(here("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/simplifiedGOterms_immune.RDS"))
+simplifiedGOterms_cellUniversal <- readRDS(here("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/simplifiedGOterms_cellUniversal.RDS"))
 
-head(tb)
-
-head(tb[["GO Biological Process"]])
-## Use "binom" no "hyper"
-
-plotVolcano(res_immune)
-
-## To get info for a given region
-getRegionGeneAssociations()
-
-## Simplify GO terms
-simplifyGO
-
-
-# 
-# gr_immune_test <- makeGR_CpGset(head(immune, 1000))
-
-# system.time(res <- great(gr_immune_test, "GO:BP", "hg38", cores = 10))
-
-# 45 sec for 1000 CpGs, 158 regions
-# getEnrichmentTable(res)
-
-# plotVolcano(res)
-
-## Simplify GO terms
-# library(simplifyEnrichment)
-# simplifyGO(mat = res@table$id)
+simplifiedGOterms_immune@table
 
 
-
-## Prediction 2:
+###################
+## Prediction 2: ##
+###################
 Z_inner_all <- makeZ_inner(
   X = resCompArray,
   Y = readRDS(here::here("gitignore/fullres_Atlas10X")),
