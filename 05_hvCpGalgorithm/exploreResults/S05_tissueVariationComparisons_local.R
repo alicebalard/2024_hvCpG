@@ -4,10 +4,73 @@
 library(here)
 source(here("05_hvCpGalgorithm", "quiet_library.R"))
 
-parent_dir <- here("gitignore/Atlas10X_tissueAnalysis_NONGITED/")
+parent_dir <- here("05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X_tissueAnalysis/")
 
 rds_files <- list.files(parent_dir, pattern = "\\.rds$", recursive = TRUE, full.names = TRUE)
 
+## Lambdas
+all_medsd_lambda <- read.table(here("04_prepAtlas/all_medsd_lambda.tsv"), sep = "\t", header = T)
+
+#################
+## Violin plot ##
+#################
+
+makeViolin <- function(size = 10, rds_files){
+  set.seed(1234)
+  mat1 = readRDS(rds_files[1])
+  mat1 = mat1[sample(nrow(mat1), size = size), ,drop = F]
+  pb <- progress_bar$new(total = length(rds_files), format = "📦 :current/:total [:bar] :percent")
+  for (file in rds_files) {
+    mat = readRDS(file)  # rows ~100000, cols ~46
+    ## Select a sub sample because it's too big otherwise
+    mat1 = rbind(mat1, mat[sample(nrow(mat), size = size), ,drop = F])
+    pb$tick()
+  }
+  mat1 = reshape2::melt(mat1)
+  names(mat1) = c("pos", "dataset", "prob")
+  
+  ## Exponentialise because it is on a log scale
+  mat1$prob <- exp(mat1$prob)
+  
+  ## Add information
+  SupTab1_Loyfer2023 = read.csv(here("05_hvCpGalgorithm/dataPrev/SupTab1_Loyfer2023.csv"))
+  mat1$Germ.layer = SupTab1_Loyfer2023$Germ.layer[
+    match(mat1$dataset, paste0(SupTab1_Loyfer2023$Source.Tissue, " - ", SupTab1_Loyfer2023$Cell.type))]
+  mat1 = merge(mat1, all_medsd_lambda)
+  
+  ## Plot on 2 axes p(hv) and lambda
+  range_prob = range(mat1$prob, na.rm = TRUE)
+  range_lambda = range(mat1$lambda, na.rm = TRUE)
+  
+  # slope and intercept for mapping
+  a = diff(range_lambda) / diff(range_prob)
+  b = range_lambda[1] - a * range_prob[1]
+  
+  p = ggplot(mat1, aes(x = dataset, y = prob, fill = Germ.layer)) +
+    scale_fill_viridis_d() +
+    geom_violin() +
+    geom_boxplot(width = .2, fill = "white", outliers = F) +
+    geom_hline(yintercept = median(mat1$prob), linetype = 3) +
+    theme_minimal(base_size = 14) +
+    labs(title = "Probability of being hypervariable per tissue",
+         x = "Dataset", y = "p(hv)") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_y_continuous(
+      name = "Probability of being hv",
+      sec.axis = sec_axis(~ a * . + b, name = "lambda")
+    ) +
+    geom_point(aes(y = (lambda - b) / a), color = "red", size = 5, show.legend = FALSE)
+  
+  return(p)
+}
+
+plot_violin_tissues <- makeViolin(rds_files = rds_files, size = 10)
+
+plot_violin_tissues
+
+##################
+## Summary plot ##
+##################
 makeSummaryDT <- function(rds_files, selectSomeCpGs = FALSE, CpGs = NA){
   
   n_files <- length(rds_files)
@@ -32,7 +95,7 @@ makeSummaryDT <- function(rds_files, selectSomeCpGs = FALSE, CpGs = NA){
       ## Select only some
       mat <- mat[sub("-.*", "", rownames(mat)) %in% CpGs, ,drop = F]
     }
-
+    
     # Update accumulators
     sum_vals <- sum_vals + colSums(mat, na.rm = TRUE)
     sum_sq <- sum_sq + colSums(mat^2, na.rm = TRUE)
@@ -108,8 +171,8 @@ summary_dt_top100 <- makeSummaryDT(rds_files, selectSomeCpGs = TRUE, CpGs = top1
 summary_dt_bottom100 <- makeSummaryDT(rds_files, selectSomeCpGs = TRUE, CpGs = bottom100k$name)
 
 summary_dt_all <- rbind(summary_dt %>% mutate(group="allCpGs"), 
-      summary_dt_top100 %>% mutate(group="top100kCpGs"), 
-      summary_dt_bottom100 %>% mutate(group="bottom100kCpGs"))
+                        summary_dt_top100 %>% mutate(group="top100kCpGs"), 
+                        summary_dt_bottom100 %>% mutate(group="bottom100kCpGs"))
 
 summary_dt_all <- summary_dt_all %>%
   group_by(group) %>%
