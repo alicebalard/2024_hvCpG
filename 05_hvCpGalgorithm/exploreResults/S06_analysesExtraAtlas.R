@@ -276,6 +276,45 @@ simplifiedGOterms_cellUniversal <- readRDS(here("05_hvCpGalgorithm/exploreResult
 
 simplifiedGOterms_immune@table
 
+#### Stricter cutoff
+
+cellUniversal90 <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.9 & Z_inner_immvsnoimm$alpha_Y > 0.9]
+immune90 <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.1 & Z_inner_immvsnoimm$alpha_Y > 0.9]
+
+message(paste0("We check the ", 
+               length(cellUniversal90), " (", round(length(cellUniversal90)/length(Z_inner_immvsnoimm$name)*100), "%) cell universal hvCpGs at the 90%+90%+ cutoff and the ", 
+               length(immune90), " (", round(length(immune90)/length(Z_inner_immvsnoimm$name)*100), "%) immune cell at the 90%+10%- cutoff hvCpGs "))
+
+# We check enrichment for the 300487 (1%) cell universal hvCpGs at the 90%+90%+ cutoff and the 7453 (0%) immune cell at the 90%+10%- cutoff hvCpGs 
+
+for (x in c("cellUniversal90", "immune90")){
+  gr <- mergeCpGsByGap(ids = get(x))
+  ## rm metadata which pose problem later on
+  mcols(gr) <- NULL
+  
+  if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))){
+    system.time(res <- great(gr, "GO:BP", "hg38", cores = 10))
+    saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
+    print(paste0("Annotation for ", x, " done!"))
+  }
+}
+
+## Plot simplify GO for the regions
+for (x in c("cellUniversal90", "immune90")){
+  if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/plot_", x, "_heatmap.pdf")))){
+    res = readRDS(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
+    tab = res@table
+    print("Pruning poorly informative and redundant enriched terms...")
+    system.time(simplifiedGOterms <- compEpiTools::simplifyGOterms(
+      goterms=tab$id, maxOverlap= 0.1, ontology='BP', go2allEGs = org.Hs.egGO2ALLEGS))
+    print(paste0("Length simplifiedGOterms: ", length(simplifiedGOterms)))
+    saveRDS(simplifiedGOterms, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/simplifiedGOterms_", x, ".RDS")))
+    print("Simplify and plot...")
+    pdf(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/plot_", x, "_heatmap.pdf")), width = 8, height = 6)
+    simplifyEnrichment::simplifyGO(mat = simplifiedGOterms)
+    dev.off()
+  }
+}
 
 ###################
 ## Prediction 2: ##
