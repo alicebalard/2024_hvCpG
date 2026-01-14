@@ -6,3 +6,6 @@ gitignore
 
 ## The Atlas results are too big for git
 05_hvCpGalgorithm/resultsDir/Atlas
+
+## The tissue result file is big for array
+05_hvCpGalgorithm/resultsDir/Arrays/tissue/
