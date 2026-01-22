@@ -95,8 +95,8 @@ dev.off()
 ## Calculate proba hvCpG minus matching control: is it always +? ##
 ###################################################################
 
-x = dico$chrpos_hg38[match(DerakhshanhvCpGs_hg38, dico$CpG)]
-y = dico$chrpos_hg38[match(mQTLcontrols_hg38, dico$CpG)]
+x = DerakhshanhvCpGs_hg38
+y = mQTLcontrols_hg38
 
 # Build mapping from hvCpG -> control
 pairs <- data.frame(
@@ -119,7 +119,8 @@ merged <- pairs %>%
   left_join(ctrl_alpha, by = "control") %>%
   mutate(diffAlpha=alpha_hvCpG-alpha_control)
 
-pdf(here("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInArray.pdf"), width = 4, height = 5)
+pdf(here("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInArray.pdf"),
+    width = 4, height = 5)
 ggplot(merged, aes(x="diff", y=diffAlpha))+
   geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
   geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
@@ -127,8 +128,9 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
   theme_minimal(base_size = 14)+
   theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
-  ggtitle("P(hvCpG) minus P(matching control) in array")+
-  ylab("Difference of probability")
+  ggtitle("P(hvCpG) minus P(matching control)", subtitle =  "in array")+
+  ylab("Difference of probability") +
+  coord_cartesian(ylim = c(-1,1))
 dev.off()
 
 ###########################################################

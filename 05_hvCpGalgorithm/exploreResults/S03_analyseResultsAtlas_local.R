@@ -20,19 +20,19 @@ source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
 
 ## Data in WGBS atlas:
 ## from the CS cluster: sample_groups <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/all_matrix_noscale.h5","sample_groups")
-sample_groups <- readRDS(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/sample_groups.RDS"))
-
-ggplot(data.frame(table(sample_groups)), aes(x = Freq)) +
-  geom_histogram(bins = 100, fill = "steelblue", color = "white") +
-  theme_minimal(base_size = 14) +
-  labs(
-    title = "Distribution of number of samples per dataset",
-    x = "Number of samples",
-    y = "Count of datasets"
-  ) +
-  scale_x_continuous(breaks = seq(0, 10, by = 1))
-
-table(sample_groups)
+# sample_groups <- readRDS(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/sample_groups.RDS"))
+# 
+# ggplot(data.frame(table(sample_groups)), aes(x = Freq)) +
+#   geom_histogram(bins = 100, fill = "steelblue", color = "white") +
+#   theme_minimal(base_size = 14) +
+#   labs(
+#     title = "Distribution of number of samples per dataset",
+#     x = "Number of samples",
+#     y = "Count of datasets"
+#   ) +
+#   scale_x_continuous(breaks = seq(0, 10, by = 1))
+# 
+# table(sample_groups)
 
 ##############################################
 ## I. Histogram of coverage across datasets ##
@@ -89,65 +89,16 @@ system.time(Atlas_dt <- prepAtlasdt("Atlas10X"))
 
 nrow(Atlas_dt) # 23036026
 
-head(Atlas_dt$alpha)
-
-## Save top 100k and bottom 100k for paleogenomics (Hamdan's project)
-top100k <- Atlas_dt %>% slice_max(order_by = alpha, n = 100000, with_ties = FALSE) %>%
-  dplyr::select(name, alpha)
-
-bottom100k <- Atlas_dt %>% slice_min(order_by = alpha, n = 100000, with_ties = FALSE) %>%
-  dplyr::select(name, alpha)
-
-range(top100k$alpha, na.rm = T) ## all 1
-range(bottom100k$alpha, na.rm = T) ## all the closest to 0
-
-saveRDS(top100k, file = here("05_hvCpGalgorithm/dataOut/top100k_4Hamdan.rds"))
-saveRDS(bottom100k, file = here("05_hvCpGalgorithm/dataOut/bottom100k_4Hamdan.rds"))
-
 ## NB add test on package row by col
 
 if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
   stop("stop here to only prepare atlas_dt")
 }
 
-# Compute chromosome centers for x-axis labeling
-df2 <- Atlas_dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
-             df2, by = "chr", all.x = TRUE, sort = TRUE)
-df2 <- na.omit(df2)
-
-# Compute chromosome boundaries
-df_bounds <- Atlas_dt[, .(min_pos = min(pos2, na.rm = TRUE), 
-                          max_pos = max(pos2, na.rm = TRUE)), by = chr]
-
-# Midpoints between chromosomes = where to draw dotted lines
-df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
-vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
-
-plot <- ggplot() +
-  # background cloud
-  geom_point_rast(data = Atlas_dt[is.na(group)], 
-                  aes(x = pos2, y = alpha),
-                  color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
-  # hvCpG highlights
-  geom_point(data = Atlas_dt[group == "hvCpG_Derakhshan"],
-             aes(x = pos2, y = alpha),
-             color = "#DC3220", size = 1, alpha = 0.7) +
-  # mQTL controls highlights
-  geom_point(data = Atlas_dt[group == "mQTLcontrols"],
-             aes(x = pos2, y = alpha),
-             color = "#005AB5", size = 1, alpha = 0.7) +
-  # Add dotted separators
-  geom_vline(data = vlines, aes(xintercept = xintercept),
-             linetype = 3, color = "grey60") +
-  theme_classic() + theme(legend.position = "none") +
-  scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
-  scale_y_continuous(expand = c(0, 0)) +
-  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
-  theme_minimal(base_size = 14)
+plotManhattanFromdt(Atlas_dt)
 
 # Save as PDF — rasterization improves performance and file size
-CairoPDF(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_previoushvCpGplotted_atlas.pdf"), width = 15, height = 3)
+CairoPDF(here("05_hvCpGalgorithm/figures/Manhattan/ManhattanAlphaPlot_previoushvCpGplotted_atlas.pdf"), width = 15, height = 3)
 print(plot)
 dev.off()
 
@@ -166,7 +117,7 @@ plot <- ggplot() +
   theme_minimal(base_size = 14)
 
 # Save as PDF — rasterization improves performance and file size
-CairoPDF(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_atlas.pdf"), width = 15, height = 3)
+CairoPDF(here("05_hvCpGalgorithm/figures/Manhattan/ManhattanAlphaPlot_atlas.pdf"), width = 15, height = 3)
 print(plot)
 dev.off()
 
@@ -217,29 +168,6 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   ggtitle("P(hvCpG) minus P(matching control) in atlas")+
   ylab("Difference of probability")
 dev.off()
-
-##################################
-## Save names high alpha points ##
-##################################
-table(Atlas_dt$alpha >= 0.7)
-# FALSE     TRUE 
-# 22335423   700603 
-
-## Map on arrays
-matches <- match(
-  x = unlist(Atlas_dt[Atlas_dt$alpha >= 0.7, "name"]),
-  table = dico$chrpos_hg38
-)
-
-highAlphaPos <- dico[na.omit(matches), ]
-
-table(highAlphaPos$array)
-# 450k    450k and EPIC      EPIC 
-# 340          4483          3431 
-
-# 4483+340 = 4823 on the 450k array
-
-saveRDS(highAlphaPos, here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
 
 ##########################################
 ## What are the gaps in Manhattan plot? ##
@@ -519,15 +447,8 @@ table(rmskhg38$repClass)
 ## Test for enrichment in other putative MEs for hvCpGs with alpha > threshold ##
 #################################################################################
 
-# Parse with regex all the cpg tested
-parsed <- str_match(Atlas_dt$name, "(chr[0-9XYM]+)_(\\d+)")
-
 # Build GRanges
-allcpg_GR <- GRanges(
-  seqnames = parsed[,2],
-  ranges   = IRanges(start = as.numeric(parsed[,3]),
-                     end   = as.numeric(parsed[,3]))
-); rm(parsed)
+allcpg_GR <- makeGRfromMyCpGPos(Atlas_dt$name)
 
 ###########################################
 ## meQTL (vmeQTL) identified in MZ twins by Jordana Bell 
