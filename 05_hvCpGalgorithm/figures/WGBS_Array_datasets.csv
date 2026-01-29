@@ -1,0 +1,77 @@
+dataset,assay,immuno,mitosis_rate
+Abdominal Subcut. - Adipocytes,atlas,FALSE,low
+Bladder - Epithelium,atlas,FALSE,high
+Blood - B cells,atlas,TRUE,moderate
+Blood - Granulocytes,atlas,TRUE,moderate
+Blood - Monocytes,atlas,TRUE,moderate
+Blood - NK,atlas,TRUE,moderate
+Blood - T central memory CD4,atlas,TRUE,moderate
+Blood - T cytotoxic (CD8+) cells,atlas,TRUE,moderate
+Blood - T effector cell CD8,atlas,TRUE,high
+Blood - T effector memory CD4,atlas,TRUE,high
+Blood - T helper(CD4+) cells,atlas,TRUE,moderate
+Bone marrow - Erythrocyte progenitors,atlas,FALSE,high
+Brain - Neuronal,atlas,FALSE,low
+Brain - Oligodendrocytes,atlas,FALSE,low
+Breast - Basal epithelial,atlas,FALSE,high
+Breast - Luminal epithelial,atlas,FALSE,moderate
+Colon - Endocrine,atlas,FALSE,low
+Colon - Epithelium,atlas,FALSE,high
+Endometrium - Epithelium,atlas,FALSE,high
+Fallopien tubes - Epithelium,atlas,FALSE,high
+Gastric antrum - Epithelium,atlas,FALSE,high
+Gastric body - Epithelium,atlas,FALSE,high
+Gastric fundus - Epithelium,atlas,FALSE,high
+Heart - Cardiomyocyte,atlas,FALSE,low
+Heart - Fibroblast,atlas,FALSE,moderate
+Kidney glomerular - Endothelium,atlas,FALSE,moderate
+Kidney glomerular - Podocyte,atlas,FALSE,low
+Kidney tubular - Endothelium,atlas,FALSE,moderate
+Kidney tubular - Epithelium,atlas,FALSE,moderate
+Liver - Hepatocyte,atlas,FALSE,low
+Lung alveolar - Endothelium,atlas,FALSE,moderate
+Lung alveolar - Epithelium,atlas,FALSE,moderate
+Lung bronchus - Epithelium,atlas,FALSE,moderate
+Lung interstitial - Macrophages,atlas,TRUE,moderate
+Pancreas - Acinar,atlas,FALSE,low
+Pancreas - Alpha,atlas,FALSE,low
+Pancreas - Beta,atlas,FALSE,low
+Pancreas - Delta,atlas,FALSE,low
+Pancreas - Duct,atlas,FALSE,moderate
+Pancreas - Endothelium,atlas,FALSE,moderate
+Prostate - Epithelium,atlas,FALSE,moderate
+Small intestine - Epithelium,atlas,FALSE,high
+Thyroid - Epithelium,atlas,FALSE,moderate
+Tongue - Epithelium,atlas,FALSE,high
+Tonsil palatine - Epithelium,atlas,FALSE,high
+Vascular saphenous - Endothelium,atlas,FALSE,moderate
+Blood_Mexican,Array,TRUE,moderate
+Blood_Cauc,Array,TRUE,moderate
+Blood_PuertoRican,Array,TRUE,moderate
+Saliva_Ken,Array,FALSE,low
+Skin_UKTwin,Array,FALSE,high
+BulkFrontalCortex,Array,FALSE,low
+Saliva_Born,Array,FALSE,low
+Buccals_Cauc,Array,FALSE,high
+PBMC_AfricanAmerican,Array,TRUE,moderate
+Buccals_Sing_9mo,Array,FALSE,high
+Blood_Japan,Array,TRUE,moderate
+Placenta,Array,FALSE,high
+CD4+_Estonian,Array,TRUE,moderate
+Saliva_Hisp,Array,FALSE,low
+Blood_Hisp,Array,TRUE,moderate
+Blood_Gamb,Array,TRUE,moderate
+Saliva_Cauc,Array,FALSE,low
+SuperiorTemporalGyrus,Array,FALSE,low
+CordBlood,Array,TRUE,high
+CD8+_Estonian,Array,TRUE,moderate
+head and neck,Array,FALSE,high
+kidney,Array,FALSE,moderate
+colon,Array,FALSE,high
+liver,Array,FALSE,low
+thyroid,Array,FALSE,moderate
+lung,Array,FALSE,moderate
+prostate,Array,FALSE,moderate
+bladder,Array,FALSE,high
+breast,Array,FALSE,moderate
+uterus,Array,FALSE,high
