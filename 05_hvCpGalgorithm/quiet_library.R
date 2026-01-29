@@ -44,14 +44,15 @@ quiet_library_all <- function(pkgs) {
 
 quiet_library_all(
   c("dplyr", "data.table", "matrixStats", "reshape2","tidyr", "tibble", ## data formatting
-    "parallel", "rhdf5",  "stringr", ## data handling
-    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", 
+    "parallel", "rhdf5",  "stringr", "purrr","forcats", ## data handling
+    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", "Cairo",
     "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra", ## graphical
     "boot", "emmeans", ## stats
     "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
-    "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", "IRanges",
+    "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", "IRanges", 
+    "clusterProfiler", "TxDb.Hsapiens.UCSC.hg38.knownGene", "GSEABase", 
     "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "compEpiTools", ## methylation
-    "testthat" # grammar & packaging
+    "testthat", "parallel" # grammar & packaging
   ))
 ## NB: not all libraries are necessary; to clean when packaging
 

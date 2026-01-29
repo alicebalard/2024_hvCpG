@@ -11,9 +11,9 @@ if (!exists("functionsLoaded")) {
   source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
 }
 
-#if (!exists("resCompArray")) {
-#  source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))  
-#}
+if (!exists("resCompArray")) {
+  source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))
+}
 
 ##################################
 ## Save all data in RDS objects ##
@@ -144,7 +144,6 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
 
 if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_9_immuneOnly.pdf")))){
   makeCompPlot(
-    
     X = readRDS(here::here("gitignore/fullres_Atlas10X")),
     Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
     whichAlphaX = "alpha",
@@ -161,19 +160,19 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
 ## Hypothesis testing:
 
 ## Prediction 1:
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_10_vs_9_immuneEffect.pdf")))){
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_11_vs_9_immuneEffect.pdf")))){
   makeCompPlot(
-    X = readRDS(here::here("gitignore/fullres_Atlas10X_10_noImmune")),
+    X = readRDS(here::here("gitignore/fullres_Atlas10X_11_noImmune_sample11groups")),
     Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
-    title = "Atlas_10_vs_9_immuneEffect",
-    xlab = "Pr(hv) calculated on WGBS atlas datasets, immune cells removed",
-    ylab = "Pr(hv) calculated on WGBS atlas datasets, only immune cells")
+    title = "Atlas_11_vs_9_immuneEffect",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets, immune cells removed (11 gp)",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets, only immune cells (11 gp)")
 }
 
 system.time(Z_inner_immvsnoimm <- makeZ_inner(
-  X = readRDS(here::here("gitignore/fullres_Atlas10X_10_noImmune")),
+  X = readRDS(here::here("gitignore/fullres_Atlas10X_11_noImmune_sample11groups")),
   Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
   whichAlphaX = "alpha",
   whichAlphaY = "alpha")) ## takes 2 minutes
@@ -183,142 +182,20 @@ print("Z_inner_immvsnoimm created")
 stable <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.5 & Z_inner_immvsnoimm$alpha_Y < 0.5]
 cellUniversal <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.5 & Z_inner_immvsnoimm$alpha_Y > 0.5]
 immune <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.5 & Z_inner_immvsnoimm$alpha_Y > 0.5]
-rest <-  Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.5 & Z_inner_immvsnoimm$alpha_Y < 0.5]
+notimmune <-  Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.5 & Z_inner_immvsnoimm$alpha_Y < 0.5]
 
 message(paste0("We found ", 
                length(stable), " (", round(length(stable)/length(Z_inner_immvsnoimm$name)*100), "%) stable CpGs, ",
                length(cellUniversal), " (", round(length(cellUniversal)/length(Z_inner_immvsnoimm$name)*100), "%) cell universal hvCpGs, ", 
                length(immune), " (", round(length(immune)/length(Z_inner_immvsnoimm$name)*100), "%) immune cell hvCpGs and ",
-               length(rest), " (", round(length(rest)/length(Z_inner_immvsnoimm$name)*100), "%) hvCpGs undetected in immune cells, out of a total of ",
+               length(notimmune), " (", round(length(notimmune)/length(Z_inner_immvsnoimm$name)*100), "%) hvCpGs undetected in immune cells, out of a total of ",
                length(Z_inner_immvsnoimm$name), " CpGs investigated"))
 
-## We found 19672473 (86%) stable CpGs, 1047081 (5%) cell universal hvCpGs and 1464480 (6%) immune cell hvCpGs, out of a total of 22805115 CpGs investigated
+# We found 20268230 (84%) stable CpGs, 1190281 (5%) cell universal hvCpGs, 1507272 (6%) 
+# immune cell hvCpGs and 1123906 (5%) hvCpGs undetected in immune cells, out of a total of 24089689 CpGs investigated
 
-print("Test enrichment in the 2 important categories:")
+## Prediction 1: Using only the immune cells in WGBS Atlas should give a result closer to what is observed using the array
 
-## Info:
-# https://www.youtube.com/watch?v=_ycOp3P4AG0
-
-# gr: GRanges of CpG positions (width=1)
-# max_gap: maximum distance allowed between adjacent CpGs within a region
-# min_cpg: minimum number of CpGs per merged region
-# min_width: minimum merged width (bp)
-
-mergeCpGsByGap <- function(ids, max_gap = 200, min_cpg = 3, min_width = 50) {
-  ## Make GRanges object
-  chr = sub("_.+$", "", ids, perl = TRUE)
-  pos = as.integer(sub("^.*_", "", ids, perl = TRUE))
-  gr = GRanges(
-    seqnames = Rle(chr),
-    ranges   = IRanges(start = pos, width = 1),
-    genome   = "hg38")
-  
-  ## Sanity check: keep standard chromosomes
-  gr = keepStandardChromosomes(gr, pruning.mode = "coarse")
-  seqlevelsStyle(gr) <- "UCSC"  
-  
-  # Ensure sorted input
-  gr <- sort(gr)
-  
-  # Reduce with a minimum gap width rule:
-  # IRanges::reduce merges consecutive ranges if the gap BETWEEN them is <= max_gap
-  merged <- reduce(gr, min.gapwidth = max_gap + 1)
-  
-  # Count CpGs per merged region
-  ov <- findOverlaps(gr, merged, ignore.strand = TRUE)
-  cpg_counts <- tabulate(subjectHits(ov), nbins = length(merged))
-  merged$CpG_count <- cpg_counts
-  merged$width <- width(merged)
-  
-  # Filter by counts and width
-  keep <- (merged$CpG_count >= min_cpg) & (merged$width >= min_width)
-  
-  ## rm metadata which pose problem later on
-  gr = merged[keep]
-  mcols(gr) <- NULL
-  
-  return(gr)
-}
-
-for (x in c("cellUniversal", "immune")){
-  gr <- mergeCpGsByGap(ids = get(x))
-  ## rm metadata which pose problem later on
-  mcols(gr) <- NULL
-  
-  if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))){
-    system.time(res <- great(gr, "GO:BP", "hg38", cores = 10))
-    saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
-    print(paste0("Annotation for ", x, " done!"))
-  }
-}
-
-## Plot simplify GO for the regions
-for (x in c("cellUniversal", "immune")){
-  if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/plot_", x, "_heatmap.pdf")))){
-    res = readRDS(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
-    tab = res@table
-    print("Pruning poorly informative and redundant enriched terms...")
-    system.time(simplifiedGOterms <- compEpiTools::simplifyGOterms(
-      goterms=tab$id, maxOverlap= 0.1, ontology='BP', go2allEGs = org.Hs.egGO2ALLEGS))
-    print(paste0("Length simplifiedGOterms: ", length(simplifiedGOterms)))
-    saveRDS(simplifiedGOterms, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/simplifiedGOterms_", x, ".RDS")))
-    print("Simplify and plot...")
-    pdf(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/plot_", x, "_heatmap.pdf")), width = 8, height = 6)
-    simplifyEnrichment::simplifyGO(mat = simplifiedGOterms)
-    dev.off()
-  }
-}
-
-print("Enrichment done!")
-
-simplifiedGOterms_immune <- readRDS(here("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/simplifiedGOterms_immune.RDS"))
-simplifiedGOterms_cellUniversal <- readRDS(here("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/simplifiedGOterms_cellUniversal.RDS"))
-
-simplifiedGOterms_immune@table
-
-#### Stricter cutoff
-
-cellUniversal90 <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X > 0.9 & Z_inner_immvsnoimm$alpha_Y > 0.9]
-immune90 <- Z_inner_immvsnoimm$name[Z_inner_immvsnoimm$alpha_X < 0.1 & Z_inner_immvsnoimm$alpha_Y > 0.9]
-
-message(paste0("We check the ", 
-               length(cellUniversal90), " (", round(length(cellUniversal90)/length(Z_inner_immvsnoimm$name)*100), "%) cell universal hvCpGs at the 90%+90%+ cutoff and the ", 
-               length(immune90), " (", round(length(immune90)/length(Z_inner_immvsnoimm$name)*100), "%) immune cell at the 90%+10%- cutoff hvCpGs "))
-
-# We check enrichment for the 300487 (1%) cell universal hvCpGs at the 90%+90%+ cutoff and the 7453 (0%) immune cell at the 90%+10%- cutoff hvCpGs 
-
-for (x in c("cellUniversal90", "immune90")){
-  gr <- mergeCpGsByGap(ids = get(x))
-  ## rm metadata which pose problem later on
-  mcols(gr) <- NULL
-  
-  if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))){
-    system.time(res <- great(gr, "GO:BP", "hg38", cores = 10))
-    saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
-    print(paste0("Annotation for ", x, " done!"))
-  }
-}
-
-## Plot simplify GO for the regions
-for (x in c("cellUniversal90", "immune90")){
-  if (!file.exists(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/plot_", x, "_heatmap.pdf")))){
-    res = readRDS(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/", x, ".RDS")))
-    tab = res@table
-    print("Pruning poorly informative and redundant enriched terms...")
-    system.time(simplifiedGOterms <- compEpiTools::simplifyGOterms(
-      goterms=tab$id, maxOverlap= 0.1, ontology='BP', go2allEGs = org.Hs.egGO2ALLEGS))
-    print(paste0("Length simplifiedGOterms: ", length(simplifiedGOterms)))
-    saveRDS(simplifiedGOterms, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/simplifiedGOterms_", x, ".RDS")))
-    print("Simplify and plot...")
-    pdf(here(paste0("05_hvCpGalgorithm/exploreResults/annotations_rGREAT/plot_", x, "_heatmap.pdf")), width = 8, height = 6)
-    simplifyEnrichment::simplifyGO(mat = simplifiedGOterms)
-    dev.off()
-  }
-}
-
-###################
-## Prediction 2: ##
-###################
 Z_inner_all <- makeZ_inner(
   X = resCompArray,
   Y = readRDS(here::here("gitignore/fullres_Atlas10X")),
@@ -327,7 +204,7 @@ Z_inner_all <- makeZ_inner(
 
 Z_inner_noimm <- makeZ_inner(
   X = resCompArray,
-  Y = readRDS(here::here("gitignore/fullres_Atlas10X_10_noImmune")),
+  Y = readRDS(here::here("gitignore/fullres_Atlas10X_11_noImmune_sample11groups")),
   whichAlphaX = "alpha_array_all",
   whichAlphaY = "alpha")
 
@@ -362,3 +239,454 @@ ggplot2::ggsave(
   filename = here::here("05_hvCpGalgorithm/figures/correlations/correlation_prediction2.pdf"),
   plot = p, width = 9, height = 7
 )
+
+# Combine datasets
+Z_inner_all$group <- "all"
+Z_inner_noimm$group <- "noImm"
+Z_inner_onlyimm$group <- "onlyImm"
+
+combined <- rbind(Z_inner_all, Z_inner_noimm, Z_inner_onlyimm)
+
+# Fit model with interaction
+model <- lm(alpha_Y ~ alpha_X * group, data = combined)
+summary(model)
+
+library(emmeans)
+emm <- emtrends(model, ~ group, var = "alpha_X")
+pairs(emm)
+
+# contrast        estimate      SE     df t.ratio p.value
+# all - noImm     -0.00505 0.00166 988312  -3.042  0.0066
+# all - onlyImm   -0.10615 0.00169 988312 -62.974  <.0001
+# noImm - onlyImm -0.10110 0.00163 988312 -62.005  <.0001
+
+## Difference with controls in both cases?
+data <- read.table(here("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
+
+x = dico$chrpos_hg38[match(data$hvCpG_name, dico$CpG)]
+y = dico$chrpos_hg38[match(data$controlCpG_name, dico$CpG)]
+
+# Build mapping from hvCpG -> control
+pairs <- data.frame(
+  hvCpG = x,
+  control = y,
+  stringsAsFactors = FALSE
+)
+
+# Merge hvCpG alphas
+res <- X[!is.na(group)]
+
+hv_alpha <- res[, c("name", "alpha")]
+colnames(hv_alpha) <- c("hvCpG", "alpha_hvCpG")
+
+# Merge control alphas
+ctrl_alpha <- res[, c("name", "alpha")]
+colnames(ctrl_alpha) <- c("control", "alpha_control")
+
+# Join everything
+merged <- pairs %>%
+  left_join(hv_alpha, by = "hvCpG") %>%
+  left_join(ctrl_alpha, by = "control") %>%
+  mutate(diffAlpha=alpha_hvCpG-alpha_control)
+
+merged1 <- merged %>%
+  mutate(chr = str_extract(hvCpG, "^chr[0-9XYM]+"))%>%
+  filter(!is.na(diffAlpha))
+
+p1 <- ggplot(merged1, aes(x="diff", y=diffAlpha))+
+  geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
+  geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
+  geom_violin(width=.5, fill = "grey", alpha=.8) +
+  geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
+  theme_minimal(base_size = 14)+
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
+  ggtitle("P(hvCpG) minus P(matching control)", subtitle = "no immune cells")+
+  ylab("Difference of probability") +
+  coord_cartesian(ylim = c(-1,1))
+
+# Merge hvCpG alphas
+res <- Y[!is.na(group)]
+
+hv_alpha <- res[, c("name", "alpha")]
+colnames(hv_alpha) <- c("hvCpG", "alpha_hvCpG")
+
+# Merge control alphas
+ctrl_alpha <- res[, c("name", "alpha")]
+colnames(ctrl_alpha) <- c("control", "alpha_control")
+
+# Join everything
+merged <- pairs %>%
+  left_join(hv_alpha, by = "hvCpG") %>%
+  left_join(ctrl_alpha, by = "control") %>%
+  mutate(diffAlpha=alpha_hvCpG-alpha_control)
+
+merged2 <- merged %>%
+  mutate(chr = str_extract(hvCpG, "^chr[0-9XYM]+"))%>%
+  filter(!is.na(diffAlpha))
+
+p2 <- ggplot(merged2, aes(x="diff", y=diffAlpha))+
+  geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
+  geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
+  geom_violin(width=.5, fill = "grey", alpha=.8) +
+  geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
+  theme_minimal(base_size = 14)+
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
+  ggtitle("P(hvCpG) minus P(matching control)", subtitle =  "immune cells only")+
+  ylab("Difference of probability") +
+  coord_cartesian(ylim = c(-1,1))
+
+cowplot::plot_grid(p1, p2, ncol = 2)
+
+wilcox.test(merged1$diffAlpha, merged2$diffAlpha)
+
+mean(merged1$diffAlpha); median(merged1$diffAlpha)
+mean(merged2$diffAlpha); median(merged$diffAlpha, na.rm = T)
+
+# Prediction 2. The putative ME are those CpG sites which variability is high no matter which collection of cells one uses (“cell-universal” hvCpGs)
+
+cellUniversal_GR <- makeGRfromMyCpGPos(cellUniversal, "cellUniversal")
+immune_GR <- makeGRfromMyCpGPos(immune, "immune")
+notimmune_GR <- makeGRfromMyCpGPos(notimmune, "notimmune")
+stable_GR <- makeGRfromMyCpGPos(stable, "stable")
+
+###########################################
+## Prepare putative MEs GRanges objects
+vmeQTL_hg19probes <- readxl::read_xlsx(here("05_hvCpGalgorithm/dataPrev/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
+vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]) ; rm(vmeQTL_hg19probes)
+vmeQTL_hg38_GR <- makeGRfromMyCpGPos(vmeQTL_hg38, "vmeQTL (Zhang2025)")
+
+HarrisSIV_hg38_GR <- makeGRfromMyCpGPos(HarrisSIV_hg38, "HarrisSIV")
+
+VanBaakESS_hg38_GR <- makeGRfromMyCpGPos(VanBaakESS_hg38, "VanBaakESS")
+
+KesslerSIV_GRanges_hg38$set <- "KesslerSIV"
+
+corSIV_GRanges_hg38$set <- "Gunasekara 2019 corSIV"
+
+DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "hvCpG Derakhshan 2022")
+
+SoCCpGs_hg38_GR <- makeGRfromMyCpGPos(SoCCpGs_hg38, "Silver2022_SoCCpGs")
+
+putativeME_GR <- c(vmeQTL_hg38_GR, HarrisSIV_hg38_GR, VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
+                   corSIV_GRanges_hg38, DerakhshanhvCpGs_hg38_GR, SoCCpGs_hg38_GR)
+
+###########################################
+## Find them in each quadrants
+hits <- GenomicRanges::findOverlaps(cellUniversal_GR, putativeME_GR)
+me_cellUniversal <- putativeME_GR[unique(subjectHits(hits))]
+
+hits <- GenomicRanges::findOverlaps(immune_GR, putativeME_GR)
+me_immune <- putativeME_GR[unique(subjectHits(hits))]
+
+hits <- GenomicRanges::findOverlaps(notimmune_GR, putativeME_GR)
+me_notimmune <- putativeME_GR[unique(subjectHits(hits))]
+
+hits <- GenomicRanges::findOverlaps(stable_GR, putativeME_GR)
+me_stable <- putativeME_GR[unique(subjectHits(hits))]
+
+###########################################
+# Compute enrichment for one ME set
+
+# # Dependencies
+# library(GenomicRanges)
+# library(dplyr)
+# library(tibble)
+
+quads <- list(
+  stable        = stable_GR,
+  immune        = immune_GR,
+  notimmune     = notimmune_GR,
+  cellUniversal = cellUniversal_GR
+)
+
+# --- Helper: safe Fisher with edge cases (all zeros, etc.)
+.safe_fisher <- function(a, b, c, d) {
+  mat <- matrix(c(a, b, c, d), nrow = 2, byrow = TRUE,
+                dimnames = list(c("this_quadrant","others"), c("inME","notME")))
+  # If any row or column totals are zero, Fisher’s test is not defined
+  if (any(rowSums(mat) == 0) || any(colSums(mat) == 0)) {
+    return(list(or = NA_real_, p = NA_real_))
+  } else {
+    ft <- fisher.test(mat)
+    return(list(or = unname(ft$estimate), p = ft$p.value))
+  }
+}
+
+# --- Main: test enrichment of ME for each quadrant vs the other three combined
+test_enrichment_quadrants <- function(quad_list, putativeME_GR, me_col = "set") {
+  # If no 'set' column, treat all ME as one group "ALL"
+  if (!(me_col %in% names(mcols(putativeME_GR)))) {
+    me_sets <- "ALL"
+    putativeME_GR$..tmp_set.. <- "ALL"
+    me_col <- "..tmp_set.."
+  } else {
+    me_sets <- unique(as.character(mcols(putativeME_GR)[[me_col]]))
+  }
+  
+  # Total elements per quadrant (each element counted once)
+  totals <- vapply(quad_list, length, integer(1))
+  
+  # Iterate over ME sets
+  out <- lapply(me_sets, function(me_name) {
+    me_subset <- putativeME_GR[mcols(putativeME_GR)[[me_col]] == me_name]
+    
+    # Count how many elements in each quadrant overlap the ME subset
+    inME <- vapply(quad_list, function(gr) {
+      ov <- findOverlaps(gr, me_subset, ignore.strand = TRUE)
+      length(unique(queryHits(ov)))  # number of quadrant elements hitting at least one ME
+    }, integer(1))
+    
+    # Build quadrant-vs-others 2x2 tests
+    bind_rows(lapply(names(quad_list), function(q) {
+      a <- inME[[q]]
+      b <- totals[[q]] - a
+      c <- sum(inME[names(inME) != q])
+      d <- sum(totals[names(totals) != q]) - c
+      
+      fs <- .safe_fisher(a, b, c, d)
+      
+      tibble(
+        ME_set            = me_name,
+        quadrant          = q,
+        inME              = a,
+        total             = totals[[q]],
+        others_inME       = c,
+        others_total      = sum(totals) - totals[[q]],
+        pct_inME          = 100 * a / totals[[q]],
+        pct_inME_others   = 100 * c / (sum(totals) - totals[[q]]),
+        odds_ratio        = fs$or,
+        p_value           = fs$p
+      )
+    }))
+  }) %>% bind_rows() %>%
+    mutate(p_adj_BH = p.adjust(p_value, method = "BH"))
+  
+  out
+}
+
+# ---- Run it (ME sets in putativeME_GR$set will be tested separately)
+res_quadrants <- test_enrichment_quadrants(quads, putativeME_GR, me_col = "set")
+
+# Order quadrants within each facet by log2OR
+res_plot2 <- res_quadrants %>%
+  mutate(
+    log2OR       = log2(odds_ratio),
+    signif  = p_adj_BH < 0.05
+  ) %>%
+  group_by(ME_set) %>%
+  mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
+  ungroup()
+
+plot <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
+  geom_col(width = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = c("grey", "black")) +
+  labs(
+    x = "Quadrant",
+    y = expression(log[2]~"(odds ratio)"),
+    title = "ME enrichment by quadrant (vs other three quadrants)",
+    subtitle = "Bars ordered by effect within ME set; dashed line = OR = 1"
+  ) +
+  facet_wrap(~ ME_set, scales = "free_x", nrow = 1) +
+  theme_classic(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    legend.position = "right",
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold")
+  )
+
+pdf(here("05_hvCpGalgorithm/figures/quadrantsEnrichME.pdf"), width = 12, height = 6)
+plot
+dev.off()
+
+## Prediction 3. CpGs that are only variable using immune cells only (“immune variable hvCpGs”) or using non-immune cells capture variability acquired later in life
+
+###################
+## Where is MHC? ##
+###################
+# https://www.ncbi.nlm.nih.gov/grc/human/regions/MHC?asm=GRCh38.p13
+chr6pos = Z_inner_immvsnoimm$name[grep("chr6", Z_inner_immvsnoimm$name)]
+chr6pos = as.integer(sub(".*_", "", chr6pos))
+
+MHCpos <- paste0("chr6_", chr6pos[chr6pos >= 28510120 & chr6pos <= 33480577])
+length(MHCpos) # 56491
+
+print(paste0(length(stable[stable %in% MHCpos]), " MHC CpGs are in the stable quadrant, ",
+             length(immune[immune %in% MHCpos]), " in the immune one, ",
+             length(notimmune[notimmune %in% MHCpos]), " in the not immune one, ",
+             length(cellUniversal[cellUniversal %in% MHCpos]), " in the cell universal one"))
+
+conting <- data.frame(category = c("stable", "immune", "notimmune", "cellUniversal"),
+           all = c(length(stable), length(immune),
+                   length(notimmune), length(cellUniversal)),
+           MHC = c(length(stable[stable %in% MHCpos]), length(immune[immune %in% MHCpos]),
+                   length(notimmune[notimmune %in% MHCpos]), length(cellUniversal[cellUniversal %in% MHCpos])))
+
+conting$nonMHC <- conting$all - conting$MHC
+
+tbl <- as.matrix(conting[, c("MHC", "nonMHC")])
+rownames(tbl) <- conting$category
+
+tbl
+
+chisq.test(tbl)
+
+fisher <- sapply(conting$category, function(cat) {
+  MHC_cat <- conting$MHC[conting$category == cat]
+  nonMHC_cat <- conting$nonMHC[conting$category == cat]
+  
+  MHC_other <- sum(conting$MHC) - MHC_cat
+  nonMHC_other <- sum(conting$nonMHC) - nonMHC_cat
+  
+  data.frame(estimate = fisher.test(matrix(c(MHC_cat, nonMHC_cat,
+                       MHC_other, nonMHC_other),
+                     nrow = 2))$estimate,
+             p.adj = p.adjust(fisher.test(matrix(c(MHC_cat, nonMHC_cat,
+                                             MHC_other, nonMHC_other),
+                                           nrow = 2))$p.value, method = "BH"))
+  
+})
+
+fisher
+
+## Plot
+X = readRDS(here::here("gitignore/fullres_Atlas10X_11_noImmune_sample11groups"))
+Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly"))
+
+MHC_noImmune = X[X$name %in% MHCpos,]
+MHC_immune = Y[Y$name %in% MHCpos,]
+
+Z_inner_MHC <- makeZ_inner(X = MHC_noImmune, Y = MHC_immune, whichAlphaX = "alpha", whichAlphaY = "alpha")
+
+ggplot(Z_inner_MHC, aes(alpha_X, alpha_Y)) +
+  geom_point(pch = 21, alpha = 0.05) +
+  geom_abline(slope = 1, linetype = 3) +
+  geom_smooth(linetype = 3) +
+  geom_smooth(method = "lm", fill = "black") +
+  theme_minimal(base_size = 14) +
+  labs(title = "MHC CpGs",
+       x = "Pr(hv) calculated on WGBS atlas datasets, immune cells removed (11 gp)",
+       y = "Pr(hv) calculated on WGBS atlas datasets, only immune cells (11 gp)")
+
+## Manhattan plot of both cases
+cowplot::plot_grid(plotManhattanFromdt(MHC_noImmune, transp = .3),
+                   plotManhattanFromdt(MHC_immune, transp = .3),
+                   nrow = 2, labels = c("immune excluded", "only immune"))
+
+CairoPDF(here("05_hvCpGalgorithm/figures/Manhattan/ManhattanAlphaPlot_previoushvCpGplotted_atlas_immunevsnon.pdf"), width = 15, height = 7)
+cowplot::plot_grid(plotManhattanFromdt(X),
+                   plotManhattanFromdt(Y),
+                   nrow = 2, labels = c("immune excluded", "only immune"))
+dev.off()
+
+####################
+## Annotate genes ##
+####################
+print("Test enrichment by categories:")
+
+## 1. Keep CpGs in regions where at least 5 CpGs are in 50bp distance to each other
+## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
+## 3. run GO term enrichment with clusterProfiler::enrichGO
+
+## Create universe
+universe <- annotateCpGs_txdb(
+  clusterCpGs(Z_inner_immvsnoimm$name, max_gap = 50, min_size = 5),
+  tss_window = 10000
+)
+
+print(paste0("Gene universe contains ", length(universe), " genes"))
+## "Gene universe contains 30190 genes"
+
+## Annotate the different CpGs categories 
+resAnnot_cellUniversal <- CpG_GO_pipeline(cellUniversal, universe = universe)
+resAnnot_immune <- CpG_GO_pipeline(immune, universe = universe)
+resAnnot_notimmune <- CpG_GO_pipeline(notimmune, universe = universe)
+
+resAnnot <- list(resAnnot_cellUniversal=resAnnot_cellUniversal,
+                 resAnnot_immune=resAnnot_immune,
+                 resAnnot_notimmune=resAnnot_notimmune)
+
+# 1) Flatten the nested list: groups -> ontologies -> result rows
+# resAnnot names: resAnnot_cellUniversal, resAnnot_immune, resAnnot_notimmune
+grp_label_map <- c(
+  resAnnot_cellUniversal = "cellUniversal",
+  resAnnot_immune        = "immune",
+  resAnnot_notimmune     = "not immune"
+)
+
+df_all <- purrr::imap(resAnnot, function(ont_list, grp_name) {
+  purrr::imap_dfr(ont_list, function(er, ont_name) {
+    if (is.null(er) || nrow(er@result) == 0) return(tibble())
+    as_tibble(er@result) %>%
+      mutate(group_raw = grp_name,  ontology = ont_name)
+  })
+}) %>% bind_rows()
+
+# 2) Harmonize labels / factors
+df_all <- df_all %>%
+  mutate(
+    group    = grp_label_map[group_raw],
+    group    = factor(group, levels = c("cellUniversal", "immune", "not immune")),
+    ontology = factor(ontology, levels = c("BP", "MF", "CC"))
+  )
+
+# 3) Keep only terms that are significant AND have counts AND more than 5 genes
+df_sig <- df_all %>%
+  filter(!is.na(p.adjust) & p.adjust < 0.01) %>%
+  filter(!is.na(Description) & !is.na(FoldEnrichment) & !is.na(Count) & Count > 10 & FoldEnrichment > 2)
+
+# 4) Optional: reorder Description within each ontology by (high FE, low FDR)
+df_sig <- df_sig %>%
+  group_by(ontology) %>%
+  mutate(Description = fct_reorder2(Description, FoldEnrichment, -p.adjust, .fun = max, .desc = TRUE)) %>%
+  ungroup()
+
+# 5) Plot: X = group, Y = Description, facet by ontology, size = FE, color = p.adjust
+p <- ggplot(df_sig, aes(x = group, y = Description)) +
+  geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
+  scale_size_continuous(name = "FoldEnrichment", range = c(1.5, 8)) +
+  # smaller FDR should look darker; direction = -1 handles that
+  scale_color_viridis_c(name = "FDR (p.adjust)", option = "plasma", direction = -1) +
+  facet_grid(group ~ ontology, scales = "free", space = "free_y") +
+  coord_flip() +
+  theme_bw() +
+  labs(x = NULL, y = NULL,
+       title = "GO enrichment across groups and ontologies (FDR < 0.05)") +
+  theme(
+    legend.box.background = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+    legend.background     = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+    legend.key            = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+    legend.position       = "top",
+    axis.text.y           = element_text(size = 8),
+    axis.text.x           = element_text(size = 8, angle = 45, hjust = 1),
+    strip.text            = element_text(face = "bold")
+  )
+
+print(p)
+
+p <- ggplot(df_sig[df_sig$ontology %in% "BP",], aes(x = group, y = Description)) +
+  geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
+  scale_size_continuous(name = "FoldEnrichment", range = c(1.5, 8)) +
+  # smaller FDR should look darker; direction = -1 handles that
+  scale_color_viridis_c(name = "FDR (p.adjust)", option = "plasma", direction = -1) +
+  facet_grid(group ~ ontology, scales = "free", space = "free_y") +
+  coord_flip() +
+  theme_bw() +
+  labs(x = NULL, y = NULL,
+       title = "GO enrichment across groups and ontologies (FDR < 0.05)") +
+  theme(
+    legend.box.background = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+    legend.background     = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+    legend.key            = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+    legend.position       = "top",
+    axis.text.y           = element_text(size = 8),
+    axis.text.x           = element_text(size = 8, angle = 45, hjust = 1),
+    strip.text            = element_text(face = "bold")
+  )
+
+pdf(here("05_hvCpGalgorithm/figures/GOenrichment.pdf"), width = 10, height = 7)
+p
+dev.off()
+
+## Nothing very clear...
