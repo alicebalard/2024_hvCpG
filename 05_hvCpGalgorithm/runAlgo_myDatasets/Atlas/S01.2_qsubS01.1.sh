@@ -18,8 +18,14 @@ P0=0.80
 P1=0.65
 echo "**** Job $JOB_NAME.$SGE_TASK_ID started at $(date) ****"
 
-# ---- Loop additional analyses (10X to 10X_9 done before) ----
-for ANALYSIS in "Atlas10X_10_noImmune"; do
+# ---- Loop additional analyses ----
+#for ANALYSIS in "10X_11_noImmune_sample11groups"; do
+#  echo "[INFO] Running analysis: $ANALYSIS"
+#  Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1
+#done
+
+# ---- Loop additional analyses (others done before) ----
+for ANALYSIS in "10X_12_endo" "10X_13_meso" "10X_14_ecto" "10X_5_femaleOnly6gp" "10X_6_bothsexes6gp"; do
   echo "[INFO] Running analysis: $ANALYSIS"
   Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1
 done
