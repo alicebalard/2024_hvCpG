@@ -9,3 +9,5 @@ gitignore
 
 ## The tissue result file is big for array
 05_hvCpGalgorithm/resultsDir/Arrays/tissue/
+*.RData
+.RData
