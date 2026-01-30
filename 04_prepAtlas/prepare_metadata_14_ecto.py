@@ -1,7 +1,8 @@
+
 #!/usr/bin/env python3
 """
 Prepare metadata for WGBS Atlas analysis
-Select only females groups
+Adds 'Analysis group' column and writes a new CSV
 Author: Alice Balard
 """
 
@@ -17,18 +18,20 @@ args = parser.parse_args()
 # Read input metadata
 df = pd.read_csv(args.meta)
 
+# Validate columns
+for col in ["Source Tissue", "Cell type"]:
+    if col not in df.columns:
+        raise ValueError(f"Missing column: {col}")
+
 # Add Analysis group
 df["Analysis group"] = df["Source Tissue"].astype(str) + " - " + df["Cell type"].astype(str)
 
-# Ensure consistent formatting (optional)
-df["sex"] = df["sex"].str.strip()
-
-# Keep groups where all rows have sex == 'F'
-df_filtered = df.groupby("Analysis group").filter(lambda g: (g["sex"] == "F").all())
+# Select only rows where Germ layer = Ecto
+df = df[df["Germ layer"] == "Ecto"]
 
 # Determine output path
-meta_out = args.output if args.output else os.path.splitext(args.meta)[0] + "_6_femaleOnly.csv"
+meta_out = args.output if args.output else os.path.splitext(args.meta)[0] + "_14_ecto.csv"
 
 # Save
-df_filtered.to_csv(meta_out, index=False)
+df.to_csv(meta_out, index=False)
 print(f"✅ Wrote a modified metadata to: {meta_out}")

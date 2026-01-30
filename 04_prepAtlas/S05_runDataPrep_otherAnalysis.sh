@@ -53,23 +53,32 @@ prep_atlas() {
 ## 3/ Keep only cells found in Maria datasets --> correspMariaTissues
 # prep_atlas 3 "correspMariaTissues" 27
 
-## 4/ male only --> maleOnly
+## 4/ male only --> maleOnly (6 groups)
 # prep_atlas 4 "maleOnly" 6
 
-## 5/ all but male only --> allButMaleOnly
-# prep_atlas 5 "allButMaleOnly" 40
+## 5/ female only --> femaleOnly6gp
+prep_atlas 5 "femaleOnly6gp" 6
 
-## 6/ female only --> femaleOnly
-# prep_atlas 6 "femaleOnly" 15
-
-## 7/ all but female only --> allButfemaleOnly
-# prep_atlas 7 "allButfemaleOnly" 31
+## 6/ both sexes --> bothsexes6gp
+prep_atlas 6 "bothsexes6gp" 6
 
 ## 8/ by tissue rather than by cell type --> byTissue
 # prep_atlas 8 "byTissue" 22
 
 ## 9/ only immune cells
-prep_atlas 9 "immuneOnly" 11
+# prep_atlas 9 "immuneOnly" 11
 
-## 8/ all but immune cells
-prep_atlas 10 "noImmune" 35
+## 10/ all but immune cells
+# prep_atlas 10 "noImmune" 35
+
+## 11/ all but immune cells sample only 11 groups
+# prep_atlas 11 "noImmune_sample11groups" 11
+
+## 12/ only the 21 endo groups with >= 3 samples
+# prep_atlas 12 "endo" 21
+
+## 13/ only the 19 meso groups with >= 3 samples
+# prep_atlas 13 "meso" 12                                                                                                                                         
+
+## 14/ only the 6 ecto groups with >= 3 samples
+# prep_atlas 14 "ecto" 6                                                                                                                                         

@@ -398,3 +398,94 @@ Saved filtered matrix to: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/
 ✅ Saved medians and lambdas to TSV: all_medsd_lambda.tsv
 
 🎉 All done.
+✅ Wrote a modified metadata to: /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/SupTab1_Loyfer2023_amended.csv_12_endo.csv
+Found 21 groups with >= 3 samples.
+⚠️ Warning: 44 duplicate sample IDs in beta files; last one wins.
+✅ Loaded 29,401,795 CpG names.
+Pass 1: Computing coverage counts...
+✅ Bladder - Epithelium: median_sd = 0.0582, lambda = 3.6937
+✅ Colon - Endocrine: median_sd = 0.0420, lambda = 4.3199
+✅ Colon - Epithelium: median_sd = 0.0404, lambda = 3.7484
+✅ Endometrium - Epithelium: median_sd = 0.0371, lambda = 4.0217
+✅ Fallopien tubes - Epithelium: median_sd = 0.0308, lambda = 4.4392
+✅ Gastric antrum - Epithelium: median_sd = 0.0318, lambda = 3.7409
+✅ Gastric body - Epithelium: median_sd = 0.0330, lambda = 3.6749
+✅ Gastric fundus - Epithelium: median_sd = 0.0322, lambda = 3.6808
+✅ Kidney glomerular - Podocyte: median_sd = 0.0342, lambda = 4.1011
+✅ Kidney tubular - Epithelium: median_sd = 0.0325, lambda = 5.5689
+✅ Liver - Hepatocyte: median_sd = 0.0453, lambda = 3.6304
+✅ Lung alveolar - Epithelium: median_sd = 0.0285, lambda = 4.0087
+✅ Lung bronchus - Epithelium: median_sd = 0.0304, lambda = 4.3195
+✅ Pancreas - Acinar: median_sd = 0.0456, lambda = 3.0408
+✅ Pancreas - Alpha: median_sd = 0.0341, lambda = 3.4601
+✅ Pancreas - Beta: median_sd = 0.0366, lambda = 3.3549
+✅ Pancreas - Delta: median_sd = 0.0406, lambda = 3.3095
+✅ Pancreas - Duct: median_sd = 0.0378, lambda = 3.5589
+✅ Prostate - Epithelium: median_sd = 0.0395, lambda = 4.6038
+✅ Small intestine - Epithelium: median_sd = 0.0314, lambda = 4.0731
+✅ Thyroid - Epithelium: median_sd = 0.0304, lambda = 3.6489
+✅ Selected 23,972,024 CpGs covered in >= 3 samples in >= 21 datasets.
+Pass 2: Writing filtered matrix (column-wise)...
+
+✅ Validation:
+Matrix shape: 23,972,024 CpGs x 73 samples
+Saved filtered matrix to: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X_12_endo/all_matrix_noscale.h5
+✅ Saved metadata to: sample_metadata.tsv
+✅ Saved medians and lambdas to TSV: all_medsd_lambda.tsv
+
+🎉 All done.
+✅ Wrote a modified metadata to: /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/SupTab1_Loyfer2023_amended.csv_13_meso.csv
+Found 19 groups with >= 3 samples.
+⚠️ Warning: 44 duplicate sample IDs in beta files; last one wins.
+✅ Loaded 29,401,795 CpG names.
+Pass 1: Computing coverage counts...
+✅ Abdominal Subcut. - Adipocytes: median_sd = 0.0356, lambda = 3.1903
+✅ Blood - B cells: median_sd = 0.0351, lambda = 3.7658
+✅ Blood - Granulocytes: median_sd = 0.0295, lambda = 4.0340
+✅ Blood - Monocytes: median_sd = 0.0326, lambda = 3.8701
+✅ Blood - NK: median_sd = 0.0385, lambda = 3.8933
+✅ Blood - T central memory CD4: median_sd = 0.0386, lambda = 3.2941
+✅ Blood - T cytotoxic (CD8+) cells: median_sd = 0.0437, lambda = 3.7744
+✅ Blood - T effector cell CD8: median_sd = 0.0429, lambda = 3.2260
+✅ Blood - T effector memory CD4: median_sd = 0.0432, lambda = 3.0711
+✅ Blood - T helper(CD4+) cells: median_sd = 0.0319, lambda = 3.7493
+✅ Bone marrow - Erythrocyte progenitors: median_sd = 0.0548, lambda = 2.4887
+✅ Heart - Cardiomyocyte: median_sd = 0.0381, lambda = 3.3114
+✅ Heart - Fibroblast: median_sd = 0.0585, lambda = 2.7999
+✅ Kidney glomerular - Endothelium: median_sd = 0.0337, lambda = 4.1858
+✅ Kidney tubular - Endothelium: median_sd = 0.0359, lambda = 3.6262
+✅ Lung alveolar - Endothelium: median_sd = 0.0413, lambda = 4.1668
+✅ Lung interstitial - Macrophages: median_sd = 0.0312, lambda = 4.5342
+✅ Pancreas - Endothelium: median_sd = 0.0458, lambda = 3.0000
+✅ Vascular saphenous - Endothelium: median_sd = 0.0345, lambda = 4.3459
+✅ Selected 26,427,021 CpGs covered in >= 3 samples in >= 12 datasets.
+Pass 2: Writing filtered matrix (column-wise)...
+
+✅ Validation:
+Matrix shape: 26,427,021 CpGs x 60 samples
+Saved filtered matrix to: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X_13_meso/all_matrix_noscale.h5
+✅ Saved metadata to: sample_metadata.tsv
+✅ Saved medians and lambdas to TSV: all_medsd_lambda.tsv
+
+🎉 All done.
+✅ Wrote a modified metadata to: /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/04_prepAtlas/SupTab1_Loyfer2023_amended.csv_14_ecto.csv
+Found 6 groups with >= 3 samples.
+⚠️ Warning: 44 duplicate sample IDs in beta files; last one wins.
+✅ Loaded 29,401,795 CpG names.
+Pass 1: Computing coverage counts...
+✅ Brain - Neuronal: median_sd = 0.0451, lambda = 5.0846
+✅ Brain - Oligodendrocytes: median_sd = 0.0350, lambda = 3.5224
+✅ Breast - Basal epithelial: median_sd = 0.0377, lambda = 4.1562
+✅ Breast - Luminal epithelial: median_sd = 0.0360, lambda = 4.8429
+✅ Tongue - Epithelium: median_sd = 0.0445, lambda = 3.8546
+✅ Tonsil palatine - Epithelium: median_sd = 0.0350, lambda = 3.5254
+✅ Selected 26,150,442 CpGs covered in >= 3 samples in >= 6 datasets.
+Pass 2: Writing filtered matrix (column-wise)...
+
+✅ Validation:
+Matrix shape: 26,150,442 CpGs x 28 samples
+Saved filtered matrix to: /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X_14_ecto/all_matrix_noscale.h5
+✅ Saved metadata to: sample_metadata.tsv
+✅ Saved medians and lambdas to TSV: all_medsd_lambda.tsv
+
+🎉 All done.
