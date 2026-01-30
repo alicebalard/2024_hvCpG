@@ -19,20 +19,14 @@ source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
 ### IV. Test for enrichment in other putative MEs for hvCpGs with alpha > threshold
 
 ## Data in WGBS atlas:
-## from the CS cluster: sample_groups <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/all_matrix_noscale.h5","sample_groups")
-# sample_groups <- readRDS(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/sample_groups.RDS"))
-# 
-# ggplot(data.frame(table(sample_groups)), aes(x = Freq)) +
-#   geom_histogram(bins = 100, fill = "steelblue", color = "white") +
-#   theme_minimal(base_size = 14) +
-#   labs(
-#     title = "Distribution of number of samples per dataset",
-#     x = "Number of samples",
-#     y = "Count of datasets"
-#   ) +
-#   scale_x_continuous(breaks = seq(0, 10, by = 1))
-# 
-# table(sample_groups)
+
+SupTab1_Loyfer2023 <- read.csv("../dataPrev/SupTab1_Loyfer2023.csv")
+
+SupTab1_Loyfer2023$group <- paste(SupTab1_Loyfer2023$Source.Tissue, SupTab1_Loyfer2023$Cell.type, sep = " - ")
+
+table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
+# 3  4  5  6 10 
+# 33  9  2  1  1 
 
 ##############################################
 ## I. Histogram of coverage across datasets ##
