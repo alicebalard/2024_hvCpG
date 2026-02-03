@@ -11,3 +11,4 @@ gitignore
 05_hvCpGalgorithm/resultsDir/Arrays/tissue/
 *.RData
 .RData
+05_hvCpGalgorithm/exploreResults/.Rhistory

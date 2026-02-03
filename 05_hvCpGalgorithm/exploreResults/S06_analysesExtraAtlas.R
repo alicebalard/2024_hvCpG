@@ -265,28 +265,31 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
 ## Sex effect ##
 ################
 
+fullres_Atlas10X_5_femaleOnly6gp
+fullres_Atlas10X_6_bothsexes6gp
+
 ## 1/ male
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_4_vs_5_maleEffect.pdf")))){
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_4_vs_6_maleEffect.pdf")))){
   makeCompPlot(
     X = readRDS(here("gitignore/fullres_Atlas10X_4_maleOnly")),
-    Y = readRDS(here("gitignore/fullres_Atlas10X_5_allButMaleOnly")),
+    Y = readRDS(here("gitignore/fullres_Atlas10X_6_bothsexes6gp")),
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
-    title = "Atlas_4_vs_5_maleEffect",
-    xlab = "Pr(hv) calculated on WGBS atlas males only datasets",
-    ylab = "Pr(hv) calculated on WGBS atlas all but males only datasets")
+    title = "Atlas_4_vs_6_maleEffect",
+    xlab = "Pr(hv) on WGBS atlas with 6 datasets of only males",
+    ylab = "Pr(hv) on WGBS atlas with 6 datasets of mix males/females")
 }
 
 ## 2/ female
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_6_vs_7_femaleEffect.pdf")))){
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_5_vs_6_femaleEffect.pdf")))){
   makeCompPlot(
-    X = readRDS(here("gitignore/fullres_Atlas10X_6_femaleOnly")),
-    Y = readRDS(here("gitignore/fullres_Atlas10X_7_allButfemaleOnly")),
+    X = readRDS(here("gitignore/fullres_Atlas10X_5_femaleOnly6gp")),
+    Y = readRDS(here("gitignore/fullres_Atlas10X_6_bothsexes6gp")),
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
-    title = "Atlas_6_vs_7_femaleEffect",
-    xlab = "Pr(hv) calculated on WGBS atlas females only datasets",
-    ylab = "Pr(hv) calculated on WGBS atlas all but females only datasets")
+    title = "Atlas_5_vs_6_femaleEffect",
+    xlab = "Pr(hv) on WGBS atlas with 6 datasets of only females",
+    ylab = "Pr(hv) on WGBS atlas with 6 datasets of mix males/females")
 }
 
 ################
