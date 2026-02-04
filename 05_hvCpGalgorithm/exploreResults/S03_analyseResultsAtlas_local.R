@@ -21,9 +21,7 @@ source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
 ## Data in WGBS atlas:
 
 SupTab1_Loyfer2023 <- read.csv("../dataPrev/SupTab1_Loyfer2023.csv")
-
 SupTab1_Loyfer2023$group <- paste(SupTab1_Loyfer2023$Source.Tissue, SupTab1_Loyfer2023$Cell.type, sep = " - ")
-
 table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 # 3  4  5  6 10 
 # 33  9  2  1  1 
@@ -216,56 +214,6 @@ Atlas_dt[Atlas_dt$chr == "Y" & Atlas_dt$alpha > 0.7,]
 # High alpha in 3 regions: chrY:5,043,848-6,534,238, chrY:10,107,290-11,747,410, chrY:56,822,399-56,841,336
 
 #####################################################
-## Find regions of high alpha using sliding window ##
-#####################################################
-# 
-# high_alpha_thresh <- 0.7
-# Atlas_dt[, high_alpha := alpha > high_alpha_thresh]
-# 
-# # Function to compute high-alpha fraction in each window
-# find_high_alpha_windows <- function(dt, window_size, step_size) {
-#   res <- list()
-#   for (ch in unique(dt$chr)) {
-#     chr_dt <- dt[chr == ch]
-#     starts <- seq(min(chr_dt$start_pos), max(chr_dt$end_pos), by = step_size)
-#     for (s in starts) {
-#       e <- s + window_size - 1
-#       w <- chr_dt[start_pos >= s & end_pos <= e]
-#       if (nrow(w) > 0) {
-#         frac <- sum(w$high_alpha) / nrow(w)
-#         res[[length(res)+1]] <- data.table(chr = ch, window_start = s, window_end = e, frac_high_alpha = frac)
-#       }
-#     }
-#   }
-#   rbindlist(res)
-# }
-# 
-# # system.time(high_alpha_windows <- find_high_alpha_windows(Atlas_dt, window_size = 100000, step_size = 50000))
-## 100000, 50000: 10 minutes to run
-# saveRDS(object = high_alpha_windows, 
-#         file = here("05_hvCpGalgorithm/runAlgo_myDatasets/exploreResults/high_alpha_windows.RDS"))
-# 
-# # Keep windows where >50% of CpGs have high alpha
-# hotspots <- high_alpha_windows[frac_high_alpha > 0.5]
-# hotspots
-# chr window_start window_end frac_high_alpha
-# <char>        <num>      <num>           <num>
-#   1:      1       517452     617451       1.0000000
-# 2:      3     92911806   93011805       0.6666667
-# 3:      6     32496889   32596888       0.5670498
-# 4:      6     32546889   32646888       0.5853659
-# 5:      6     32596889   32696888       0.5498721
-# 6:      9     61210596   61310595       0.6666667
-# 7:     15     21850602   21950601       0.6000000
-# 8:     16     37260230   37360229       1.0000000
-# 9:     16     37310230   37410229       1.0000000
-
-
-# subAtlasdt <- Atlas_dt[Atlas_dt$chr ==3 & 
-#                          Atlas_dt$start_pos >= 92911806 & 
-#                          Atlas_dt$end_pos <= 93011805,]
-
-#####################################################
 ## III. Test enrichment of features for high alpha ##
 #####################################################
 
@@ -277,124 +225,45 @@ gr_cpg <- GRanges(
 )
 
 # Import bed file
-bed_features <- genomation::readTranscriptFeatures(
-  "~/Documents/Project_hvCpG/hg38_GENCODE_V47.bed")
+bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
 
 # Annotate CpGs and see which regions have higher alpha
 anno_result <- genomation::annotateWithGeneParts(
   target = gr_cpg, feature = bed_features)
-
-anno_result@perc.of.OlapFeat
-# promoter     exon   intron 
-# 96.61240 74.37305 89.72931 
 
 ## Add info from annotation to our GRange object
 gr_cpg$featureType <- ifelse(anno_result@members[, "prom"] == 1, "promoter",
                              ifelse(anno_result@members[, "exon"] == 1, "exon",
                                     ifelse(anno_result@members[, "intron"] == 1, "intron", "intergenic")))
 
-############################
-## find exon-intron junction
-txdb <- txdbmaker::makeTxDbFromGFF("~/Documents/Project_hvCpG/gencode.v38.annotation.gtf", format = "gtf")
-
-exons <- GenomicFeatures::exons(txdb)
-introns <- GenomicFeatures::intronsByTranscript(txdb)
-
-# Flatten intron list
-introns_flat <- unlist(introns, use.names = FALSE)
-
-# Define a small window (±25 bp) around exon–intron boundaries
-junction_window <- 25
-
-# Create exon-intron junction regions (exon ends + intron starts)
-exon_ends <- resize(exons, width = 1, fix = "end")
-intron_starts <- resize(introns_flat, width = 1, fix = "start")
-
-# Combine and expand around the junction
-junctions <- suppressWarnings(reduce(c(
-  flank(exon_ends, width = junction_window, both = TRUE),
-  flank(intron_starts, width = junction_window, both = TRUE)
-)))
-
-# Identify CpGs overlapping exon–intron junctions
-is_junction <- countOverlaps(gr_cpg, junctions) > 0
-region_type[is_junction] <- "ex-intr junction"
-
-# add annotation to GRanges object
-gr_cpg$preciseFeatureType <- region_type
-
-## check that the only diff is ex-intr junction
-table(gr_cpg[gr_cpg$featureType != gr_cpg$preciseFeatureType,]$preciseFeatureType) 
-
-#########################################################################
-## Find the first promoter and the first exon by absolute distance to TSS
-gr_cpg$dist2TSS <- anno_result@dist.to.TSS$dist.to.feature
-gr_cpg$TSSname <- anno_result@dist.to.TSS$feature.name
-
-mcols(gr_cpg) <- mcols(gr_cpg) %>% as.data.frame() %>% 
-  dplyr::group_by(TSSname, featureType) %>% 
-  dplyr::mutate(pos = min_rank(abs(dist2TSS))) %>% data.frame()
-
-mcols(gr_cpg) <- mcols(gr_cpg) %>% as.data.frame() %>% 
-  mutate(
-    preciseFeatureType = case_when(
-      featureType == "promoter" & pos == 1 ~ "first promoter",
-      featureType == "exon" & pos == 1 ~ "first exon",
-      TRUE ~ as.character(preciseFeatureType)  # keep existing otherwise
-    )
-  )
-
-mcols(gr_cpg) %>% as.data.frame() %>%
-  dplyr::group_by(preciseFeatureType) %>%
-  dplyr::summarise(meanAlpha = mean(alpha),
-                   medianAlpha = median(alpha))
-# preciseFeatureType meanAlpha medianAlpha
-# <chr>                  <dbl>       <dbl>
-# 1 ex-intr junction       0.128      0.0476 ********* The lowest! Very conserved
-# 2 exon                   0.148      0.0703
-# 3 first exon             0.169      0.0994
-# 4 first promoter         0.163      0.0784
-# 5 intergenic             0.196      0.121 ********* The higghest
-# 6 intron                 0.158      0.0755
-# 7 promoter               0.147      0.0591
-
-mcols(gr_cpg) %>% as.data.frame() %>%
-  dplyr::group_by(featureType) %>%
-  dplyr::summarise(meanAlpha = mean(alpha),
-                   medianAlpha = median(alpha))
-# featureType meanAlpha medianAlpha
-# <chr>           <dbl>       <dbl>
-# 1 exon            0.148      0.0710
-# 2 intergenic      0.196      0.121 ********* The higghest
-# 3 intron          0.158      0.0755
-# 4 promoter        0.147      0.0587 ********* The lowest
-
-
 ## Kruskal–Wallis test: are the groups different in alpha values?
-kruskal.test(alpha ~ preciseFeatureType, data = mcols(gr_cpg))
-# Kruskal-Wallis chi-squared = 256663, df = 6, p-value < 2.2e-16
+kruskal.test(alpha ~ featureType, data = mcols(gr_cpg))
+# Kruskal-Wallis rank sum test
+# 
+# data:  alpha by featureType
+# Kruskal-Wallis chi-squared = 251527, df = 3, p-value < 2.2e-16
 
 ## Post-hoc pairwise comparison
 pairwise_results <- pairwise.wilcox.test(
   mcols(gr_cpg)$alpha,
-  mcols(gr_cpg)$preciseFeatureType,
+  mcols(gr_cpg)$featureType,
   p.adjust.method = "fdr"
 )
 pairwise_results
+
 # Pairwise comparisons using Wilcoxon rank sum test with continuity correction 
-#                 ex-intr junction  exon    first exon first promoter intergenic intron 
-#   exon           < 2e-16          -       -          -              -          -      
-#   first exon     < 2e-16          < 2e-16 -          -              -          -      
-#   first promoter < 2e-16          3.5e-05 < 2e-16    -              -          -      
-#   intergenic     < 2e-16          < 2e-16 < 2e-16    < 2e-16        -          -      
-#   intron         < 2e-16          < 2e-16 < 2e-16    < 2e-16        < 2e-16    -      
-#   promoter       < 2e-16          < 2e-16 < 2e-16    < 2e-16        < 2e-16    < 2e-16
 # 
+# data:  mcols(gr_cpg)$alpha and mcols(gr_cpg)$featureType 
+# 
+# exon   intergenic intron
+# intergenic <2e-16 -          -     
+#   intron     <2e-16 <2e-16     -     
+#   promoter   <2e-16 <2e-16     <2e-16
 # P value adjustment method: fdr 
 
 # visualize methylation levels by region
 pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesbyAlpha.pdf"), width = 6, height = 4)
-ggplot(mcols(gr_cpg), aes(x = preciseFeatureType, y = alpha, fill = preciseFeatureType)) +
+ggplot(mcols(gr_cpg), aes(x = featureType, y = alpha, fill = featureType)) +
   geom_violin()+
   geom_boxplot(outlier.size = 0.5, alpha = 0.8, width = .3) +
   theme_minimal(base_size = 14) +

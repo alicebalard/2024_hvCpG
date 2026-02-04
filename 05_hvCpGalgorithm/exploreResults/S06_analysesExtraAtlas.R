@@ -73,7 +73,9 @@ table(WGBS_Array_datasets[WGBS_Array_datasets$assay %in% "atlas", "Germ.layer"])
 # ectoderm endoderm mesoderm 
 # 6       21       19 
 
-## What is the overlap for different alpha?
+##############################################
+## What is the overlap for different alpha? ##
+##############################################
 
 library(ggVennDiagram)
 library(ggplot2)
@@ -229,6 +231,27 @@ plot <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
 pdf(here("05_hvCpGalgorithm/figures/topCpGsEnrichME.pdf"), width = 12, height = 6)
 plot
 dev.off()
+
+#######################################
+## Save intersection for alpha > 90% ##
+#######################################
+
+# 1) Overlap among all names (unfiltered)
+sets_unfilt <- lapply(list(endo, ecto, meso, allLayers), function(df) df$name)
+overlap <- Reduce(intersect, sets_unfilt)
+
+message(paste0("There are ", length(overlap), " overlapping CpGs between these groups (unfiltered)."))
+# There are 17474840 overlapping CpGs between these groups (unfiltered).
+
+# 2) Apply cutoff AND keep only overlapping names (so sets are comparable on the same universe)
+sets <- lapply(list(endo, ecto, meso, allLayers),
+               function(df) df$name[df$alpha >= 0.9 & df$name %in% overlap])
+
+# 3) Select the intersection
+topIntersect90 <- Reduce(intersect, sets)
+
+saveRDS(overlap, file = here("gitignore/overlapLayers.RDS"))
+saveRDS(topIntersect90, file = here("gitignore/topIntersect90.RDS"))
 
 #####################
 ## 2_rmMultSamples ## 
