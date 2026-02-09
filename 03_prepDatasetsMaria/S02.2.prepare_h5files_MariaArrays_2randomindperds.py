@@ -18,9 +18,9 @@ import h5py
 import bottleneck as bn
 
 # --- PARAMETERS ---
-folder1 = "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
+folder1 = "/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
 folder2 = "/home/alice/tempRDS/"
-output_folder = "/home/alice/arraysh5_3ind"
+output_folder = "/home/alice/arraysh5_2ind"
 os.makedirs(output_folder, exist_ok=True)
 
 output_path = os.path.join(output_folder, "all_matrix_noscale.h5")
