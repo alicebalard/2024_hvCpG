@@ -229,6 +229,9 @@ annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
   pos <- as.integer(sub(".*_", "", CpGs))
   gr  <- GRanges(chr, IRanges(pos, pos))
   
+  # Trim to seqinfo bounds to avoid out-of-bound warnings
+  gr <- GenomicRanges::trim(gr)
+  
   txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
   genes_txdb <- GenomicFeatures::genes(txdb)
   promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window, downstream = tss_window)
