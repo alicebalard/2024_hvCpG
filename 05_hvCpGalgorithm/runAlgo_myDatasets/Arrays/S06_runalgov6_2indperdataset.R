@@ -24,5 +24,5 @@ system.time(hyperVarMeth::runAndSave_fast(
     NCORES = 30,
     p0 = 0.80,
     p1 = 0.65,
-    batch_size = 10000)
+    batch_size = 10000, minind = 2) ### Important!
     )
