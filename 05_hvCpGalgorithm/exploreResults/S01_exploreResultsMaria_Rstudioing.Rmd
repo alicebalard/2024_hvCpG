@@ -19,16 +19,16 @@ invisible(lapply(
 ```{r}
 ##########################################################################################
 ## LSHTM: Maria’s data that she used for the hvCpG paper can be accessed from ing-p5 here:
-# /mnt/old_user_accounts/p3/maria/PhD/Data/datasets/
+# /mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/
 #   
 # Her hvCpG scripts are here:
-# /mnt/old_user_accounts/p3/maria/PhD/Projects/hvCpGs/Scripts/
+# /mnt/sod/old_user_accounts/p3/maria/PhD/Projects/hvCpGs/Scripts/
 
 ## Load results of Maria for hvCpG
 Marias_hvCpGs <- read.csv("~/2024_hvCpG/03_prepDatasetsMaria/Derakhshan2022_ST5_hvCpG.txt")
 
 ## Recreate Maria's datasets
-folder1 <- normalizePath("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/")
+folder1 <- normalizePath("/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/")
 rds_files1 <- list.files(path = folder1, pattern = "\\.RDS$", full.names = TRUE)
 
 # Read all .rds files into a list and convert each to a matrix
@@ -36,7 +36,7 @@ rds_list_mat1 <- lapply(rds_files1, function(file) {as.matrix(readRDS(file))})
 ## Name the list elements by file names (without extensions)
 names(rds_list_mat1) <- gsub("\\.RDS$", "", basename(rds_files1))
 
-rds_list_mat2 <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/TCGA/TCGA_BMIQ_age_sex_PC_adjusted_OUTLIERS_REMOVED_round2.RDS")
+rds_list_mat2 <- readRDS("/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/TCGA/TCGA_BMIQ_age_sex_PC_adjusted_OUTLIERS_REMOVED_round2.RDS")
 rds_list_mat2 <- lapply(rds_list_mat2, as.matrix)
 
 rds_list_mat <- c(rds_list_mat1, rds_list_mat2) ; rm(rds_list_mat1, rds_list_mat2)
@@ -164,7 +164,27 @@ x <- list("Full array" = hvCpGs_repro_maria$cpgs,
 p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
 p
 # 2D Venn diagram
-ggsave("../../figures/arrayCutoffLowPower3ind.pdf", plot = p, width = 5, height = 5)
+ggsave("../../../2024_hvCpG/05_hvCpGalgorithm/figures/arrayCutoffLowPower3ind.pdf", plot = p, width = 5, height = 5)
+
+
+## And what about 2?
+# Keep 2 random columns per element
+rds_list_mat_2ind <- lapply(rds_list_mat, function(df) {
+  cols <- sample(ncol(df), 2)   # choose 2 random columns
+  df[, cols, drop = FALSE]      # subset while keeping data.frame
+})
+
+hvCpGs_repro_maria_2ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_2ind)
+
+## Plot 
+# List of items
+x <- list("Full array" = hvCpGs_repro_maria$cpgs, 
+          "Array 2ind/ds" = hvCpGs_repro_maria_2ind$cpg)
+
+p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
+p
+# 2D Venn diagram
+ggsave("../../../2024_hvCpG/05_hvCpGalgorithm/figures/arrayCutoffLowPower2ind.pdf", plot = p, width = 5, height = 5)
 ```
 
 # Identify hvCpGs based on a sd multiplicative factor lambda
