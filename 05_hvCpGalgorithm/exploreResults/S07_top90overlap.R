@@ -126,6 +126,7 @@ print(paste0("Gene universe contains ", length(universe), " genes"))
 resAnnot_topIntersect90 <- CpG_GO_pipeline(
   topIntersect90, universe = universe, 
   max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000)
+## Reduced from 174494 to 6906 clustered CpGs
 
 df_all <- purrr::imap_dfr(resAnnot_topIntersect90, function(er, ont_name) {
   if (is.null(er) || nrow(er@result) == 0) return(tibble())
@@ -154,7 +155,8 @@ df_sig <- df_sig |>
 # Plot
 p <- ggplot(df_sig, aes(x = group, y = Description)) +
   geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
-  scale_size_continuous(name = "Fold Enrichment", range = c(1.5, 8)) +
+  scale_size_continuous(name = "Fold Enrichment", 
+                        range = c(1.5, 8), breaks = c(2, 2.5, 3, 3.5)) +  
   scale_color_viridis_c(name = "FDR", option = "plasma", direction = -1) +
   facet_wrap(ontology ~ ., scales = "free", space = "free_x") +
   theme_bw(base_size = 11) +
