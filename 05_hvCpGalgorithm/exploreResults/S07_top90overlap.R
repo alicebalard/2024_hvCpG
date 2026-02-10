@@ -10,9 +10,30 @@ if (!exists("functionsLoaded")) {
   source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
 }
 
+## Add previous MEs including Maria's results
+source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+
 ## Read vectors saved in R06
 overlapLayers <- readRDS(here("gitignore/overlapLayers.RDS"))
 topIntersect90 <- readRDS(here("gitignore/topIntersect90.RDS"))
+
+###################################################################################################
+## Extract high alpha for test in 05_hvCpGalgorithm/exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
+###################################################################################################
+length(topIntersect90) # 174494
+
+## Map on arrays
+matches <- match(x = topIntersect90, table = dico$chrpos_hg38)
+
+Pos <- dico[na.omit(matches), ]
+
+table(Pos$array)
+# 450k    450k and EPIC      EPIC 
+# 49          592          514 
+# 49+592 = 641 on the 450k array
+# 592+514 = 1106 on the EPIC array
+
+saveRDS(Pos, here("05_hvCpGalgorithm/exploreResults/fetalSIV/topIntersect90_pos.RDS"))
 
 #################################
 ## Test enrichment of features ##

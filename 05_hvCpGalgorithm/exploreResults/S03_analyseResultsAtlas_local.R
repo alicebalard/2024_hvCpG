@@ -87,7 +87,32 @@ if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
   stop("stop here to only prepare atlas_dt")
 }
 
-plotManhattanFromdt(Atlas_dt)
+###################################################################################################
+## Extract high alpha for test in 05_hvCpGalgorithm/exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
+###################################################################################################
+
+table(Atlas_dt$alpha >= 0.7)
+# FALSE     TRUE 
+# 22335423   700603 
+
+## Map on arrays
+matches <- match(
+  x = unlist(Atlas_dt[Atlas_dt$alpha >= 0.7, "name"]),
+  table = dico$chrpos_hg38)
+
+highAlphaPos <- dico[na.omit(matches), ]
+
+table(highAlphaPos$array)
+# 450k    450k and EPIC      EPIC 
+# 340          4483          3431 
+# 4483+340 = 4823 on the 450k array
+# 4483+3431 = 7914 on the EPIC array
+
+saveRDS(highAlphaPos, here("05_hvCpGalgorithm/exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
+
+####################
+## Plot Manhattan ##
+####################
 
 # Save as PDF — rasterization improves performance and file size
 CairoPDF(here("05_hvCpGalgorithm/figures/Manhattan/ManhattanAlphaPlot_previoushvCpGplotted_atlas.pdf"), width = 15, height = 3)
