@@ -227,6 +227,6 @@ final_plot <- plot_grid(p1, plot_grid(p2, p3, ncol = 1, align = "v"),
                         ncol = 2, rel_widths = c(.7, 1))
 
 pdf(here("05_hvCpGalgorithm/figures/intercorrelationSIVfetal.pdf"),
-    width = 10, height = 7)
+    width = 12, height = 7)
 final_plot
 dev.off()
