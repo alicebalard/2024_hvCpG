@@ -114,6 +114,42 @@ saveRDS(highAlphaPos, here("05_hvCpGalgorithm/exploreResults/fetalSIV/highAlphaP
 ## Plot Manhattan ##
 ####################
 
+# Compute chromosome centers for x-axis labeling
+df2 <- Atlas_dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
+df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
+             df2, by = "chr", all.x = TRUE, sort = TRUE)
+df2 <- na.omit(df2)
+
+# Compute chromosome boundaries
+df_bounds <- Atlas_dt[, .(min_pos = min(pos2, na.rm = TRUE), 
+                          max_pos = max(pos2, na.rm = TRUE)), by = chr]
+
+# Midpoints between chromosomes = where to draw dotted lines
+df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
+vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
+
+plot <- ggplot() +
+  # background cloud
+  geom_point_rast(data = Atlas_dt[is.na(group)], 
+                  aes(x = pos2, y = alpha),
+                  color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
+  # hvCpG highlights
+  geom_point(data = Atlas_dt[group == "hvCpG_Derakhshan"],
+             aes(x = pos2, y = alpha),
+             color = "#DC3220", size = 1, alpha = 0.7) +
+  # mQTL controls highlights
+  geom_point(data = Atlas_dt[group == "mQTLcontrols"],
+             aes(x = pos2, y = alpha),
+             color = "#005AB5", size = 1, alpha = 0.7) +
+  # Add dotted separators
+  geom_vline(data = vlines, aes(xintercept = xintercept),
+             linetype = 3, color = "grey60") +
+  theme_classic() + theme(legend.position = "none") +
+  scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
+  theme_minimal(base_size = 14)
+
 # Save as PDF — rasterization improves performance and file size
 CairoPDF(here("05_hvCpGalgorithm/figures/Manhattan/ManhattanAlphaPlot_previoushvCpGplotted_atlas.pdf"), width = 15, height = 3)
 print(plot)

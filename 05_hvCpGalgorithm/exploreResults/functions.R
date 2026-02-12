@@ -21,7 +21,6 @@ prepAtlasdt <- function(dir = "Atlas10X"){
     name =   sub("-[0-9]+$", "", names(all_cpg_values)), # just keep the C position instead of C + 1
     alpha = as.numeric(all_cpg_values)
   )
-  
   #######################################################################
   # Parse "chr_pos" in name into chr, start_pos, end_pos. NB: takes a couple of minutes
   dt[, c("chr", "pos") := tstrsplit(name, "_", fixed = TRUE)]
@@ -70,7 +69,7 @@ plotManhattanFromdt <- function(dt, transp = 0.01){
   
   # Compute chromosome boundaries
   df_bounds <- dt[, .(min_pos = min(pos2, na.rm = TRUE), 
-                                max_pos = max(pos2, na.rm = TRUE)), by = chr]
+                      max_pos = max(pos2, na.rm = TRUE)), by = chr]
   
   # Midpoints between chromosomes = where to draw dotted lines
   df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]

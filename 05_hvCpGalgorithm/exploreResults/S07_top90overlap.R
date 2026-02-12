@@ -190,3 +190,90 @@ p <- ggplot(df_sig, aes(x = group, y = Description)) +
   )
 
 print(p)
+
+################################
+## Genomic positions of top90 ##
+################################
+## Reload if needed
+# system.time(Atlas_dt <- prepAtlasdt("Atlas10X"))
+# nrow(Atlas_dt) # 23036026
+
+topIntersect90_dt <- Atlas_dt[name %in% topIntersect90]
+head(topIntersect90_dt)
+
+# Compute chromosome centers for x-axis labeling
+df2 <- topIntersect90_dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
+df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
+             df2, by = "chr", all.x = TRUE, sort = TRUE)
+df2 <- na.omit(df2)
+
+# Compute chromosome boundaries
+df_bounds <- topIntersect90_dt[, .(min_pos = min(pos2, na.rm = TRUE), 
+                          max_pos = max(pos2, na.rm = TRUE)), by = chr]
+
+# Midpoints between chromosomes = where to draw dotted lines
+df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
+vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
+
+
+global_dens <- density(topIntersect90_dt$pos2, na.rm = TRUE)
+global_df <- data.frame(x = global_dens$x, y = global_dens$y)
+
+ggplot() +
+  geom_line(data = global_df,
+            aes(x = x, y = y),
+            color = "darkred", linewidth = 0.7) +
+  geom_vline(data = vlines,
+             aes(xintercept = xintercept),
+             linetype = 3, color = "grey60") +
+  scale_x_continuous(breaks = df2$center,
+                     labels = as.character(df2$chr),
+                     expand = c(0, 0)) +
+  labs(x = "Chromosome", y = "CpG density") +
+  theme_minimal(base_size = 14)
+
+######################################
+## Test proximity to specific genes ##
+######################################
+topIntersect90_GR <- makeGRfromMyCpGPos(vec = topIntersect90, setname = "topIntersect90")
+bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
+
+ens = "ENSG00000103126"
+
+# Axin (human) as a GRanges
+gr_axin <- c(bed_features$promoters[grep(ens, bed_features$promoters$name)],
+             bed_features$exons[grep(ens, bed_features$exons$name)],
+             bed_features$introns[grep(ens, bed_features$introns$name)],
+             bed_features$TSSes[grep(ens, bed_features$TSSes$name)])
+"ENST00000429538.8"
+287440..352723, complement)
+gr_totest = topIntersect90_GR
+gr_gene = gr_PAX8
+
+# Find overlaps between CpGs and the gene region
+hits <- findOverlaps(gr_totest, gr_gene)
+
+# Extract matching rows from original df
+df_hits <- gr_totest[queryHits(hits), ]
+
+# Add all annotations
+df_hits <- Atlas_dt[match(paste0(df_hits@seqnames, "_", df_hits@ranges), Atlas_dt$name)]
+
+# Determine limits and breaks
+x_min <- floor(min(df_hits$pos) / 5000) * 5000
+x_max <- ceiling(max(df_hits$pos) / 5000) * 5000
+breaks_seq <- seq(x_min, x_max, by = 5000)
+
+ggplot(df_hits, aes(x = pos, y = alpha)) +
+  geom_smooth(col = "black") +
+  geom_point(aes(fill = region_type), pch = 21) +
+  theme_minimal(base_size = 14) +
+  ylab("p(hv)") +
+  scale_x_continuous(
+    breaks = breaks_seq,
+    labels = function(x) paste0(formatC(x / 1000, format = "f", digits = 0), "k")
+  ) +
+  xlab("Genomic position (chr2)") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
