@@ -170,7 +170,44 @@ pdf(here("05_hvCpGalgorithm/figures/arrayfullvsred3ind_myalgo"), width = 9, heig
 p1
 dev.off()
 
-## What cutoff to get the same number of sites than Maria?
+###########################################################
+## Load full results on array with only 2 individuals/ds ##
+###########################################################
+
+resArray2ind <- as.data.frame(readRDS(here("05_hvCpGalgorithm/resultsDir/Arrays/results_Arrays_2indperds_394240CpGs_0_8p0_0_65p1.rds")))
+
+resArray2ind <- prepareChrDataset(resArray2ind)
+
+names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_2ind"
+resCompArray2 <- dplyr::left_join(resArray2ind, resArrayAll)
+names(resCompArray2)[names(resCompArray2) %in% "alpha"] <- "alpha_array_all"
+
+p1 <- ggplot(resCompArray2, 
+             aes(x=alpha_array_all, y=alpha_array_2ind, fill = group, col = group)) +
+  geom_point(data = resCompArray2[is.na(resCompArray2$group),],
+             pch = 21, alpha = 0.05) +
+  geom_point(data = resCompArray2[!is.na(resCompArray2$group),],
+             pch = 21, alpha = 0.4) +
+  geom_smooth(method = "lm", fill = "black") +
+  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"),
+                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
+  theme_minimal(base_size = 14) +
+  theme(legend.box = "horizontal", legend.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+        legend.key = element_rect(fill = "white", color = NA)) +
+  coord_cartesian(xlim = c(0,1), ylim = c(0,1))+
+  labs(title = "Probability of being hypervariable",
+       x = "P(hv) using full array datasets",
+       y = "P(hv) using reduced (2 ind/ds) array datasets") 
+
+pdf(here("05_hvCpGalgorithm/figures/arrayfullvsred2ind_myalgo"), width = 9, height = 7)
+p1
+dev.off()
+
+#############################################################
+## What cutoff to get the same number of sites than Maria? ##
+#############################################################
 poscutoff = 0.94
 negcutoff = 0.5
 

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 dataset,assay,immuno,mitosis_rate
 Abdominal Subcut. - Adipocytes,atlas,FALSE,low
 Bladder - Epithelium,atlas,FALSE,high
@@ -75,3 +76,82 @@ prostate,Array,FALSE,moderate
 bladder,Array,FALSE,high
 breast,Array,FALSE,moderate
 uterus,Array,FALSE,high
+=======
+dataset,Germ layer,assay,median_sd,lambda,immuno
+Abdominal Subcut. - Adipocytes,mesoderm,atlas,0.0356257185339928,3.19029352708705,FALSE
+Bladder - Epithelium,endoderm,atlas,0.0581541545689106,3.69366234062069,FALSE
+Blood - B cells,mesoderm,atlas,0.0351007506251335,3.76584489156878,TRUE
+Blood - Granulocytes,mesoderm,atlas,0.0295138582587242,4.0340154944749,TRUE
+Blood - Monocytes,mesoderm,atlas,0.0326159447431564,3.87009478627516,TRUE
+Blood - NK,mesoderm,atlas,0.0384961888194084,3.89330618085878,TRUE
+Blood - T central memory CD4,mesoderm,atlas,0.0386066995561123,3.29409700883117,TRUE
+Blood - T cytotoxic (CD8+) cells,mesoderm,atlas,0.0437461286783218,3.77436076877039,TRUE
+Blood - T effector cell CD8,mesoderm,atlas,0.0429323241114616,3.22597187675224,TRUE
+Blood - T effector memory CD4,mesoderm,atlas,0.0432180128991604,3.07112302668842,TRUE
+Blood - T helper(CD4+) cells,mesoderm,atlas,0.0319174043834209,3.74930244919239,TRUE
+Bone marrow - Erythrocyte progenitors,mesoderm,atlas,0.054763063788414,2.48869583223472,FALSE
+Brain - Neuronal,ectoderm,atlas,0.0450899302959442,5.08456775660011,FALSE
+Brain - Oligodendrocytes,ectoderm,atlas,0.0349990986287594,3.52238355746498,FALSE
+Breast - Basal epithelial,ectoderm,atlas,0.0376847758889198,4.15624309381342,FALSE
+Breast - Luminal epithelial,ectoderm,atlas,0.0360291823744774,4.84292049535181,FALSE
+Colon - Endocrine,endoderm,atlas,0.0419543571770191,4.31994460682379,FALSE
+Colon - Epithelium,endoderm,atlas,0.0403517186641693,3.74839971668689,FALSE
+Endometrium - Epithelium,endoderm,atlas,0.0371165238320828,4.02173292205435,FALSE
+Fallopien tubes - Epithelium,endoderm,atlas,0.0307600423693657,4.43915107581536,FALSE
+Gastric antrum - Epithelium,endoderm,atlas,0.031777486205101,3.7409075562554,FALSE
+Gastric body - Epithelium,endoderm,atlas,0.0330316610634327,3.67492480152803,FALSE
+Gastric fundus - Epithelium,endoderm,atlas,0.032211396843195,3.68076000490823,FALSE
+Heart - Cardiomyocyte,mesoderm,atlas,0.0381443947553635,3.31143200302208,FALSE
+Heart - Fibroblast,mesoderm,atlas,0.0585122779011726,2.79985030658754,FALSE
+Kidney glomerular - Endothelium,mesoderm,atlas,0.0336717627942562,4.18584342098057,FALSE
+Kidney glomerular - Podocyte,endoderm,atlas,0.034195963293314,4.10113435407442,FALSE
+Kidney tubular - Endothelium,mesoderm,atlas,0.0358783416450024,3.62623078617122,FALSE
+Kidney tubular - Epithelium,endoderm,atlas,0.032510656863451,5.5689403006504,FALSE
+Liver - Hepatocyte,endoderm,atlas,0.0452794395387173,3.63037133162758,FALSE
+Lung alveolar - Endothelium,mesoderm,atlas,0.0412983261048794,4.1668078335296,FALSE
+Lung alveolar - Epithelium,endoderm,atlas,0.0284888483583927,4.0087030692847,FALSE
+Lung bronchus - Epithelium,endoderm,atlas,0.0303655713796616,4.31946585507206,FALSE
+Lung interstitial - Macrophages,mesoderm,atlas,0.0312454272061586,4.53418711598931,TRUE
+Pancreas - Acinar,endoderm,atlas,0.0455897599458695,3.04079341011552,FALSE
+Pancreas - Alpha,endoderm,atlas,0.0341070964932442,3.46010599686266,FALSE
+Pancreas - Beta,endoderm,atlas,0.0366414412856102,3.35487441771753,FALSE
+Pancreas - Delta,endoderm,atlas,0.0406150557100773,3.30954574634619,FALSE
+Pancreas - Duct,endoderm,atlas,0.0378121398389339,3.55891740776635,FALSE
+Pancreas - Endothelium,mesoderm,atlas,0.0458400137722492,3.00002715950357,FALSE
+Prostate - Epithelium,endoderm,atlas,0.0395401492714882,4.60384948979544,FALSE
+Small intestine - Epithelium,endoderm,atlas,0.0314057245850563,4.07313997777095,FALSE
+Thyroid - Epithelium,endoderm,atlas,0.0303968228399754,3.64886768138331,FALSE
+Tongue - Epithelium,ectoderm,atlas,0.0445251017808914,3.85457380099055,FALSE
+Tonsil palatine - Epithelium,ectoderm,atlas,0.0350466854870319,3.52540704372862,FALSE
+Vascular saphenous - Endothelium,mesoderm,atlas,0.0344919078052044,4.34586278578195,FALSE
+Blood_Mexican,,Array,0.013190807,3.2131572,TRUE
+Blood_Cauc,,Array,0.017323535,5.0769672,TRUE
+Blood_PuertoRican,,Array,0.013831088,3.2669864,TRUE
+Saliva_Ken,,Array,0.011424523,4.5440474,FALSE
+Skin_UKTwin,,Array,0.016715823,2.516682,FALSE
+BulkFrontalCortex,,Array,0.017361978,4.8999386,FALSE
+Saliva_Born,,Array,0.011682833,4.200635,FALSE
+Buccals_Cauc,,Array,0.017713372,3.220444,FALSE
+PBMC_AfricanAmerican,,Array,0.012895399,3.4579349,TRUE
+Buccals_Sing_9mo,,Array,0.014977777,4.18401,FALSE
+Blood_Japan,,Array,0.015128483,3.2458723,TRUE
+Placenta,,Array,0.022252262,4.994543,FALSE
+CD4+_Estonian,,Array,0.016151648,2.6740608,TRUE
+Saliva_Hisp,,Array,0.014812476,3.2444332,FALSE
+Blood_Hisp,,Array,0.013952672,4.8655705,TRUE
+Blood_Gamb,,Array,0.00984534,5.109188,TRUE
+Saliva_Cauc,,Array,0.016713724,3.3665302,FALSE
+SuperiorTemporalGyrus,,Array,0.014962956,2.3478441,FALSE
+CordBlood,,Array,0.011992155,2.9670265,TRUE
+CD8+_Estonian,,Array,0.01854233,2.6284866,TRUE
+head and neck,,Array,0.015073507,4.3255844,FALSE
+kidney,,Array,0.01131898,4.4279404,FALSE
+colon,,Array,0.012640154,3.8456717,FALSE
+liver,,Array,0.013115781,4.355046,FALSE
+thyroid,,Array,0.011129934,5.007943,FALSE
+lung,,Array,0.010745329,4.485483,FALSE
+prostate,,Array,0.013675304,4.9651885,FALSE
+bladder,,Array,0.0097323265,4.356458,FALSE
+breast,,Array,0.015797267,3.8669198,FALSE
+uterus,,Array,0.010937844,5.41846,FALSE
+>>>>>>> 0760b0e99a2cb29fdbd282f48c98067e569c07bd

@@ -15,6 +15,27 @@ if (!exists("resCompArray")) {
   source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))
 }
 
+###########################################
+## Prepare putative MEs GRanges objects
+HarrisSIV_hg38_GR <- makeGRfromMyCpGPos(HarrisSIV_hg38, "HarrisSIV")
+
+VanBaakESS_hg38_GR <- makeGRfromMyCpGPos(VanBaakESS_hg38, "VanBaakESS")
+
+KesslerSIV_GRanges_hg38$set <- "KesslerSIV"
+
+corSIV_GRanges_hg38$set <- "Gunasekara 2019 corSIV"
+
+DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "hvCpG Derakhshan 2022")
+
+putativeME_GR <- c(HarrisSIV_hg38_GR, VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
+                   corSIV_GRanges_hg38, DerakhshanhvCpGs_hg38_GR)
+putativeME_GR$genome <- "hg38"
+
+## Save for paleo project
+# saveRDS(putativeME_GR, "../../../2025_paleoMethylVar/gitignore/putativeME_GR.RDS")
+# 
+# putativeME_GR <- readRDS("/path/to/putativeME_GR.RDS")
+
 ##################################
 ## Save all data in RDS objects ##
 ##################################
@@ -37,20 +58,197 @@ for (file in list.files(here("05_hvCpGalgorithm/resultsDir/Atlas/"))){
   }
 }
 
-##################
-## 1_byDevLayer ## --> not very useful
-##################
+#######################################
+## 1 one run per developmental layer ##
+#######################################
 
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_1_byDevLayer.pdf")))){
-  makeCompPlot(
-    X = readRDS(here::here("gitignore/fullres_Atlas10X")),
-    Y = readRDS(here::here("gitignore/fullres_Atlas10X_1_byDevLayer")),
-    whichAlphaX = "alpha",
-    whichAlphaY = "alpha",          
-    title = "Atlas_0_vs_1_byDevLayer",
-    xlab = "Pr(hv) calculated on WGBS atlas datasets",
-    ylab = "Pr(hv) calculated on WGBS atlas datasets cut in 3 groups (germ layers)")
+endo = readRDS(here::here("gitignore/fullres_10X_12_endo"))
+meso = readRDS(here::here("gitignore/fullres_10X_13_meso"))
+ecto = readRDS(here::here("gitignore/fullres_10X_14_ecto"))
+allLayers = readRDS(here::here("gitignore/fullres_Atlas10X"))
+
+WGBS_Array_datasets <- read.csv(here("05_hvCpGalgorithm/figures/WGBS_Array_datasets.csv"))
+
+table(WGBS_Array_datasets[WGBS_Array_datasets$assay %in% "atlas", "Germ.layer"])
+# ectoderm endoderm mesoderm 
+# 6       21       19 
+
+##############################################
+## What is the overlap for different alpha? ##
+##############################################
+
+# Compute overlap across any number of groups and plot a Venn diagram
+plotMyVenn <- function(cutoff, ...) {
+  groups <- list(...)                         # list of data.frames (each has name, alpha)
+  
+  # 1) Overlap among all names (unfiltered)
+  sets_unfilt <- lapply(groups, function(df) df$name)
+  overlap <- Reduce(intersect, sets_unfilt)
+  
+  message(paste0("There are ", length(overlap), " overlapping CpGs between these groups (unfiltered)."))
+  
+  # 2) Apply cutoff AND keep only overlapping names (so sets are comparable on the same universe)
+  sets <- lapply(groups, function(df) df$name[df$alpha >= cutoff & df$name %in% overlap])
+  
+  # 3) Optional: add names to sets if you passed named arguments
+  if (!is.null(dots <- match.call(expand.dots = FALSE)$...) && length(names(dots))) {
+    nm <- names(dots)
+    if (any(nzchar(nm))) names(sets) <- ifelse(nzchar(nm), nm, paste0("group", seq_along(sets)))
+  }
+  
+  # 4) Plot
+  p <- ggVennDiagram(sets, label_alpha = 0) +
+    scale_fill_gradient2(low = "white", mid = "yellow", high = "red") +
+    ggtitle(paste0("Pr(hv) ≥ ", cutoff), 
+            subtitle = paste0("Sequenced CpGs N = ", length(overlap)))
+  
+  return(p)
 }
+
+p1 <- plotMyVenn(0.5, endo = endo, meso = meso, ecto = ecto, all = allLayers)
+p2 <- plotMyVenn(0.75, endo = endo, meso = meso, ecto = ecto, all = allLayers)
+p3 <- plotMyVenn(0.90, endo = endo, meso = meso, ecto = ecto, all = allLayers)
+
+cowplot::plot_grid(p1 + theme(legend.position = "none"),
+                   p2 + theme(legend.position = "none"),
+                   p3 + theme(legend.position = "none"), 
+                   nrow = 1, 
+                   labels = "Ectoderm (N=6 cell types), mesoderm (N=19), endoderm (N=21), and all combined")
+
+## Test enrichement of the most likely germ layer-universal hvCpG in previous MEs
+total <- allLayers$name[allLayers$name %in% endo$name]
+total <- total[total %in% meso$name]
+total <- total[total %in% ecto$name]
+
+top_cpgs <- intersect(
+  intersect(allLayers$name[allLayers$alpha > 0.9], endo$name[endo$alpha > 0.9]),
+  intersect(meso$name[meso$alpha > 0.9],ecto$name[ecto$alpha > 0.9]))
+print(paste("Found", length(top_cpgs), "overlapping high-alpha CpGs")) # 174494
+
+listGR <- list(top90 = makeGRfromMyCpGPos(vec = top_cpgs, setname = "topCpGs"),
+  allButTop90 = makeGRfromMyCpGPos(total[!total %in% top_cpgs], "allButTop90"))
+
+# --- Helper: safe Fisher with edge cases (all zeros, etc.)
+.safe_fisher <- function(a, b, c, d) {
+  mat <- matrix(c(a, b, c, d), nrow = 2, byrow = TRUE,
+                dimnames = list(c("this_quadrant","others"), c("inME","notME")))
+  # If any row or column totals are zero, Fisher’s test is not defined
+  if (any(rowSums(mat) == 0) || any(colSums(mat) == 0)) {
+    return(list(or = NA_real_, p = NA_real_))
+  } else {
+    ft <- fisher.test(mat)
+    return(list(or = unname(ft$estimate), p = ft$p.value))
+  }
+}
+
+# --- Main: test enrichment of ME for each quadrant vs the other three combined
+test_enrichment_quadrants <- function(quad_list, putativeME_GR, me_col = "set") {
+  # If no 'set' column, treat all ME as one group "ALL"
+  if (!(me_col %in% names(mcols(putativeME_GR)))) {
+    me_sets <- "ALL"
+    putativeME_GR$..tmp_set.. <- "ALL"
+    me_col <- "..tmp_set.."
+  } else {
+    me_sets <- unique(as.character(mcols(putativeME_GR)[[me_col]]))
+  }
+  
+  # Total elements per quadrant (each element counted once)
+  totals <- vapply(quad_list, length, integer(1))
+  
+  # Iterate over ME sets
+  out <- lapply(me_sets, function(me_name) {
+    me_subset <- putativeME_GR[mcols(putativeME_GR)[[me_col]] == me_name]
+    
+    # Count how many elements in each quadrant overlap the ME subset
+    inME <- vapply(quad_list, function(gr) {
+      ov <- findOverlaps(gr, me_subset, ignore.strand = TRUE)
+      length(unique(queryHits(ov)))  # number of quadrant elements hitting at least one ME
+    }, integer(1))
+    
+    # Build quadrant-vs-others 2x2 tests
+    bind_rows(lapply(names(quad_list), function(q) {
+      a <- inME[[q]]
+      b <- totals[[q]] - a
+      c <- sum(inME[names(inME) != q])
+      d <- sum(totals[names(totals) != q]) - c
+      
+      fs <- .safe_fisher(a, b, c, d)
+      
+      tibble(
+        ME_set            = me_name,
+        quadrant          = q,
+        inME              = a,
+        total             = totals[[q]],
+        others_inME       = c,
+        others_total      = sum(totals) - totals[[q]],
+        pct_inME          = 100 * a / totals[[q]],
+        pct_inME_others   = 100 * c / (sum(totals) - totals[[q]]),
+        odds_ratio        = fs$or,
+        p_value           = fs$p
+      )
+    }))
+  }) %>% bind_rows() %>%
+    mutate(p_adj_BH = p.adjust(p_value, method = "BH"))
+  
+  out
+}
+
+# ---- Run it (ME sets in putativeME_GR$set will be tested separately)
+res_quadrants <- test_enrichment_quadrants(listGR, putativeME_GR, me_col = "set")
+
+# Order quadrants within each facet by log2OR
+res_plot2 <- res_quadrants %>%
+  mutate(
+    log2OR = log2(odds_ratio),
+    signif  = p_adj_BH < 0.05
+  ) %>%
+  group_by(ME_set) %>%
+  mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
+  ungroup()
+
+plot <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
+  geom_col(width = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_fill_manual(values = c("grey", "black")) +
+  labs(
+    x = NULL,
+    y = expression(log[2]~"(odds ratio)"),
+    title = "ME enrichment by group (vs other group)",
+    subtitle = "Bars ordered by effect within ME set; dashed line = OR = 1"
+  ) +
+  facet_wrap(~ ME_set, scales = "free_x", nrow = 1) +
+  theme_classic(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    legend.position = "right",
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold")
+  )
+
+pdf(here("05_hvCpGalgorithm/figures/topCpGsEnrichME.pdf"), width = 9, height = 6)
+plot
+dev.off()
+
+#######################################
+## Save intersection for alpha > 90% ##
+#######################################
+
+# 1) Overlap among all names (unfiltered)
+sets_unfilt <- lapply(list(endo, ecto, meso, allLayers), function(df) df$name)
+overlap <- Reduce(intersect, sets_unfilt)
+
+message(paste0("There are ", length(overlap), " overlapping CpGs between these groups (unfiltered)."))
+# There are 17474840 overlapping CpGs between these groups (unfiltered).
+
+# 2) Apply cutoff AND keep only overlapping names (so sets are comparable on the same universe)
+sets <- lapply(list(endo, ecto, meso, allLayers),
+               function(df) df$name[df$alpha >= 0.9 & df$name %in% overlap])
+
+# 3) Select the intersection
+topIntersect90 <- Reduce(intersect, sets)
+
+saveRDS(overlap, file = here("gitignore/overlapLayers.RDS"))
+saveRDS(topIntersect90, file = here("gitignore/topIntersect90.RDS"))
 
 #####################
 ## 2_rmMultSamples ## 
@@ -88,27 +286,27 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
 ################
 
 ## 1/ male
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_4_vs_5_maleEffect.pdf")))){
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_4_vs_6_maleEffect.pdf")))){
   makeCompPlot(
     X = readRDS(here("gitignore/fullres_Atlas10X_4_maleOnly")),
-    Y = readRDS(here("gitignore/fullres_Atlas10X_5_allButMaleOnly")),
+    Y = readRDS(here("gitignore/fullres_Atlas10X_6_bothsexes6gp")),
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
-    title = "Atlas_4_vs_5_maleEffect",
-    xlab = "Pr(hv) calculated on WGBS atlas males only datasets",
-    ylab = "Pr(hv) calculated on WGBS atlas all but males only datasets")
+    title = "Atlas_4_vs_6_maleEffect",
+    xlab = "Pr(hv) on WGBS atlas with 6 datasets of only males",
+    ylab = "Pr(hv) on WGBS atlas with 6 datasets of mix males/females")
 }
 
 ## 2/ female
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_6_vs_7_femaleEffect.pdf")))){
+if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_5_vs_6_femaleEffect.pdf")))){
   makeCompPlot(
-    X = readRDS(here("gitignore/fullres_Atlas10X_6_femaleOnly")),
-    Y = readRDS(here("gitignore/fullres_Atlas10X_7_allButfemaleOnly")),
+    X = readRDS(here("gitignore/fullres_Atlas10X_5_femaleOnly6gp")),
+    Y = readRDS(here("gitignore/fullres_Atlas10X_6_bothsexes6gp")),
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
-    title = "Atlas_6_vs_7_femaleEffect",
-    xlab = "Pr(hv) calculated on WGBS atlas females only datasets",
-    ylab = "Pr(hv) calculated on WGBS atlas all but females only datasets")
+    title = "Atlas_5_vs_6_femaleEffect",
+    xlab = "Pr(hv) on WGBS atlas with 6 datasets of only females",
+    ylab = "Pr(hv) on WGBS atlas with 6 datasets of mix males/females")
 }
 
 ################
@@ -342,33 +540,46 @@ wilcox.test(merged1$diffAlpha, merged2$diffAlpha)
 mean(merged1$diffAlpha); median(merged1$diffAlpha)
 mean(merged2$diffAlpha); median(merged$diffAlpha, na.rm = T)
 
-# Prediction 2. The putative ME are those CpG sites which variability is high no matter which collection of cells one uses (“cell-universal” hvCpGs)
+##############################################################
+## Are these hvCpG detected also in individual germ layers? ##
+##############################################################
 
 cellUniversal_GR <- makeGRfromMyCpGPos(cellUniversal, "cellUniversal")
 immune_GR <- makeGRfromMyCpGPos(immune, "immune")
 notimmune_GR <- makeGRfromMyCpGPos(notimmune, "notimmune")
 stable_GR <- makeGRfromMyCpGPos(stable, "stable")
 
-###########################################
-## Prepare putative MEs GRanges objects
-vmeQTL_hg19probes <- readxl::read_xlsx(here("05_hvCpGalgorithm/dataPrev/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
-vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]) ; rm(vmeQTL_hg19probes)
-vmeQTL_hg38_GR <- makeGRfromMyCpGPos(vmeQTL_hg38, "vmeQTL (Zhang2025)")
+gr_list <- list(cellUniversal = cellUniversal_GR, 
+                immune = immune_GR, 
+                notimmune = notimmune_GR, 
+                stable = stable_GR, 
+                DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR) ## test previous hvCpGs
 
-HarrisSIV_hg38_GR <- makeGRfromMyCpGPos(HarrisSIV_hg38, "HarrisSIV")
+lapply(names(gr_list), function(name){
+  x <- gr_list[[name]]
+  gr_names <- paste0(as.character(seqnames(x)), "_", start(x))
+  p1 <- plotMyVenn(0.5, endo = endo[endo$name %in% gr_names,],
+                   meso = meso[meso$name %in% gr_names,],
+                   ecto = ecto[ecto$name %in% gr_names,],
+                   all = allLayers[allLayers$name %in% gr_names,])
+  p2 <- plotMyVenn(0.75, endo = endo[endo$name %in% gr_names,],
+                   meso = meso[meso$name %in% gr_names,],
+                   ecto = ecto[ecto$name %in% gr_names,],
+                   all = allLayers[allLayers$name %in% gr_names,])
+  p3 <- plotMyVenn(0.9, endo = endo[endo$name %in% gr_names,],
+                   meso = meso[meso$name %in% gr_names,],
+                   ecto = ecto[ecto$name %in% gr_names,],
+                   all = allLayers[allLayers$name %in% gr_names,])
+  pdf(file = paste0("../../05_hvCpGalgorithm/figures/vennGermLayers/Venn_", 
+                    name, "_GR.pdf"), width = 13, height = 6)
+  print(cowplot::plot_grid(p1 + theme(legend.position = "none"),
+                           p2 + theme(legend.position = "none"),
+                           p3 + theme(legend.position = "none"), 
+                           nrow = 1, labels = name)) 
+  dev.off()
+})
 
-VanBaakESS_hg38_GR <- makeGRfromMyCpGPos(VanBaakESS_hg38, "VanBaakESS")
-
-KesslerSIV_GRanges_hg38$set <- "KesslerSIV"
-
-corSIV_GRanges_hg38$set <- "Gunasekara 2019 corSIV"
-
-DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "hvCpG Derakhshan 2022")
-
-SoCCpGs_hg38_GR <- makeGRfromMyCpGPos(SoCCpGs_hg38, "Silver2022_SoCCpGs")
-
-putativeME_GR <- c(vmeQTL_hg38_GR, HarrisSIV_hg38_GR, VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
-                   corSIV_GRanges_hg38, DerakhshanhvCpGs_hg38_GR, SoCCpGs_hg38_GR)
+# Prediction 2. The putative ME are those CpG sites which variability is high no matter which collection of cells one uses (“cell-universal” hvCpGs)
 
 ###########################################
 ## Find them in each quadrants
@@ -518,10 +729,10 @@ print(paste0(length(stable[stable %in% MHCpos]), " MHC CpGs are in the stable qu
              length(cellUniversal[cellUniversal %in% MHCpos]), " in the cell universal one"))
 
 conting <- data.frame(category = c("stable", "immune", "notimmune", "cellUniversal"),
-           all = c(length(stable), length(immune),
-                   length(notimmune), length(cellUniversal)),
-           MHC = c(length(stable[stable %in% MHCpos]), length(immune[immune %in% MHCpos]),
-                   length(notimmune[notimmune %in% MHCpos]), length(cellUniversal[cellUniversal %in% MHCpos])))
+                      all = c(length(stable), length(immune),
+                              length(notimmune), length(cellUniversal)),
+                      MHC = c(length(stable[stable %in% MHCpos]), length(immune[immune %in% MHCpos]),
+                              length(notimmune[notimmune %in% MHCpos]), length(cellUniversal[cellUniversal %in% MHCpos])))
 
 conting$nonMHC <- conting$all - conting$MHC
 
@@ -540,12 +751,11 @@ fisher <- sapply(conting$category, function(cat) {
   nonMHC_other <- sum(conting$nonMHC) - nonMHC_cat
   
   data.frame(estimate = fisher.test(matrix(c(MHC_cat, nonMHC_cat,
-                       MHC_other, nonMHC_other),
-                     nrow = 2))$estimate,
-             p.adj = p.adjust(fisher.test(matrix(c(MHC_cat, nonMHC_cat,
                                              MHC_other, nonMHC_other),
-                                           nrow = 2))$p.value, method = "BH"))
-  
+                                           nrow = 2))$estimate,
+             p.adj = p.adjust(fisher.test(matrix(c(MHC_cat, nonMHC_cat,
+                                                   MHC_other, nonMHC_other),
+                                                 nrow = 2))$p.value, method = "BH"))
 })
 
 fisher

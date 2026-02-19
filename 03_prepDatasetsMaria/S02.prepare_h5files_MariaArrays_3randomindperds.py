@@ -18,7 +18,7 @@ import h5py
 import bottleneck as bn
 
 # --- PARAMETERS ---
-folder1 = "/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
+folder1 = "/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
 folder2 = "/home/alice/tempRDS/"
 output_folder = "/home/alice/arraysh5_3ind"
 os.makedirs(output_folder, exist_ok=True)
@@ -48,7 +48,7 @@ rds_list_mat2 = load_rds_matrix(rds_files2)
 rds_list_mat = rds_list_mat1 + rds_list_mat2
 print(f"✅ Total datasets loaded: {len(rds_list_mat)}")
 
-# --- NEW STEP: keep only 3 random individuals (columns) per dataset ---
+# Keep only 3 random individuals (columns) per dataset ---
 np.random.seed(42)  # fix seed for reproducibility
 reduced_list_mat = []
 for name, mat, rownames in rds_list_mat:
