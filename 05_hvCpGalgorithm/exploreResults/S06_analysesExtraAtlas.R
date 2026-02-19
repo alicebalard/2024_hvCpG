@@ -17,10 +17,6 @@ if (!exists("resCompArray")) {
 
 ###########################################
 ## Prepare putative MEs GRanges objects
-vmeQTL_hg19probes <- readxl::read_xlsx(here("05_hvCpGalgorithm/dataPrev/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
-vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]) ; rm(vmeQTL_hg19probes)
-vmeQTL_hg38_GR <- makeGRfromMyCpGPos(vmeQTL_hg38, "vmeQTL (Zhang2025)")
-
 HarrisSIV_hg38_GR <- makeGRfromMyCpGPos(HarrisSIV_hg38, "HarrisSIV")
 
 VanBaakESS_hg38_GR <- makeGRfromMyCpGPos(VanBaakESS_hg38, "VanBaakESS")
@@ -31,10 +27,14 @@ corSIV_GRanges_hg38$set <- "Gunasekara 2019 corSIV"
 
 DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "hvCpG Derakhshan 2022")
 
-SoCCpGs_hg38_GR <- makeGRfromMyCpGPos(SoCCpGs_hg38, "Silver2022_SoCCpGs")
+putativeME_GR <- c(HarrisSIV_hg38_GR, VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
+                   corSIV_GRanges_hg38, DerakhshanhvCpGs_hg38_GR)
+putativeME_GR$genome <- "hg38"
 
-putativeME_GR <- c(vmeQTL_hg38_GR, HarrisSIV_hg38_GR, VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
-                   corSIV_GRanges_hg38, DerakhshanhvCpGs_hg38_GR, SoCCpGs_hg38_GR)
+## Save for paleo project
+# saveRDS(putativeME_GR, "../../../2025_paleoMethylVar/gitignore/putativeME_GR.RDS")
+# 
+# putativeME_GR <- readRDS("/path/to/putativeME_GR.RDS")
 
 ##################################
 ## Save all data in RDS objects ##
@@ -76,9 +76,6 @@ table(WGBS_Array_datasets[WGBS_Array_datasets$assay %in% "atlas", "Germ.layer"])
 ##############################################
 ## What is the overlap for different alpha? ##
 ##############################################
-
-library(ggVennDiagram)
-library(ggplot2)
 
 # Compute overlap across any number of groups and plot a Venn diagram
 plotMyVenn <- function(cutoff, ...) {
@@ -126,7 +123,7 @@ total <- total[total %in% ecto$name]
 top_cpgs <- intersect(
   intersect(allLayers$name[allLayers$alpha > 0.9], endo$name[endo$alpha > 0.9]),
   intersect(meso$name[meso$alpha > 0.9],ecto$name[ecto$alpha > 0.9]))
-print(paste("Found", length(top_cpgs), "overlapping high-alpha CpGs"))
+print(paste("Found", length(top_cpgs), "overlapping high-alpha CpGs")) # 174494
 
 listGR <- list(top90 = makeGRfromMyCpGPos(vec = top_cpgs, setname = "topCpGs"),
   allButTop90 = makeGRfromMyCpGPos(total[!total %in% top_cpgs], "allButTop90"))
@@ -228,7 +225,7 @@ plot <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
     strip.text = element_text(face = "bold")
   )
 
-pdf(here("05_hvCpGalgorithm/figures/topCpGsEnrichME.pdf"), width = 12, height = 6)
+pdf(here("05_hvCpGalgorithm/figures/topCpGsEnrichME.pdf"), width = 9, height = 6)
 plot
 dev.off()
 
