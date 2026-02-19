@@ -20,7 +20,7 @@ import bottleneck as bn
 # --- PARAMETERS ---
 folder1 = "/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/"
 folder2 = "/home/alice/tempRDS/"
-output_folder = "/home/alice/arraysh5_3ind"
+output_folder = "/home/alice/arraysh5_2ind"
 os.makedirs(output_folder, exist_ok=True)
 
 output_path = os.path.join(output_folder, "all_matrix_noscale.h5")
@@ -48,17 +48,17 @@ rds_list_mat2 = load_rds_matrix(rds_files2)
 rds_list_mat = rds_list_mat1 + rds_list_mat2
 print(f"✅ Total datasets loaded: {len(rds_list_mat)}")
 
-# Keep only 3 random individuals (columns) per dataset ---
+# Keep only 2 random individuals (columns) per dataset ---
 np.random.seed(42)  # fix seed for reproducibility
 reduced_list_mat = []
 for name, mat, rownames in rds_list_mat:
-    if mat.shape[1] > 3:  # only reduce if more than 3 individuals
-        cols = np.random.choice(mat.shape[1], size=3, replace=False)
+    if mat.shape[1] > 2:  # only reduce if more than 2 individuals
+        cols = np.random.choice(mat.shape[1], size=2, replace=False)
         mat = mat[:, cols]
     reduced_list_mat.append((name, mat, rownames))
 
 rds_list_mat = reduced_list_mat
-print("✅ Reduced to 3 individuals per dataset")
+print("✅ Reduced to 2 individuals per dataset")
 
 # --- STEP 2: Identify common CpGs (covered in ≥15 datasets) ---
 all_cpgs = []
