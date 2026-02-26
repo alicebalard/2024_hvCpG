@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 Prepare metadata for WGBS Atlas analysis
@@ -17,11 +16,6 @@ args = parser.parse_args()
 
 # Read input metadata
 df = pd.read_csv(args.meta)
-
-# Validate columns
-for col in ["Source Tissue", "Cell type"]:
-    if col not in df.columns:
-        raise ValueError(f"Missing column: {col}")
 
 # Add Analysis group
 df["Analysis group"] = df["Source Tissue"].astype(str) + " - " + df["Cell type"].astype(str)
