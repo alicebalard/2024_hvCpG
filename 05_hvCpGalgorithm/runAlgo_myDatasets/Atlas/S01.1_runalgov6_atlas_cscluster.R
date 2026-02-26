@@ -12,6 +12,7 @@ chunk_size <- as.integer(args[3]) ## what is the size of the chunk per array tas
 batch_size <- as.integer(args[4]) ## how many CpGs are loaded at once
 p0 <- as.numeric(args[5])
 p1 <- as.numeric(args[6])
+minind <- as.numeric(args[7]) ## set to 3 for non pairs
 
 ## where the data is:
 data_dir <- file.path("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer", analysis)
@@ -52,5 +53,6 @@ system.time(hyperVarMeth::runAndSave_fast(
     NCORES = myNthreads,
     p0 = p0,
     p1 = p1,
-    batch_size = batch_size)
+    batch_size = batch_size,
+    minind = minind)
     )
