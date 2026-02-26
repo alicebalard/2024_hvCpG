@@ -128,6 +128,8 @@ if (retest == TRUE){
 ## Test GO of top candidates ##
 ###############################
 
+# Method 1. ClusterProfiler
+
 ## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
 ## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
 ## 3. run GO term enrichment with clusterProfiler::enrichGO
@@ -191,6 +193,34 @@ p <- ggplot(df_sig, aes(x = group, y = Description)) +
 
 print(p)
 
+# Method 2. rgreat
+# GREAT analysis was conducted using the rGREAT R package (Gu and Hübschmann 2023).
+# GREAT performs hypergeometric tests using a foreground and background set and returns 
+# annotations of gene sets near the foreground CpGs. 
+# The foreground set consists of topIntersect90
+# The background set consists of all the sequenced CpGs 
+# We reported ontologies after an FDR-adjusted hypergeometric p value<0.05 and an unadjusted hypergeometric p value<0.001. 
+## The GREAT settings used were hg38 for the species assembly
+background <- makeGRfromMyCpGPos(overlapLayers, "background")
+foreground <- makeGRfromMyCpGPos(topIntersect90, "topIntersect90")
+
+system.time(res <- great(gr = foreground, gene_sets = "GO:BP", biomart_dataset = "hg38", background = background, cores = 10))
+saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations/topIntersect90_rGREAT.RDS")))
+
+#######################
+## Enrichement in TE ##
+#######################
+
+
+
+
+
+
+
+
+
+
+
 ################################
 ## Genomic positions of top90 ##
 ################################
@@ -235,45 +265,45 @@ ggplot() +
 ######################################
 ## Test proximity to specific genes ##
 ######################################
-topIntersect90_GR <- makeGRfromMyCpGPos(vec = topIntersect90, setname = "topIntersect90")
-bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
-
-ens = "ENSG00000103126"
-
-# Axin (human) as a GRanges
-gr_axin <- c(bed_features$promoters[grep(ens, bed_features$promoters$name)],
-             bed_features$exons[grep(ens, bed_features$exons$name)],
-             bed_features$introns[grep(ens, bed_features$introns$name)],
-             bed_features$TSSes[grep(ens, bed_features$TSSes$name)])
-"ENST00000429538.8"
-287440..352723, complement)
-gr_totest = topIntersect90_GR
-gr_gene = gr_PAX8
-
-# Find overlaps between CpGs and the gene region
-hits <- findOverlaps(gr_totest, gr_gene)
-
-# Extract matching rows from original df
-df_hits <- gr_totest[queryHits(hits), ]
-
-# Add all annotations
-df_hits <- Atlas_dt[match(paste0(df_hits@seqnames, "_", df_hits@ranges), Atlas_dt$name)]
-
-# Determine limits and breaks
-x_min <- floor(min(df_hits$pos) / 5000) * 5000
-x_max <- ceiling(max(df_hits$pos) / 5000) * 5000
-breaks_seq <- seq(x_min, x_max, by = 5000)
-
-ggplot(df_hits, aes(x = pos, y = alpha)) +
-  geom_smooth(col = "black") +
-  geom_point(aes(fill = region_type), pch = 21) +
-  theme_minimal(base_size = 14) +
-  ylab("p(hv)") +
-  scale_x_continuous(
-    breaks = breaks_seq,
-    labels = function(x) paste0(formatC(x / 1000, format = "f", digits = 0), "k")
-  ) +
-  xlab("Genomic position (chr2)") +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  )
+# topIntersect90_GR <- makeGRfromMyCpGPos(vec = topIntersect90, setname = "topIntersect90")
+# bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
+# 
+# ens = "ENSG00000103126"
+# 
+# # Axin (human) as a GRanges
+# gr_axin <- c(bed_features$promoters[grep(ens, bed_features$promoters$name)],
+#              bed_features$exons[grep(ens, bed_features$exons$name)],
+#              bed_features$introns[grep(ens, bed_features$introns$name)],
+#              bed_features$TSSes[grep(ens, bed_features$TSSes$name)])
+# "ENST00000429538.8"
+# 287440..352723, complement)
+# gr_totest = topIntersect90_GR
+# gr_gene = gr_PAX8
+# 
+# # Find overlaps between CpGs and the gene region
+# hits <- findOverlaps(gr_totest, gr_gene)
+# 
+# # Extract matching rows from original df
+# df_hits <- gr_totest[queryHits(hits), ]
+# 
+# # Add all annotations
+# df_hits <- Atlas_dt[match(paste0(df_hits@seqnames, "_", df_hits@ranges), Atlas_dt$name)]
+# 
+# # Determine limits and breaks
+# x_min <- floor(min(df_hits$pos) / 5000) * 5000
+# x_max <- ceiling(max(df_hits$pos) / 5000) * 5000
+# breaks_seq <- seq(x_min, x_max, by = 5000)
+# 
+# ggplot(df_hits, aes(x = pos, y = alpha)) +
+#   geom_smooth(col = "black") +
+#   geom_point(aes(fill = region_type), pch = 21) +
+#   theme_minimal(base_size = 14) +
+#   ylab("p(hv)") +
+#   scale_x_continuous(
+#     breaks = breaks_seq,
+#     labels = function(x) paste0(formatC(x / 1000, format = "f", digits = 0), "k")
+#   ) +
+#   xlab("Genomic position (chr2)") +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1)
+#   )

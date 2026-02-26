@@ -461,6 +461,10 @@ pairs(emm)
 ## Difference with controls in both cases?
 data <- read.table(here("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
 
+# X: no immune; Y: only immune
+X <- readRDS(here::here("gitignore/fullres_Atlas10X_11_noImmune_sample11groups"))
+Y <- readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly"))
+
 x = dico$chrpos_hg38[match(data$hvCpG_name, dico$CpG)]
 y = dico$chrpos_hg38[match(data$controlCpG_name, dico$CpG)]
 
@@ -609,71 +613,6 @@ quads <- list(
   notimmune     = notimmune_GR,
   cellUniversal = cellUniversal_GR
 )
-
-# --- Helper: safe Fisher with edge cases (all zeros, etc.)
-.safe_fisher <- function(a, b, c, d) {
-  mat <- matrix(c(a, b, c, d), nrow = 2, byrow = TRUE,
-                dimnames = list(c("this_quadrant","others"), c("inME","notME")))
-  # If any row or column totals are zero, Fisher’s test is not defined
-  if (any(rowSums(mat) == 0) || any(colSums(mat) == 0)) {
-    return(list(or = NA_real_, p = NA_real_))
-  } else {
-    ft <- fisher.test(mat)
-    return(list(or = unname(ft$estimate), p = ft$p.value))
-  }
-}
-
-# --- Main: test enrichment of ME for each quadrant vs the other three combined
-test_enrichment_quadrants <- function(quad_list, putativeME_GR, me_col = "set") {
-  # If no 'set' column, treat all ME as one group "ALL"
-  if (!(me_col %in% names(mcols(putativeME_GR)))) {
-    me_sets <- "ALL"
-    putativeME_GR$..tmp_set.. <- "ALL"
-    me_col <- "..tmp_set.."
-  } else {
-    me_sets <- unique(as.character(mcols(putativeME_GR)[[me_col]]))
-  }
-  
-  # Total elements per quadrant (each element counted once)
-  totals <- vapply(quad_list, length, integer(1))
-  
-  # Iterate over ME sets
-  out <- lapply(me_sets, function(me_name) {
-    me_subset <- putativeME_GR[mcols(putativeME_GR)[[me_col]] == me_name]
-    
-    # Count how many elements in each quadrant overlap the ME subset
-    inME <- vapply(quad_list, function(gr) {
-      ov <- findOverlaps(gr, me_subset, ignore.strand = TRUE)
-      length(unique(queryHits(ov)))  # number of quadrant elements hitting at least one ME
-    }, integer(1))
-    
-    # Build quadrant-vs-others 2x2 tests
-    bind_rows(lapply(names(quad_list), function(q) {
-      a <- inME[[q]]
-      b <- totals[[q]] - a
-      c <- sum(inME[names(inME) != q])
-      d <- sum(totals[names(totals) != q]) - c
-      
-      fs <- .safe_fisher(a, b, c, d)
-      
-      tibble(
-        ME_set            = me_name,
-        quadrant          = q,
-        inME              = a,
-        total             = totals[[q]],
-        others_inME       = c,
-        others_total      = sum(totals) - totals[[q]],
-        pct_inME          = 100 * a / totals[[q]],
-        pct_inME_others   = 100 * c / (sum(totals) - totals[[q]]),
-        odds_ratio        = fs$or,
-        p_value           = fs$p
-      )
-    }))
-  }) %>% bind_rows() %>%
-    mutate(p_adj_BH = p.adjust(p_value, method = "BH"))
-  
-  out
-}
 
 # ---- Run it (ME sets in putativeME_GR$set will be tested separately)
 res_quadrants <- test_enrichment_quadrants(quads, putativeME_GR, me_col = "set")
