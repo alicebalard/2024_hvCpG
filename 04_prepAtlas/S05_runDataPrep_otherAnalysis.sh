@@ -57,10 +57,10 @@ prep_atlas() {
 # prep_atlas 4 "maleOnly" 6
 
 ## 5/ female only --> femaleOnly6gp
-prep_atlas 5 "femaleOnly6gp" 6
+# prep_atlas 5 "femaleOnly6gp" 6
 
 ## 6/ both sexes --> bothsexes6gp
-prep_atlas 6 "bothsexes6gp" 6
+# prep_atlas 6 "bothsexes6gp" 6
 
 ## 8/ by tissue rather than by cell type --> byTissue
 # prep_atlas 8 "byTissue" 22
@@ -76,9 +76,11 @@ prep_atlas 6 "bothsexes6gp" 6
 
 ## 12/ only the 21 endo groups with >= 3 samples
 # prep_atlas 12 "endo" 21
+prep_atlas 12.2 "endo6gp" 6
 
 ## 13/ only the 19 meso groups with >= 3 samples
 # prep_atlas 13 "meso" 12                                                                                                                                         
+prep_atlas 13.2 "meso6gp" 6
 
 ## 14/ only the 6 ecto groups with >= 3 samples
 # prep_atlas 14 "ecto" 6                                                                                                                                         
