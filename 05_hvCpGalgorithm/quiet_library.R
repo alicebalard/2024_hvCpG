@@ -45,7 +45,7 @@ quiet_library_all <- function(pkgs) {
 quiet_library_all(
   c("dplyr", "data.table", "matrixStats", "tidyr", "tibble", ## data formatting
     "parallel", "rhdf5",  "purrr","forcats", ## data handling
-    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", "Cairo",
+    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", "Cairo", "gt",
     "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra", "viridis", "ggVennDiagram", ## graphical
     "boot", "emmeans", ## stats
     "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
