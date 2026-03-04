@@ -293,9 +293,14 @@ CpG_GO_pipeline <- function(CpGvec,
 # dl the GO slim Developed by GO Consortium for the Alliance of Genomes Resources
 # download.file(url = "https://current.geneontology.org/ontology/subsets/goslim_agr.obo",
 # destfile = here("gitignore/goslim_agr.obo"))
-slim <- GSEABase::getOBOCollection(here("gitignore/goslim_agr.obo"))
 
 getGOslim <- function(x){
+  # Load only if not already in environment
+  if (!exists("slim", envir = .GlobalEnv)) {
+    slim <- GSEABase::getOBOCollection(here("gitignore/goslim_agr.obo"))
+    assign("slim", slim, envir = .GlobalEnv)
+    message("Loaded GO slim from goslim_agr.obo")
+  }
   res = x@result
   onto = x@ontology
   
