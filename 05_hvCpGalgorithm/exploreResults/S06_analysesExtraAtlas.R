@@ -229,6 +229,66 @@ pdf(here("05_hvCpGalgorithm/figures/topCpGsEnrichME.pdf"), width = 9, height = 6
 plot
 dev.off()
 
+## Plot how many of each putative ME is actually in the top90
+
+# Overlaps of ME ranges with CpG sites (top90 and allButTop90)
+hits_top <- findOverlaps(putativeME_GR, listGR$top90, ignore.strand = TRUE)
+hits_all <- findOverlaps(putativeME_GR, listGR$allButTop90, ignore.strand = TRUE)
+
+# Logical flags per ME range (query index)
+overlap_top <- logical(length(putativeME_GR))
+overlap_top[unique(queryHits(hits_top))] <- TRUE
+
+overlap_all <- logical(length(putativeME_GR))
+overlap_all[unique(queryHits(hits_all))] <- TRUE
+
+# Build a small data.frame with one row per ME range
+df_me <- as.data.frame(mcols(putativeME_GR)) |>
+  mutate(
+    in_top90       = overlap_top,
+    in_allButTop90 = overlap_all
+  )
+
+# Summaries per set
+summary_df <- df_me |>
+  group_by(set) |>
+  summarise(
+    n_total = n(),
+    n_in_top90 = sum(in_top90),
+    pc_in_top90 = n_in_top90/n_total*100,
+    n_in_allButTop90 = sum(in_allButTop90),
+    pc_in_allButTop90 = n_in_allButTop90/n_total*100,
+    n_in_both = sum(in_top90 & in_allButTop90),   # non 0 if region rather than CpG
+    pc_in_both = n_in_both/n_total*100,
+    n_in_neither = n_total - n_in_top90 - n_in_allButTop90 + n_in_both,
+    pc_in_neither = n_in_neither/n_total*100)
+  
+## Format pretty
+summary_df %>%
+  mutate(across(starts_with("pc_"), ~ scales::percent(.x / 100, accuracy = 0.1))) %>%
+  gt() %>%
+  fmt_number(columns = starts_with("n_"), decimals = 0) %>%
+  cols_label(
+    set = "Metastable Epiallele Set",
+    n_total = "Total MEs",
+    n_in_top90 = "In Top 90%",
+    pc_in_top90 = "% In Top 90%",
+    n_in_allButTop90 = "In Rest",
+    pc_in_allButTop90 = "% In Rest",
+    n_in_both = "In Both",
+    pc_in_both = "% In Both",
+    n_in_neither = "In Neither",
+    pc_in_neither = "% In Neither"
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "lightblue"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(
+    table.font.size = 11,
+    data_row.padding = px(3)
+  )
+
 #######################################
 ## Save intersection for alpha > 90% ##
 #######################################
