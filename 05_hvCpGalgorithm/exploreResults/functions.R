@@ -1,3 +1,15 @@
+############################################
+# loads functions useful in multiple scripts
+
+## prepAtlasdt
+## plotManhattanFromdt
+## makeZ_inner
+## makeCompPlot
+## makeGRfromMyCpGPos
+## GO old functions (commented out)
+## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
+## for each quadrant vs the other three combined
+
 prepAtlasdt <- function(dir = "Atlas10X"){
   # Define parent folder containing all "Atlas_batchXXX" folders
   parent_dir = here(paste0("05_hvCpGalgorithm/resultsDir/Atlas/", dir))
@@ -192,177 +204,243 @@ makeGRfromMyCpGPos <- function(vec, setname){# Parse with regex all the cpg test
   return(GR)
 }
 
-## For a vector of CpGs in the format chromosome_position 
-## CpGvec <- c("chr1_17452", "chr1_17478", "chr1_17483")
-## 1. Keep CpGs in regions where at least 5 CpGs are in 50bp distance to each other
-## 2. annotate with associated genes
-## 3. run GO term enrichment with clusterProfiler::enrichGO
+# ## For a vector of CpGs in the format chromosome_position 
+# ## CpGvec <- c("chr1_17452", "chr1_17478", "chr1_17483")
+# ## 1. Keep CpGs in regions where at least 5 CpGs are in 50bp distance to each other
+# ## 2. annotate with associated genes
+# ## 3. run GO term enrichment with clusterProfiler::enrichGO
+# 
+# ## STEP 1 — ULTRA‑FAST DENSE CpG CLUSTERING (5 CpGs min within 50 bp)
+# clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
+#   dt <- data.table(
+#     raw = CpGvec,
+#     chr = sub("_.*", "", CpGvec),
+#     pos = as.integer(sub(".*_", "", CpGvec))
+#   )
+#   setkey(dt, chr, pos)
+#   
+#   # gap to previous CpG
+#   dt[, gap := pos - data.table::shift(pos), by = chr]
+#   
+#   # run ID increments whenever gap > max_gap OR different chromosome
+#   dt[, run_id := cumsum(is.na(gap) | gap > max_gap), by = chr]
+#   
+#   # Count CpGs in each run
+#   dt[, run_size := .N, by = .(chr, run_id)]
+#   
+#   # Keep only large runs
+#   dt[run_size >= min_size, raw]
+# }
+# 
+# ## STEP 2 — FAST GENE ANNOTATION (OFFLINE)
+# annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
+#   
+#   if (length(CpGs) == 0) return(character(0))
+#   
+#   chr <- sub("_.*", "", CpGs)
+#   pos <- as.integer(sub(".*_", "", CpGs))
+#   gr  <- GRanges(chr, IRanges(pos, pos))
+#   
+#   # Trim to seqinfo bounds to avoid out-of-bound warnings
+#   gr <- GenomicRanges::trim(gr)
+#   
+#   txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+#   genes_txdb <- GenomicFeatures::genes(txdb)
+#   promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window, downstream = tss_window)
+#   
+#   # overlaps with gene bodies
+#   o1 <- findOverlaps(gr, genes_txdb)
+#   g1 <- genes_txdb$gene_id[subjectHits(o1)]
+#   
+#   # overlaps with promoters
+#   o2 <- findOverlaps(gr, promoters_txdb)
+#   g2 <- promoters_txdb$gene_id[subjectHits(o2)]
+#   
+#   return(unique(c(g1, g2)))
+# }
+# 
+# ## STEP 3 — GO ENRICHMENT (clusterProfiler)
+# runGO <- function(entrez_ids, universe = NULL, myont) {
+#   clusterProfiler::enrichGO(
+#     gene          = entrez_ids,
+#     OrgDb         = org.Hs.eg.db,
+#     ont           = myont,
+#     keyType       = "ENTREZID",
+#     universe      = universe,
+#     pAdjustMethod = "BH",
+#     readable      = TRUE
+#   )
+# }
+# 
+# ## 🚀 FULL PIPELINE FUNCTION 
+# CpG_GO_pipeline <- function(CpGvec,
+#                             max_gap = 50, min_size = 5,
+#                             tss_window = 10000,
+#                             universe = NULL) {
+#   
+#   message("Clustering CpGs...")
+#   CpGclustered <- clusterCpGs(CpGvec, max_gap, min_size)
+#   message(sprintf("Reduced from %d to %d clustered CpGs",
+#                   length(CpGvec), length(CpGclustered)))
+#   
+#   if (length(CpGclustered) == 0) {
+#     warning("No CpG clusters found.")
+#     return(NULL)
+#   }
+#   
+#   message("Annotating genes...")
+#   ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
+#   
+#   message(sprintf("Found %d Entrez genes", length(ensg)))
+#   
+#   message("Running GO enrichment...")
+#   list = lapply(c("BP", "MF", "CC"), function(x) {runGO(ensg, universe, x)})
+#   names(list) = c("BP", "MF", "CC")
+#   return(list)
+# }
+# 
+# ###############
+# ## Check GO slim terms for easy interpretation
+# ## GO subsets (also known as GO slims) are condensed versions of the GO containing a subset of the terms.
+# # dl the GO slim Developed by GO Consortium for the Alliance of Genomes Resources
+# # download.file(url = "https://current.geneontology.org/ontology/subsets/goslim_agr.obo",
+# # destfile = here("gitignore/goslim_agr.obo"))
+# slim <- GSEABase::getOBOCollection(here("gitignore/goslim_agr.obo"))
+# 
+# getGOslim <- function(x){
+#   res = x@result
+#   onto = x@ontology
+#   
+#   # Create the GOCollection 
+#   go_collection = GSEABase::GOCollection(ids = res[res$p.adjust < 0.05 & res$Count >= 10, "ID"])
+#   
+#   # Perform the GO slim mapping
+#   slimdf = GSEABase::goSlim(idSrc = go_collection, 
+#                             slimCollection = slim,
+#                             ontology = onto)
+#   
+#   # Map the original GO terms to the slim terms
+#   mappedIds <- function(df, collection, OFFSPRING) {
+#     map <- as.list(OFFSPRING[rownames(df)])
+#     mapped <- lapply(map, intersect, ids(collection))
+#     df[["mapped_go_terms"]] <- vapply(unname(mapped), paste, collapse = ";", character(1L))
+#     
+#     # Get GO term names
+#     go_names <- AnnotationDbi::select(GO.db, keys = unlist(mapped), columns = "TERM", keytype = "GOID")
+#     go_names_list <- split(go_names$TERM, go_names$GOID)
+#     df[["mapped_go_names"]] <- vapply(mapped, function(x) {
+#       paste(go_names_list[x], collapse = ";")
+#     }, character(1L))
+#     
+#     # Get GO slim term full names
+#     slim_names <- AnnotationDbi::select(GO.db, keys = rownames(df), columns = "TERM", keytype = "GOID")
+#     df[["go_slim_full_name"]] <- slim_names$TERM
+#     
+#     df
+#   }
+#   
+#   # Use the appropriate OFFSPRING database based on the ontology
+#   offspring_db <- switch(onto,
+#                          "BP" = GO.db::GOBPOFFSPRING,
+#                          "CC" = GO.db::GOCCOFFSPRING,
+#                          "MF" = GO.db::GOMFOFFSPRING)
+#   
+#   slimdf_with_terms <- mappedIds(slimdf, go_collection, offspring_db)
+#   
+#   slimdf_with_terms %>%
+#     filter(Count != 0) %>%
+#     dplyr::mutate(GO.category = onto)
+# }
+# 
+# makeGOslimPlot_all <- function(dfGOslim_all, posleg = "top") {
+#   if (nrow(dfGOslim_all) == 0) {
+#     stop("dfGOslim_all is empty — no slim categories to plot.")
+#   }
+#   
+#   ggplot(dfGOslim_all, aes(x = group, y = Term)) +
+#     geom_point(aes(size = Percent)) +
+#     scale_size_continuous(
+#       name = "% of GO terms in this GO slim category",
+#       range = c(1, 8)
+#     ) +
+#     theme_bw() +
+#     ylab("") + xlab("") +
+#     theme(
+#       legend.box.background = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+#       legend.background     = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+#       legend.key            = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+#       legend.position       = posleg,
+#       axis.text.y           = element_text(size = 12),
+#       axis.text.x           = element_text(size = 12, angle = 45, hjust = 1)
+#     ) +
+#     facet_grid(group ~ fct_inorder(GO.category), scales = "free", space = "free") +
+#     coord_flip()
+# }
 
-## STEP 1 — ULTRA‑FAST DENSE CpG CLUSTERING (5 CpGs min within 50 bp)
-clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
-  dt <- data.table(
-    raw = CpGvec,
-    chr = sub("_.*", "", CpGvec),
-    pos = as.integer(sub(".*_", "", CpGvec))
-  )
-  setkey(dt, chr, pos)
-  
-  # gap to previous CpG
-  dt[, gap := pos - data.table::shift(pos), by = chr]
-  
-  # run ID increments whenever gap > max_gap OR different chromosome
-  dt[, run_id := cumsum(is.na(gap) | gap > max_gap), by = chr]
-  
-  # Count CpGs in each run
-  dt[, run_size := .N, by = .(chr, run_id)]
-  
-  # Keep only large runs
-  dt[run_size >= min_size, raw]
+# test enrichment of ME for each quadrant vs the other three combined
+
+# --- Helper: safe Fisher with edge cases (all zeros, etc.)
+.safe_fisher <- function(a, b, c, d) {
+  mat <- matrix(c(a, b, c, d), nrow = 2, byrow = TRUE,
+                dimnames = list(c("this_quadrant","others"), c("inME","notME")))
+  # If any row or column totals are zero, Fisher’s test is not defined
+  if (any(rowSums(mat) == 0) || any(colSums(mat) == 0)) {
+    return(list(or = NA_real_, p = NA_real_))
+  } else {
+    ft <- fisher.test(mat)
+    return(list(or = unname(ft$estimate), p = ft$p.value))
+  }
 }
 
-## STEP 2 — FAST GENE ANNOTATION (OFFLINE)
-annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
-  
-  if (length(CpGs) == 0) return(character(0))
-  
-  chr <- sub("_.*", "", CpGs)
-  pos <- as.integer(sub(".*_", "", CpGs))
-  gr  <- GRanges(chr, IRanges(pos, pos))
-  
-  # Trim to seqinfo bounds to avoid out-of-bound warnings
-  gr <- GenomicRanges::trim(gr)
-  
-  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
-  genes_txdb <- GenomicFeatures::genes(txdb)
-  promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window, downstream = tss_window)
-  
-  # overlaps with gene bodies
-  o1 <- findOverlaps(gr, genes_txdb)
-  g1 <- genes_txdb$gene_id[subjectHits(o1)]
-  
-  # overlaps with promoters
-  o2 <- findOverlaps(gr, promoters_txdb)
-  g2 <- promoters_txdb$gene_id[subjectHits(o2)]
-  
-  return(unique(c(g1, g2)))
-}
-
-## STEP 3 — GO ENRICHMENT (clusterProfiler)
-runGO <- function(entrez_ids, universe = NULL, myont) {
-  clusterProfiler::enrichGO(
-    gene          = entrez_ids,
-    OrgDb         = org.Hs.eg.db,
-    ont           = myont,
-    keyType       = "ENTREZID",
-    universe      = universe,
-    pAdjustMethod = "BH",
-    readable      = TRUE
-  )
-}
-
-## 🚀 FULL PIPELINE FUNCTION 
-CpG_GO_pipeline <- function(CpGvec,
-                            max_gap = 50, min_size = 5,
-                            tss_window = 10000,
-                            universe = NULL) {
-  
-  message("Clustering CpGs...")
-  CpGclustered <- clusterCpGs(CpGvec, max_gap, min_size)
-  message(sprintf("Reduced from %d to %d clustered CpGs",
-                  length(CpGvec), length(CpGclustered)))
-  
-  if (length(CpGclustered) == 0) {
-    warning("No CpG clusters found.")
-    return(NULL)
+test_enrichment_quadrants <- function(quad_list, putativeME_GR, me_col = "set") {
+  # If no 'set' column, treat all ME as one group "ALL"
+  if (!(me_col %in% names(mcols(putativeME_GR)))) {
+    me_sets <- "ALL"
+    putativeME_GR$..tmp_set.. <- "ALL"
+    me_col <- "..tmp_set.."
+  } else {
+    me_sets <- unique(as.character(mcols(putativeME_GR)[[me_col]]))
   }
   
-  message("Annotating genes...")
-  ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
+  # Total elements per quadrant (each element counted once)
+  totals <- vapply(quad_list, length, integer(1))
   
-  message(sprintf("Found %d Entrez genes", length(ensg)))
-  
-  message("Running GO enrichment...")
-  list = lapply(c("BP", "MF", "CC"), function(x) {runGO(ensg, universe, x)})
-  names(list) = c("BP", "MF", "CC")
-  return(list)
-}
-
-###############
-## Check GO slim terms for easy interpretation
-## GO subsets (also known as GO slims) are condensed versions of the GO containing a subset of the terms.
-# dl the GO slim Developed by GO Consortium for the Alliance of Genomes Resources
-# download.file(url = "https://current.geneontology.org/ontology/subsets/goslim_agr.obo",
-# destfile = here("gitignore/goslim_agr.obo"))
-slim <- GSEABase::getOBOCollection(here("gitignore/goslim_agr.obo"))
-
-getGOslim <- function(x){
-  res = x@result
-  onto = x@ontology
-  
-  # Create the GOCollection 
-  go_collection = GSEABase::GOCollection(ids = res[res$p.adjust < 0.05 & res$Count >= 10, "ID"])
-  
-  # Perform the GO slim mapping
-  slimdf = GSEABase::goSlim(idSrc = go_collection, 
-                            slimCollection = slim,
-                            ontology = onto)
-  
-  # Map the original GO terms to the slim terms
-  mappedIds <- function(df, collection, OFFSPRING) {
-    map <- as.list(OFFSPRING[rownames(df)])
-    mapped <- lapply(map, intersect, ids(collection))
-    df[["mapped_go_terms"]] <- vapply(unname(mapped), paste, collapse = ";", character(1L))
+  # Iterate over ME sets
+  out <- lapply(me_sets, function(me_name) {
+    me_subset <- putativeME_GR[mcols(putativeME_GR)[[me_col]] == me_name]
     
-    # Get GO term names
-    go_names <- AnnotationDbi::select(GO.db, keys = unlist(mapped), columns = "TERM", keytype = "GOID")
-    go_names_list <- split(go_names$TERM, go_names$GOID)
-    df[["mapped_go_names"]] <- vapply(mapped, function(x) {
-      paste(go_names_list[x], collapse = ";")
-    }, character(1L))
+    # Count how many elements in each quadrant overlap the ME subset
+    inME <- vapply(quad_list, function(gr) {
+      ov <- findOverlaps(gr, me_subset, ignore.strand = TRUE)
+      length(unique(queryHits(ov)))  # number of quadrant elements hitting at least one ME
+    }, integer(1))
     
-    # Get GO slim term full names
-    slim_names <- AnnotationDbi::select(GO.db, keys = rownames(df), columns = "TERM", keytype = "GOID")
-    df[["go_slim_full_name"]] <- slim_names$TERM
-    
-    df
-  }
+    # Build quadrant-vs-others 2x2 tests
+    bind_rows(lapply(names(quad_list), function(q) {
+      a <- inME[[q]]
+      b <- totals[[q]] - a
+      c <- sum(inME[names(inME) != q])
+      d <- sum(totals[names(totals) != q]) - c
+      
+      fs <- .safe_fisher(a, b, c, d)
+      
+      tibble(
+        CpG_set            = me_name,
+        quadrant          = q,
+        inME              = a,
+        total             = totals[[q]],
+        others_inME       = c,
+        others_total      = sum(totals) - totals[[q]],
+        pct_inME          = 100 * a / totals[[q]],
+        pct_inME_others   = 100 * c / (sum(totals) - totals[[q]]),
+        odds_ratio        = fs$or,
+        p_value           = fs$p
+      )
+    }))
+  }) %>% bind_rows() %>%
+    mutate(p_adj_BH = p.adjust(p_value, method = "BH"))
   
-  # Use the appropriate OFFSPRING database based on the ontology
-  offspring_db <- switch(onto,
-                         "BP" = GO.db::GOBPOFFSPRING,
-                         "CC" = GO.db::GOCCOFFSPRING,
-                         "MF" = GO.db::GOMFOFFSPRING)
-  
-  slimdf_with_terms <- mappedIds(slimdf, go_collection, offspring_db)
-  
-  slimdf_with_terms %>%
-    filter(Count != 0) %>%
-    dplyr::mutate(GO.category = onto)
-}
-
-makeGOslimPlot_all <- function(dfGOslim_all, posleg = "top") {
-  if (nrow(dfGOslim_all) == 0) {
-    stop("dfGOslim_all is empty — no slim categories to plot.")
-  }
-  
-  ggplot(dfGOslim_all, aes(x = group, y = Term)) +
-    geom_point(aes(size = Percent)) +
-    scale_size_continuous(
-      name = "% of GO terms in this GO slim category",
-      range = c(1, 8)
-    ) +
-    theme_bw() +
-    ylab("") + xlab("") +
-    theme(
-      legend.box.background = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-      legend.background     = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-      legend.key            = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-      legend.position       = posleg,
-      axis.text.y           = element_text(size = 12),
-      axis.text.x           = element_text(size = 12, angle = 45, hjust = 1)
-    ) +
-    facet_grid(group ~ fct_inorder(GO.category), scales = "free", space = "free") +
-    coord_flip()
+  out
 }
 
 functionsLoaded = TRUE
