@@ -15,6 +15,7 @@ source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
 
 ## Read vectors saved in R06
 overlapLayers <- readRDS(here("gitignore/overlapLayers.RDS"))
+overlap.1or2 <- readRDS(here("gitignore/overlap.1or2.RDS"))
 topIntersect90 <- readRDS(here("gitignore/topIntersect90.RDS"))
 
 ###################################################################################################
@@ -211,15 +212,120 @@ saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations/to
 ## Enrichement in TE ##
 #######################
 
+# UCSC RepeatMasker annotations (Oct2022) for Human (hg38) from AnnotationHub
+library(AnnotationHub)
+ah <- AnnotationHub()
+query(ah, c("UCSC", "RepeatMasker", "Homo sapiens"))
 
+# Retrieve the desired resource, UCSC RepeatMasker annotations for hg38:
+rmskhg38 <- ah[["AH111333"]]
 
+# Filter for ERV1 & ERVK
+te_regions <- rmskhg38[mcols(rmskhg38)$repFamily %in% c("ERV1", "ERVK")]
 
+# View summary
+table(mcols(te_regions)$repFamily)
+length(te_regions)  # Total TE regions
 
+topIntersect90_GR <- makeGRfromMyCpGPos(topIntersect90, "topIntersect90")
+overlap.1or2_GR <- makeGRfromMyCpGPos(overlap.1or2, "overlap.1or2")
+overlapLayers_GR <- makeGRfromMyCpGPos(overlapLayers, "overlapLayers")
 
+getERVenrichTable <- function(te_regions, mysubtitle, target, nameTarget = "topIntersect90"){
+  # Find overlaps
+  te_intersectTarget <- te_regions[overlapsAny(te_regions, target, ignore.strand=TRUE)]
+  te_overlapLayers <- te_regions[overlapsAny(te_regions, overlapLayers_GR, ignore.strand=TRUE)]
+  
+  # Function for Fisher's test by repFamily
+  fisher_test_erv <- function(family, foreground, background) {
+    hits <- sum(mcols(foreground)$repFamily == family)
+    bg <- sum(mcols(background)$repFamily == family)
+    
+    contingency <- matrix(c(
+      hits,
+      length(target) - hits,
+      bg,
+      length(overlapLayers) - bg
+    ), nrow=2, byrow=TRUE)
+    
+    rownames(contingency) <- c(nameTarget, "background")
+    colnames(contingency) <- c(family, "other")
+    
+    test <- fisher.test(contingency)
+    list(
+      family = family,
+      contingency = contingency,
+      pvalue = test$p.value,
+      odds_ratio = test$estimate
+    )
+  }
+  
+  # Test ERV1 and ERVK separately
+  erv1_test <- fisher_test_erv("ERV1", te_intersectTarget, te_overlapLayers)
+  ervk_test <- fisher_test_erv("ERVK", te_intersectTarget, te_overlapLayers)
+  
+  # Results
+  summary_df <- data.frame(
+    ERV = c("ERV1", "ERVK"),
+    contingency = I(list(erv1_test$contingency, ervk_test$contingency)),
+    n_hits = c(erv1_test$contingency[1,1], ervk_test$contingency[1,1]),
+    n_total = c(sum(erv1_test$contingency[1,]), sum(ervk_test$contingency[1,])),
+    n_bg_hits = c(erv1_test$contingency[2,1], ervk_test$contingency[2,1]),
+    n_bg_total = c(sum(erv1_test$contingency[2,]), sum(ervk_test$contingency[2,])),
+    p_value = c(erv1_test$pvalue, ervk_test$pvalue),  # Keep raw numbers
+    odds_ratio = c(erv1_test$odds_ratio, ervk_test$odds_ratio)
+  ) %>%
+    mutate(
+      pct_hits = n_hits / n_total,
+      pct_bg = n_bg_hits / n_bg_total,
+      p_value_fmt = case_when(
+        p_value < 2.2e-16 ~ "<2.2e-16",
+        p_value < 0.001 ~ sprintf("%.2e", p_value),
+        TRUE ~ sprintf("%.3f", p_value)
+      ))
+  
+  # Pretty GT table
+  summary_df %>%
+    dplyr::select(ERV, n_hits, n_total, pct_hits, n_bg_hits, n_bg_total, pct_bg, p_value_fmt, odds_ratio) %>%
+    gt() %>%
+    fmt_number(columns = c(n_hits, n_total, n_bg_hits, n_bg_total), decimals = 0) %>%
+    fmt_percent(columns = c(pct_hits, pct_bg), decimals = 1) %>%
+    # NO fmt_scientific() - use pre-formatted column
+    fmt_number(columns = odds_ratio, decimals = 3) %>%
+    cols_label(
+      ERV = "ERV Type",
+      n_hits = "Hits",
+      n_total = "Total", 
+      pct_hits = "%",
+      n_bg_hits = "BG Hits",
+      n_bg_total = "Total background",
+      pct_bg = "% in Background",
+      p_value_fmt = "P-value",  # Renamed column
+      odds_ratio = "Odds Ratio"
+    ) %>%
+    tab_style(style = list(cell_fill(color = "lightblue")),
+              locations = cells_column_labels()) %>%
+    tab_header(title = "ERV Enrichment Analysis (Fisher's Exact Test)",
+               subtitle = paste0(mysubtitle, " in ", nameTarget)) %>%
+    tab_options(table.font.size = 12, data_row.padding = px(4)) %>% print()
+}
 
+getERVenrichTable(te_regions = te_regions, mysubtitle = "exact TE region", target = topIntersect90_GR, nameTarget = "topIntersect90")
 
+## Try for proximal of TE (<= 3kb or <= 10 kb)
+getERVenrichTable(te_regions = promoters(te_regions, upstream = 3000, downstream = 3000), 
+                  mysubtitle = "proximal TE region (<= 3kb)", target = topIntersect90_GR, nameTarget = "topIntersect90")
+getERVenrichTable(te_regions = promoters(te_regions, upstream = 10000, downstream = 10000), 
+                  mysubtitle = "proximal TE region (<= 10kb)", target = topIntersect90_GR, nameTarget = "topIntersect90")
 
+## And for CpG p90% in 1 or 2 layers only?
+getERVenrichTable(te_regions = te_regions, mysubtitle = "exact TE region", target = overlap.1or2_GR, nameTarget = "overlap.1or2")
 
+## Try for proximal of TE (<= 3kb or <= 10 kb)
+getERVenrichTable(te_regions = promoters(te_regions, upstream = 3000, downstream = 3000), 
+                  mysubtitle = "proximal TE region (<= 3kb)", target = overlap.1or2_GR, nameTarget = "overlap.1or2")
+getERVenrichTable(te_regions = promoters(te_regions, upstream = 10000, downstream = 10000), 
+                  mysubtitle = "proximal TE region (<= 10kb)", target = overlap.1or2_GR, nameTarget = "overlap.1or2")
 
 ################################
 ## Genomic positions of top90 ##
@@ -239,7 +345,7 @@ df2 <- na.omit(df2)
 
 # Compute chromosome boundaries
 df_bounds <- topIntersect90_dt[, .(min_pos = min(pos2, na.rm = TRUE), 
-                          max_pos = max(pos2, na.rm = TRUE)), by = chr]
+                                   max_pos = max(pos2, na.rm = TRUE)), by = chr]
 
 # Midpoints between chromosomes = where to draw dotted lines
 df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]

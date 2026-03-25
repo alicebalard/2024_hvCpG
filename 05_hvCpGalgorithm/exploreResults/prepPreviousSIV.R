@@ -75,3 +75,38 @@ rm(data)
 SoCCpGs <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 6, skip = 2)
 SoCCpGs_hg38 <- na.omit(dico[match(SoCCpGs$cpg, dico$CpG), "chrpos_hg38"])
 length(SoCCpGs_hg38) #259
+
+################################################
+## Prepare equivalent GRanges objects for all ##
+################################################
+
+HarrisSIV_hg38_GR <- makeGRfromMyCpGPos(HarrisSIV_hg38, "Harris SIV")  
+VanBaakESS_hg38_GR <- makeGRfromMyCpGPos(VanBaakESS_hg38, "VanBaak ESS")
+KesslerSIV_GRanges_hg38$set <- "Kessler SIV"
+corSIV_GRanges_hg38$set <- "Gunasekara corSIV"
+DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "Derakhshan hvCpG")
+
+putativeME_GR <- c(DerakhshanhvCpGs_hg38_GR, HarrisSIV_hg38_GR, VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
+                   corSIV_GRanges_hg38)
+
+putativeME_GR$set <- factor(putativeME_GR$set, 
+                            levels = c("Derakhshan hvCpG", "Harris SIV", 
+                                       "VanBaak ESS", "Kessler SIV", "Gunasekara corSIV"))
+putativeME_GR$genome <- "hg38"
+
+## Save for paleo project (once)
+# saveRDS(putativeME_GR, "../../../2025_paleoMethylVar/gitignore/putativeME_GR.RDS")
+# 
+# putativeME_GR <- readRDS("/path/to/putativeME_GR.RDS")
+
+###############################################################################
+## Prepare CpG associated with vmeQTL identified in MZ twins by Jordana Bell ##
+###############################################################################
+
+vmeQTL_hg19probes <- readxl::read_xlsx(here("05_hvCpGalgorithm/dataPrev/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
+vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]) ; rm(vmeQTL_hg19probes)
+
+vmeQTL_hg38_GR <- makeGRfromMyCpGPos(vmeQTL_hg38, "Zhang vmeQTL")  
+vmeQTL_hg38_GR$genome <- "hg38"
+
+previousSIVprepared = "prepared"
