@@ -358,10 +358,11 @@ dev.off()
 X = readRDS(here::here("gitignore/fullres_Atlas10X_11_noImmune_sample11groups"))
 Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly"))
 
-plotGeneQuadrant <- function(gene_name, gene_chr, gene_start, gene_end){
+plotGeneQuadrant <- function(gene_name, gene_chr, gene_start, gene_end, 
+                             out = 1000, SNP = NA){
   
-  X_gene <- X[chr == gene_chr & pos >= gene_start & pos <= gene_end]
-  Y_gene <- Y[chr == gene_chr & pos >= gene_start & pos <= gene_end]
+  X_gene <- X[chr == gene_chr & pos >= gene_start - out & pos <= gene_end + out]
+  Y_gene <- Y[chr == gene_chr & pos >= gene_start - out & pos <= gene_end + out]
   
   X_gene <- X_gene[, !c("cum_offset", "pos2"), with=FALSE]
   Y_gene <- Y_gene[, !c("cum_offset", "pos2"), with=FALSE]
@@ -369,9 +370,24 @@ plotGeneQuadrant <- function(gene_name, gene_chr, gene_start, gene_end){
   names(X_gene)[names(X_gene) %in% "alpha"] = "alpha_no_immune_cells"
   names(Y_gene)[names(Y_gene) %in% "alpha"] = "alpha_immune_cells_only"
   
-  geneDT <- full_join(X_gene, Y_gene)
+  wideDT <- full_join(X_gene, Y_gene)
   
-  plot <- ggplot(geneDT, aes(x = alpha_no_immune_cells, y = alpha_immune_cells_only))+
+  wideDT$quadrant[!is.na(wideDT$alpha_no_immune_cells) & 
+                    !is.na(wideDT$alpha_immune_cells_only)] <- "stable"
+  wideDT$quadrant[!is.na(wideDT$alpha_no_immune_cells) & 
+                    !is.na(wideDT$alpha_immune_cells_only) &
+                    wideDT$alpha_no_immune_cells > 0.5 & 
+                    wideDT$alpha_immune_cells_only > 0.5] <- "cellUniversal"
+  wideDT$quadrant[!is.na(wideDT$alpha_no_immune_cells) & 
+                    !is.na(wideDT$alpha_immune_cells_only) &
+                    wideDT$alpha_no_immune_cells > 0.5 & 
+                    wideDT$alpha_immune_cells_only < 0.5] <- "notimmune"
+  wideDT$quadrant[!is.na(wideDT$alpha_no_immune_cells) & 
+                    !is.na(wideDT$alpha_immune_cells_only) &
+                    wideDT$alpha_no_immune_cells < 0.5 & 
+                    wideDT$alpha_immune_cells_only > 0.5] <- "immune"
+  
+  plot1 <- ggplot(wideDT, aes(x = alpha_no_immune_cells, y = alpha_immune_cells_only))+
     geom_vline(xintercept = .5, linetype = 2)+
     geom_hline(yintercept = .5, linetype = 2)+
     geom_point() +
@@ -379,17 +395,59 @@ plotGeneQuadrant <- function(gene_name, gene_chr, gene_start, gene_end){
     theme_minimal() +
     coord_cartesian(xlim = c(0,1), ylim = c(0,1))
   
-  longDT <- geneDT %>% pivot_longer(cols = starts_with("alpha"), names_to = "analysis", values_to = "alpha")
-  plot2 <- ggplot(longDT, aes(x=pos, y=alpha, fill = analysis)) +
-    geom_point(pch=21) +
-    theme_linedraw()
+  longDT <- wideDT %>% pivot_longer(cols = starts_with("alpha"), names_to = "analysis", values_to = "alpha")
+  # Create GRanges
+  GRobj <- GRanges(
+    seqnames = paste0("chr", longDT$chr),
+    ranges = IRanges(start = longDT$pos, width = 1),
+    alpha = longDT$alpha, quadrant = longDT$quadrant, name = longDT$name
+  )
   
-  return(list(plot=plot, wideDT=geneDT, longDT=longDT, plot2 = plot2))
+  # Import bed file
+  if (!exists("bed_features")){
+    bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
+  }
+  
+  # Annotate CpGs and see which regions have higher alpha
+  anno_result <- genomation::annotateWithGeneParts(
+    target = GRobj, feature = bed_features)
+  
+  ## Add info from annotation to our GRange object
+  GRobj$featureType <- ifelse(
+    anno_result@members[, "prom"] == 1, "promoter",
+    ifelse(anno_result@members[, "exon"] == 1, "exon",
+           ifelse(anno_result@members[, "intron"] == 1, "intron", "intergenic")))
+  
+  longDT <- na.omit(data.frame(GRobj))
+  
+  longDT$quadrant <- factor(longDT$quadrant, 
+                            levels = c("stable", "notimmune", "immune", "cellUniversal"))
+  
+  plot2 <- ggplot(longDT, aes(x=start, y=alpha, fill = quadrant, group = name)) +
+    geom_line(linetype = 3)+
+    geom_vline(xintercept = gene_start) +
+    geom_vline(xintercept = gene_end) +
+    geom_point(pch=21, size = 3, alpha = .8) +
+    theme_linedraw() +
+    theme(legend.position = "top")+
+    facet_grid(featureType~.) +
+    scale_fill_manual(values = c("grey", "red", "yellow", "blue"))
+  
+  if (!is.na(SNP)){
+    plot2 <- plot2 + geom_vline(xintercept = SNP, linetype = 2)
+  }
+  
+  plot <- cowplot::plot_grid(plot1, plot2)
+  return(list(plot=plot, wideDT=wideDT, longDT=longDT))
 }
 
 ## https://pmc.ncbi.nlm.nih.gov/articles/PMC11603180/
-p_NOD2 <- plotGeneQuadrant("NOD2", "16", 50693606L, 50733075L)
-p_NOD2$plot; p_NOD2$plot2
+p_NOD2 <- plotGeneQuadrant("NOD2", "16", 50693606L, 50733075L, out = 10000,
+                           SNP = 50712243)
+p_NOD2$plot
+
+p_NOD2$longDT[p_NOD2$longDT$start %in% 50712015,]
+# Chr16: 50712015 (on Assembly GRCh38)
 
 plotGeneQuadrant("TNFRSF1A", "12", 6328771L, 6342076L)
 
