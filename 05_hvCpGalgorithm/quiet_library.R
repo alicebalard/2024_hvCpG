@@ -45,23 +45,18 @@ quiet_library_all <- function(pkgs) {
 quiet_library_all(
   c("dplyr", "data.table", "matrixStats", "tidyr", "tibble", ## data formatting
     "parallel", "rhdf5",  "purrr","forcats", ## data handling
-    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", "Cairo", "gt",
-    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra", "viridis", "ggVennDiagram", ## graphical
+    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", "gt", "ggVennDiagram",
+    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra", "viridis", "Cairo", ## graphical
     "boot", "emmeans", ## stats
     "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
     "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", "IRanges", 
      "TxDb.Hsapiens.UCSC.hg38.knownGene", "GSEABase", "stringr",
-    "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", ## methylation
+    "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "methylkit", ## methylation
     "testthat", "parallel" # grammar & packaging
   ))
 ## NB: not all libraries are necessary; to clean when packaging
 
 rm(quiet_library_all, quiet_library)
-
-## load only in local, error in HPC CS
-#ggVennDiagram
-#methylKit
-#Cairo
 
 ## Error in ing-p5
 # "reshape2"
