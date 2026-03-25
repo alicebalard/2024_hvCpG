@@ -7,7 +7,7 @@
 #$ -l h_rt=30:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
-#$ -t 60-120 ## to accomodate also tests with more CpGs covered
+#$ -t 1-120 ## to accomodate also tests with more CpGs covered
 #$ -tc 30
 
 # ---- Config ----
