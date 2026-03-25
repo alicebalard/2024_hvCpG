@@ -19,28 +19,6 @@ if (!exists("resCompArray")) {
 if (!exists("previousSIVprepared")) {
   source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))}
 
-##################################
-## Save all data in RDS objects ##
-##################################
-
-for (file in list.files(here("05_hvCpGalgorithm/resultsDir/Atlas/"))){
-  if (!file.exists(here(paste0("gitignore/fullres_", file)))){
-    ## Add previous MEs including Maria's results if not sourced yet
-    if (!exists("KesslerSIV_GRanges_hg38")) {
-      source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
-    }
-    
-    system.time(Atlas_dt <- prepAtlasdt(file))
-    
-    print("Number of CpG tested:")
-    print(nrow(Atlas_dt))
-    
-    print(paste0("Saving results for ", file, "in ", here(paste0("gitignore/fullres_", file))))
-    saveRDS(Atlas_dt, file = here(paste0("gitignore/fullres_", file)))
-    print("Saved")
-  }
-}
-
 #####################################
 ## one run per developmental layer ##
 #####################################
