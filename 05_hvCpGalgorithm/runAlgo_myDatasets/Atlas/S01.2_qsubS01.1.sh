@@ -4,10 +4,10 @@
 #$ -pe smp 15 ## kills early if 12x5; 15x5 kill at the end
 #$ -l tmem=6G
 #$ -l h_vmem=6G
-#$ -l h_rt=50:00:00
+#$ -l h_rt=30:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
-#$ -t 1-120 ## to accomodate also tests with more CpGs covered
+#$ -t 60-120 ## to accomodate also tests with more CpGs covered
 #$ -tc 30
 
 # ---- Config ----
