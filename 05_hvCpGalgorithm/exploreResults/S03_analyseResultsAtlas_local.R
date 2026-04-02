@@ -3,14 +3,22 @@
 #################################################
 library(here)
 
-source(here("05_hvCpGalgorithm", "quiet_library.R"))
-source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
+## Load libraries
+if (!exists("libLoaded")) {
+  source(here("05_hvCpGalgorithm", "quiet_library.R"))}
+
+## Load functions
+if (!exists("functionsLoaded")) {
+  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))}
 
 ## Load array results
-resArray <- readRDS(here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
+if (!exists("resArray")) {
+  resArray <- readRDS(here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
+}
 
-## Add previous MEs including Maria's results
-source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+## Load the set of previously tested MEs & vmeQTL
+if (!exists("previousSIVprepared")) {
+  source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))}
 
 ##################################
 ## Save all data in RDS objects ##

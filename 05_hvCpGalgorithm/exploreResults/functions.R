@@ -156,7 +156,7 @@ makeZ_inner <- function(X, Y, whichAlphaX = NULL, whichAlphaY = NULL) {
 
 makeCompPlot <- function(X, Y, title, xlab, ylab,
                          whichAlphaX = NULL, whichAlphaY = NULL,
-                         minplot = 1000000) {
+                         minplot = 100000) {
   
   # ---- Build Z_inner *and assign it* ----
   Z_inner <- makeZ_inner(X, Y, whichAlphaX = whichAlphaX, whichAlphaY = whichAlphaY)
