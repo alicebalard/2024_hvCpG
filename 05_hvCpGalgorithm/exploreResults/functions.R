@@ -9,6 +9,7 @@
 ## GO old functions (commented out)
 ## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
 ## for each quadrant vs the other three combined
+### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
 
 prepAtlasdt <- function(dir = "Atlas10X"){
   # Define parent folder containing all "Atlas_batchXXX" folders
@@ -441,6 +442,34 @@ test_enrichment_quadrants <- function(quad_list, putativeME_GR, me_col = "set") 
     mutate(p_adj_BH = p.adjust(p_value, method = "BH"))
   
   out
+}
+
+# Compute overlap across any number of groups and plot a Venn diagram
+plotMyVenn <- function(cutoff, ...) {
+  groups <- list(...)                         # list of data.frames (each has name, alpha)
+  
+  # 1) Overlap among all names (unfiltered)
+  sets_unfilt <- lapply(groups, function(df) df$name)
+  overlap <- Reduce(intersect, sets_unfilt)
+  
+  message(paste0("There are ", length(overlap), " overlapping CpGs between these groups (unfiltered)."))
+  
+  # 2) Apply cutoff AND keep only overlapping names (so sets are comparable on the same universe)
+  sets <- lapply(groups, function(df) df$name[df$alpha >= cutoff & df$name %in% overlap])
+  
+  # 3) Optional: add names to sets if you passed named arguments
+  if (!is.null(dots <- match.call(expand.dots = FALSE)$...) && length(names(dots))) {
+    nm <- names(dots)
+    if (any(nzchar(nm))) names(sets) <- ifelse(nzchar(nm), nm, paste0("group", seq_along(sets)))
+  }
+  
+  # 4) Plot
+  p <- ggVennDiagram(sets, label_alpha = 0) +
+    scale_fill_gradient2(low = "white", mid = "yellow", high = "red") +
+    ggtitle(paste0("Pr(hv) ≥ ", cutoff), 
+            subtitle = paste0("Sequenced CpGs N = ", length(overlap)))
+  
+  return(p)
 }
 
 functionsLoaded = TRUE

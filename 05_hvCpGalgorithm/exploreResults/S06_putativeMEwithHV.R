@@ -169,37 +169,29 @@ length(intersect(topIntersect90, topIntersect90_6gp)) # 124086
 length(intersect(topIntersect90, topIntersect90_6gp))/length(topIntersect90)*100
 ## 71% of these sites are found also when only 6 groups are considered per germ layer
 
+########################
+## How many are SNPs? ##
+########################
+
+topIntersect90 <- readRDS(overlap, file = here("gitignore/topIntersect90.RDS"))
+write.csv(x = gsub("chr", "",topIntersect90), file = here("gitignore/topIntersect90.csv"), 
+          quote = F, row.names = F)
+
+overlapLayers <- readRDS(overlap, file = here("gitignore/overlapLayers.RDS"))
+write.csv(x = gsub("chr", "",overlapLayers), file = here("gitignore/overlapLayers.csv"), 
+          quote = F, row.names = F)
+
+## Bash code in 05_hvCpGalgorithm/exploreResults/prepSNP1000GP.sh
+
+## topIntersect90 in all_snps_GRCh38_chr_pos:
+122891 / 174494 ## 70.4%
+
+## overlapLayers (background) in all_snps_GRCh38_chr_pos:
+6475342 / 17474841 ## 37%
+
 ##############################################
 ## What is the overlap for different alpha? ##
 ##############################################
-
-# Compute overlap across any number of groups and plot a Venn diagram
-plotMyVenn <- function(cutoff, ...) {
-  groups <- list(...)                         # list of data.frames (each has name, alpha)
-  
-  # 1) Overlap among all names (unfiltered)
-  sets_unfilt <- lapply(groups, function(df) df$name)
-  overlap <- Reduce(intersect, sets_unfilt)
-  
-  message(paste0("There are ", length(overlap), " overlapping CpGs between these groups (unfiltered)."))
-  
-  # 2) Apply cutoff AND keep only overlapping names (so sets are comparable on the same universe)
-  sets <- lapply(groups, function(df) df$name[df$alpha >= cutoff & df$name %in% overlap])
-  
-  # 3) Optional: add names to sets if you passed named arguments
-  if (!is.null(dots <- match.call(expand.dots = FALSE)$...) && length(names(dots))) {
-    nm <- names(dots)
-    if (any(nzchar(nm))) names(sets) <- ifelse(nzchar(nm), nm, paste0("group", seq_along(sets)))
-  }
-  
-  # 4) Plot
-  p <- ggVennDiagram(sets, label_alpha = 0) +
-    scale_fill_gradient2(low = "white", mid = "yellow", high = "red") +
-    ggtitle(paste0("Pr(hv) ≥ ", cutoff), 
-            subtitle = paste0("Sequenced CpGs N = ", length(overlap)))
-  
-  return(p)
-}
 
 p1 <- plotMyVenn(0.5, endo = endo, meso = meso, ecto = ecto, all = allLayers)
 p2 <- plotMyVenn(0.75, endo = endo, meso = meso, ecto = ecto, all = allLayers)

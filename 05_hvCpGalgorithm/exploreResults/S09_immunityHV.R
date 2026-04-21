@@ -221,11 +221,20 @@ stable_GR <- makeGRfromMyCpGPos(stable, "stable")
 
 makeVenn=FALSE
 if (makeVenn){  
+  endo = readRDS(here::here("gitignore/fullres_10X_12_endo"))
+  meso = readRDS(here::here("gitignore/fullres_10X_13_meso"))
+  ecto = readRDS(here::here("gitignore/fullres_10X_14_ecto"))
+  allLayers = readRDS(here::here("gitignore/fullres_Atlas10X"))
+  
   gr_list <- list(cellUniversal = cellUniversal_GR, 
                   immune = immune_GR, 
                   notimmune = notimmune_GR, 
                   stable = stable_GR, 
-                  DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR) ## test previous hvCpGs
+                  DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR,
+                  HarrisSIV = HarrisSIV_hg38_GR,
+                  VanBaakESS =VanBaakESS_hg38_GR,
+                  KesslerSIV = KesslerSIV_GRanges_hg38, 
+                  GunasekaracorSIV = corSIV_GRanges_hg38)
   
   lapply(names(gr_list), function(name){
     x <- gr_list[[name]]
@@ -242,7 +251,49 @@ if (makeVenn){
                      meso = meso[meso$name %in% gr_names,],
                      ecto = ecto[ecto$name %in% gr_names,],
                      all = allLayers[allLayers$name %in% gr_names,])
-    pdf(file = paste0("../../05_hvCpGalgorithm/figures/vennGermLayers/Venn_", 
+    pdf(file = paste0("../../05_hvCpGalgorithm/figures/vennGermLayers/Venn_germLayersAllSamples/Venn_", 
+                      name, "_GR.pdf"), width = 13, height = 6)
+    print(cowplot::plot_grid(p1 + theme(legend.position = "none"),
+                             p2 + theme(legend.position = "none"),
+                             p3 + theme(legend.position = "none"), 
+                             nrow = 1, labels = name)) 
+    dev.off()
+  })
+}
+
+makeVenn2=FALSE
+if (makeVenn2){  
+  endo6 = readRDS(here::here("gitignore/fullres_10X_12.2_endo6gp"))
+  meso6 = readRDS(here::here("gitignore/fullres_10X_13.2_meso6gp"))
+  ecto = readRDS(here::here("gitignore/fullres_10X_14_ecto"))
+  allLayers = readRDS(here::here("gitignore/fullres_Atlas10X"))
+  
+  gr_list <- list(cellUniversal = cellUniversal_GR, 
+                  immune = immune_GR, 
+                  notimmune = notimmune_GR, 
+                  stable = stable_GR, 
+                  DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR,
+                  HarrisSIV = HarrisSIV_hg38_GR,
+                  VanBaakESS =VanBaakESS_hg38_GR,
+                  KesslerSIV = KesslerSIV_GRanges_hg38, 
+                  GunasekaracorSIV = corSIV_GRanges_hg38)
+  
+  lapply(names(gr_list), function(name){
+    x <- gr_list[[name]]
+    gr_names <- paste0(as.character(seqnames(x)), "_", start(x))
+    p1 <- plotMyVenn(0.5, endo6 = endo6[endo6$name %in% gr_names,],
+                     meso6 = meso6[meso6$name %in% gr_names,],
+                     ecto = ecto[ecto$name %in% gr_names,],
+                     all = allLayers[allLayers$name %in% gr_names,])
+    p2 <- plotMyVenn(0.75, endo6 = endo6[endo6$name %in% gr_names,],
+                     meso6 = meso6[meso6$name %in% gr_names,],
+                     ecto = ecto[ecto$name %in% gr_names,],
+                     all = allLayers[allLayers$name %in% gr_names,])
+    p3 <- plotMyVenn(0.9, endo6 = endo6[endo6$name %in% gr_names,],
+                     meso6 = meso6[meso6$name %in% gr_names,],
+                     ecto = ecto[ecto$name %in% gr_names,],
+                     all = allLayers[allLayers$name %in% gr_names,])
+    pdf(file = paste0("../../05_hvCpGalgorithm/figures/vennGermLayers/Venn_germLayers6celltypePerGermLayer/Venn_", 
                       name, "_GR.pdf"), width = 13, height = 6)
     print(cowplot::plot_grid(p1 + theme(legend.position = "none"),
                              p2 + theme(legend.position = "none"),
