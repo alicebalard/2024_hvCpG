@@ -5,10 +5,18 @@
 
 ## Prepare
 library(here)
-source(here("05_hvCpGalgorithm/quiet_library.R"))
+## Load libraries
+if (!exists("libLoaded")) {
+  source(here("05_hvCpGalgorithm", "quiet_library.R"))}
+
+## Load functions
+if (!exists("functionsLoaded")) {
+  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))}
 
 ## Add previous MEs including Maria's results
-source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+## Load the set of previously tested MEs & vmeQTL
+if (!exists("previousSIVprepared")) {
+  source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))}
 
 ################################
 ## Load full results on array ##
@@ -64,31 +72,25 @@ resArrayAll <- prepareChrDataset(resArrayAll)
 chr_mid <- resArrayAll %>%
   group_by(chr) %>%
   summarise(mid = (min(cum_pos) + max(cum_pos)) / 2)
-pdf(here("05_hvCpGalgorithm/figures/ManhattanAlphaPlot_array.pdf"), width = 15, height = 3)
+pdf(here("05_hvCpGalgorithm/figures/manhattan/ManhattanAlphaPlot_array.pdf"), 
+    width = 15, height = 4)
 ## colorblind friendly
 ggplot() +
-  geom_point(data = resArrayAll, 
-             aes(x = cum_pos, y = alpha, col = "black"),
-             alpha = 0.05, size = 1) +
-  # Highlight hvCpG
-  geom_point(data = resArrayAll[resArrayAll$group %in% "hvCpG_Derakhshan", ],
-             aes(x = cum_pos, y = alpha),
-             col = "#DC3220", alpha = 0.8) +
-  # Highlight mQTL controls
-  geom_point(data = resArrayAll[resArrayAll$group %in% "mQTLcontrols", ],
-             aes(x = cum_pos, y = alpha),
-             col = "#005AB5", alpha = 0.8) +
-  scale_color_identity() +
+  geom_point(data = subset(resArrayAll, is.na(group)),
+    aes(x = cum_pos, y = alpha), color = "gray", alpha = .5, size = .8) +
+  geom_point(data = subset(resArrayAll, !is.na(group)),
+    aes(x = cum_pos, y = alpha, col = group), alpha = .8, size = 1) +
+  scale_color_manual(values = c("hvCpG_Derakhshan" = "#DC3220",
+      "mQTLcontrols" = "#005AB5")) +
   scale_x_continuous(breaks = chr_mid$mid,
-                     labels = gsub("chr", "", chr_mid$chr),
-                     expand = c(0, 0)) + ## rm padding
+    labels = gsub("chr", "", chr_mid$chr), expand = c(0, 0)) +
   theme_minimal(base_size = 14) +
-  theme(
-    legend.position = "none",
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  ) +
-  labs(x = "Chromosome", y = "Probability of being a hvCpG")
+  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
+  theme(legend.title = element_blank(),
+        legend.position = "top",
+        legend.box.margin = margin(10, 0, 0, 0),
+        legend.margin = margin(-5, 0, 0, 0),
+        plot.margin = margin(t = 1, r = 5, b = 5, l = 5)) 
 dev.off()
 
 ###################################################################
@@ -133,76 +135,51 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   coord_cartesian(ylim = c(-1,1))
 dev.off()
 
-###########################################################
-## Load full results on array with only 3 individuals/ds ##
-###########################################################
+################################################################
+## Load full results on array with only 2 or 3 individuals/ds ##
+################################################################
+
+makePlotNrob <- function(resCompArray, N){
+  ggplot(resCompArray,
+         aes(x=alpha_array_all, y=alpha_array_reduce)) +
+    geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group),
+               alpha = 0.05) +
+    geom_point(data = resCompArray[!is.na(resCompArray$group),], aes(col = group),
+               alpha = 0.4) +
+    geom_smooth(method = "lm", fill = "grey", col = "grey") +
+    scale_color_manual(values = c("#DC3220", "#005AB5", "grey"),
+                       labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+    theme_minimal(base_size = 14) +
+    theme(legend.title = element_blank()) +
+    labs(title = "Probability of being hypervariable",
+         x = "P(hv) using full array datasets",
+         y = paste0("P(hv) using reduced (", N, " ind/ds) array datasets")) +
+    coord_cartesian(xlim = c(0,1), ylim = c(0,1))
+}
 
 load(here("05_hvCpGalgorithm/resultsDir/Arrays/results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1.RData"))
 
 resArray3ind <- as.data.frame(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
 rm(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
-
 resArray3ind <- prepareChrDataset(resArray3ind)
-
-names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_3ind"
+names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_reduce"
 resCompArray <- dplyr::left_join(resArray3ind, resArrayAll)
 names(resCompArray)[names(resCompArray) %in% "alpha"] <- "alpha_array_all"
 
-p1 <- ggplot(resCompArray, 
-       aes(x=alpha_array_all, y=alpha_array_3ind, fill = group, col = group)) +
-  geom_point(data = resCompArray[is.na(resCompArray$group),],
-             pch = 21, alpha = 0.05) +
-  geom_point(data = resCompArray[!is.na(resCompArray$group),],
-             pch = 21, alpha = 0.4) +
-  geom_smooth(method = "lm", fill = "black") +
-  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"),
-                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
-  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
-  theme_minimal(base_size = 14) +
-  theme(legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  labs(title = "Probability of being hypervariable",
-       x = "P(hv) using full array datasets",
-       y = "P(hv) using reduced (3 ind/ds) array datasets")
-
-pdf(here("05_hvCpGalgorithm/figures/arrayfullvsred3ind_myalgo"), width = 9, height = 7)
-p1
-dev.off()
-
-###########################################################
-## Load full results on array with only 2 individuals/ds ##
-###########################################################
+p3ind <- makePlotNrob(resCompArray, 3)
 
 resArray2ind <- as.data.frame(readRDS(here("05_hvCpGalgorithm/resultsDir/Arrays/results_Arrays_2indperds_394240CpGs_0_8p0_0_65p1.rds")))
-
 resArray2ind <- prepareChrDataset(resArray2ind)
-
-names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_2ind"
+names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_reduce"
 resCompArray2 <- dplyr::left_join(resArray2ind, resArrayAll)
 names(resCompArray2)[names(resCompArray2) %in% "alpha"] <- "alpha_array_all"
 
-p1 <- ggplot(resCompArray2, 
-             aes(x=alpha_array_all, y=alpha_array_2ind, fill = group, col = group)) +
-  geom_point(data = resCompArray2[is.na(resCompArray2$group),],
-             pch = 21, alpha = 0.05) +
-  geom_point(data = resCompArray2[!is.na(resCompArray2$group),],
-             pch = 21, alpha = 0.4) +
-  geom_smooth(method = "lm", fill = "black") +
-  scale_fill_manual(values = c("#DC3220", "#005AB5", "grey"),
-                    labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
-  scale_colour_manual(values = c("#DC3220", "#005AB5", "grey"),guide = "none") +
-  theme_minimal(base_size = 14) +
-  theme(legend.box = "horizontal", legend.title = element_blank(),
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA)) +
-  coord_cartesian(xlim = c(0,1), ylim = c(0,1))+
-  labs(title = "Probability of being hypervariable",
-       x = "P(hv) using full array datasets",
-       y = "P(hv) using reduced (2 ind/ds) array datasets") 
+p2ind <- makePlotNrob(resCompArray2, 2)
 
-pdf(here("05_hvCpGalgorithm/figures/arrayfullvsred2ind_myalgo"), width = 9, height = 7)
-p1
+pdf(here("05_hvCpGalgorithm/figures/arrayfullvsreduced_myalgo"), width = 12, height = 6)
+cowplot::plot_grid(p2ind + theme(legend.position = "none"),
+                   p3ind + theme(legend.position = "none"),
+                   cowplot::get_legend(p3ind), ncol = 3, rel_widths = c(1,1,.3))
 dev.off()
 
 #############################################################

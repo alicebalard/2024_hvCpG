@@ -51,7 +51,7 @@ quiet_library_all(
     "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
     "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", "IRanges", 
      "TxDb.Hsapiens.UCSC.hg38.knownGene", "GSEABase", "stringr",
-    "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "methylkit", ## methylation
+    "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "methylKit", ## methylation
     "testthat", "parallel" # grammar & packaging
   ))
 ## NB: not all libraries are necessary; to clean when packaging

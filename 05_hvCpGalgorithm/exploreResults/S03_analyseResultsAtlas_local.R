@@ -3,14 +3,44 @@
 #################################################
 library(here)
 
-source(here("05_hvCpGalgorithm", "quiet_library.R"))
-source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
+## Load libraries
+if (!exists("libLoaded")) {
+  source(here("05_hvCpGalgorithm", "quiet_library.R"))}
+
+## Load functions
+if (!exists("functionsLoaded")) {
+  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))}
 
 ## Load array results
-resArray <- readRDS(here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
+if (!exists("resArray")) {
+  resArray <- readRDS(here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
+}
 
-## Add previous MEs including Maria's results
-source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+## Load the set of previously tested MEs & vmeQTL
+if (!exists("previousSIVprepared")) {
+  source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))}
+
+##################################
+## Save all data in RDS objects ##
+##################################
+
+for (file in list.files(here("05_hvCpGalgorithm/resultsDir/Atlas/"))){
+  if (!file.exists(here(paste0("gitignore/fullres_", file)))){
+    ## Add previous MEs including Maria's results if not sourced yet
+    if (!exists("KesslerSIV_GRanges_hg38")) {
+      source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+    }
+    
+    system.time(Atlas_dt <- prepAtlasdt(file))
+    
+    print("Number of CpG tested:")
+    print(nrow(Atlas_dt))
+    
+    print(paste0("Saving results for ", file, "in ", here(paste0("gitignore/fullres_", file))))
+    saveRDS(Atlas_dt, file = here(paste0("gitignore/fullres_", file)))
+    print("Saved")
+  }
+}
 
 ## This code does:
 ### I. Histogram of coverage across datasets
