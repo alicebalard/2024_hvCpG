@@ -1,4 +1,6 @@
 library(here)
+
+source(here("05_hvCpGalgorithm", "quiet_library.R"))
 if (!exists("functionsLoaded")) {
   source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
 }
