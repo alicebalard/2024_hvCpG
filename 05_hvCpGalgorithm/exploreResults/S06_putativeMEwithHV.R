@@ -22,27 +22,30 @@ if (!exists("previousSIVprepared")) {
 #####################################
 ## one run per developmental layer ##
 #####################################
+reload = FALSE
+if (reload){
+  endo = readRDS(here::here("gitignore/fullres_10X_12_endo"))
+  meso = readRDS(here::here("gitignore/fullres_10X_13_meso"))
+  ecto = readRDS(here::here("gitignore/fullres_10X_14_ecto"))
+  allLayers = readRDS(here::here("gitignore/fullres_Atlas10X"))
+  
+  WGBS_Array_datasets <- read.csv(here("05_hvCpGalgorithm/figures/WGBS_Array_datasets.csv"))
+  
+  table(WGBS_Array_datasets[WGBS_Array_datasets$assay %in% "atlas", "Germ.layer"])
+  # ectoderm endoderm mesoderm 
+  # 6       21       19 
+  
+  ## Ran with 6 groups only to match between layers
+  endo_6gp = readRDS(here::here("gitignore/fullres_10X_12.2_endo6gp"))
+  meso_6gp = readRDS(here::here("gitignore/fullres_10X_13.2_meso6gp"))
+}
 
-endo = readRDS(here::here("gitignore/fullres_10X_12_endo"))
-meso = readRDS(here::here("gitignore/fullres_10X_13_meso"))
-ecto = readRDS(here::here("gitignore/fullres_10X_14_ecto"))
-allLayers = readRDS(here::here("gitignore/fullres_Atlas10X"))
-
-WGBS_Array_datasets <- read.csv(here("05_hvCpGalgorithm/figures/WGBS_Array_datasets.csv"))
-
-table(WGBS_Array_datasets[WGBS_Array_datasets$assay %in% "atlas", "Germ.layer"])
-# ectoderm endoderm mesoderm 
-# 6       21       19 
-
-## Ran with 6 groups only to match between layers
-endo_6gp = readRDS(here::here("gitignore/fullres_10X_12.2_endo6gp"))
-meso_6gp = readRDS(here::here("gitignore/fullres_10X_13.2_meso6gp"))
-
-## Are the results comparable when the number of groups is reduced?
+######################################################################
+## The results are comparable when the number of groups is reduced: ##
+######################################################################
 
 ## Endoderm
-
-if (!exists(here::here(paste0("05_hvCpGalgorithm/figures/correlations/correlation_endoFullvsReduced6gp.pdf")))){
+if (!file.exists(here::here("05_hvCpGalgorithm/figures/correlations/correlation_endoFullvsReduced6gp.pdf"))){
   ## Use data table to handle large data
   setDT(endo_6gp)
   setDT(endo)
@@ -70,7 +73,7 @@ if (!exists(here::here(paste0("05_hvCpGalgorithm/figures/correlations/correlatio
 }
 
 ## Mesoderm
-if (!exists(here::here(paste0("05_hvCpGalgorithm/figures/correlations/correlation_mesoFullvsReduced6gp.pdf")))){
+if (!file.exists(here::here("05_hvCpGalgorithm/figures/correlations/correlation_mesoFullvsReduced6gp.pdf"))){
   setDT(meso_6gp)
   setDT(meso)
   
@@ -97,9 +100,126 @@ if (!exists(here::here(paste0("05_hvCpGalgorithm/figures/correlations/correlatio
   )
 }
 
+#################################################################################
+## Create a table with all CpG sites, pr(hv) for each germ layer, and SNP info ##
+#################################################################################
+## SNP info: Bash code in 05_hvCpGalgorithm/exploreResults/prepSNP1000GP.sh
+
+redo3layertab = FALSE
+if (redo3layertab){
+  endoGR <- GRanges(seqnames = endo$chr,
+                    ranges = IRanges(start = endo$pos, end = endo$pos),
+                    alpha_endo = endo$alpha)
+  
+  ectoGR <- GRanges(seqnames = ecto$chr,
+                    ranges = IRanges(start = ecto$pos, end = ecto$pos),
+                    alpha_ecto = ecto$alpha)
+  
+  mesoGR <- GRanges(seqnames = meso$chr,
+                    ranges = IRanges(start = meso$pos, end = meso$pos),
+                    alpha_meso = meso$alpha)
+  
+  meso6gpGR <- GRanges(seqnames = meso_6gp$chr,
+                    ranges = IRanges(start = meso_6gp$pos, end = meso_6gp$pos),
+                    alpha_meso6gp = meso_6gp$alpha)
+  
+  endo6gpGR <- GRanges(seqnames = endo_6gp$chr,
+                    ranges = IRanges(start = endo_6gp$pos, end = endo_6gp$pos),
+                    alpha_endo6gp = endo_6gp$alpha)
+  
+  allLayersGR <- GRanges(seqnames = allLayers$chr,
+                         ranges = IRanges(start = allLayers$pos, end = allLayers$pos),
+                         alpha_allLayers = allLayers$alpha)
+  
+  ## 1. Create union of all unique CpG positions
+  table3layers <- union(union(union(union(allLayersGR, union(ectoGR, mesoGR)), endoGR), meso6gpGR), endo6gpGR)
+  
+  ## 2. Use findOverlaps to map alpha values back
+  # we want endoGR[i] -> table3layers[endoHits[[i]]] for each i, etc.
+  
+  endoHits <- findOverlaps(endoGR, table3layers, select = "first")
+  ectoHits <- findOverlaps(ectoGR, table3layers, select = "first")
+  mesoHits <- findOverlaps(mesoGR, table3layers, select = "first")
+  allLayersHits <- findOverlaps(allLayersGR, table3layers, select = "first")
+  meso6gpHits <- findOverlaps(meso6gpGR, table3layers, select = "first")
+  endo6gpHits <- findOverlaps(endo6gpGR, table3layers, select = "first")
+  
+  # initialize columns with NA
+  mcols(table3layers)$alpha_endo <- NA_real_
+  mcols(table3layers)$alpha_ecto <- NA_real_
+  mcols(table3layers)$alpha_meso <- NA_real_
+  mcols(table3layers)$alpha_allLayers <- NA_real_
+  mcols(table3layers)$alpha_meso6gp <- NA_real_
+  mcols(table3layers)$alpha_endo6gp <- NA_real_
+  
+  # copy only the hits
+  mcols(table3layers)$alpha_endo[endoHits]   <- mcols(endoGR)$alpha_endo
+  mcols(table3layers)$alpha_ecto[ectoHits]   <- mcols(ectoGR)$alpha_ecto
+  mcols(table3layers)$alpha_meso[mesoHits]   <- mcols(mesoGR)$alpha_meso
+  mcols(table3layers)$alpha_allLayers[allLayersHits]   <- mcols(allLayersGR)$alpha_allLayers
+  mcols(table3layers)$alpha_meso6gp[meso6gpHits]   <- mcols(meso6gpGR)$alpha_meso6gp
+  mcols(table3layers)$alpha_endo6gp[endo6gpHits]   <- mcols(endo6gpGR)$alpha_endo6gp
+  
+  ## Add SNP info from 1000 genomes project (prepared in prepSNP1000GP.sh)
+  snp_set_chr <- readLines(here("gitignore/all_snps_GRCh38_chr.txt"))
+  snp_set_pos <- as.numeric(readLines(here("gitignore/all_snps_GRCh38_pos.txt")))
+  
+  snps_GRanges <- GRanges(
+    seqnames = snp_set_chr,
+    ranges   = IRanges(start = snp_set_pos, end = snp_set_pos)
+  )
+  
+  hits <- GenomicRanges::findOverlaps(table3layers, snps_GRanges, select = "first")
+  
+  isSNP <- !is.na(hits)   # TRUE wherever there is a hit
+  mcols(table3layers)$isSNP <- isSNP
+  
+  rm(endo, ecto, meso, endo6gp, meso6gp, allLayers, 
+     endoGR, ectoGR, mesoGR, allLayersGR, endo6gpGR,  meso6gpGR,
+     endoHits, ectoHits, mesoHits, allLayersHits, endo6gpHits, meso6gpHits,
+     snp_set_chr, snp_set_pos,snps_GRanges, isSNP)
+  
+  ### SAVED ###
+  save(table3layers, file = here("gitignore/fullTable3layers.Rda"))
+}
+
+if (!exists("table3layers")){
+  load(file = here("gitignore/table3layers.Rda"))  
+}
+
+########################
+## How many are SNPs? ##
+########################
+a = sum(table3layers[!is.na(table3layers$alpha_endo) & 
+                   !is.na(table3layers$alpha_meso) & 
+                   !is.na(table3layers$alpha_ecto), ]$isSNP) 
+
+b = length(table3layers[!is.na(table3layers$alpha_endo) & 
+                      !is.na(table3layers$alpha_meso) & 
+                      !is.na(table3layers$alpha_ecto), ])
+message(paste0(round(a/b,2)*100, "% CpGs sequenced in the 3 germ layers are SNPs (", a, " out of ", b, ")"))
+
+a = sum(table3layers[!is.na(table3layers$alpha_endo) & table3layers$alpha_endo >= .9 & 
+                       !is.na(table3layers$alpha_meso) & table3layers$alpha_meso >= .9 & 
+                       !is.na(table3layers$alpha_ecto) & table3layers$alpha_ecto >= .9, ]$isSNP) 
+
+b = length(table3layers[!is.na(table3layers$alpha_endo) & table3layers$alpha_endo >= .9 & 
+                          !is.na(table3layers$alpha_meso) & table3layers$alpha_meso >= .9 & 
+                          !is.na(table3layers$alpha_ecto) & table3layers$alpha_ecto >= .9, ])
+message(paste0(round(a/b,2)*100, "% CpGs sequenced in the 3 germ layers with pr(hv) >=90% are SNPs (", a, " out of ", b, ")"))
+
+## NB: Variability could simply come from SNPs!! We need to exclude them.
+
 #######################################
 ## Save intersection for alpha > 90% ##
 #######################################
+
+table3layers[!is.na(table3layers$alpha_endo) & table3layers$alpha_endo >= .9 & 
+               !is.na(table3layers$alpha_meso) & table3layers$alpha_meso >= .9 & 
+               !is.na(table3layers$alpha_ecto) & table3layers$alpha_ecto >= .9 &
+               !table3layers$isSNP, ]
+
+
 
 makeOverlapAndAll90pc <- function(endo, ecto, meso, allLayers, which){
   
@@ -155,7 +275,7 @@ makeOverlapAndAll90pc <- function(endo, ecto, meso, allLayers, which){
 }
 
 makeOverlapAndAll90pc(endo, ecto, meso, allLayers, which="all")
-  
+
 ## Check: is topIntersect90 the same if we use only 6 groups per germ layer?
 makeOverlapAndAll90pc(endo = endo_6gp, ecto, meso = meso_6gp, allLayers, which="6gp")
 
@@ -168,26 +288,6 @@ length(intersect(topIntersect90, topIntersect90_6gp)) # 124086
 
 length(intersect(topIntersect90, topIntersect90_6gp))/length(topIntersect90)*100
 ## 71% of these sites are found also when only 6 groups are considered per germ layer
-
-########################
-## How many are SNPs? ##
-########################
-
-topIntersect90 <- readRDS(overlap, file = here("gitignore/topIntersect90.RDS"))
-write.csv(x = gsub("chr", "",topIntersect90), file = here("gitignore/topIntersect90.csv"), 
-          quote = F, row.names = F)
-
-overlapLayers <- readRDS(overlap, file = here("gitignore/overlapLayers.RDS"))
-write.csv(x = gsub("chr", "",overlapLayers), file = here("gitignore/overlapLayers.csv"), 
-          quote = F, row.names = F)
-
-## Bash code in 05_hvCpGalgorithm/exploreResults/prepSNP1000GP.sh
-
-## topIntersect90 in all_snps_GRCh38_chr_pos:
-122891 / 174494 ## 70.4%
-
-## overlapLayers (background) in all_snps_GRCh38_chr_pos:
-6475342 / 17474841 ## 37%
 
 ##############################################
 ## What is the overlap for different alpha? ##
@@ -223,6 +323,11 @@ dev.off()
 ####################################################################################
 ## Test enrichement of the most likely germ layer-universal hvCpG in previous MEs ##
 ####################################################################################
+if (!exists("topIntersect90")){
+  topIntersect90 <- readRDS(overlap, file = here("gitignore/topIntersect90.RDS"))}
+
+
+
 total <- allLayers$name[allLayers$name %in% endo$name]
 total <- total[total %in% meso$name]
 total <- total[total %in% ecto$name]
