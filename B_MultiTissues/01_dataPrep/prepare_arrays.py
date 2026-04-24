@@ -92,9 +92,12 @@ parser = argparse.ArgumentParser(
     epilog=__doc__,
 )
 
-# Input — at least one of the two is required (enforced below)
+# Input — at least one of --rds_folders, --rds_files, or --h5_files is required
 parser.add_argument("--rds_folders", nargs="+", default=[],
-                    help="One or more directories containing .RDS files.")
+                    help="One or more directories; ALL .RDS files inside are loaded.")
+parser.add_argument("--rds_files",   nargs="+", default=[],
+                    help="Explicit .RDS file paths. Use when you need a specific subset "
+                         "(e.g. --rds_files /data/CD4+_Estonian.RDS /data/CD8+_Estonian.RDS).")
 parser.add_argument("--h5_files",    default=None,
                     help="Glob pattern for .h5 files (e.g. '/data/*.h5').")
 parser.add_argument("--cpg_bed",     default=None,
@@ -124,10 +127,24 @@ parser.add_argument("--exclude_sites", default=None, metavar="FILE",
                          "immediately after the common CpG set is determined — "
                          "before alignment and NA filtering — so they never appear "
                          "in the matrix or statistics.")
+parser.add_argument("--max_samples_per_dataset", type=int, default=None, metavar="N",
+                    help="Randomly subsample each dataset to at most N individuals "
+                         "after loading and before CpG filtering. Datasets with <=N "
+                         "samples are unchanged. Use --seed for reproducibility. "
+                         "E.g. --max_samples_per_dataset 3 reproduces the 3ind scripts.")
+parser.add_argument("--seed", type=int, default=42,
+                    help="Random seed for --max_samples_per_dataset (default: 42).")
+parser.add_argument("--no_extension",  action="store_true",
+                    help="Load files from --rds_folders regardless of extension "
+                         "(for raw-cleaned folders where files have no .RDS extension). "
+                         "Subdirectories are always skipped.")
+parser.add_argument("--exclude_subdir", nargs="+", default=[],
+                    help="Subdirectory/file names to skip when using --no_extension "
+                         "(e.g. --exclude_subdir CHAMP_Normalization).")
 
 args = parser.parse_args()
 
-if not args.rds_folders and not args.h5_files:
+if not args.rds_folders and not args.rds_files and not args.h5_files:
     parser.error("Provide at least one of --rds_folders or --h5_files.")
 
 # ──────────────────────────────────────────────
@@ -146,7 +163,9 @@ print("\n" + "="*62)
 print("  prepare_arrays.py")
 print("="*62)
 print(f"  rds_folders   : {args.rds_folders}")
+print(f"  rds_files     : {args.rds_files}")
 print(f"  h5_files      : {args.h5_files}")
+print(f"  max_samples   : {args.max_samples_per_dataset or '(all)'}")
 print(f"  cpg_bed       : {args.cpg_bed}")
 print(f"  output_folder : {args.output_folder}")
 print(f"  maxNA         : {args.maxNA}")
@@ -163,14 +182,32 @@ all_datasets = []   # list of (name, matrix, cpg_names)
 
 # — RDS files ——————————————————————————————————————————————————————————————
 for folder in args.rds_folders:
-    rds_files = sorted(glob.glob(os.path.join(folder, "*.RDS")) +
-                       glob.glob(os.path.join(folder, "*.rds")))
+    if args.no_extension:
+        # Load all files regardless of extension; skip subdirs and excluded names.
+        excl_names = set(args.exclude_subdir)
+        rds_files = sorted([
+            os.path.join(folder, fn)
+            for fn in os.listdir(folder)
+            if os.path.isfile(os.path.join(folder, fn)) and fn not in excl_names
+        ])
+    else:
+        rds_files = sorted(glob.glob(os.path.join(folder, "*.RDS")) +
+                           glob.glob(os.path.join(folder, "*.rds")))
     if not rds_files:
-        print(f"  ⚠️  No .RDS files found in: {folder}")
+        print(f"  Warning: no RDS files found in: {folder}")
         continue
     print(f"\n  Loading {len(rds_files)} RDS file(s) from: {folder}")
-    loaded = load_rds_datasets(rds_files)
-    all_datasets.extend(loaded)
+    all_datasets.extend(load_rds_datasets(rds_files))
+
+# — Explicit RDS file list (--rds_files) ————————————————————————————————
+if args.rds_files:
+    present = [f for f in args.rds_files if os.path.isfile(f)]
+    missing = [f for f in args.rds_files if not os.path.isfile(f)]
+    for m in missing:
+        print(f"  Warning: explicit RDS file not found: {m}")
+    if present:
+        print(f"\n  Loading {len(present)} explicit RDS file(s).")
+        all_datasets.extend(load_rds_datasets(present))
 
 # — H5 files ———————————————————————————————————————————————————————————————
 if args.h5_files:
@@ -211,6 +248,24 @@ for entry in all_datasets:
     else:
         name, mat, cpg_names, smp_names = entry
     normalised.append((name, mat, cpg_names, smp_names))
+
+# Per-dataset sample cap (--max_samples_per_dataset)
+# Applied after loading but before CpG intersection so coverage counts
+# and statistics reflect only the retained samples.
+if args.max_samples_per_dataset is not None:
+    rng    = np.random.default_rng(args.seed)
+    capped = []
+    for name, mat, cpg_names, smp_names in normalised:
+        n, cap = mat.shape[1], args.max_samples_per_dataset
+        if n > cap:
+            idx       = rng.choice(n, size=cap, replace=False)
+            mat       = mat[:, idx]
+            smp_names = [smp_names[i] for i in idx]
+            print(f"  {name}: subsampled {n} -> {cap} samples.")
+        capped.append((name, mat, cpg_names, smp_names))
+    normalised = capped
+    print(f"  max_samples_per_dataset={args.max_samples_per_dataset}: "
+          f"total samples after cap: {sum(len(s) for _,_,_,s in normalised):,}")
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  3. Determine common CpG set
