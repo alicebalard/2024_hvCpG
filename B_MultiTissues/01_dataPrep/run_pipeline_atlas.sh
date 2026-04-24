@@ -1,4 +1,12 @@
 #!/bin/bash
+#$ -N prepAtlas
+#$ -S /bin/bash
+#$ -l tmem=10G
+#$ -l h_vmem=10G
+#$ -l h_rt=3:00:00
+#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
+#$ -R y
+
 # =============================================================================
 # run_pipeline.sh — CpG methylation data preparation pipeline
 # =============================================================================
@@ -52,6 +60,8 @@ META_ATLAS="${META_ATLAS:-${WGBS_DIR}/SupTab1_Loyfer2023.csv}"
 
 GEO_RDS_DIR="${GEO_RDS_DIR:-/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED}"
 TCGA_RDS_DIR="${TCGA_RDS_DIR:-/home/alice/tempRDS}"
+# Raw (uncorrected) GEO beta matrices — files have no .RDS extension in this folder
+GEO_RAW_DIR="${GEO_RAW_DIR:-/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO}"
 ARRAY_OUTPUT_BASE="${ARRAY_OUTPUT_BASE:-${DATA_DIR}/Arrays/Maria}"
 
 # Thresholds
@@ -148,6 +158,11 @@ _run_atlas() {
 #  Atlas presets — one per original script
 # ══════════════════════════════════════════════════════════════════════════════
 
+# Standard atlas (all groups, no filtering — reproduces the "general" metadata script)
+run_atlas_general() {
+  _run_atlas "" "atlas_general"
+}
+
 # Script 1 — Group by developmental/germ layer
 run_01_byDevLayer() {
   _run_atlas '--group_col "Germ layer"' "01_byDevLayer"
@@ -239,32 +254,6 @@ run_17_pairs_MF() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  Array presets (Maria RDS datasets)
-# ══════════════════════════════════════════════════════════════════════════════
-
-_run_arrays() {
-  local extra_flags="$1"
-  local out_prefix="$2"
-  OUTPUT_FOLDER="${ARRAY_OUTPUT_BASE}/output_${out_prefix}"
-  mkdir -p "$OUTPUT_FOLDER"
-
-  _run "02_prepare_matrix" \
-    $PYTHON "${CODE_DIR}/prepare_arrays.py" \
-      --rds_folders       "$GEO_RDS_DIR" "$TCGA_RDS_DIR" \
-      --output_folder     "$OUTPUT_FOLDER" \
-      --maxNA             "$MAX_NA" \
-      --min_datasets      "$MIN_DATASETS_ARRAYS" \
-      --lambda_percentile "$LAMBDA_PERCENTILE" \
-      --output_prefix     "$out_prefix" \
-      ${EXCLUDE_SITES:+--exclude_sites "$EXCLUDE_SITES"} \
-      $extra_flags
-}
-
-run_arrays_all() {
-  _run_arrays "" "arrays_all"
-}
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  Dispatch
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -277,39 +266,54 @@ echo "================================================================"
 
 case "$PRESET" in
   # Atlas presets
-  01_byDevLayer)           run_01_byDevLayer ;;
-  02_rmMultSamples)        run_02_rmMultSamples ;;
-  03_correspMariaTissues)  run_03_correspMariaTissues ;;
-  04_maleOnly)             run_04_maleOnly ;;
-  05_femaleOnly6gp)        run_05_femaleOnly6gp ;;
-  06_bothsexes6gp)         run_06_bothsexes6gp ;;
-  08_byTissue)             run_08_byTissue ;;
-  09_immuneOnly)           run_09_immuneOnly ;;
-  10_noImmune)             run_10_noImmune ;;
-  11_noImmune_sample11gp)  run_11_noImmune_sample11gp ;;
-  12_endo)                 run_12_endo ;;
-  12_2_endo6gp)            run_12_2_endo6gp ;;
-  13_meso)                 run_13_meso ;;
-  13_2_meso6gp)            run_13_2_meso6gp ;;
-  14_ecto)                 run_14_ecto ;;
-  15_pairs_MM)             run_15_pairs_MM ;;
-  16_pairs_FF)             run_16_pairs_FF ;;
-  17_pairs_MF)             run_17_pairs_MF ;;
-  # Array presets
-  arrays_all)              run_arrays_all ;;
+  # General atlas (no metadata filtering)
+  atlas_general)           run_atlas_general ;;
+#  01_byDevLayer)           run_01_byDevLayer ;;
+#  02_rmMultSamples)        run_02_rmMultSamples ;;
+#  03_correspMariaTissues)  run_03_correspMariaTissues ;;
+#  04_maleOnly)             run_04_maleOnly ;;
+#  05_femaleOnly6gp)        run_05_femaleOnly6gp ;;
+#  06_bothsexes6gp)         run_06_bothsexes6gp ;;
+#  08_byTissue)             run_08_byTissue ;;
+#  09_immuneOnly)           run_09_immuneOnly ;;
+#  10_noImmune)             run_10_noImmune ;;
+#  11_noImmune_sample11gp)  run_11_noImmune_sample11gp ;;
+#  12_endo)                 run_12_endo ;;
+#  12_2_endo6gp)            run_12_2_endo6gp ;;
+#  13_meso)                 run_13_meso ;;
+#  13_2_meso6gp)            run_13_2_meso6gp ;;
+#  14_ecto)                 run_14_ecto ;;
+#  15_pairs_MM)             run_15_pairs_MM ;;
+#  16_pairs_FF)             run_16_pairs_FF ;;
+#  17_pairs_MF)             run_17_pairs_MF ;;
+#  # Array presets
+#  arrays_all)              run_arrays_all ;;
+#  arrays_CD4CD8)           run_arrays_CD4CD8 ;;
+#  arrays_noCorrection)     run_arrays_noCorrection ;;
+#  arrays_3ind)             run_arrays_3ind ;;
+#  arrays_2ind)             run_arrays_2ind ;;
   "")
-    echo ""
-    echo "No preset specified. Available atlas presets:"
-    echo "  01_byDevLayer  02_rmMultSamples  03_correspMariaTissues"
-    echo "  04_maleOnly    05_femaleOnly6gp   06_bothsexes6gp"
-    echo "  08_byTissue    09_immuneOnly      10_noImmune"
-    echo "  11_noImmune_sample11gp"
-    echo "  12_endo  12_2_endo6gp  13_meso  13_2_meso6gp  14_ecto"
-    echo "  15_pairs_MM  16_pairs_FF  17_pairs_MF"
-    echo ""
-    echo "Array presets:  arrays_all"
-    echo ""
-    echo "Usage: bash run_pipeline.sh --preset 04_maleOnly"
+#    echo ""
+#    echo "No preset specified. Available presets:"
+#    echo ""
+#    echo "Atlas (WGBS):"
+#    echo "  atlas_general"
+#    echo "  01_byDevLayer  02_rmMultSamples  03_correspMariaTissues"
+#    echo "  04_maleOnly    05_femaleOnly6gp   06_bothsexes6gp"
+#    echo "  08_byTissue    09_immuneOnly      10_noImmune"
+#    echo "  11_noImmune_sample11gp"
+#    echo "  12_endo  12_2_endo6gp  13_meso  13_2_meso6gp  14_ecto"
+#    echo "  15_pairs_MM  16_pairs_FF  17_pairs_MF"
+#    echo ""
+#    echo "Arrays (Maria):"
+#    echo "  arrays_all          All BMIQ-corrected datasets (GEO + TCGA)"
+#    echo "  arrays_CD4CD8       CD4+/CD8+ T cells only (specific files)"
+#    echo "  arrays_noCorrection Raw uncorrected GEO datasets (no .RDS extension)"
+#    echo "  arrays_3ind         All datasets, subsampled to 3 individuals each"
+#    echo "  arrays_2ind         All datasets, subsampled to 2 individuals each"
+#    echo ""
+#    echo "Usage: bash run_pipeline.sh --preset arrays_CD4CD8"
+#    echo "       EXCLUDE_SITES=/data/snp.txt bash run_pipeline.sh --preset 10_noImmune"
     exit 1
     ;;
   *)

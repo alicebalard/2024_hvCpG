@@ -83,7 +83,12 @@ bash run_pipeline.sh --config my_config.sh
 | `15_pairs_MM` | `prepare_metadata_15_pairs_MM.py` | Sample 2 males per group |
 | `16_pairs_FF` | `prepare_metadata_16_pairs_FF.py` | Sample 2 females per group |
 | `17_pairs_MF` | `prepare_metadata_17_pairs_MF.py` | Sample 1M + 1F per group |
-| `arrays_all` | (Maria RDS pipeline) | All Maria array datasets |
+| `arrays_all` | S01 (BMIQ-corrected GEO + TCGA) | All Maria array datasets |
+| `arrays_CD4CD8` | S03 (CD4+/CD8+ specific files) | CD4+ and CD8+ T-cell subsets only |
+| `arrays_noCorrection` | S04 (raw GEO, no extension) | Uncorrected GEO datasets |
+| `arrays_3ind` | S05 (subsample to 3) | All datasets, max 3 individuals each |
+| `arrays_2ind` | S05 (subsample to 2) | All datasets, max 2 individuals each |
+| `atlas_general` | `prepare_metadata.py` (no filter) | WGBS atlas, standard grouping, no filters |
 
 ---
 
@@ -231,6 +236,25 @@ python prepare_arrays.py \
   --output_prefix all \
   --exclude_sites /data/snp_blacklist.txt   # optional
 
+# From specific files only (e.g. CD4+ and CD8+):
+python prepare_arrays.py \
+  --rds_files /data/GEO/CD4+_Estonian.RDS /data/GEO/CD8+_Estonian.RDS \
+  --output_folder /data/output/CD4CD8 \
+  --min_datasets 2
+
+# Raw uncorrected folder — files have no .RDS extension:
+python prepare_arrays.py \
+  --rds_folders /data/GEO/Raw_cleaned_beta_matrices_GEO \
+  --no_extension \
+  --exclude_subdir CHAMP_Normalization \
+  --output_folder /data/output/noCorrection
+
+# Subsample to 3 individuals per dataset:
+python prepare_arrays.py \
+  --rds_folders /data/GEO /data/TCGA \
+  --max_samples_per_dataset 3 \
+  --output_folder /data/output/3ind
+
 # From H5 files, with a BED reference:
 python prepare_arrays.py \
   --h5_files "/data/arrays/*.h5" \
@@ -240,11 +264,16 @@ python prepare_arrays.py \
 
 | Argument | Default | Description |
 |---|---|---|
-| `--rds_folders` | — | One or more dirs containing `.RDS` files |
+| `--rds_folders` | — | One or more dirs; ALL `.RDS` files inside are loaded |
+| `--rds_files` | — | Explicit `.RDS` file paths — use for specific subsets (e.g. CD4+/CD8+) |
 | `--h5_files` | — | Glob for `.h5` files (can combine with RDS) |
 | `--cpg_bed` | optional | Reference BED as master site list |
 | `--maxNA` | 0.2 | Max NaN fraction per CpG per dataset |
 | `--min_datasets` | 15 | Min datasets per CpG |
+| `--max_samples_per_dataset` | — | Cap each dataset to N random individuals before CpG filtering |
+| `--seed` | 42 | Random seed for `--max_samples_per_dataset` |
+| `--no_extension` | off | Load files without `.RDS` extension (raw-cleaned folders) |
+| `--exclude_subdir` | — | Subdirectory/file names to skip with `--no_extension` |
 | `--lambda_percentile` | 95 | Percentile for lambda |
 | `--exclude_sites` | — | Text file of `chr_pos` sites to exclude (applied after CpG intersection, before alignment) |
 
