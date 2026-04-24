@@ -1,0 +1,66 @@
+quiet_library <- function(pkg) {
+  # Check if installed
+  installed <- requireNamespace(pkg, quietly = TRUE)
+  
+  # Install if missing
+  if (!installed) {
+    if (!requireNamespace("BiocManager", quietly = TRUE)) {
+      suppressMessages(suppressWarnings(
+        install.packages("BiocManager", repos = "https://cloud.r-project.org", quiet = TRUE)
+      ))
+    }
+    
+    cran_pkgs <- suppressMessages(available.packages(repos = "https://cloud.r-project.org"))
+    if (pkg %in% rownames(cran_pkgs)) {
+      suppressMessages(suppressWarnings(
+        install.packages(pkg, repos = "https://cloud.r-project.org", quiet = TRUE)
+      ))
+    } else {
+      suppressMessages(suppressWarnings(
+        BiocManager::install(pkg, ask = FALSE, update = FALSE, quiet = TRUE)
+      ))
+    }
+  }
+  
+  # Load silently
+  suppressPackageStartupMessages(
+    suppressMessages(
+      suppressWarnings(
+        library(pkg, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+      )
+    )
+  )
+  
+  # Get version after loading
+  version <- as.character(utils::packageVersion(pkg))
+  
+  # Print only our message
+  cat(sprintf("Load package %s v%s\n", pkg, version))
+}
+
+quiet_library_all <- function(pkgs) {
+  invisible(lapply(pkgs, quiet_library))
+}
+
+quiet_library_all(
+  c("dplyr", "data.table", "matrixStats", "tidyr", "tibble", ## data formatting
+    "parallel", "rhdf5",  "purrr","forcats", ## data handling
+    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", "gt", "ggVennDiagram",
+    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra", "viridis", "Cairo", ## graphical
+    "boot", "emmeans", ## stats
+    "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
+    "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", "IRanges", 
+     "TxDb.Hsapiens.UCSC.hg38.knownGene", "GSEABase", "stringr",
+    "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "methylKit", ## methylation
+    "testthat", "parallel" # grammar & packaging
+  ))
+## NB: not all libraries are necessary; to clean when packaging
+
+rm(quiet_library_all, quiet_library)
+
+## Error in ing-p5
+# "reshape2"
+# "clusterProfiler"
+#"compEpiTools"
+
+libLoaded = TRUE
