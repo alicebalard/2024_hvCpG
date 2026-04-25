@@ -58,24 +58,17 @@ BETA_PATTERN="${BETA_PATTERN:-${WGBS_DIR}/betaFiles/GSM*.hg38.beta}"
 CPG_BED="${CPG_BED:-${WGBS_DIR}/wgbs_tools/references/hg38/CpG.bed.gz}"
 META_ATLAS="${META_ATLAS:-${WGBS_DIR}/SupTab1_Loyfer2023.csv}"
 
-GEO_RDS_DIR="${GEO_RDS_DIR:-/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED}"
-TCGA_RDS_DIR="${TCGA_RDS_DIR:-/home/alice/tempRDS}"
-# Raw (uncorrected) GEO beta matrices — files have no .RDS extension in this folder
-GEO_RAW_DIR="${GEO_RAW_DIR:-/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO}"
-ARRAY_OUTPUT_BASE="${ARRAY_OUTPUT_BASE:-${DATA_DIR}/Arrays/Maria}"
-
 # Thresholds
 MIN_COV="${MIN_COV:-10}"
 MIN_SAMPLES="${MIN_SAMPLES:-3}"
 MIN_DATASETS_ATLAS="${MIN_DATASETS_ATLAS:-46}"
-MIN_DATASETS_ARRAYS="${MIN_DATASETS_ARRAYS:-15}"
 MAX_NA="${MAX_NA:-0.2}"
 CHUNK_SIZE="${CHUNK_SIZE:-100000}"
 LAMBDA_PERCENTILE="${LAMBDA_PERCENTILE:-95}"
 RANDOM_SEED="${RANDOM_SEED:-42}"
 # Optional: path to a file listing CpG sites to exclude (one chr_pos per line).
-# Leave empty to skip exclusion.
-EXCLUDE_SITES="${EXCLUDE_SITES:-}"
+# Leave empty to skip exclusion (just -).
+EXCLUDE_SITES="${EXCLUDE_SITES:-/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/snps_maf_0.01_chr_pos.txt}"
 
 # ──────────────────────────────────────────────
 #  Argument parsing
