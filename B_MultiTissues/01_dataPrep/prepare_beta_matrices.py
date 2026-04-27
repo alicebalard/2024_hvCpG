@@ -18,10 +18,10 @@ Pipeline
 
 Outputs
 -------
-  <output_folder>/<prefix>_matrix_noscale.h5   — HDF5 matrix
+  <output_folder>/matrix_noscale.h5   — HDF5 matrix
   <output_folder>/sample_metadata.tsv
-  <output_folder>/<prefix>_medsd_lambda.tsv    — statistics
-  <output_folder>/<prefix>_cpg_names.txt
+  <output_folder>/medsd_lambda.tsv    — statistics
+  <output_folder>/cpg_names.txt
 
 Usage
 -----
@@ -122,12 +122,11 @@ args = parser.parse_args()
 # ──────────────────────────────────────────────
 
 os.makedirs(args.output_folder, exist_ok=True)
-p = args.output_prefix
 
-output_h5    = os.path.join(args.output_folder, f"{p}_matrix_noscale.h5")
+output_h5    = os.path.join(args.output_folder, "matrix_noscale.h5")
 output_meta  = os.path.join(args.output_folder, "sample_metadata.tsv")
-output_stats = os.path.join(args.output_folder, f"{p}_medsd_lambda.tsv")
-output_cpgs  = os.path.join(args.output_folder, f"{p}_cpg_names.txt")
+output_stats = os.path.join(args.output_folder, "medsd_lambda.tsv")
+output_cpgs  = os.path.join(args.output_folder, "cpg_names.txt")
 
 print("\n" + "="*62)
 print("  prepare_beta_matrices.py")
