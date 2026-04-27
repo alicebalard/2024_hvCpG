@@ -18,9 +18,9 @@ Pipeline
 
 Outputs
 -------
-  <output_folder>/matrix_noscale.h5   — HDF5 matrix
+  <output_folder>/all_matrix_noscale.h5   — HDF5 matrix
   <output_folder>/sample_metadata.tsv
-  <output_folder>/medsd_lambda.tsv    — statistics
+  <output_folder>/all_medsd_lambda.tsv    — statistics
   <output_folder>/cpg_names.txt
 
 Usage
@@ -123,9 +123,9 @@ args = parser.parse_args()
 
 os.makedirs(args.output_folder, exist_ok=True)
 
-output_h5    = os.path.join(args.output_folder, "matrix_noscale.h5")
+output_h5    = os.path.join(args.output_folder, "all_matrix_noscale.h5")
 output_meta  = os.path.join(args.output_folder, "sample_metadata.tsv")
-output_stats = os.path.join(args.output_folder, "medsd_lambda.tsv")
+output_stats = os.path.join(args.output_folder, "all_medsd_lambda.tsv")
 output_cpgs  = os.path.join(args.output_folder, "cpg_names.txt")
 
 print("\n" + "="*62)
