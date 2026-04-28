@@ -7,15 +7,15 @@ library(here)
 
 ## Load libraries
 if (!exists("libLoaded")) {
-  source(here("05_hvCpGalgorithm", "quiet_library.R"))}
+  source(here("B_MultiTissues", "quiet_library.R"))}
 
 ## Load functions
 if (!exists("functionsLoaded")) {
-  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))}
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
 
 ## Load the set of previously tested MEs & vmeQTL
 if (!exists("previousSIVprepared")) {
-  source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))}
+  source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
 
 ## Hypothesis testing:
 ## Prediction 1:

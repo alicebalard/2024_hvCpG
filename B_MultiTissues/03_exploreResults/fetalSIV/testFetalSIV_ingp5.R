@@ -4,7 +4,7 @@ library(ggVennDiagram)
 library(boot)
 
 source(here("05_hvCpGalgorithm/quiet_library.R"))
-source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
 
 ########################
 ## Prepare fetal data ##
@@ -29,16 +29,16 @@ fetalData_long <- data.frame(fetalData) %>%
 fetalData_long$chrpos_hg38 <- dico$chrpos_hg38[match(fetalData_long$CpG, dico$CpG)]
 
 #################################################################################################
-## Load positions to test for SIV (calculated in 05_hvCpGalgorithm/exploreResults/S03 and S07) ##
+## Load positions to test for SIV (calculated in B_MultiTissues/03_exploreResults/S03 and S07) ##
 #################################################################################################
 
 ### 1/ based on high alpha
-highAlphaPos_atlas0.7 <- readRDS(here("05_hvCpGalgorithm/exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
+highAlphaPos_atlas0.7 <- readRDS(here("B_MultiTissues/03_exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
 fetalData_subset_highVar0.7 <- fetalData_long[
   fetalData_long$chrpos_hg38 %in% highAlphaPos_atlas0.7$chrpos_hg38,]
 
 ### 2/ based on high alpha when test is run also in each germ layer, independently
-topIntersect90_pos <- readRDS(here("05_hvCpGalgorithm/exploreResults/fetalSIV/topIntersect90_pos.RDS"))
+topIntersect90_pos <- readRDS(here("B_MultiTissues/03_exploreResults/fetalSIV/topIntersect90_pos.RDS"))
 fetalData_subset_topIntersect90 <- fetalData_long[
   fetalData_long$chrpos_hg38 %in% topIntersect90_pos$chrpos_hg38,]
 

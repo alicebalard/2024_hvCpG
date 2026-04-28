@@ -1,7 +1,7 @@
 ###############################################
 ## Prepare previous putative ME list on hg38 ##
 ###############################################
-source(here("05_hvCpGalgorithm/exploreResults/makeProbes2GenDictionary.R"))
+source(here("B_MultiTissues/03_exploreResults/makeProbes2GenDictionary.R"))
 
 message("Creates:
         \na vector of 1773 SIV from Harris 2012 (HarrisSIV_hg38)
@@ -14,7 +14,7 @@ message("Creates:
 
 #######################################
 ## Harris2012_1776SIV_10children450k ##
-HarrisSIV <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Harris2012_1776SIV_10children450k.xls"), sheet = 3)
+HarrisSIV <- readxl::read_excel(here("B_MultiTissues/dataIn/Harris2012_1776SIV_10children450k.xls"), sheet = 3)
 HarrisSIV_hg38 <- dico[match(HarrisSIV$Probe, dico$CpG), "chrpos_hg38"]
 HarrisSIV_hg38 <- na.omit(HarrisSIV_hg38)
 length(HarrisSIV_hg38) # 1773
@@ -22,7 +22,7 @@ rm(HarrisSIV)
 
 ###########################
 ## VanBaak2018_ESS_HM450 ##
-VanBaakESS <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/VanBaak2018_1580ESS_450k.xlsx"), sheet = 2)
+VanBaakESS <- readxl::read_excel(here("B_MultiTissues/dataIn/VanBaak2018_1580ESS_450k.xlsx"), sheet = 2)
 ## only ESS hits
 VanBaakESS <- VanBaakESS[VanBaakESS$`ESS hit`,]
 VanBaakESS_hg38 <- dico[match(VanBaakESS$CG, dico$CpG), "chrpos_hg38"]
@@ -32,7 +32,7 @@ rm(VanBaakESS)
 
 ###########################################
 ## Kessler2018_687SIVregions_2WGBS hg19! ##
-KesslerSIV <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Kessler2018_supTables.xlsx"), sheet = 2, skip = 1)
+KesslerSIV <- readxl::read_excel(here("B_MultiTissues/dataIn/Kessler2018_supTables.xlsx"), sheet = 2, skip = 1)
 
 KesslerSIV_GRanges <- GRanges(
   seqnames = KesslerSIV$Chromosome,
@@ -49,7 +49,7 @@ rm(mapped, keep, KesslerSIV, KesslerSIV_GRanges)
 #######################################
 ## Gunasekara2019_9926CoRSIVs_10WGBS ##
 # Load corSIV intervals (already in hg38)
-corSIV <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Gunasekara2019_9926CoRSIVs_10WGBS.xls"), sheet = 3)
+corSIV <- readxl::read_excel(here("B_MultiTissues/dataIn/Gunasekara2019_9926CoRSIVs_10WGBS.xls"), sheet = 3)
 corSIV <- unique(corSIV$USCS_Coordinates_CoRSIV)
 corSIV_split <- tstrsplit(corSIV, "[:-]", fixed = FALSE)
 
@@ -72,7 +72,7 @@ rm(data)
 
 ###############################
 ## Silver2022_SoCCpGs_10WGBS ##
-SoCCpGs <- readxl::read_excel(here("05_hvCpGalgorithm/dataPrev/Silver2022_259SoC_hg19.xlsx"), sheet = 6, skip = 2)
+SoCCpGs <- readxl::read_excel(here("B_MultiTissues/dataIn/Silver2022_259SoC_hg19.xlsx"), sheet = 6, skip = 2)
 SoCCpGs_hg38 <- na.omit(dico[match(SoCCpGs$cpg, dico$CpG), "chrpos_hg38"])
 length(SoCCpGs_hg38) #259
 
@@ -103,7 +103,7 @@ putativeME_GR$genome <- "hg38"
 ## Prepare CpG associated with vmeQTL identified in MZ twins by Jordana Bell ##
 ###############################################################################
 
-vmeQTL_hg19probes <- readxl::read_xlsx(here("05_hvCpGalgorithm/dataPrev/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
+vmeQTL_hg19probes <- readxl::read_xlsx(here("B_MultiTissues/dataIn/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
 vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]) ; rm(vmeQTL_hg19probes)
 
 vmeQTL_hg38_GR <- makeGRfromMyCpGPos(vmeQTL_hg38, "Zhang vmeQTL")  
