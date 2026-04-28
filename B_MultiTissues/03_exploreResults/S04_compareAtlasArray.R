@@ -2,11 +2,15 @@
 ## Overlap plot: Atlas (x) vs Array (y)    ##
 #############################################
 library(here)
-source(here("05_hvCpGalgorithm", "quiet_library.R"))
-source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
+if (!exists("libLoaded")) {
+  source(here("B_MultiTissues", "quiet_library.R"))}
+
+## Load functions
+if (!exists("functionsLoaded")) {
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
 
 ## Prepare Array data 
-source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))
+source(here("B_MultiTissues/03_exploreResults/S02_analyseResultsArray_local.R"))
 
 makeCompPlot(
   X = resCompArray,

@@ -4,14 +4,14 @@
 library(here)
 
 if (!exists("libLoaded")) {
-  source(here("05_hvCpGalgorithm", "quiet_library.R"))
-}
+  source(here("B_MultiTissues", "quiet_library.R"))}
+
 if (!exists("functionsLoaded")) {
-  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))
 }
 
 ## Add previous MEs including Maria's results
-source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
 
 ## Read vectors saved in R06
 overlapLayers <- readRDS(here("gitignore/overlapLayers.RDS"))
@@ -19,7 +19,7 @@ overlap.1or2 <- readRDS(here("gitignore/overlap.1or2.RDS"))
 topIntersect90 <- readRDS(here("gitignore/topIntersect90.RDS"))
 
 ###################################################################################################
-## Extract high alpha for test in 05_hvCpGalgorithm/exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
+## Extract high alpha for test in B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
 ###################################################################################################
 length(topIntersect90) # 174494
 
@@ -34,7 +34,7 @@ table(Pos$array)
 # 49+592 = 641 on the 450k array
 # 592+514 = 1106 on the EPIC array
 
-saveRDS(Pos, here("05_hvCpGalgorithm/exploreResults/fetalSIV/topIntersect90_pos.RDS"))
+saveRDS(Pos, here("B_MultiTissues/03_exploreResults/fetalSIV/topIntersect90_pos.RDS"))
 
 #################################
 ## Test enrichment of features ##
@@ -206,7 +206,7 @@ background <- makeGRfromMyCpGPos(overlapLayers, "background")
 foreground <- makeGRfromMyCpGPos(topIntersect90, "topIntersect90")
 
 system.time(res <- great(gr = foreground, gene_sets = "GO:BP", biomart_dataset = "hg38", background = background, cores = 10))
-saveRDS(res, file = here(paste0("05_hvCpGalgorithm/exploreResults/annotations/topIntersect90_rGREAT.RDS")))
+saveRDS(res, file = here(paste0("B_MultiTissues/03_exploreResults/annotations/topIntersect90_rGREAT.RDS")))
 
 #######################
 ## Enrichement in TE ##
