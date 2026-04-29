@@ -149,42 +149,83 @@ rds_list_mat_3ind <- lapply(rds_list_mat, function(df) {
   cols <- sample(ncol(df), 3)   # choose 3 random columns
   df[, cols, drop = FALSE]      # subset while keeping data.frame
 })
-
-hvCpGs_repro_maria_3ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_3ind)
-
-## Plot 
-
-# install.packages("ggVennDiagram")
-library(ggVennDiagram)
-
-# List of items
-x <- list("Full array" = hvCpGs_repro_maria$cpgs, 
-          "Array 3ind/ds" = hvCpGs_repro_maria_3ind$cpg)
-
-p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
-p
-# 2D Venn diagram
-saveRDS(p, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower3ind.RDS")
-
-## And what about 2?
-# Keep 2 random columns per element
 rds_list_mat_2ind <- lapply(rds_list_mat, function(df) {
   cols <- sample(ncol(df), 2)   # choose 2 random columns
   df[, cols, drop = FALSE]      # subset while keeping data.frame
 })
-
+hvCpGs_repro_maria_3ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_3ind)
 hvCpGs_repro_maria_2ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_2ind)
 
-## Plot 
-# List of items
-x <- list("Full array" = hvCpGs_repro_maria$cpgs, 
-          "Array 2ind/ds" = hvCpGs_repro_maria_2ind$cpg)
+## Plot (redone in S02)
+v <- list(
+  n_full      = length(hvCpGs_repro_maria$cpgs),
+  n_2ind      = length(hvCpGs_repro_maria_2ind$cpg),
+  n_3ind      = length(hvCpGs_repro_maria_3ind$cpg),
+  n_full_2ind = length(intersect(hvCpGs_repro_maria$cpgs, hvCpGs_repro_maria_2ind$cpg)),
+  n_full_3ind = length(intersect(hvCpGs_repro_maria$cpgs, hvCpGs_repro_maria_3ind$cpg)),
+  n_2ind_3ind = length(intersect(hvCpGs_repro_maria_2ind$cpg, hvCpGs_repro_maria_3ind$cpg)),
+  n_all       = length(Reduce(intersect, list(hvCpGs_repro_maria$cpgs,
+                                              hvCpGs_repro_maria_2ind$cpg,
+                                              hvCpGs_repro_maria_3ind$cpg))),
+  n_union     = length(Reduce(union, list(hvCpGs_repro_maria$cpgs,        # <-- add this
+                                          hvCpGs_repro_maria_2ind$cpg,
+                                          hvCpGs_repro_maria_3ind$cpg)))
+)
 
-p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
-p
-# 2D Venn diagram
-saveRDS(p, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2ind.RDS")
+# Compute exclusive regions
+n_only_full     <- v$n_full - v$n_full_2ind - v$n_full_3ind + v$n_all
+n_only_2ind     <- v$n_2ind - v$n_full_2ind - v$n_2ind_3ind + v$n_all
+n_only_3ind     <- v$n_3ind - v$n_full_3ind - v$n_2ind_3ind + v$n_all
+n_full_2ind_only <- v$n_full_2ind - v$n_all
+n_full_3ind_only <- v$n_full_3ind - v$n_all
+n_2ind_3ind_only <- v$n_2ind_3ind - v$n_all
+
+# Total unique CpGs across all sets
+total <- length(Reduce(union, list(
+  seq_len(v$n_full), seq_len(v$n_2ind), seq_len(v$n_3ind)  # placeholder — use real union
+)))
+
+# Helper: format as "n\n(xx.x%)"
+fmt <- function(n, tot) paste0(n, "\n(", round(100 * n / tot, 1), "%)")
+
+total <- v$n_union
+
+# Circle positions
+theta <- seq(0, 2*pi, length.out = 200)
+circle <- function(cx, cy, r) data.frame(x = cx + r*cos(theta), y = cy + r*sin(theta))
+
+df_circles <- rbind(
+  cbind(circle(-0.5,  0.35, 1), group = "Full array"),
+  cbind(circle( 0.5,  0.35, 1), group = "Array 2ind/ds"),
+  cbind(circle( 0.0, -0.5,  1), group = "Array 3ind/ds")
+)
+
+plot_venn3 <- ggplot2::ggplot() +
+  ggplot2::geom_polygon(data = df_circles,
+                        aes(x, y, group = group),
+                        fill = "#4981BF", alpha = 0.3,
+                        colour = "grey40", linewidth = 0.5) +
+  # Exclusive regions
+  ggplot2::annotate("text", x = -0.9,  y =  0.55, label = fmt(n_only_full,      total), size = 3, lineheight = 0.9) +
+  ggplot2::annotate("text", x =  0.9,  y =  0.55, label = fmt(n_only_2ind,      total), size = 3, lineheight = 0.9) +
+  ggplot2::annotate("text", x =  0.0,  y = -1.05, label = fmt(n_only_3ind,      total), size = 3, lineheight = 0.9) +
+  # Pairwise only
+  ggplot2::annotate("text", x =  0.0,  y =  0.75, label = fmt(n_full_2ind_only, total), size = 3, lineheight = 0.9) +
+  ggplot2::annotate("text", x = -0.55, y = -0.25, label = fmt(n_full_3ind_only, total), size = 3, lineheight = 0.9) +
+  ggplot2::annotate("text", x =  0.55, y = -0.25, label = fmt(n_2ind_3ind_only, total), size = 3, lineheight = 0.9) +
+  # Triple
+  ggplot2::annotate("text", x =  0.0,  y =  0.15, label = fmt(v$n_all,          total), size = 3, fontface = "bold", lineheight = 0.9) +
+  # Set labels with total size
+  ggplot2::annotate("text", x = -1.1,  y =  1.5,  label = paste0("Full array\nn=",    v$n_full), size = 3.5, fontface = "bold") +
+  ggplot2::annotate("text", x =  1.1,  y =  1.5,  label = paste0("Array 2ind/ds\nn=", v$n_2ind), size = 3.5, fontface = "bold") +
+  ggplot2::annotate("text", x =  0.0,  y = -1.7,  label = paste0("Array 3ind/ds\nn=", v$n_3ind), size = 3.5, fontface = "bold") +
+  ggplot2::coord_fixed() +
+  ggplot2::theme_void()
+plot_venn3
+
+saveRDS(plot_venn3, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS")
 ```
+
 
 # Identify hvCpGs based on a sd multiplicative factor lambda
 
