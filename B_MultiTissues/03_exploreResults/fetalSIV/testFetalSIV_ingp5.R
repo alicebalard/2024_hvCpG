@@ -226,7 +226,7 @@ p3
 final_plot <- plot_grid(p1, plot_grid(p2, p3, ncol = 1, align = "v"),
                         ncol = 2, rel_widths = c(.7, 1))
 
-pdf(here("05_hvCpGalgorithm/figures/intercorrelationSIVfetal.pdf"),
+pdf(here("B_MultiTissues/dataOut/figures/intercorrelationSIVfetal.pdf"),
     width = 12, height = 7)
 final_plot
 dev.off()
@@ -368,7 +368,7 @@ final_plot <- plot_grid(p1 + theme(axis.text.x = element_text(angle = 45, hjust 
                         plot_grid(p2, p3, ncol = 1, align = "v"),
                         ncol = 2, rel_widths = c(1, 1))
 
-pdf(here("05_hvCpGalgorithm/figures/intercorrelationSIVfetal_sepSIV.pdf"),
+pdf(here("B_MultiTissues/dataOut/figures/intercorrelationSIVfetal_sepSIV.pdf"),
     width = 16, height = 7)
 
 final_plot
