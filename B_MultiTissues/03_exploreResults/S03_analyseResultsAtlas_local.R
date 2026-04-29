@@ -198,7 +198,7 @@ plot <- ggplot() +
   theme_minimal(base_size = 14)
 
 # Save as PDF — rasterization improves performance and file size
-CairoPDF(here("05_hvCpGalgorithm/figures/Manhattan/ManhattanAlphaPlot_previoushvCpGplotted_atlas.pdf"), width = 15, height = 3)
+CairoPDF(here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_previoushvCpGplotted_atlas.pdf"), width = 15, height = 3)
 print(plot)
 dev.off()
 
@@ -217,7 +217,7 @@ plot <- ggplot() +
   theme_minimal(base_size = 14)
 
 # Save as PDF — rasterization improves performance and file size
-CairoPDF(here("05_hvCpGalgorithm/figures/Manhattan/ManhattanAlphaPlot_atlas.pdf"), width = 15, height = 3)
+CairoPDF(here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas.pdf"), width = 15, height = 3)
 print(plot)
 dev.off()
 
@@ -256,7 +256,7 @@ merged <- merged %>%
   mutate(chr = str_extract(hvCpG, "^chr[0-9XYM]+"))%>%
   filter(!is.na(diffAlpha))
 
-pdf(here("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInAtlas.pdf"),
+pdf(here("B_MultiTissues/dataOut/figures/DifferenceOfProbabilityForhvCpG-matching_controlInAtlas.pdf"),
     width = 4, height = 5)
 ggplot(merged, aes(x="diff", y=diffAlpha))+
   geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
@@ -418,7 +418,7 @@ pairwise_results
 # P value adjustment method: fdr 
 
 # visualize methylation levels by region
-pdf(here("05_hvCpGalgorithm/figures/barplotFeaturesbyAlpha.pdf"), width = 6, height = 4)
+pdf(here("B_MultiTissues/dataOut/figures/barplotFeaturesbyAlpha.pdf"), width = 6, height = 4)
 ggplot(mcols(gr_cpg), aes(x = featureType, y = alpha, fill = featureType)) +
   geom_violin()+
   geom_boxplot(outlier.size = 0.5, alpha = 0.8, width = .3) +
@@ -523,7 +523,7 @@ grid_plot <- grid.grab()  # Capture as a grid object
 dev.off()
 
 # Now save the captured grid object to a real PDF
-pdf(here("05_hvCpGalgorithm/figures/upsetPreviousME.pdf"), width = 12, height = 5)
+pdf(here("B_MultiTissues/dataOut/figures/upsetPreviousME.pdf"), width = 12, height = 5)
 grid.draw(grid_plot)
 dev.off()
 
@@ -580,7 +580,7 @@ p2 <- ggplot(contrasts, aes(x = ME, y = estimate)) +
   ) +
   theme_minimal()
 
-pdf(here("05_hvCpGalgorithm/figures/alphaComparisonBetweenMEtypes.pdf"), width = 14, height = 4)
+pdf(here("B_MultiTissues/dataOut/figures/alphaComparisonBetweenMEtypes.pdf"), width = 14, height = 4)
 cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
 dev.off()
 

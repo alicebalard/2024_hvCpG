@@ -49,7 +49,7 @@ df_plot <- bind_rows(
   Z_inner %>% filter(alpha_Y > 0.6) %>% mutate(threshold = "> 0.6")
 )
 
-pdf(here("05_hvCpGalgorithm/figures/histCutoff-arrayAtlas.pdf"), width = 8, height = 5)
+pdf(here("B_MultiTissues/dataOut/figures/histCutoff-arrayAtlas.pdf"), width = 8, height = 5)
 ggplot(df_plot, aes(x = alpha_X, fill=threshold)) +
   geom_histogram(bins = 30,color = "white") +
   theme_minimal(base_size = 14) +

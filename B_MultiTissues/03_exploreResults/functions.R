@@ -181,11 +181,11 @@ makeCompPlot <- function(X, Y, title, xlab, ylab,
     labs(title = title, x = xlab, y = ylab)
   
   # Make sure the folder exists
-  dir.create(here::here("05_hvCpGalgorithm/figures/correlations"),
+  dir.create(here::here("B_MultiTissues/dataOut/figures/correlations"),
              recursive = TRUE, showWarnings = FALSE)
   
   ggplot2::ggsave(
-    filename = here::here(paste0("05_hvCpGalgorithm/figures/correlations/correlation_", title, ".pdf")),
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_", title, ".pdf")),
     plot = p1, width = 8, height = 8
   )
   

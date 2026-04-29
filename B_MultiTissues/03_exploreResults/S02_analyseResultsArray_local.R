@@ -22,7 +22,7 @@ if (!exists("previousSIVprepared")) {
 ## Load full results on array ##
 ################################
 
-load(here("05_hvCpGalgorithm/resultsDir/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData"))
+load(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData"))
 
 resArrayAll <- as.data.frame(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
 rm(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
@@ -72,10 +72,8 @@ resArrayAll <- prepareChrDataset(resArrayAll)
 chr_mid <- resArrayAll %>%
   group_by(chr) %>%
   summarise(mid = (min(cum_pos) + max(cum_pos)) / 2)
-pdf(here("05_hvCpGalgorithm/figures/manhattan/ManhattanAlphaPlot_array.pdf"), 
-    width = 15, height = 4)
 ## colorblind friendly
-ggplot() +
+p1_manhattanArray <- ggplot() +
   geom_point(data = subset(resArrayAll, is.na(group)),
     aes(x = cum_pos, y = alpha), color = "gray", alpha = .5, size = .8) +
   geom_point(data = subset(resArrayAll, !is.na(group)),
@@ -91,7 +89,6 @@ ggplot() +
         legend.box.margin = margin(10, 0, 0, 0),
         legend.margin = margin(-5, 0, 0, 0),
         plot.margin = margin(t = 1, r = 5, b = 5, l = 5)) 
-dev.off()
 
 ###################################################################
 ## Calculate proba hvCpG minus matching control: is it always +? ##
@@ -121,9 +118,7 @@ merged <- pairs %>%
   left_join(ctrl_alpha, by = "control") %>%
   mutate(diffAlpha=alpha_hvCpG-alpha_control)
 
-pdf(here("05_hvCpGalgorithm/figures/DifferenceOfProbabilityForhvCpG-matching_controlInArray.pdf"),
-    width = 4, height = 5)
-ggplot(merged, aes(x="diff", y=diffAlpha))+
+p2_DiffProbhvCpG_matchingcontrol_Array <- ggplot(merged, aes(x="diff", y=diffAlpha))+
   geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
   geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
   geom_violin(width=.5, fill = "grey", alpha=.8) +
@@ -133,13 +128,14 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   ggtitle("P(hvCpG) minus P(matching control)", subtitle =  "in array")+
   ylab("Difference of probability") +
   coord_cartesian(ylim = c(-1,1))
-dev.off()
 
 ################################################################
 ## Load full results on array with only 2 or 3 individuals/ds ##
 ################################################################
 
 makePlotNrob <- function(resCompArray, N){
+  mycor <- cor(resCompArray$alpha_array_all, resCompArray$alpha_array_reduce, use = "complete.obs")
+  
   ggplot(resCompArray,
          aes(x=alpha_array_all, y=alpha_array_reduce)) +
     geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group),
@@ -151,59 +147,71 @@ makePlotNrob <- function(resCompArray, N){
                        labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
     theme_minimal(base_size = 14) +
     theme(legend.title = element_blank()) +
+    annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
     labs(title = "Probability of being hypervariable",
          x = "P(hv) using full array datasets",
          y = paste0("P(hv) using reduced (", N, " ind/ds) array datasets")) +
     coord_cartesian(xlim = c(0,1), ylim = c(0,1))
 }
 
-load(here("05_hvCpGalgorithm/resultsDir/Arrays/results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1.RData"))
+load(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1.RData"))
 
 resArray3ind <- as.data.frame(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
 rm(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
 resArray3ind <- prepareChrDataset(resArray3ind)
 names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_reduce"
-resCompArray <- dplyr::left_join(resArray3ind, resArrayAll)
-names(resCompArray)[names(resCompArray) %in% "alpha"] <- "alpha_array_all"
+resCompArray_allvs3 <- dplyr::left_join(resArray3ind, resArrayAll)
+names(resCompArray_allvs3)[names(resCompArray_allvs3) %in% "alpha"] <- "alpha_array_all"
+p3ind <- makePlotNrob(resCompArray_allvs3, 3)
 
-p3ind <- makePlotNrob(resCompArray, 3)
-
-resArray2ind <- as.data.frame(readRDS(here("05_hvCpGalgorithm/resultsDir/Arrays/results_Arrays_2indperds_394240CpGs_0_8p0_0_65p1.rds")))
+resArray2ind <- as.data.frame(readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_2indperds_394240CpGs_0_8p0_0_65p1.rds")))
 resArray2ind <- prepareChrDataset(resArray2ind)
 names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_reduce"
-resCompArray2 <- dplyr::left_join(resArray2ind, resArrayAll)
-names(resCompArray2)[names(resCompArray2) %in% "alpha"] <- "alpha_array_all"
+resCompArray_allvs2 <- dplyr::left_join(resArray2ind, resArrayAll)
+names(resCompArray_allvs2)[names(resCompArray_allvs2) %in% "alpha"] <- "alpha_array_all"
 
-p2ind <- makePlotNrob(resCompArray2, 2)
+p2ind <- makePlotNrob(resCompArray_allvs2, 2)
 
-pdf(here("05_hvCpGalgorithm/figures/arrayfullvsreduced_myalgo"), width = 12, height = 6)
-cowplot::plot_grid(p2ind + theme(legend.position = "none"),
-                   p3ind + theme(legend.position = "none"),
-                   cowplot::get_legend(p3ind), ncol = 3, rel_widths = c(1,1,.3))
-dev.off()
+## Make figure of array test
+figure2 <- cowplot::plot_grid(
+  cowplot::plot_grid(p1_manhattanArray, p2_DiffProbhvCpG_matchingcontrol_Array, ncol = 2, rel_widths = c(2,1)), 
+  cowplot::plot_grid(p2ind + theme(legend.position = "none"),
+                     p3ind + theme(legend.position = "none"),
+                     cowplot::get_legend(p3ind), ncol = 3, rel_widths = c(1,1,.3)), nrow = 2)
+
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/Figure2.png"),
+  plot = figure2, width = 15, height = 12,
+  dpi = 300,        # 300 DPI = standard publication quality
+  bg = "white"
+)
 
 #############################################################
 ## What cutoff to get the same number of sites than Maria? ##
 #############################################################
+table(resCompArray$group)
+# hvCpG_Derakhshan     mQTLcontrols 
+# 3535             3359
+
 poscutoff = 0.94
 negcutoff = 0.5
 
-nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,])# == 3535
+nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,])# == 3674
 
 ## True positive: detected with full AND reduced array / all detected with full array
 nrow(resCompArray[resCompArray$alpha_array_all > poscutoff &
-               resCompArray$alpha_array_3ind > poscutoff,]) /
-  nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,]) * 100
+               resCompArray$alpha_array_reduce > poscutoff,]) /
+  nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,]) * 100 #  49.21067
 
 ## False positive = % CpGs detected only using reduced datasets
 nrow(resCompArray[resCompArray$alpha_array_all < negcutoff &
-                    resCompArray$alpha_array_3ind > poscutoff,]) /
-  nrow(resCompArray[resCompArray$alpha_array_3ind > poscutoff,]) * 100
+                    resCompArray$alpha_array_reduce > poscutoff,]) /
+  nrow(resCompArray[resCompArray$alpha_array_reduce > poscutoff,]) * 100 # 0.4022526
 
 ## False negative = % CpGs detected only using full datasets
 nrow(resCompArray[resCompArray$alpha_array_all > poscutoff &
-                    resCompArray$alpha_array_3ind < negcutoff,]) /
-  nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,]) * 100
+                    resCompArray$alpha_array_reduce < negcutoff,]) /
+  nrow(resCompArray[resCompArray$alpha_array_all > poscutoff,]) * 100 # 3.320631
 
 ## rm junk
 rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)

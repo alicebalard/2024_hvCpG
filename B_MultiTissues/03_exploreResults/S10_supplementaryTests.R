@@ -5,7 +5,7 @@ if (!exists("libLoaded")) {
 ## correspMariaTissues ## --> very similar than full atlas
 #########################
 
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_3_correspMariaTissues.pdf")))){
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_0_vs_3_correspMariaTissues.pdf")))){
   makeCompPlot(
     X = readRDS(here("gitignore/fullres_Atlas10X")),
     Y = readRDS(here("gitignore/fullres_Atlas10X_3_correspMariaTissues")),
@@ -20,7 +20,7 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
 ## byTissue ##
 ##############
 
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_8_byTissue.pdf")))){
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_0_vs_8_byTissue.pdf")))){
   ## Cut by tissue rather than by cell type. Is is closer to array data?
   makeCompPlot(
     X = readRDS(here::here("gitignore/fullres_Atlas10X")),
@@ -32,7 +32,7 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
     ylab = "Pr(hv) calculated on WGBS atlas datasets cut by tissues")
 }
 
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Array_vs_8_byTissue.pdf")))){
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Array_vs_8_byTissue.pdf")))){
   makeCompPlot(
     X = resCompArray,
     Y = readRDS(here::here("gitignore/fullres_Atlas10X_8_byTissue")),
@@ -49,7 +49,7 @@ if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/co
 ###################
 
 ## Some individuals have multiple cells sampled. Does that affect our results? NOPE
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_0_vs_2_rmMultSamples.pdf")))){
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_0_vs_2_rmMultSamples.pdf")))){
   makeCompPlot(
     X = readRDS(here::here("gitignore/fullres_Atlas10X")),
     Y = readRDS(here::here("gitignore/fullres_Atlas10X_2_rmMultSamples")),
