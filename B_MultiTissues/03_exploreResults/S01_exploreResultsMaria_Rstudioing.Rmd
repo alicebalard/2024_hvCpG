@@ -156,7 +156,6 @@ rds_list_mat_2ind <- lapply(rds_list_mat, function(df) {
 hvCpGs_repro_maria_3ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_3ind)
 hvCpGs_repro_maria_2ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_2ind)
 
-## Plot (redone in S02)
 v <- list(
   n_full      = length(hvCpGs_repro_maria$cpgs),
   n_2ind      = length(hvCpGs_repro_maria_2ind$cpg),
@@ -200,10 +199,26 @@ df_circles <- rbind(
   cbind(circle( 0.0, -0.5,  1), group = "Array 3ind/ds")
 )
 
-plot_venn3 <- makeVennArrayReduced(df_circles)
-plot_venn3
+# --- Save a single self-contained object ---
+venn_obj <- list(
+  df_circles = df_circles,
+  v          = v,
+  counts     = list(
+    n_only_full      = n_only_full,
+    n_only_2ind      = n_only_2ind,
+    n_only_3ind      = n_only_3ind,
+    n_full_2ind_only = n_full_2ind_only,
+    n_full_3ind_only = n_full_3ind_only,
+    n_2ind_3ind_only = n_2ind_3ind_only
+  )
+)
 
-saveRDS(df_circles, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS")
+## to redo plot in S02
+saveRDS(venn_obj, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS")
+
+plot_venn3 <- makeVennArrayReduced(venn_obj$df_circles, venn_obj$v, venn_obj$counts,
+                                   fmt_fn = function(n, tot) paste0(n, "\n(", round(100*n/tot, 1), "%)"))
+plot_venn3
 ```
 
 
