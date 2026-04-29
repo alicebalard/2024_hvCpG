@@ -1,6 +1,7 @@
 ############################################
 # loads functions useful in multiple scripts
 
+## makeVennArrayReduced
 ## prepAtlasdt
 ## plotManhattanFromdt
 ## makeZ_inner
@@ -10,6 +11,30 @@
 ## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
 ## for each quadrant vs the other three combined
 ### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
+
+makeVennArrayReduced <- function(df_circles){
+  ggplot2::ggplot() +
+    ggplot2::geom_polygon(data = df_circles,
+                          aes(x, y, group = group),
+                          fill = "#4981BF", alpha = 0.3,
+                          colour = "grey40", linewidth = 0.5) +
+    # Exclusive regions
+    ggplot2::annotate("text", x = -0.9,  y =  0.55, label = fmt(n_only_full,      total), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x =  0.9,  y =  0.55, label = fmt(n_only_2ind,      total), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x =  0.0,  y = -1.05, label = fmt(n_only_3ind,      total), size = 3, lineheight = 0.9) +
+    # Pairwise only
+    ggplot2::annotate("text", x =  0.0,  y =  0.75, label = fmt(n_full_2ind_only, total), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x = -0.55, y = -0.25, label = fmt(n_full_3ind_only, total), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x =  0.55, y = -0.25, label = fmt(n_2ind_3ind_only, total), size = 3, lineheight = 0.9) +
+    # Triple
+    ggplot2::annotate("text", x =  0.0,  y =  0.15, label = fmt(v$n_all,          total), size = 3, fontface = "bold", lineheight = 0.9) +
+    # Set labels with total size
+    ggplot2::annotate("text", x = -1.1,  y =  1.5,  label = paste0("Full array\nn=",    v$n_full), size = 3.5, fontface = "bold") +
+    ggplot2::annotate("text", x =  1.1,  y =  1.5,  label = paste0("Array 2ind/ds\nn=", v$n_2ind), size = 3.5, fontface = "bold") +
+    ggplot2::annotate("text", x =  0.0,  y = -1.7,  label = paste0("Array 3ind/ds\nn=", v$n_3ind), size = 3.5, fontface = "bold") +
+    ggplot2::coord_fixed() +
+    ggplot2::theme_void()
+}
 
 prepAtlasdt <- function(dir = "Atlas10X"){
   # Define parent folder containing all "Atlas_batchXXX" folders
