@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 invisible(lapply(
   c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2",
-    "ggrepel", "pROC", "stringr", "tibble", "viridis", "ggridges"),
+    "ggrepel", "pROC", "stringr", "viridis", "ggridges"),
   function(pkg) suppressPackageStartupMessages(library(pkg, character.only = TRUE))
 ))
 ```
@@ -25,7 +25,7 @@ invisible(lapply(
 # /mnt/sod/old_user_accounts/p3/maria/PhD/Projects/hvCpGs/Scripts/
 
 ## Load results of Maria for hvCpG
-Marias_hvCpGs <- read.csv("~/2024_hvCpG/03_prepDatasetsMaria/Derakhshan2022_ST5_hvCpG.txt")
+Marias_hvCpGs <- read.csv("~/2024_hvCpG/B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/Derakhshan2022_ST5_hvCpG.txt")
 
 ## Recreate Maria's datasets
 folder1 <- normalizePath("/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/")
@@ -52,7 +52,7 @@ rds_list_mat <- lapply(rds_list_mat, function(mat) {
 
 ## Load mQTL-matched controls
 cistrans_GoDMC_hvCpG_matched_control <- 
-  read.table("~/2024_hvCpG/03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
+  read.table("~/2024_hvCpG/B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
 
 ## Load cpgnames (all cpg covered after filtration)
 cpg_names_all <- rhdf5::h5read("/home/alice/arraysh5/all_matrix_noscale.h5", "cpg_names")
@@ -164,8 +164,7 @@ x <- list("Full array" = hvCpGs_repro_maria$cpgs,
 p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
 p
 # 2D Venn diagram
-ggsave("../../../2024_hvCpG/05_hvCpGalgorithm/figures/arrayCutoffLowPower3ind.pdf", plot = p, width = 5, height = 5)
-
+saveRDS(p, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower3ind.RDS")
 
 ## And what about 2?
 # Keep 2 random columns per element
@@ -184,7 +183,7 @@ x <- list("Full array" = hvCpGs_repro_maria$cpgs,
 p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
 p
 # 2D Venn diagram
-ggsave("../../../2024_hvCpG/05_hvCpGalgorithm/figures/arrayCutoffLowPower2ind.pdf", plot = p, width = 5, height = 5)
+saveRDS(p, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2ind.RDS")
 ```
 
 # Identify hvCpGs based on a sd multiplicative factor lambda
@@ -290,10 +289,10 @@ $$
 The transformation lead to weird values:
 
 ```{r investigate_weird_transfo}
-test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
+test <- readRDS("/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
 test[rownames(test) %in% "cg23089912",5:10]
 
-test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
+test <- readRDS("/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
 test[rownames(test) %in% "cg23089912",5:10]
 # GSM1870986
 # 0.00000000000000001124546 --> give extreme value in scaling, and p dnorm=0
@@ -304,6 +303,7 @@ The zero was weirdly transformed. Is that expected?
 ## Check specific probe detected in atlas data
 
 ```{r}
+library(tibble)
 cpgs_of_interest <- c("cg27470047", "cg16958594", "cg01992382", "cg19313311")
 
 library(matrixStats)

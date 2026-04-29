@@ -4,7 +4,12 @@ library(ggVennDiagram)
 library(boot)
 
 source(here("05_hvCpGalgorithm/quiet_library.R"))
+<<<<<<<< HEAD:testFetalSIV_ingp5.R
+source(here("05_hvCpGalgorithm/exploreResults/functions.R"))
+source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+========
 source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
+>>>>>>>> e87aaa80fb7d3efd1f06e097df6feb49246fa77d:B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R
 
 ########################
 ## Prepare fetal data ##
