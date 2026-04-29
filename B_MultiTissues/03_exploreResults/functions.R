@@ -12,7 +12,7 @@
 ## for each quadrant vs the other three combined
 ### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
 
-makeVennArrayReduced <- function(df_circles){
+makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   ggplot2::ggplot() +
     ggplot2::geom_polygon(data = df_circles,
                           aes(x, y, group = group),
