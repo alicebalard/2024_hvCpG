@@ -203,7 +203,7 @@ df_circles <- rbind(
 plot_venn3 <- makeVennArrayReduced(df_circles)
 plot_venn3
 
-saveRDS(plot_venn3, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS")
+saveRDS(df_circles, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS")
 ```
 
 
