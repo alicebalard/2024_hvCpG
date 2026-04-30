@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 invisible(lapply(
   c("dplyr", "data.table", "matrixStats", "ggplot2", "reshape2",
-    "ggrepel", "pROC", "stringr", "tibble", "viridis", "ggridges"),
+    "ggrepel", "pROC", "stringr", "viridis", "ggridges"),
   function(pkg) suppressPackageStartupMessages(library(pkg, character.only = TRUE))
 ))
 ```
@@ -25,7 +25,7 @@ invisible(lapply(
 # /mnt/sod/old_user_accounts/p3/maria/PhD/Projects/hvCpGs/Scripts/
 
 ## Load results of Maria for hvCpG
-Marias_hvCpGs <- read.csv("~/2024_hvCpG/03_prepDatasetsMaria/Derakhshan2022_ST5_hvCpG.txt")
+Marias_hvCpGs <- read.csv("~/2024_hvCpG/B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/Derakhshan2022_ST5_hvCpG.txt")
 
 ## Recreate Maria's datasets
 folder1 <- normalizePath("/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/")
@@ -52,7 +52,7 @@ rds_list_mat <- lapply(rds_list_mat, function(mat) {
 
 ## Load mQTL-matched controls
 cistrans_GoDMC_hvCpG_matched_control <- 
-  read.table("~/2024_hvCpG/03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
+  read.table("~/2024_hvCpG/B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/cistrans_GoDMC_hvCpG_matched_control.txt", header = T)
 
 ## Load cpgnames (all cpg covered after filtration)
 cpg_names_all <- rhdf5::h5read("/home/alice/arraysh5/all_matrix_noscale.h5", "cpg_names")
@@ -149,43 +149,78 @@ rds_list_mat_3ind <- lapply(rds_list_mat, function(df) {
   cols <- sample(ncol(df), 3)   # choose 3 random columns
   df[, cols, drop = FALSE]      # subset while keeping data.frame
 })
-
-hvCpGs_repro_maria_3ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_3ind)
-
-## Plot 
-
-# install.packages("ggVennDiagram")
-library(ggVennDiagram)
-
-# List of items
-x <- list("Full array" = hvCpGs_repro_maria$cpgs, 
-          "Array 3ind/ds" = hvCpGs_repro_maria_3ind$cpg)
-
-p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
-p
-# 2D Venn diagram
-ggsave("../../../2024_hvCpG/05_hvCpGalgorithm/figures/arrayCutoffLowPower3ind.pdf", plot = p, width = 5, height = 5)
-
-
-## And what about 2?
-# Keep 2 random columns per element
 rds_list_mat_2ind <- lapply(rds_list_mat, function(df) {
   cols <- sample(ncol(df), 2)   # choose 2 random columns
   df[, cols, drop = FALSE]      # subset while keeping data.frame
 })
-
+hvCpGs_repro_maria_3ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_3ind)
 hvCpGs_repro_maria_2ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_2ind)
 
-## Plot 
-# List of items
-x <- list("Full array" = hvCpGs_repro_maria$cpgs, 
-          "Array 2ind/ds" = hvCpGs_repro_maria_2ind$cpg)
+v <- list(
+  n_full      = length(hvCpGs_repro_maria$cpgs),
+  n_2ind      = length(hvCpGs_repro_maria_2ind$cpg),
+  n_3ind      = length(hvCpGs_repro_maria_3ind$cpg),
+  n_full_2ind = length(intersect(hvCpGs_repro_maria$cpgs, hvCpGs_repro_maria_2ind$cpg)),
+  n_full_3ind = length(intersect(hvCpGs_repro_maria$cpgs, hvCpGs_repro_maria_3ind$cpg)),
+  n_2ind_3ind = length(intersect(hvCpGs_repro_maria_2ind$cpg, hvCpGs_repro_maria_3ind$cpg)),
+  n_all       = length(Reduce(intersect, list(hvCpGs_repro_maria$cpgs,
+                                              hvCpGs_repro_maria_2ind$cpg,
+                                              hvCpGs_repro_maria_3ind$cpg))),
+  n_union     = length(Reduce(union, list(hvCpGs_repro_maria$cpgs,        # <-- add this
+                                          hvCpGs_repro_maria_2ind$cpg,
+                                          hvCpGs_repro_maria_3ind$cpg)))
+)
 
-p <- ggVennDiagram(x, label_alpha = 0) +  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF") 
-p
-# 2D Venn diagram
-ggsave("../../../2024_hvCpG/05_hvCpGalgorithm/figures/arrayCutoffLowPower2ind.pdf", plot = p, width = 5, height = 5)
+# Compute exclusive regions
+n_only_full     <- v$n_full - v$n_full_2ind - v$n_full_3ind + v$n_all
+n_only_2ind     <- v$n_2ind - v$n_full_2ind - v$n_2ind_3ind + v$n_all
+n_only_3ind     <- v$n_3ind - v$n_full_3ind - v$n_2ind_3ind + v$n_all
+n_full_2ind_only <- v$n_full_2ind - v$n_all
+n_full_3ind_only <- v$n_full_3ind - v$n_all
+n_2ind_3ind_only <- v$n_2ind_3ind - v$n_all
+
+# Total unique CpGs across all sets
+total <- length(Reduce(union, list(
+  seq_len(v$n_full), seq_len(v$n_2ind), seq_len(v$n_3ind)  # placeholder — use real union
+)))
+
+# Helper: format as "n\n(xx.x%)"
+fmt <- function(n, tot) paste0(n, "\n(", round(100 * n / tot, 1), "%)")
+
+total <- v$n_union
+
+# Circle positions
+theta <- seq(0, 2*pi, length.out = 200)
+circle <- function(cx, cy, r) data.frame(x = cx + r*cos(theta), y = cy + r*sin(theta))
+
+df_circles <- rbind(
+  cbind(circle(-0.5,  0.35, 1), group = "Full array"),
+  cbind(circle( 0.5,  0.35, 1), group = "Array 2ind/ds"),
+  cbind(circle( 0.0, -0.5,  1), group = "Array 3ind/ds")
+)
+
+# --- Save a single self-contained object ---
+venn_obj <- list(
+  df_circles = df_circles,
+  v          = v,
+  counts     = list(
+    n_only_full      = n_only_full,
+    n_only_2ind      = n_only_2ind,
+    n_only_3ind      = n_only_3ind,
+    n_full_2ind_only = n_full_2ind_only,
+    n_full_3ind_only = n_full_3ind_only,
+    n_2ind_3ind_only = n_2ind_3ind_only
+  )
+)
+
+## to redo plot in S02
+saveRDS(venn_obj, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS")
+
+plot_venn3 <- makeVennArrayReduced(venn_obj$df_circles, venn_obj$v, venn_obj$counts,
+                                   fmt_fn = function(n, tot) paste0(n, "\n(", round(100*n/tot, 1), "%)"))
+plot_venn3
 ```
+
 
 # Identify hvCpGs based on a sd multiplicative factor lambda
 
@@ -290,10 +325,10 @@ $$
 The transformation lead to weird values:
 
 ```{r investigate_weird_transfo}
-test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
+test <- readRDS("/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO/Blood_Hisp")
 test[rownames(test) %in% "cg23089912",5:10]
 
-test <- readRDS("/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
+test <- readRDS("/mnt/sod/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED/Blood_Hisp.RDS")
 test[rownames(test) %in% "cg23089912",5:10]
 # GSM1870986
 # 0.00000000000000001124546 --> give extreme value in scaling, and p dnorm=0
@@ -304,6 +339,7 @@ The zero was weirdly transformed. Is that expected?
 ## Check specific probe detected in atlas data
 
 ```{r}
+library(tibble)
 cpgs_of_interest <- c("cg27470047", "cg16958594", "cg01992382", "cg19313311")
 
 library(matrixStats)
