@@ -1,5 +1,9 @@
 # Load quiet library and required packages
-source(here("05_hvCpGalgorithm/quiet_library.R"))
+## Prepare
+library(here)
+## Load libraries
+if (!exists("libLoaded")) {
+  source(here("B_MultiTissues", "quiet_library.R"))}
 
 message("🧬 Building dictionary linking 450k and EPIC probes to hg19 and hg38 coordinates...")
 
@@ -36,7 +40,7 @@ anno_combined <- bind_rows(
 anno_combined$chrpos_hg19 <- paste0(anno_combined$chr, "_", anno_combined$pos)
 
 # --- 4️⃣ Download and import hg19 → hg38 chain file ---
-chain_dir <- here("05_hvCpGalgorithm/dataPrev")
+chain_dir <- here("B_MultiTissues/dataIn")
 chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
 chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
 

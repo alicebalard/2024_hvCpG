@@ -5,19 +5,19 @@ library(here)
 
 ## Load libraries
 if (!exists("libLoaded")) {
-  source(here("05_hvCpGalgorithm", "quiet_library.R"))}
+source(here("B_MultiTissues", "quiet_library.R"))}
 
 ## Load functions
 if (!exists("functionsLoaded")) {
-  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))}
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
 
 ## Load array results for comparison
 if (!exists("resCompArray")) {
-  source(here("05_hvCpGalgorithm/exploreResults/S02_analyseResultsArray_local.R"))}
+  source(here("B_MultiTissues/03_exploreResults/S02_analyseResultsArray_local.R"))}
 
 ## Load the set of previously tested MEs & vmeQTL
 if (!exists("previousSIVprepared")) {
-  source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))}
+  source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
 
 #####################################
 ## one run per developmental layer ##
@@ -103,7 +103,7 @@ if (!file.exists(here::here("05_hvCpGalgorithm/figures/correlations/correlation_
 #################################################################################
 ## Create a table with all CpG sites, pr(hv) for each germ layer, and SNP info ##
 #################################################################################
-## SNP info: Bash code in 05_hvCpGalgorithm/exploreResults/prepSNP1000GP.sh
+## SNP info: Bash code in B_MultiTissues/03_exploreResults/prepSNP1000GP.sh
 # exclude CpGs that overlap with common SNPs in 1000 Genomes, with a MAF‑threshold of 0.5%
 
 redo3layertab = TRUE
@@ -554,7 +554,7 @@ exactly_one <- table3layers[((!is.na(table3layers$alpha_endo) & table3layers$alp
   # head(dataMatt)
   # 
   # # --- Download and import hg19 → hg38 chain file ---
-  # chain_dir <- here("05_hvCpGalgorithm/dataPrev")
+  # chain_dir <- here("B_MultiTissues/dataIn")
   # chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
   # chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
   # 

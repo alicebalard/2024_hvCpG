@@ -5,11 +5,11 @@ library(here)
 
 ## Load libraries
 if (!exists("libLoaded")) {
-  source(here("05_hvCpGalgorithm", "quiet_library.R"))}
+  source(here("B_MultiTissues", "quiet_library.R"))}
 
 ## Load functions
 if (!exists("functionsLoaded")) {
-  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))}
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
 
 ## Load array results
 if (!exists("resArray")) {
@@ -18,7 +18,7 @@ if (!exists("resArray")) {
 
 ## Load the set of previously tested MEs & vmeQTL
 if (!exists("previousSIVprepared")) {
-  source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))}
+  source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
 
 ##################################
 ## Save all data in RDS objects ##
@@ -28,7 +28,7 @@ for (file in list.files(here("05_hvCpGalgorithm/resultsDir/Atlas/"))){
   if (!file.exists(here(paste0("gitignore/fullres_", file)))){
     ## Add previous MEs including Maria's results if not sourced yet
     if (!exists("KesslerSIV_GRanges_hg38")) {
-      source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
+      source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
     }
     
     system.time(Atlas_dt <- prepAtlasdt(file))
@@ -135,7 +135,7 @@ if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
 plotManhattanFromdt(Atlas_dt)
 
 ###################################################################################################
-## Extract high alpha for test in 05_hvCpGalgorithm/exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
+## Extract high alpha for test in B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
 ###################################################################################################
 
 table(Atlas_dt$alpha >= 0.7)
@@ -155,7 +155,7 @@ table(highAlphaPos$array)
 # 4483+340 = 4823 on the 450k array
 # 4483+3431 = 7914 on the EPIC array
 
-saveRDS(highAlphaPos, here("05_hvCpGalgorithm/exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
+saveRDS(highAlphaPos, here("B_MultiTissues/03_exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
 
 ####################
 ## Plot Manhattan ##
@@ -471,7 +471,7 @@ allcpg_GR <- makeGRfromMyCpGPos(Atlas_dt$name)
 
 ###########################################
 ## meQTL (vmeQTL) identified in MZ twins by Jordana Bell 
-vmeQTL_hg19probes <- readxl::read_xlsx(here("05_hvCpGalgorithm/dataPrev/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
+vmeQTL_hg19probes <- readxl::read_xlsx(here("B_MultiTissues/dataIn/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
 vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]) ; rm(vmeQTL_hg19probes)
 
 # a vector of 1773 SIV from Harris 2012 (HarrisSIV_hg38)
