@@ -19,15 +19,15 @@ makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
                           fill = "#4981BF", alpha = 0.3,
                           colour = "grey40", linewidth = 0.5) +
     # Exclusive regions
-    ggplot2::annotate("text", x = -0.9,  y =  0.55, label = fmt(n_only_full,      total), size = 3, lineheight = 0.9) +
-    ggplot2::annotate("text", x =  0.9,  y =  0.55, label = fmt(n_only_2ind,      total), size = 3, lineheight = 0.9) +
-    ggplot2::annotate("text", x =  0.0,  y = -1.05, label = fmt(n_only_3ind,      total), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x = -0.9,  y =  0.55, label = fmt_fn(counts$n_only_full,      v$n_union), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x =  0.9,  y =  0.55, label = fmt_fn(counts$n_only_2ind,      v$n_union), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x =  0.0,  y = -1.05, label = fmt_fn(counts$n_only_3ind,      v$n_union), size = 3, lineheight = 0.9) +
     # Pairwise only
-    ggplot2::annotate("text", x =  0.0,  y =  0.75, label = fmt(n_full_2ind_only, total), size = 3, lineheight = 0.9) +
-    ggplot2::annotate("text", x = -0.55, y = -0.25, label = fmt(n_full_3ind_only, total), size = 3, lineheight = 0.9) +
-    ggplot2::annotate("text", x =  0.55, y = -0.25, label = fmt(n_2ind_3ind_only, total), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x =  0.0,  y =  0.75, label = fmt_fn(counts$n_full_2ind_only, v$n_union), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x = -0.55, y = -0.25, label = fmt_fn(counts$n_full_3ind_only, v$n_union), size = 3, lineheight = 0.9) +
+    ggplot2::annotate("text", x =  0.55, y = -0.25, label = fmt_fn(counts$n_2ind_3ind_only, v$n_union), size = 3, lineheight = 0.9) +
     # Triple
-    ggplot2::annotate("text", x =  0.0,  y =  0.15, label = fmt(v$n_all,          total), size = 3, fontface = "bold", lineheight = 0.9) +
+    ggplot2::annotate("text", x =  0.0,  y =  0.15, label = fmt_fn(v$n_all,          v$n_union), size = 3, fontface = "bold", lineheight = 0.9) +
     # Set labels with total size
     ggplot2::annotate("text", x = -1.1,  y =  1.5,  label = paste0("Full array\nn=",    v$n_full), size = 3.5, fontface = "bold") +
     ggplot2::annotate("text", x =  1.1,  y =  1.5,  label = paste0("Array 2ind/ds\nn=", v$n_2ind), size = 3.5, fontface = "bold") +
@@ -37,8 +37,8 @@ makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
 }
 
 prepAtlasdt <- function(dir = "Atlas10X"){
-  # Define parent folder containing all "Atlas_batchXXX" folders
-  parent_dir = here(paste0("05_hvCpGalgorithm/resultsDir/Atlas/", dir))
+  # Define parent folder containing all results folders
+  parent_dir = here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", dir))
   
   # Get list of relevant RDS files
   rds_files <- dir(parent_dir, pattern = ".rds$", 
@@ -59,7 +59,7 @@ prepAtlasdt <- function(dir = "Atlas10X"){
     name =   sub("-[0-9]+$", "", names(all_cpg_values)), # just keep the C position instead of C + 1
     alpha = as.numeric(all_cpg_values)
   )
-
+  
   #######################################################################
   # Parse "chr_pos" in name into chr, start_pos, end_pos. NB: takes a couple of minutes
   dt[, c("chr", "pos") := tstrsplit(name, "_", fixed = TRUE)]

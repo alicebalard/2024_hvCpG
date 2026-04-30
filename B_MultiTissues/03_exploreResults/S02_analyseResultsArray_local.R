@@ -172,16 +172,28 @@ names(resCompArray_allvs2)[names(resCompArray_allvs2) %in% "alpha"] <- "alpha_ar
 
 p2ind <- makePlotNrob(resCompArray_allvs2, 2)
 
-## Make figure of array test
+## From script S01:
+venn_obj <- readRDS(here("B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS"))
+
+plot_venn3 <- makeVennArrayReduced(df_circles = venn_obj$df_circles, v = venn_obj$v, counts = venn_obj$counts,
+                                   fmt_fn = function(n, tot) paste0(n, "\n(", round(100*n/tot, 1), "%)"))
+plot_venn3
+
+###############################
+## Make figure of array test ##
+###############################
+
 figure2 <- cowplot::plot_grid(
-  cowplot::plot_grid(p1_manhattanArray, p2_DiffProbhvCpG_matchingcontrol_Array, ncol = 2, rel_widths = c(2,1)), 
-  cowplot::plot_grid(p2ind + theme(legend.position = "none"),
+  cowplot::plot_grid(p1_manhattanArray, p2_DiffProbhvCpG_matchingcontrol_Array, ncol = 2, rel_widths = c(2,1), labels = c("A", "B")), 
+  cowplot::plot_grid(plot_venn3,
+                     p2ind + theme(legend.position = "none"),
                      p3ind + theme(legend.position = "none"),
-                     cowplot::get_legend(p3ind), ncol = 3, rel_widths = c(1,1,.3)), nrow = 2)
+                     cowplot::get_legend(p3ind), 
+                     ncol = 4, rel_widths = c(1,1,1,.3), labels = c("C", "D", "E")), nrow = 2)
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/Figure2.png"),
-  plot = figure2, width = 15, height = 12,
+  plot = figure2, width = 18, height = 12,
   dpi = 300,        # 300 DPI = standard publication quality
   bg = "white"
 )
