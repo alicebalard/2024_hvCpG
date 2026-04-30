@@ -2,11 +2,11 @@ library(here)
 
 ## Load libraries
 if (!exists("libLoaded")) {
-  source(here("05_hvCpGalgorithm", "quiet_library.R"))}
+  source(here("B_MultiTissues", "quiet_library.R"))}
 
 ## Load functions
 if (!exists("functionsLoaded")) {
-  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))}
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
 
 
 ## TBC
@@ -64,7 +64,7 @@ getAlphasCandidates <- function(
   # --- Liftover (hg19 → hg38) IF NEEDED --- #
   if (candidate_gr$genome != "hg38"){
     ## Download and import hg19 → hg38 chain file
-    chain_dir <- here("05_hvCpGalgorithm/dataPrev")
+    chain_dir <- here("B_MultiTissues/dataIn")
     chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
     chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
     
@@ -167,7 +167,7 @@ dataMatt <- readxl::read_xlsx(here("gitignore/DEGCAGS_intersect_repeats_Alice.xl
 head(dataMatt)
 
 # --- Download and import hg19 → hg38 chain file ---
-chain_dir <- here("05_hvCpGalgorithm/dataPrev")
+chain_dir <- here("B_MultiTissues/dataIn")
 chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
 chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
 

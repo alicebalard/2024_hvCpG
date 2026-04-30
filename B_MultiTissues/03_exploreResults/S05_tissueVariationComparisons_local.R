@@ -2,7 +2,8 @@
 ## Plot results of algorithm ran at the tissue level ##
 #######################################################
 library(here)
-source(here("05_hvCpGalgorithm", "quiet_library.R"))
+if (!exists("libLoaded")) {
+  source(here("B_MultiTissues", "quiet_library.R"))}
 
 ## Atlas
 parent_dir_atlas <- here("05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X_tissueAnalysis/")
@@ -40,7 +41,7 @@ makeViolin <- function(size = 10, rds_files, fill = "nothing", all_medsd_lambda,
   
   ## Add germ layer
   if (fill == "Germ layer"){
-    SupTab1_Loyfer2023 = read.csv(here("05_hvCpGalgorithm/dataPrev/SupTab1_Loyfer2023.csv"))
+    SupTab1_Loyfer2023 = read.csv(here("B_MultiTissues/dataIn/SupTab1_Loyfer2023.csv"))
     mat1$Germ.layer = SupTab1_Loyfer2023$Germ.layer[
       match(mat1$dataset, paste0(SupTab1_Loyfer2023$Source.Tissue, " - ", SupTab1_Loyfer2023$Cell.type))]
   }
@@ -288,7 +289,7 @@ makeSummaryDT <- function(rds_files, selectSomeCpGs = FALSE, CpGs = NA){
   )
   
   ## Add information
-  SupTab1_Loyfer2023 = read.csv(here("05_hvCpGalgorithm/dataPrev/SupTab1_Loyfer2023.csv"))
+  SupTab1_Loyfer2023 = read.csv(here("B_MultiTissues/dataIn/SupTab1_Loyfer2023.csv"))
   summary_dt$Germ.layer = SupTab1_Loyfer2023$Germ.layer[
     match(summary_dt$dataset, paste0(SupTab1_Loyfer2023$Source.Tissue, " - ", SupTab1_Loyfer2023$Cell.type))]
   
