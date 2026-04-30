@@ -1,7 +1,6 @@
 library(here)
-if (!exists("functionsLoaded")) {
-  source(here("05_hvCpGalgorithm/exploreResults", "functions.R"))
-}
+if (!exists("libLoaded")) {
+  source(here("B_MultiTissues", "quiet_library.R"))}
 
 library(rGREAT)
 library(stringr)
@@ -14,5 +13,5 @@ foreground <- makeGRfromMyCpGPos(topIntersect90, "topIntersect90")
 
 system.time(res <- great(gr = foreground, gene_sets = "GO:BP", biomart_dataset = "hg38", background = background, cores = 10))
   
-saveRDS(res, here("05_hvCpGalgorithm/exploreResults/annotations/topIntersect90_rGREAT.RDS"))
+saveRDS(res, here("B_MultiTissues/03_exploreResults/annotations/topIntersect90_rGREAT.RDS"))
 print("SUCCESS: rGREAT analysis complete!")
