@@ -1,44 +1,49 @@
 #!/bin/bash
 #$ -N runalgo_atlas
 #$ -S /bin/bash
-#$ -pe smp 15 ## kills early if 12x5; 15x5 kill at the end
-#$ -l tmem=6G
-#$ -l h_vmem=6G
+#$ -pe smp 5 
+#$ -l tmem=5G
+#$ -l h_vmem=5G
 #$ -l h_rt=30:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
-#$ -t 1-120 ## to accomodate also tests with more CpGs covered
+#$ -t 10 ## 1-120 ## to accomodate also tests with more CpGs covered
 #$ -tc 30
 
 # ---- Config ----
 CHUNK_SIZE=250000 ## what is the size of the chunk per array task
-BATCH_SIZE=10000 ## how many CpGs are loaded at once
-RSCRIPT="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/S01.1_runalgov6_atlas_cscluster.R"
+BATCH_SIZE=5000 ## how many CpGs are loaded at once
+RSCRIPT="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues/02_runAlgo/Atlas/S01.1_runalgov6_atlas_cscluster.R"
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID started at $(date) ****"
 
 P0=0.80
 P1=0.65
-MININD=2 # very few, for specific analysis
-for ANALYSIS in "10X_15_pairs_MM" "10X_16_pairs_FF" "10X_17_pairs_MF"; do
-    echo "[INFO] Running analysis: $ANALYSIS"
-    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
-done
-
-MININD=3 # back to default
-for ANALYSIS in "10X_12.2_endo6gp" "10X_13.2_meso6gp"; do
-    echo "[INFO] Running analysis: $ANALYSIS"
-    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
-done
-
-
-P0=0.80
-P1=0.9 ## !! Try this to see overlap with separate germ layer study
 MININD=3
-for ANALYSIS in "10X"; do
-    echo "[INFO] Running analysis: $ANALYSIS"
-    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
-done
+ANALYSIS="atlas_general"
+
+Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+
+##MININD=2 # very few, for specific analysis
+##for ANALYSIS in "10X_15_pairs_MM" "10X_16_pairs_FF" "10X_17_pairs_MF"; do
+##    echo "[INFO] Running analysis: $ANALYSIS"
+##    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+##done
+##
+##MININD=3 # back to default
+##for ANALYSIS in "10X_12.2_endo6gp" "10X_13.2_meso6gp"; do
+##    echo "[INFO] Running analysis: $ANALYSIS"
+##    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+##done
+##
+##
+##P0=0.80
+##P1=0.9 ## !! Try this to see overlap with separate germ layer study
+##MININD=3
+##for ANALYSIS in "10X"; do
+##    echo "[INFO] Running analysis: $ANALYSIS"
+##    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+##done
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"
 

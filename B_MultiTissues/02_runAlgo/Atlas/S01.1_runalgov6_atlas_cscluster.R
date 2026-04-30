@@ -15,10 +15,10 @@ p1 <- as.numeric(args[6])
 minind <- as.numeric(args[7]) ## set to 3 for non pairs
 
 ## where the data is:
-data_dir <- file.path("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer", analysis)
+data_dir <- file.path("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer", paste0("output_", analysis))
 
 ## where the results should be stored
-res_dir <- file.path("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Atlas", analysis) ## NB non gitted, too heavy!
+res_dir <- file.path("/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues/resultsDir_gitIgnored/Atlas", analysis) ## NB non gitted, too heavy!
 
 ## Run on CpGs which are covered
 cpg_names <- rhdf5::h5read(file.path(data_dir, "all_matrix_noscale.h5"), "cpg_names")
