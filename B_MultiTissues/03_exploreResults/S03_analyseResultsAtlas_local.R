@@ -23,24 +23,27 @@ if (!exists("previousSIVprepared")) {
 ##################################
 ## Save all data in RDS objects ##
 ##################################
-
-for (file in list.files(here("05_hvCpGalgorithm/resultsDir/Atlas/"))){
-  if (!file.exists(here(paste0("gitignore/fullres_", file)))){
-    ## Add previous MEs including Maria's results if not sourced yet
-    if (!exists("KesslerSIV_GRanges_hg38")) {
-      source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
-    }
+savePrepedAtlasFile <- function(file){
+  if (file.exists(here(paste0("gitignore/fullres_", file)))){
+    message(paste0("File ", file, " already prepared."))
+  } else {
     
-    system.time(Atlas_dt <- prepAtlasdt(file))
-    
-    print("Number of CpG tested:")
-    print(nrow(Atlas_dt))
-    
-    print(paste0("Saving results for ", file, "in ", here(paste0("gitignore/fullres_", file))))
-    saveRDS(Atlas_dt, file = here(paste0("gitignore/fullres_", file)))
-    print("Saved")
   }
+  
+  system.time(Atlas_dt <- prepAtlasdt(file))
+  print("Number of CpG tested:")
+  print(nrow(Atlas_dt))
+  
+  print(paste0("Saving results for ", file, "in ", here(paste0("gitignore/fullres_", file))))
+  saveRDS(Atlas_dt, file = here(paste0("gitignore/fullres_", file)))
+  print("Saved")
+  
 }
+
+# for (file in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))){
+
+savePrepedAtlasFile("atlas_general")
+
 
 ## This code does:
 ### I. Histogram of coverage across datasets
@@ -65,7 +68,7 @@ for (file in list.files(here("05_hvCpGalgorithm/resultsDir/Atlas/"))){
 # 
 # table(sample_groups)
 
-SupTab1_Loyfer2023 <- read.csv("../dataPrev/SupTab1_Loyfer2023.csv")
+SupTab1_Loyfer2023 <- read.csv(here("B_MultiTissues/dataIn/SupTab1_Loyfer2023.csv"))
 SupTab1_Loyfer2023$group <- paste(SupTab1_Loyfer2023$Source.Tissue, SupTab1_Loyfer2023$Cell.type, sep = " - ")
 table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 # 3  4  5  6 10 
@@ -75,56 +78,62 @@ table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 ## I. Histogram of coverage across datasets ##
 ##############################################
 
-t5 <- read.table(here("04_prepAtlas/CpG_coverage_freqtable5X.tsv"), header = T)
-t10 <- read.table(here("04_prepAtlas/CpG_coverage_freqtable10X.tsv"), header = T)
-
-# Add coverage type label
-t5$coverage <- "≥5"
-t10$coverage <- "≥10"
-
-# Combine into one data.table
-t_combined <- rbind(t5, t10)
-
-# Filter out CpGs with zero dataset coverage if needed
-t_combined <- t_combined[t_combined$datasets_covered_in > 0, ]
-
-t_combined <- t_combined %>% group_by(coverage) %>%
-  dplyr::arrange(-dplyr::row_number(datasets_covered_in)) %>%
-  mutate(nCpGcum = cumsum(num_CpGs))
-
-options(scipen=0)
-# Plot
-pdf(here("05_hvCpGalgorithm", "figures", "freqCpGperdataset.pdf"), width = 14, height = 4)
-ggplot(t_combined, aes(x = as.factor(datasets_covered_in), y = nCpGcum, fill = coverage)) +
-  geom_col(position = "dodge") +
-  scale_y_continuous(
-    breaks = seq(0, 100000000, by = 10000000),  # 10 million steps
-    labels = label_number(scale = 1e-6, suffix = "M")
-  ) +  scale_fill_manual(values = c("≥5" = "steelblue", "≥10" = "firebrick")) +
-  labs(title = "Nbr of CpG covered across X or more datasets",
-       x = ">= X datasets",
-       y = "Number of CpGs with ≥3 samples covered",
-       fill = "Coverage threshold") +
-  theme_minimal(base_size = 14) +
-  guides(fill = guide_legend(position = "inside")) +
-  theme(legend.position.inside = c(.2,.5),
-        legend.box = "horizontal",
-        legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
-        legend.key = element_rect(fill = "white", color = NA))
-dev.off()
-
-t_combined[t_combined$coverage %in% "≥10" &  t_combined$datasets_covered_in %in% 46,"num_CpGs"] /
-  sum(t_combined[t_combined$coverage %in% "≥10","num_CpGs"])
-
-## 84% of all CpGs (23/27.5M) are covered in 46 cell types
-rm(t_combined, t5, t10)
+# t5 <- read.table(here("04_prepAtlas/CpG_coverage_freqtable5X.tsv"), header = T)
+# t10 <- read.table(here("04_prepAtlas/CpG_coverage_freqtable10X.tsv"), header = T)
+# 
+# # Add coverage type label
+# t5$coverage <- "≥5"
+# t10$coverage <- "≥10"
+# 
+# # Combine into one data.table
+# t_combined <- rbind(t5, t10)
+# 
+# # Filter out CpGs with zero dataset coverage if needed
+# t_combined <- t_combined[t_combined$datasets_covered_in > 0, ]
+# 
+# t_combined <- t_combined %>% group_by(coverage) %>%
+#   dplyr::arrange(-dplyr::row_number(datasets_covered_in)) %>%
+#   mutate(nCpGcum = cumsum(num_CpGs))
+# 
+# options(scipen=0)
+# # Plot
+# pdf(here("05_hvCpGalgorithm", "figures", "freqCpGperdataset.pdf"), width = 14, height = 4)
+# ggplot(t_combined, aes(x = as.factor(datasets_covered_in), y = nCpGcum, fill = coverage)) +
+#   geom_col(position = "dodge") +
+#   scale_y_continuous(
+#     breaks = seq(0, 100000000, by = 10000000),  # 10 million steps
+#     labels = label_number(scale = 1e-6, suffix = "M")
+#   ) +  scale_fill_manual(values = c("≥5" = "steelblue", "≥10" = "firebrick")) +
+#   labs(title = "Nbr of CpG covered across X or more datasets",
+#        x = ">= X datasets",
+#        y = "Number of CpGs with ≥3 samples covered",
+#        fill = "Coverage threshold") +
+#   theme_minimal(base_size = 14) +
+#   guides(fill = guide_legend(position = "inside")) +
+#   theme(legend.position.inside = c(.2,.5),
+#         legend.box = "horizontal",
+#         legend.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+#         legend.key = element_rect(fill = "white", color = NA))
+# dev.off()
+# 
+# t_combined[t_combined$coverage %in% "≥10" &  t_combined$datasets_covered_in %in% 46,"num_CpGs"] /
+#   sum(t_combined[t_combined$coverage %in% "≥10","num_CpGs"])
+# 
+# ## 84% of all CpGs (23/27.5M) are covered in 46 cell types
+# rm(t_combined, t5, t10)
 
 ####################################
 ## II. Load data & Manhattan plot ##
 ####################################
 system.time(Atlas_dt <- prepAtlasdt("Atlas10X"))
 
-nrow(Atlas_dt) # 23036026
+nrow(Atlas_dt) # 23.036.026
+
+system.time(Atlas_dt_new <- prepAtlasdt("atlas_general"))
+
+
+## TBC
+
 
 ## NB add test on package row by col
 
@@ -590,9 +599,9 @@ dev.off()
 
 # PAX8 as a GRanges
 gr_PAX8 <- c(bed_features$promoters[grep("ENST00000429538.8", bed_features$promoters$name)],
-  bed_features$exons[grep("ENST00000429538.8", bed_features$exons$name)],
-  bed_features$introns[grep("ENST00000429538.8", bed_features$introns$name)],
-  bed_features$TSSes[grep("ENST00000429538.8", bed_features$TSSes$name)])
+             bed_features$exons[grep("ENST00000429538.8", bed_features$exons$name)],
+             bed_features$introns[grep("ENST00000429538.8", bed_features$introns$name)],
+             bed_features$TSSes[grep("ENST00000429538.8", bed_features$TSSes$name)])
 
 # Find overlaps between CpGs and the gene region
 hits <- findOverlaps(gr_cpg, gr_PAX8)
