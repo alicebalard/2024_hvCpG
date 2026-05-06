@@ -64,7 +64,7 @@ rm(corSIV, corSIV_split)
 #######################################
 ## Derakhshan 2022 (previous hvCpGs) ##
 
-data <- read.table(here("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
+data <- read.table(here("B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
 DerakhshanhvCpGs_hg38 <- dico[match(data$hvCpG_name, dico$CpG), "chrpos_hg38"]
 mQTLcontrols_hg38 <- dico[match(data$controlCpG_name, dico$CpG), "chrpos_hg38"]
 
