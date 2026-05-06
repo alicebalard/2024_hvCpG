@@ -7,7 +7,7 @@ library(hyperVarMeth)
 data_dir <- "/home/alice/arraysh5_2ind/"
 
 ## Output directory
-result_dir <- "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Arrays"
+result_dir <- "/home/alice/2024_hvCpG/B_MultiTissues/resultsDir_gitIgnored"
 message(paste0("If new, results will be saved in dir: ", result_dir))
 
 ## Names of all CpG in the dataset:                                                                                                                                                   

@@ -17,13 +17,11 @@ source /share/apps/source_files/python/python-3.13.0a6.source
 #   bash run_pipeline.sh --preset PRESET [--config FILE]
 #
 # Atlas presets (Loyfer WGBS):
-#   01_byDevLayer              Group by germ/developmental layer
+#   atlas_general              All data, Source Tissue - Cell type grouping (baseline)
 #   02_rmMultSamples           One sample per individual (dedup by PatientID)
-#   03_correspMariaTissues     Only tissues also present in Maria's arrays
 #   04_maleOnly                Groups where all samples are male
 #   05_femaleOnly6gp           Female-only groups, sample 6
 #   06_bothsexes6gp            Mixed-sex groups, sample 6
-#   08_byTissue                Group by simplified tissue label
 #   09_immuneOnly              Immune cells only
 #   10_noImmune                No immune cells
 #   11_noImmune_sample11gp     No immune, sample 11 groups
@@ -63,13 +61,7 @@ CODE_DIR="${CODE_DIR:-/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_Mu
 WGBS_DIR="${WGBS_DIR:-${DATA_DIR}/WGBS_human/AtlasLoyfer}"
 BETA_PATTERN="${BETA_PATTERN:-${WGBS_DIR}/betaFiles/GSM*.hg38.beta}"
 CPG_BED="${CPG_BED:-${WGBS_DIR}/wgbs_tools/references/hg38/CpG.bed.gz}"
-META_ATLAS="${META_ATLAS:-${WGBS_DIR}/SupTab1_Loyfer2023.csv}"
-
-GEO_RDS_DIR="${GEO_RDS_DIR:-/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/BMIQ + 10 PCs + age + sex OUTLIERS REMOVED}"
-TCGA_RDS_DIR="${TCGA_RDS_DIR:-/home/alice/tempRDS}"
-# Raw (uncorrected) GEO beta matrices — files have no .RDS extension in this folder
-GEO_RAW_DIR="${GEO_RAW_DIR:-/mnt/old_user_accounts/p3/maria/PhD/Data/datasets/GEO/Raw_cleaned_beta_matrices_GEO}"
-ARRAY_OUTPUT_BASE="${ARRAY_OUTPUT_BASE:-${DATA_DIR}/Arrays/Maria}"
+META_ATLAS="${META_ATLAS:-${SCRIPT_DIR}/SupTab1_Loyfer2023_amended.csv}"
 
 # Thresholds
 MIN_COV="${MIN_COV:-10}"
@@ -169,19 +161,9 @@ _run_atlas() {
 #  Atlas presets — one per original script
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Script 1 — Group by developmental/germ layer
-run_01_byDevLayer() {
-  _run_atlas "01_byDevLayer" --group_col "Germ layer"
-}
-
 # Script 2 — Remove multiple samples per individual
 run_02_rmMultSamples() {
   _run_atlas "02_rmMultSamples" --dedup_col "PatientID"
-}
-
-# Script 3 — Keep only tissues present in Maria's datasets
-run_03_correspMariaTissues() {
-  _run_atlas "03_correspMariaTissues" --keep_col "Found in Maria DS?" --keep_val True
 }
 
 # Script 4 — Male-only groups (all samples in group are male)
@@ -197,11 +179,6 @@ run_05_femaleOnly6gp() {
 # Script 6 — Mixed-sex groups (both M and F present), sample 6
 run_06_bothsexes6gp() {
   _run_atlas "06_bothsexes6gp" --mixed_sex --sample_n_groups 6 --min_per_group 3
-}
-
-# Script 8 — Group by simplified tissue label
-run_08_byTissue() {
-  _run_atlas "08_byTissue" --group_col "Group simplified"
 }
 
 # Script 9 — Immune cells only
@@ -259,82 +236,9 @@ run_17_pairs_MF() {
   _run_atlas "17_pairs_MF" --pairs MF
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  Array presets (Maria RDS datasets)
-# ══════════════════════════════════════════════════════════════════════════════
-
-_run_arrays() {
-  local extra_flags="$1"
-  local out_prefix="$2"
-  OUTPUT_FOLDER="${ARRAY_OUTPUT_BASE}/output_${out_prefix}"
-  mkdir -p "$OUTPUT_FOLDER"
-
-  _run "02_prepare_matrix" \
-    "$PYTHON" "${CODE_DIR}/prepare_arrays.py" \
-      --rds_folders       "$GEO_RDS_DIR" "$TCGA_RDS_DIR" \
-      --output_folder     "$OUTPUT_FOLDER" \
-      --maxNA             "$MAX_NA" \
-      --min_datasets      "$MIN_DATASETS_ARRAYS" \
-      --lambda_percentile "$LAMBDA_PERCENTILE" \
-      --output_prefix     "$out_prefix" \
-      ${EXCLUDE_SITES:+--exclude_sites "$EXCLUDE_SITES"} \
-      $extra_flags
-}
-
-# Standard atlas (all groups, no filtering — reproduces the "general" metadata script)
+# General atlas — all data, Source Tissue - Cell type grouping (baseline, no filtering)
 run_atlas_general() {
   _run_atlas "atlas_general"
-}
-
-# All Maria BMIQ-corrected datasets (GEO + TCGA)
-run_arrays_all() {
-  _run_arrays "" "arrays_all"
-}
-
-# CD4+/CD8+ T-cell subsets only — specific files, not a whole folder (S03)
-run_arrays_CD4CD8() {
-  OUTPUT_FOLDER="${ARRAY_OUTPUT_BASE}/output_CD4CD8"
-  mkdir -p "$OUTPUT_FOLDER"
-
-  _run "02_prepare_matrix" \
-    "$PYTHON" "${CODE_DIR}/prepare_arrays.py" \
-      --rds_files \
-        "${GEO_RDS_DIR}/CD4+_Estonian.RDS" \
-        "${GEO_RDS_DIR}/CD8+_Estonian.RDS" \
-      --output_folder     "$OUTPUT_FOLDER" \
-      --maxNA             "$MAX_NA" \
-      --min_datasets      2 \
-      --lambda_percentile "$LAMBDA_PERCENTILE" \
-      --output_prefix     "CD4CD8" \
-      ${EXCLUDE_SITES:+--exclude_sites "$EXCLUDE_SITES"}
-}
-
-# Raw (uncorrected) GEO datasets — no .RDS extension, skip CHAMP_Normalization (S04)
-run_arrays_noCorrection() {
-  OUTPUT_FOLDER="${ARRAY_OUTPUT_BASE}/output_noCorrection"
-  mkdir -p "$OUTPUT_FOLDER"
-
-  _run "02_prepare_matrix" \
-    "$PYTHON" "${CODE_DIR}/prepare_arrays.py" \
-      --rds_folders       "${GEO_RAW_DIR}" "$TCGA_RDS_DIR" \
-      --no_extension \
-      --exclude_subdir    CHAMP_Normalization \
-      --output_folder     "$OUTPUT_FOLDER" \
-      --maxNA             "$MAX_NA" \
-      --min_datasets      "$MIN_DATASETS_ARRAYS" \
-      --lambda_percentile "$LAMBDA_PERCENTILE" \
-      --output_prefix     "noCorrection" \
-      ${EXCLUDE_SITES:+--exclude_sites "$EXCLUDE_SITES"}
-}
-
-# Subsample to 3 individuals per dataset (S05 — for sensitivity/speed tests)
-run_arrays_3ind() {
-  _run_arrays "--max_samples_per_dataset 3" "arrays_3ind"
-}
-
-# Subsample to 2 individuals per dataset (S05 variant — pairs-style)
-run_arrays_2ind() {
-  _run_arrays "--max_samples_per_dataset 2" "arrays_2ind"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -350,13 +254,11 @@ echo "================================================================"
 
 case "$PRESET" in
   # Atlas presets
-  01_byDevLayer)           run_01_byDevLayer ;;
+  atlas_general)           run_atlas_general ;;
   02_rmMultSamples)        run_02_rmMultSamples ;;
-  03_correspMariaTissues)  run_03_correspMariaTissues ;;
   04_maleOnly)             run_04_maleOnly ;;
   05_femaleOnly6gp)        run_05_femaleOnly6gp ;;
   06_bothsexes6gp)         run_06_bothsexes6gp ;;
-  08_byTissue)             run_08_byTissue ;;
   09_immuneOnly)           run_09_immuneOnly ;;
   10_noImmune)             run_10_noImmune ;;
   11_noImmune_sample11gp)  run_11_noImmune_sample11gp ;;
@@ -368,36 +270,29 @@ case "$PRESET" in
   15_pairs_MM)             run_15_pairs_MM ;;
   16_pairs_FF)             run_16_pairs_FF ;;
   17_pairs_MF)             run_17_pairs_MF ;;
-  # General atlas (no metadata filtering)
-  atlas_general)           run_atlas_general ;;
-  # Array presets
-  arrays_all)              run_arrays_all ;;
-  arrays_CD4CD8)           run_arrays_CD4CD8 ;;
-  arrays_noCorrection)     run_arrays_noCorrection ;;
-  arrays_3ind)             run_arrays_3ind ;;
-  arrays_2ind)             run_arrays_2ind ;;
   "")
     echo ""
     echo "No preset specified. Available presets:"
     echo ""
-    echo "Atlas (WGBS):"
-    echo "  atlas_general"
-    echo "  01_byDevLayer  02_rmMultSamples  03_correspMariaTissues"
-    echo "  04_maleOnly    05_femaleOnly6gp   06_bothsexes6gp"
-    echo "  08_byTissue    09_immuneOnly      10_noImmune"
-    echo "  11_noImmune_sample11gp"
-    echo "  12_endo  12_2_endo6gp  13_meso  13_2_meso6gp  14_ecto"
-    echo "  15_pairs_MM  16_pairs_FF  17_pairs_MF"
+    echo "  atlas_general          All data, Source Tissue - Cell type grouping (baseline)"
+    echo "  02_rmMultSamples       One sample per individual (dedup by PatientID)"
+    echo "  04_maleOnly            Groups where all samples are male"
+    echo "  05_femaleOnly6gp       Female-only groups, sample 6"
+    echo "  06_bothsexes6gp        Mixed-sex groups, sample 6"
+    echo "  09_immuneOnly          Immune cells only"
+    echo "  10_noImmune            No immune cells"
+    echo "  11_noImmune_sample11gp No immune, sample 11 groups"
+    echo "  12_endo                Endoderm only"
+    echo "  12_2_endo6gp           Endoderm, sample 6 groups"
+    echo "  13_meso                Mesoderm only"
+    echo "  13_2_meso6gp           Mesoderm, sample 6 groups"
+    echo "  14_ecto                Ectoderm only"
+    echo "  15_pairs_MM            2 males per group"
+    echo "  16_pairs_FF            2 females per group"
+    echo "  17_pairs_MF            1 male + 1 female per group"
     echo ""
-    echo "Arrays (Maria):"
-    echo "  arrays_all          All BMIQ-corrected datasets (GEO + TCGA)"
-    echo "  arrays_CD4CD8       CD4+/CD8+ T cells only (specific files)"
-    echo "  arrays_noCorrection Raw uncorrected GEO datasets (no .RDS extension)"
-    echo "  arrays_3ind         All datasets, subsampled to 3 individuals each"
-    echo "  arrays_2ind         All datasets, subsampled to 2 individuals each"
-    echo ""
-    echo "Usage: bash run_pipeline.sh --preset arrays_CD4CD8"
-    echo "       EXCLUDE_SITES=/data/snp.txt bash run_pipeline.sh --preset 10_noImmune"
+    echo "Usage: bash run_pipeline_atlas.sh --preset atlas_general"
+    echo "       EXCLUDE_SITES=/data/snp.txt bash run_pipeline_atlas.sh --preset 10_noImmune"
     exit 1
     ;;
   *)

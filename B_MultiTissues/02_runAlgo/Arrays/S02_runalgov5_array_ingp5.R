@@ -13,10 +13,10 @@ length(cpg_names_all); head(cpg_names_all)
 system.time(runAndSave(analysis = "arrayAll_algov5",
                        cpg_names_vec = cpg_names_all,
                        dataDir = "/home/alice/arraysh5",
-                       resultDir="05_hvCpGalgorithm/resultsDir/Arrays/",
+                       resultDir="B_MultiTissues/resultsDir_gitIgnored/",
                        p0=0.80, p1=0.65, NCORES=30, batch_size = 10000))
 
-#Saving to file: 05_hvCpGalgorithm/resultsDir/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData
+#Saving to file: B_MultiTissues/resultsDir_gitIgnored/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData
 #💾 Result saved successfully.
 #      user     system    elapsed 
 #797097.912   2733.189  28188.744 

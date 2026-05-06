@@ -2,62 +2,60 @@
 """
 prepare_metadata.py — Flexible metadata preparation for CpG methylation pipelines
 ==================================================================================
-Single script replacing all 18 numbered prepare_metadata_*.py scripts.
+Single script for all atlas analysis cases. Input: SupTab1_Loyfer2023_amended.csv
 
-Every combination of options maps to one of the original scripts:
+Every combination of options maps to one of the analysis cases:
 
-  Script 1  (byDevLayer)            --group_col "Germ layer"
-  Script 2  (rmMultSamples)         --dedup_col "PatientID"
-  Script 3  (correspMariaTissues)   --keep_col "Found in Maria DS?" --keep_val True
-  Script 4  (maleOnly)              --sex_filter M
-  Script 5  (femaleOnly6gp)         --sex_filter F --sample_n_groups 6
-  Script 6  (bothsexes6gp)          --mixed_sex --sample_n_groups 6
-  Script 8  (byTissue)              --group_col "Group simplified"
-  Script 9  (immuneOnly)            --keep_col "Immune?" --keep_val True
-  Script 10 (noImmune)              --exclude_immune
-  Script 11 (noImmune_sample11gp)   --exclude_immune --sample_n_groups 11
-  Script 12 (endo)                  --germ_layer Endo
-  Script 12.2 (endo6gp)             --germ_layer Endo --sample_n_groups 6
-  Script 13 (meso)                  --germ_layer Meso
-  Script 13.2 (meso6gp)             --germ_layer Meso --sample_n_groups 6
-  Script 14 (ecto)                  --germ_layer Ecto
-  Script 15 (pairs_MM)              --pairs MM
-  Script 16 (pairs_FF)              --pairs FF
-  Script 17 (pairs_MF)              --pairs MF
+  General case (baseline)   (no extra flags — Source Tissue + Cell type grouping)
+  02_rmMultSamples          --dedup_col "PatientID"
+  04_maleOnly               --sex_filter M
+  05_femaleOnly6gp          --sex_filter F --sample_n_groups 6
+  06_bothsexes6gp           --mixed_sex --sample_n_groups 6
+  09_immuneOnly             --keep_col "Immune?" --keep_val True
+  10_noImmune               --exclude_immune
+  11_noImmune_sample11gp    --exclude_immune --sample_n_groups 11
+  12_endo                   --germ_layer Endo
+  12_2_endo6gp              --germ_layer Endo --sample_n_groups 6
+  13_meso                   --germ_layer Meso
+  13_2_meso6gp              --germ_layer Meso --sample_n_groups 6
+  14_ecto                   --germ_layer Ecto
+  15_pairs_MM               --pairs MM
+  16_pairs_FF               --pairs FF
+  17_pairs_MF               --pairs MF
 
 All options can be freely combined and applied in sequence.
 
 Usage examples
 --------------
-# Script 1 equivalent — group by developmental layer:
-python prepare_metadata.py --meta SupTab1.csv --group_col "Germ layer"
+# General case — baseline, no filtering:
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv
 
 # Script 2 — remove multiple samples per individual:
-python prepare_metadata.py --meta SupTab1.csv --dedup_col "PatientID"
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --dedup_col "PatientID"
 
 # Script 4 — male-only groups:
-python prepare_metadata.py --meta SupTab1.csv --sex_filter M
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --sex_filter M
 
 # Script 5 — female-only, sample 6 groups:
-python prepare_metadata.py --meta SupTab1.csv --sex_filter F --sample_n_groups 6
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --sex_filter F --sample_n_groups 6
 
 # Script 6 — both sexes, sample 6 mixed-sex groups:
-python prepare_metadata.py --meta SupTab1.csv --mixed_sex --sample_n_groups 6
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --mixed_sex --sample_n_groups 6
 
 # Script 11 — no immune, sample 11 groups:
-python prepare_metadata.py --meta SupTab1.csv --exclude_immune --sample_n_groups 11
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --exclude_immune --sample_n_groups 11
 
 # Script 12 — endoderm only:
-python prepare_metadata.py --meta SupTab1.csv --germ_layer Endo
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --germ_layer Endo
 
 # Script 12.2 — endoderm, sample 6 groups:
-python prepare_metadata.py --meta SupTab1.csv --germ_layer Endo --sample_n_groups 6
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --germ_layer Endo --sample_n_groups 6
 
 # Script 15 — paired MM:
-python prepare_metadata.py --meta SupTab1.csv --pairs MM
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --pairs MM
 
 # Script 17 — paired MF, limit to 10 groups:
-python prepare_metadata.py --meta SupTab1.csv --pairs MF --n_groups 10
+python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --pairs MF --n_groups 10
 
 Author: Alice Balard
 """
@@ -70,7 +68,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cpg_utils import (
     add_analysis_group,
-    set_analysis_group_from_column,
     filter_by_column_value,
     filter_groups_by_column,
     filter_groups_mixed_sex,
@@ -93,19 +90,12 @@ parser.add_argument("--meta",   required=True, help="Input metadata CSV file.")
 parser.add_argument("--output", required=False, help="Output CSV path (auto-named if omitted).")
 
 # ── Analysis group construction ───────────────────────────────────────────────
-group_def = parser.add_mutually_exclusive_group()
-group_def.add_argument(
-    "--group_col", default=None, metavar="COL",
-    help="Use a single existing column as 'Analysis group' directly "
-         "(e.g. 'Germ layer' for script 1, 'Group simplified' for script 8). "
-         "Mutually exclusive with --tissue_col / --cell_col.")
-group_def.add_argument(
-    "--tissue_col", default=None, metavar="COL",
+parser.add_argument(
+    "--tissue_col", default="Source Tissue", metavar="COL",
     help="Tissue column for 'Analysis group' = tissue + ' - ' + cell_type "
-         "(default: 'Source Tissue'). Mutually exclusive with --group_col.")
-
+         "(default: 'Source Tissue').")
 parser.add_argument("--cell_col", default="Cell type",
-                    help="Cell-type column (used with --tissue_col; default: 'Cell type').")
+                    help="Cell-type column (default: 'Cell type').")
 parser.add_argument("--sample_col", default="Sample name",
                     help="Column for sample identifiers (default: 'Sample name').")
 
@@ -176,20 +166,12 @@ df = pd.read_csv(args.meta)
 print(f"  {len(df):,} rows, {df.shape[1]} columns.")
 
 # ──────────────────────────────────────────────
-#  Step 1 — Build Analysis group
+#  Step 1 — Build Analysis group (always Source Tissue + Cell type)
 # ──────────────────────────────────────────────
 
-if args.group_col:
-    # Use a single column directly (scripts 1, 8)
-    df = set_analysis_group_from_column(df, args.group_col)
-    print(f"  Analysis group <- '{args.group_col}' "
-          f"({df['Analysis group'].nunique()} unique groups).")
-else:
-    # Combine tissue + cell type (all other scripts)
-    tissue_col = args.tissue_col if args.tissue_col else "Source Tissue"
-    df = add_analysis_group(df, tissue_col=tissue_col, cell_col=args.cell_col)
-    print(f"  Analysis group <- '{tissue_col}' + '{args.cell_col}' "
-          f"({df['Analysis group'].nunique()} unique groups).")
+df = add_analysis_group(df, tissue_col=args.tissue_col, cell_col=args.cell_col)
+print(f"  Analysis group <- '{args.tissue_col}' + '{args.cell_col}' "
+      f"({df['Analysis group'].nunique()} unique groups).")
 
 # ──────────────────────────────────────────────
 #  Step 2 — Deduplication (script 2)
@@ -277,8 +259,6 @@ if args.output:
     meta_out = args.output
 else:
     parts = []
-    if args.group_col:
-        parts.append(args.group_col.replace(" ", "_"))
     if args.dedup_col:
         parts.append(f"dedup_{args.dedup_col}".replace(" ", "_"))
     if args.exclude_immune:

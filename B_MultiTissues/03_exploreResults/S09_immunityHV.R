@@ -19,7 +19,7 @@ if (!exists("previousSIVprepared")) {
 
 ## Hypothesis testing:
 ## Prediction 1:
-if (!file.exists(file.path(here::here("05_hvCpGalgorithm/figures/correlations/correlation_Atlas_11_vs_9_immuneEffect.pdf")))){
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_11_vs_9_immuneEffect.pdf")))){
   makeCompPlot(
     X = readRDS(here::here("gitignore/fullres_Atlas10X_11_noImmune_sample11groups")),
     Y = readRDS(here::here("gitignore/fullres_Atlas10X_9_immuneOnly")),
@@ -99,7 +99,7 @@ if (testPred1){
     ylim(c(0,1))
   
   ggplot2::ggsave(
-    filename = here::here("05_hvCpGalgorithm/figures/correlations/correlation_prediction2.pdf"),
+    filename = here::here("B_MultiTissues/dataOut/figures/correlations/correlation_prediction2.pdf"),
     plot = p, width = 9, height = 7
   )
   
@@ -251,7 +251,7 @@ if (makeVenn){
                      meso = meso[meso$name %in% gr_names,],
                      ecto = ecto[ecto$name %in% gr_names,],
                      all = allLayers[allLayers$name %in% gr_names,])
-    pdf(file = paste0("../../05_hvCpGalgorithm/figures/vennGermLayers/Venn_germLayersAllSamples/Venn_", 
+    pdf(file = paste0("../../B_MultiTissues/dataOut/figures/vennGermLayers/Venn_germLayersAllSamples/Venn_", 
                       name, "_GR.pdf"), width = 13, height = 6)
     print(cowplot::plot_grid(p1 + theme(legend.position = "none"),
                              p2 + theme(legend.position = "none"),
@@ -293,7 +293,7 @@ if (makeVenn2){
                      meso6 = meso6[meso6$name %in% gr_names,],
                      ecto = ecto[ecto$name %in% gr_names,],
                      all = allLayers[allLayers$name %in% gr_names,])
-    pdf(file = paste0("../../05_hvCpGalgorithm/figures/vennGermLayers/Venn_germLayers6celltypePerGermLayer/Venn_", 
+    pdf(file = paste0("../../B_MultiTissues/dataOut/figures/vennGermLayers/Venn_germLayers6celltypePerGermLayer/Venn_", 
                       name, "_GR.pdf"), width = 13, height = 6)
     print(cowplot::plot_grid(p1 + theme(legend.position = "none"),
                              p2 + theme(legend.position = "none"),
@@ -389,17 +389,17 @@ testEnrichment_ResandPlot <- function(targetCpGs){
 }
 
 testPutativeMEs <- testEnrichment_ResandPlot(targetCpGs = putativeME_GR)
-pdf(here("05_hvCpGalgorithm/figures/quadrantEnrichment/quadrantsEnrich_putativeMEs.pdf"), width = 12, height = 9)
+pdf(here("B_MultiTissues/dataOut/figures/quadrantEnrichment/quadrantsEnrich_putativeMEs.pdf"), width = 12, height = 9)
 testPutativeMEs$plot
 dev.off()
 
 testPutativeMHC <- testEnrichment_ResandPlot(targetCpGs = MHCpos_GR)
-pdf(here("05_hvCpGalgorithm/figures/quadrantEnrichment/quadrantsEnrich_MHC.pdf"), width = 6, height = 9)
+pdf(here("B_MultiTissues/dataOut/figures/quadrantEnrichment/quadrantsEnrich_MHC.pdf"), width = 6, height = 9)
 testPutativeMHC$plot
 dev.off()
 
 testPutativevmeQTL <- testEnrichment_ResandPlot(targetCpGs = vmeQTL_hg38_GR)
-pdf(here("05_hvCpGalgorithm/figures/quadrantEnrichment/quadrantsEnrich_vmeQTL.pdf"), width = 6, height = 9)
+pdf(here("B_MultiTissues/dataOut/figures/quadrantEnrichment/quadrantsEnrich_vmeQTL.pdf"), width = 6, height = 9)
 testPutativevmeQTL$plot
 dev.off()
 
@@ -609,7 +609,7 @@ plotGeneQuadrant("TNFRSF1A", "12", 6328771L, 6342076L)
 #     strip.text            = element_text(face = "bold")
 #   )
 # 
-# pdf(here("05_hvCpGalgorithm/figures/GOenrichment.pdf"), width = 10, height = 7)
+# pdf(here("B_MultiTissues/dataOut/figures/GOenrichment.pdf"), width = 10, height = 7)
 # p
 # dev.off()
 # 

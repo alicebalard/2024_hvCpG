@@ -1,16 +1,14 @@
 ./logs
 logs
 .git/objects/
-05_hvCpGalgorithm/resultsDir/Atlas/correctCpGnamesAtlas.txt.gz
 gitignore
 
 ## The Atlas results are too big for git
-05_hvCpGalgorithm/resultsDir/Atlas
+B_MultiTissues/resultsDir_gitIgnored/Atlas
 
 ## The tissue result file is big for array
-05_hvCpGalgorithm/resultsDir/Arrays/tissue/
+B_MultiTissues/resultsDir_gitIgnored/Arrays/tissue
 
 *.RData
 .RData
-05_hvCpGalgorithm/exploreResults/.Rhistory
-
+*.Rhistory

@@ -156,48 +156,8 @@ def build_sample_to_path_map(beta_files, id_pattern=r"-([A-Za-z0-9_]+)\.hg38\.be
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  RDS matrix loading  (Illumina array .RDS files via pyreadr)
-# ══════════════════════════════════════════════════════════════════════════════
-
-def load_rds_datasets(file_list):
-    """
-    Load a list of .RDS files produced by R (Illumina array data).
-    Row names must be CpG probe identifiers; columns are samples.
-    No scaling or logit transform applied (consistent with Maria's approach).
-    Returns: list of (dataset_name, matrix float32, cpg_names list)
-    """
-    try:
-        import pyreadr
-    except ImportError:
-        raise ImportError("pyreadr required: pip install pyreadr")
-    result = []
-    for f in file_list:
-        print(f"    Reading: {os.path.basename(f)}")
-        rds       = pyreadr.read_r(f)
-        df        = next(iter(rds.values()))
-        mat       = df.values.astype(np.float32)
-        cpg_names = df.index.tolist()
-        name      = os.path.splitext(os.path.basename(f))[0]
-        result.append((name, mat, cpg_names))
-        print(f"       {mat.shape[0]:,} CpGs x {mat.shape[1]:,} samples")
-    return result
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 #  Metadata helpers — Analysis group construction
 # ══════════════════════════════════════════════════════════════════════════════
-
-def set_analysis_group_from_column(df, source_col):
-    """
-    Set 'Analysis group' directly from a single existing column.
-    Used for grouping by Germ layer (script 1) or Group simplified (script 8).
-    """
-    if source_col not in df.columns:
-        raise ValueError(f"Column '{source_col}' not found in metadata.")
-    df = df.copy()
-    df["Analysis group"] = df[source_col].astype(str)
-    return df
-
 
 def add_analysis_group(df, tissue_col="Source Tissue", cell_col="Cell type", sep=" - "):
     """Add 'Analysis group' = tissue + sep + cell_type."""
