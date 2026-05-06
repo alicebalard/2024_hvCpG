@@ -11,12 +11,12 @@ rds_files_atlas <- list.files(parent_dir_atlas, pattern = "\\.rds$", recursive =
 all_medsd_lambda_atlas <- read.table(here("04_prepAtlas/all_medsd_lambda.tsv"), sep = "\t", header = T)
 
 ## Array
-parent_dir_array <- here("05_hvCpGalgorithm/resultsDir/Arrays/tissue/")
+parent_dir_array <- here("B_MultiTissues/resultsDir_gitIgnored/tissue/")
 rds_files_array <- list.files(parent_dir_array, pattern = "\\.rds$", recursive = TRUE, full.names = TRUE)
 all_medsd_lambda_array <- read.table(here("03_prepDatasetsMaria/all_medsd_lambda.tsv"), sep = "\t", header = T)
 
 ## Both
-WGBS_Array_datasets <- read.csv(here("05_hvCpGalgorithm/figures/WGBS_Array_datasets.csv"))
+WGBS_Array_datasets <- read.csv(here("B_MultiTissues/dataOut/figures/WGBS_Array_datasets.csv"))
 
 #################
 ## Violin plot ##
@@ -121,7 +121,7 @@ plot_violin_tissues_array <- makeViolin(
   rds_files = rds_files_array, size = 10, fill = "mitosis_rate",
   all_medsd_lambda = all_medsd_lambda_array, mytitle = "arrays")
 
-pdf(here("05_hvCpGalgorithm/figures/tissuePlot_arrayAtlas_mitosis.pdf"), width = 15, height = 12)
+pdf(here("B_MultiTissues/dataOut/figures/tissuePlot_arrayAtlas_mitosis.pdf"), width = 15, height = 12)
 cowplot::plot_grid(plot_violin_tissues_atlas$p, plot_violin_tissues_array$p, nrow = 2)
 dev.off()
 
@@ -165,7 +165,7 @@ p2 <- makeViolin(
   rds_files = rds_files_array, size = 10,
   all_medsd_lambda = all_medsd_lambda_array, mytitle = "arrays")
 
-pdf(here("05_hvCpGalgorithm/figures/tissuePlot_arrayAtlas_germLayer.pdf"), width = 15, height = 12)
+pdf(here("B_MultiTissues/dataOut/figures/tissuePlot_arrayAtlas_germLayer.pdf"), width = 15, height = 12)
 cowplot::plot_grid(p1$p, p2$p, nrow = 2)
 dev.off()
 

@@ -4,7 +4,7 @@
 data_dir <- "/home/alice/arraysh5_CD4+CD8+"
 
 ## Output directory
-result_dir <- "/home/alice/2024_hvCpG/05_hvCpGalgorithm/resultsDir/Arrays"
+result_dir <- "/home/alice/2024_hvCpG/B_MultiTissues/resultsDir_gitIgnored"
 message(paste0("If new, results will be saved in dir: ", result_dir))
 
 ## Load algorithm

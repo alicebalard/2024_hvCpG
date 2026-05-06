@@ -1,0 +1,19 @@
+## qsub run_pipeline_atlas.sh --preset atlas_general
+qsub run_pipeline_atlas.sh --preset 02_rmMultSamples
+qsub run_pipeline_atlas.sh --preset 04_maleOnly
+qsub run_pipeline_atlas.sh --preset 05_femaleOnly6gp
+qsub run_pipeline_atlas.sh --preset 06_bothsexes6gp
+
+qsub run_pipeline_atlas.sh --preset 09_immuneOnly
+qsub run_pipeline_atlas.sh --preset 10_noImmune
+qsub run_pipeline_atlas.sh --preset 11_noImmune_sample11gp
+
+qsub run_pipeline_atlas.sh --preset 12_endo
+qsub run_pipeline_atlas.sh --preset 12_2_endo6gp
+qsub run_pipeline_atlas.sh --preset 13_meso
+qsub run_pipeline_atlas.sh --preset 13_2_meso6gp
+qsub run_pipeline_atlas.sh --preset 14_ecto
+
+qsub run_pipeline_atlas.sh --preset 15_pairs_MM
+qsub run_pipeline_atlas.sh --preset 16_pairs_FF
+qsub run_pipeline_atlas.sh --preset 17_pairs_MF
