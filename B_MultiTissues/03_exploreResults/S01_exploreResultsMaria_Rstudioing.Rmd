@@ -142,83 +142,21 @@ We both have `r length(intersect(hvCpGs_repro_maria$cpgs, Marias_hvCpGs$CpG))` h
 ## What if we had only 3 people per dataset?
 
 ```{r}
-set.seed(123)  # for reproducibility
+set.seed(123)
+rds_list_mat_3ind <- lapply(rds_list_mat, function(df) df[, sample(ncol(df), 3), drop = FALSE])
+rds_list_mat_2ind <- lapply(rds_list_mat, function(df) df[, sample(ncol(df), 2), drop = FALSE])
 
-# Keep 3 random columns per element
-rds_list_mat_3ind <- lapply(rds_list_mat, function(df) {
-  cols <- sample(ncol(df), 3)   # choose 3 random columns
-  df[, cols, drop = FALSE]      # subset while keeping data.frame
-})
-rds_list_mat_2ind <- lapply(rds_list_mat, function(df) {
-  cols <- sample(ncol(df), 2)   # choose 2 random columns
-  df[, cols, drop = FALSE]      # subset while keeping data.frame
-})
 hvCpGs_repro_maria_3ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_3ind)
 hvCpGs_repro_maria_2ind <- detecthvCpGCutoff(rds_list_mat = rds_list_mat_2ind)
 
-v <- list(
-  n_full      = length(hvCpGs_repro_maria$cpgs),
-  n_2ind      = length(hvCpGs_repro_maria_2ind$cpg),
-  n_3ind      = length(hvCpGs_repro_maria_3ind$cpg),
-  n_full_2ind = length(intersect(hvCpGs_repro_maria$cpgs, hvCpGs_repro_maria_2ind$cpg)),
-  n_full_3ind = length(intersect(hvCpGs_repro_maria$cpgs, hvCpGs_repro_maria_3ind$cpg)),
-  n_2ind_3ind = length(intersect(hvCpGs_repro_maria_2ind$cpg, hvCpGs_repro_maria_3ind$cpg)),
-  n_all       = length(Reduce(intersect, list(hvCpGs_repro_maria$cpgs,
-                                              hvCpGs_repro_maria_2ind$cpg,
-                                              hvCpGs_repro_maria_3ind$cpg))),
-  n_union     = length(Reduce(union, list(hvCpGs_repro_maria$cpgs,        # <-- add this
-                                          hvCpGs_repro_maria_2ind$cpg,
-                                          hvCpGs_repro_maria_3ind$cpg)))
+x <- list(
+  "Full array"     = hvCpGs_repro_maria$cpgs,
+  "Array 2 ind/ds" = hvCpGs_repro_maria_2ind$cpg,
+  "Array 3 ind/ds" = hvCpGs_repro_maria_3ind$cpg
 )
 
-# Compute exclusive regions
-n_only_full     <- v$n_full - v$n_full_2ind - v$n_full_3ind + v$n_all
-n_only_2ind     <- v$n_2ind - v$n_full_2ind - v$n_2ind_3ind + v$n_all
-n_only_3ind     <- v$n_3ind - v$n_full_3ind - v$n_2ind_3ind + v$n_all
-n_full_2ind_only <- v$n_full_2ind - v$n_all
-n_full_3ind_only <- v$n_full_3ind - v$n_all
-n_2ind_3ind_only <- v$n_2ind_3ind - v$n_all
-
-# Total unique CpGs across all sets
-total <- length(Reduce(union, list(
-  seq_len(v$n_full), seq_len(v$n_2ind), seq_len(v$n_3ind)  # placeholder — use real union
-)))
-
-# Helper: format as "n\n(xx.x%)"
-fmt <- function(n, tot) paste0(n, "\n(", round(100 * n / tot, 1), "%)")
-
-total <- v$n_union
-
-# Circle positions
-theta <- seq(0, 2*pi, length.out = 200)
-circle <- function(cx, cy, r) data.frame(x = cx + r*cos(theta), y = cy + r*sin(theta))
-
-df_circles <- rbind(
-  cbind(circle(-0.5,  0.35, 1), group = "Full array"),
-  cbind(circle( 0.5,  0.35, 1), group = "Array 2ind/ds"),
-  cbind(circle( 0.0, -0.5,  1), group = "Array 3ind/ds")
-)
-
-# --- Save a single self-contained object ---
-venn_obj <- list(
-  df_circles = df_circles,
-  v          = v,
-  counts     = list(
-    n_only_full      = n_only_full,
-    n_only_2ind      = n_only_2ind,
-    n_only_3ind      = n_only_3ind,
-    n_full_2ind_only = n_full_2ind_only,
-    n_full_3ind_only = n_full_3ind_only,
-    n_2ind_3ind_only = n_2ind_3ind_only
-  )
-)
-
-## to redo plot in S02
-saveRDS(venn_obj, "../../../2024_hvCpG/B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS")
-
-plot_venn3 <- makeVennArrayReduced(venn_obj$df_circles, venn_obj$v, venn_obj$counts,
-                                   fmt_fn = function(n, tot) paste0(n, "\n(", round(100*n/tot, 1), "%)"))
-plot_venn3
+saveRDS(x, here("B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS"))
+## Plotted in S02
 ```
 
 
