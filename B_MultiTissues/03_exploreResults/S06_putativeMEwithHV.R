@@ -29,7 +29,7 @@ if (reload){
   ecto = readRDS(here::here("gitignore/fullres_10X_14_ecto"))
   allLayers = readRDS(here::here("gitignore/fullres_Atlas10X"))
   
-  WGBS_Array_datasets <- read.csv(here("05_hvCpGalgorithm/figures/WGBS_Array_datasets.csv"))
+  WGBS_Array_datasets <- read.csv(here("B_MultiTissues/dataOut/figures/WGBS_Array_datasets.csv"))
   
   table(WGBS_Array_datasets[WGBS_Array_datasets$assay %in% "atlas", "Germ.layer"])
   # ectoderm endoderm mesoderm 
@@ -45,7 +45,7 @@ if (reload){
 ######################################################################
 
 ## Endoderm
-if (!file.exists(here::here("05_hvCpGalgorithm/figures/correlations/correlation_endoFullvsReduced6gp.pdf"))){
+if (!file.exists(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_endoFullvsReduced6gp.pdf"))){
   ## Use data table to handle large data
   setDT(endo_6gp)
   setDT(endo)
@@ -67,13 +67,13 @@ if (!file.exists(here::here("05_hvCpGalgorithm/figures/correlations/correlation_
          y = "Pr(hv) calculated on all cell types (N=21)")
   
   ggplot2::ggsave(
-    filename = here::here(paste0("05_hvCpGalgorithm/figures/correlations/correlation_endoFullvsReduced6gp.pdf")),
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_endoFullvsReduced6gp.pdf")),
     plot = p, width = 8, height = 8
   )
 }
 
 ## Mesoderm
-if (!file.exists(here::here("05_hvCpGalgorithm/figures/correlations/correlation_mesoFullvsReduced6gp.pdf"))){
+if (!file.exists(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_mesoFullvsReduced6gp.pdf"))){
   setDT(meso_6gp)
   setDT(meso)
   
@@ -95,7 +95,7 @@ if (!file.exists(here::here("05_hvCpGalgorithm/figures/correlations/correlation_
          y = "Pr(hv) calculated on all cell types (N=19)")
   
   ggplot2::ggsave(
-    filename = here::here(paste0("05_hvCpGalgorithm/figures/correlations/correlation_mesoFullvsReduced6gp.pdf")),
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_mesoFullvsReduced6gp.pdf")),
     plot = p, width = 8, height = 8
   )
 }
@@ -378,7 +378,7 @@ exactly_one <- table3layers[((!is.na(table3layers$alpha_endo) & table3layers$alp
   p2 <- plotMyVenn(0.75, endo = endo, meso = meso, ecto = ecto, all = allLayers)
   p3 <- plotMyVenn(0.90, endo = endo, meso = meso, ecto = ecto, all = allLayers)
   
-  pdf(here("05_hvCpGalgorithm/figures/vennGermLayers/Venn_top90.pdf"), width = 16, height = 8)
+  pdf(here("B_MultiTissues/dataOut/figures/vennGermLayers/Venn_top90.pdf"), width = 16, height = 8)
   cowplot::plot_grid(p1 + theme(legend.position = "none"),
                      p2 + theme(legend.position = "none"),
                      p3 + theme(legend.position = "none"), 
@@ -393,7 +393,7 @@ exactly_one <- table3layers[((!is.na(table3layers$alpha_endo) & table3layers$alp
   p2 <- plotMyVenn(0.75, endo = endo_6gp, meso = meso_6gp, ecto = ecto, all = allLayers)
   p3 <- plotMyVenn(0.90, endo = endo_6gp, meso = meso_6gp, ecto = ecto, all = allLayers)
   
-  pdf(here("05_hvCpGalgorithm/figures/vennGermLayers/Venn_top90_6gp.pdf"), width = 16, height = 8)
+  pdf(here("B_MultiTissues/dataOut/figures/vennGermLayers/Venn_top90_6gp.pdf"), width = 16, height = 8)
   cowplot::plot_grid(p1 + theme(legend.position = "none"),
                      p2 + theme(legend.position = "none"),
                      p3 + theme(legend.position = "none"), 
@@ -453,7 +453,7 @@ exactly_one <- table3layers[((!is.na(table3layers$alpha_endo) & table3layers$alp
       strip.text = element_text(face = "bold")
     )
   
-  pdf(here("05_hvCpGalgorithm/figures/topCpGsEnrichME.pdf"), width = 6, height = 6)
+  pdf(here("B_MultiTissues/dataOut/figures/topCpGsEnrichME.pdf"), width = 6, height = 6)
   plot
   dev.off()
   
@@ -538,7 +538,7 @@ exactly_one <- table3layers[((!is.na(table3layers$alpha_endo) & table3layers$alp
   # ecto = readRDS(here::here("gitignore/fullres_10X_14_ecto"))
   # allLayers = readRDS(here::here("gitignore/fullres_Atlas10X"))
   # 
-  # WGBS_Array_datasets <- read.csv(here("05_hvCpGalgorithm/figures/WGBS_Array_datasets.csv"))
+  # WGBS_Array_datasets <- read.csv(here("B_MultiTissues/dataOut/figures/WGBS_Array_datasets.csv"))
   # 
   # table(WGBS_Array_datasets[WGBS_Array_datasets$assay %in% "atlas", "Germ.layer"])
   # # ectoderm endoderm mesoderm 
@@ -711,7 +711,7 @@ exactly_one <- table3layers[((!is.na(table3layers$alpha_endo) & table3layers$alp
   # p2 <- plotMyVenn(0.75, endo = endo, meso = meso, ecto = ecto, all = allLayers)
   # p3 <- plotMyVenn(0.90, endo = endo, meso = meso, ecto = ecto, all = allLayers)
   # 
-  # pdf(here("05_hvCpGalgorithm/figures/vennGermLayers/Venn_top90.pdf"), width = 16, height = 8)
+  # pdf(here("B_MultiTissues/dataOut/figures/vennGermLayers/Venn_top90.pdf"), width = 16, height = 8)
   # cowplot::plot_grid(p1 + theme(legend.position = "none"),
   #                    p2 + theme(legend.position = "none"),
   #                    p3 + theme(legend.position = "none"), 
@@ -766,7 +766,7 @@ exactly_one <- table3layers[((!is.na(table3layers$alpha_endo) & table3layers$alp
   #     strip.text = element_text(face = "bold")
   #   )
   # 
-  # pdf(here("05_hvCpGalgorithm/figures/topCpGsEnrichME.pdf"), width = 9, height = 6)
+  # pdf(here("B_MultiTissues/dataOut/figures/topCpGsEnrichME.pdf"), width = 9, height = 6)
   # plot
   # dev.off()
   # 
