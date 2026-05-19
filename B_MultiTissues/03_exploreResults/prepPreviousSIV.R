@@ -10,7 +10,8 @@ message("Creates:
         \na GRange object for Gunasekara 2019 9926 corSIV regions (corSIV_GRanges_hg38)
         \na vector of 3644 hvCpG from Derakhshan 2022 (DerakhshanhvCpGs_hg38)
         \na vector for matching mQTL controls (mQTLcontrols_hg38)
-        \na vector for 259 Silver 2022 SoCCpGs on 10WGBS (SoCCpGs_hg38)")
+        \na vector for 259 Silver 2022 SoCCpGs on 10WGBS (SoCCpGs_hg38)
+        \na GRange object for  CpG associated with vmeQTL identified in MZ twins by Jordana Bell (vmeQTL_hg38_GR)")
 
 #######################################
 ## Harris2012_1776SIV_10children450k ##

@@ -1,49 +1,64 @@
 #################################################
 ## Plot results of algorithm ran on atlas data ##
 #################################################
-library(here)
+## Previously:
+# 9% CpGs sequenced in the 3 germ layers are SNPs (1559985 out of 18195276)
+# 52% CpGs sequenced in the 3 germ layers with pr(hv) >=90% are SNPs (94627 out of 182710)
+## --> Variability could simply come from SNPs!! We need to exclude them.
+## New run: SNPs MAF 1% excluded
 
+#####################################################################
+## Prepare
+library(here)
 ## Load libraries
-if (!exists("libLoaded")) {
-  source(here("B_MultiTissues", "quiet_library.R"))}
+source(here("B_MultiTissues", "quiet_library.R"))
 
 ## Load functions
 if (!exists("functionsLoaded")) {
   source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
 
-## Load array results
-if (!exists("resArray")) {
-  resArray <- readRDS(here("05_hvCpGalgorithm/dataOut/resArray.RDS"))
-}
-
+## Add previous MEs including Maria's results
 ## Load the set of previously tested MEs & vmeQTL
 if (!exists("previousSIVprepared")) {
   source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
+#####################################################################
+
+## Load array results
+if (!exists("resArray")) {
+  resArray <- readRDS(here("B_MultiTissues/dataOut/resArray.RDS"))
+}
 
 ##################################
 ## Save all data in RDS objects ##
 ##################################
-savePrepedAtlasFile <- function(file){
-  if (file.exists(here(paste0("gitignore/fullres_", file)))){
-    message(paste0("File ", file, " already prepared."))
-  } else {
-    
+savePrepedAtlasFile <- function(file, p0, p1) {
+  out_path <- here(paste0("gitignore/resultsAtlasPrepared/fullres_", 
+                          p0, "p0_", p1, "p1_", file, ".rds"))
+  
+  if (file.exists(out_path)) {
+    message("File ", file, " already prepared - skipping.")
+    return(invisible(NULL))
   }
   
-  system.time(Atlas_dt <- prepAtlasdt(file))
-  print("Number of CpG tested:")
-  print(nrow(Atlas_dt))
+  # Check files exist before attempting
+  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", file))
+  n_files <- length(base::dir(parent_dir, 
+                              pattern = paste0(p0, "p0_", p1, "p1.rds$"),
+                              recursive = TRUE))
+  if (n_files == 0) {
+    message("Skipping ", file, " - no matching files found (incomplete run?).")
+    return(invisible(NULL))
+  }
   
-  print(paste0("Saving results for ", file, "in ", here(paste0("gitignore/fullres_", file))))
-  saveRDS(Atlas_dt, file = here(paste0("gitignore/fullres_", file)))
-  print("Saved")
-  
+  system.time(Atlas_dt <- prepAtlasdt(file, p0, p1))
+  saveRDS(Atlas_dt, file = out_path)
+  message("Saved: ", out_path)
 }
 
-# for (file in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))){
-
-savePrepedAtlasFile("atlas_general")
-
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_65")
+}
+## NB: the non atlas_general are INCOMPLETE --> rm and rerun when all finished!!
 
 ## This code does:
 ### I. Histogram of coverage across datasets
@@ -125,115 +140,35 @@ table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 ####################################
 ## II. Load data & Manhattan plot ##
 ####################################
-system.time(Atlas_dt <- prepAtlasdt("Atlas10X"))
+Atlas_dt <- readRDS("/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")
 
-nrow(Atlas_dt) # 23.036.026
-
-system.time(Atlas_dt_new <- prepAtlasdt("atlas_general"))
-
-
-## TBC
-
-
-## NB add test on package row by col
+nrow(Atlas_dt) # 21.522.541
 
 if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
   stop("stop here to only prepare atlas_dt")
 }
 
-plotManhattanFromdt(Atlas_dt)
-
-###################################################################################################
-## Extract high alpha for test in B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
-###################################################################################################
-
-table(Atlas_dt$alpha >= 0.7)
-# FALSE     TRUE 
-# 22335423   700603 
-
-## Map on arrays
-matches <- match(
-  x = unlist(Atlas_dt[Atlas_dt$alpha >= 0.7, "name"]),
-  table = dico$chrpos_hg38)
-
-highAlphaPos <- dico[na.omit(matches), ]
-
-table(highAlphaPos$array)
-# 450k    450k and EPIC      EPIC 
-# 340          4483          3431 
-# 4483+340 = 4823 on the 450k array
-# 4483+3431 = 7914 on the EPIC array
-
-saveRDS(highAlphaPos, here("B_MultiTissues/03_exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
-
 ####################
 ## Plot Manhattan ##
 ####################
 
-# Compute chromosome centers for x-axis labeling
-df2 <- Atlas_dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
-             df2, by = "chr", all.x = TRUE, sort = TRUE)
-df2 <- na.omit(df2)
+# plotManhattan1 <- plotManhattanFromdt(Atlas_dt)
+# ggplot2::ggsave(
+#   filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas_withDerakhshan.png"),
+#   plot = plotManhattan1, width = 14, height = 4,
+#   dpi = 300, bg = "white")
 
-# Compute chromosome boundaries
-df_bounds <- Atlas_dt[, .(min_pos = min(pos2, na.rm = TRUE), 
-                          max_pos = max(pos2, na.rm = TRUE)), by = chr]
-
-# Midpoints between chromosomes = where to draw dotted lines
-df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
-vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
-
-plot <- ggplot() +
-  # background cloud
-  geom_point_rast(data = Atlas_dt[is.na(group)], 
-                  aes(x = pos2, y = alpha),
-                  color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
-  # hvCpG highlights
-  geom_point(data = Atlas_dt[group == "hvCpG_Derakhshan"],
-             aes(x = pos2, y = alpha),
-             color = "#DC3220", size = 1, alpha = 0.7) +
-  # mQTL controls highlights
-  geom_point(data = Atlas_dt[group == "mQTLcontrols"],
-             aes(x = pos2, y = alpha),
-             color = "#005AB5", size = 1, alpha = 0.7) +
-  # Add dotted separators
-  geom_vline(data = vlines, aes(xintercept = xintercept),
-             linetype = 3, color = "grey60") +
-  theme_classic() + theme(legend.position = "none") +
-  scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
-  scale_y_continuous(expand = c(0, 0)) +
-  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
-  theme_minimal(base_size = 14)
-
-# Save as PDF — rasterization improves performance and file size
-CairoPDF(here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_previoushvCpGplotted_atlas.pdf"), width = 15, height = 3)
-print(plot)
-dev.off()
-
-## Without the layer of previous hvCpG and controls plotted:
-plot <- ggplot() +
-  geom_point_rast(data = Atlas_dt, 
-                  aes(x = pos2, y = alpha),
-                  color = "black", size = 0.01, alpha = 0.01, raster.dpi = 72) +
-  # Add dotted separators
-  geom_vline(data = vlines, aes(xintercept = xintercept),
-             linetype = 3, color = "grey60") +
-  theme_classic() + theme(legend.position = "none") +
-  scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
-  scale_y_continuous(expand = c(0, 0)) +
-  labs(x = "Chromosome", y = "Probability of being a hvCpG")+
-  theme_minimal(base_size = 14)
-
-# Save as PDF — rasterization improves performance and file size
-CairoPDF(here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas.pdf"), width = 15, height = 3)
-print(plot)
-dev.off()
+# plotManhattan2 <- plotManhattanFromdt(Atlas_dt, plotDerakhshan = FALSE)
+# ggplot2::ggsave(
+#   filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas.png"),
+#   plot = plotManhattan2, width = 14, height = 4,
+#   dpi = 300, bg = "white")
 
 ###################################################################
 ## Calculate proba hvCpG minus matching control: is it always +? ##
 
-data <- read.table(here("03_prepDatasetsMaria/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
+data <- read.table(
+  here("B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
 
 x = dico$chrpos_hg38[match(data$hvCpG_name, dico$CpG)]
 y = dico$chrpos_hg38[match(data$controlCpG_name, dico$CpG)]
@@ -265,9 +200,8 @@ merged <- merged %>%
   mutate(chr = str_extract(hvCpG, "^chr[0-9XYM]+"))%>%
   filter(!is.na(diffAlpha))
 
-pdf(here("B_MultiTissues/dataOut/figures/DifferenceOfProbabilityForhvCpG-matching_controlInAtlas.pdf"),
-    width = 4, height = 5)
-ggplot(merged, aes(x="diff", y=diffAlpha))+
+# DifferenceOfProbabilityForhvCpG-matching_controlInAtlas
+p <- ggplot(merged, aes(x="diff", y=diffAlpha))+
   geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
   geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
   geom_violin(width=.5, fill = "grey", alpha=.8) +
@@ -276,7 +210,6 @@ ggplot(merged, aes(x="diff", y=diffAlpha))+
   theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
   ggtitle("P(hvCpG) minus P(matching control) in atlas")+
   ylab("Difference of probability")
-dev.off()
 
 ##########################################
 ## What are the gaps in Manhattan plot? ##
@@ -306,8 +239,6 @@ ggplot() +
              aes(x = pos2, y = alpha),
              color = "black", size = 1, alpha = .5)+
   theme_classic() + theme(legend.position = "none") +
-  scale_x_continuous(breaks = df2[df2$chr == "M","center"],
-                     labels = as.character(df2[df2$chr == "M","chr"]), expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0), limits = c(0,.1)) +
   labs(x = "Chromosome", y = "Probability of being a hvCpG")+
   theme_minimal(base_size = 14)
@@ -321,13 +252,10 @@ ggplot() +
              color = "black", size = 1, alpha = .5)+
   theme_classic() + theme(legend.position = "none") +
   geom_hline(yintercept = .7, linetype = 3)+
-  scale_x_continuous(breaks = df2[df2$chr == "Y","center"],
-                     labels = as.character(df2[df2$chr == "Y","chr"]), expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   labs(x = "Chromosome", y = "Probability of being a hvCpG")+
   theme_minimal(base_size = 14)
 
-Atlas_dt[Atlas_dt$chr == "Y" & Atlas_dt$alpha > 0.7,]
 # High alpha in 3 regions: chrY:5,043,848-6,534,238, chrY:10,107,290-11,747,410, chrY:56,822,399-56,841,336
 
 #####################################################
@@ -344,50 +272,18 @@ gr_cpg <- GRanges(
 # Import bed file
 bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
 
-# Annotate CpGs and see which regions have higher alpha
+# Annotate CpGs and see which regions have higher alpha (takes long)
 anno_result <- genomation::annotateWithGeneParts(
   target = gr_cpg, feature = bed_features)
 
 anno_result@perc.of.OlapFeat
 # promoter     exon   intron 
-# 96.61240 74.37305 89.72931 
+# 96.59648 73.64187 89.42734
 
 ## Add info from annotation to our GRange object
 gr_cpg$featureType <- ifelse(anno_result@members[, "prom"] == 1, "promoter",
                              ifelse(anno_result@members[, "exon"] == 1, "exon",
                                     ifelse(anno_result@members[, "intron"] == 1, "intron", "intergenic")))
-
-#########################################################################
-## Find the first promoter and the first exon by absolute distance to TSS
-gr_cpg$dist2TSS <- anno_result@dist.to.TSS$dist.to.feature
-gr_cpg$TSSname <- anno_result@dist.to.TSS$feature.name
-
-mcols(gr_cpg) <- mcols(gr_cpg) %>% as.data.frame() %>% 
-  dplyr::group_by(TSSname, featureType) %>% 
-  dplyr::mutate(pos = min_rank(abs(dist2TSS))) %>% data.frame()
-
-mcols(gr_cpg) <- mcols(gr_cpg) %>% as.data.frame() %>% 
-  mutate(
-    preciseFeatureType = case_when(
-      featureType == "promoter" & pos == 1 ~ "first promoter",
-      featureType == "exon" & pos == 1 ~ "first exon",
-      TRUE ~ as.character(preciseFeatureType)  # keep existing otherwise
-    )
-  )
-
-mcols(gr_cpg) %>% as.data.frame() %>%
-  dplyr::group_by(preciseFeatureType) %>%
-  dplyr::summarise(meanAlpha = mean(alpha),
-                   medianAlpha = median(alpha))
-# preciseFeatureType meanAlpha medianAlpha
-# <chr>                  <dbl>       <dbl>
-# 1 ex-intr junction       0.128      0.0476 ********* The lowest! Very conserved
-# 2 exon                   0.148      0.0703
-# 3 first exon             0.169      0.0994
-# 4 first promoter         0.163      0.0784
-# 5 intergenic             0.196      0.121 ********* The higghest
-# 6 intron                 0.158      0.0755
-# 7 promoter               0.147      0.0591
 
 mcols(gr_cpg) %>% as.data.frame() %>%
   dplyr::group_by(featureType) %>%
@@ -395,26 +291,25 @@ mcols(gr_cpg) %>% as.data.frame() %>%
                    medianAlpha = median(alpha))
 # featureType meanAlpha medianAlpha
 # <chr>           <dbl>       <dbl>
-# 1 exon            0.148      0.0710
-# 2 intergenic      0.196      0.121 ********* The higghest
-# 3 intron          0.158      0.0755
-# 4 promoter        0.147      0.0587 ********* The lowest
-
+#   1 exon            0.156      0.0805
+# 2 intergenic      0.203      0.135 ********* The higghest
+# 3 intron          0.162      0.0834
+# 4 promoter        0.155      0.0661 ********* The lowest! Very conserved
 
 ## Kruskal–Wallis test: are the groups different in alpha values?
 kruskal.test(alpha ~ featureType, data = mcols(gr_cpg))
 # Kruskal-Wallis rank sum test
 # 
 # data:  alpha by featureType
-# Kruskal-Wallis chi-squared = 251527, df = 3, p-value < 2.2e-16
+# Kruskal-Wallis chi-squared = 248241, df = 3, p-value < 2.2e-16
 
 ## Post-hoc pairwise comparison
-pairwise_results <- pairwise.wilcox.test(
-  mcols(gr_cpg)$alpha,
-  mcols(gr_cpg)$featureType,
-  p.adjust.method = "fdr"
-)
-pairwise_results
+# pairwise_results <- pairwise.wilcox.test(
+#   mcols(gr_cpg)$alpha,
+#   mcols(gr_cpg)$featureType,
+#   p.adjust.method = "fdr"
+# )
+# pairwise_results
 
 # Pairwise comparisons using Wilcoxon rank sum test with continuity correction 
 # 
@@ -427,206 +322,15 @@ pairwise_results
 # P value adjustment method: fdr 
 
 # visualize methylation levels by region
-pdf(here("B_MultiTissues/dataOut/figures/barplotFeaturesbyAlpha.pdf"), width = 6, height = 4)
-ggplot(mcols(gr_cpg), aes(x = featureType, y = alpha, fill = featureType)) +
+p <- ggplot(mcols(gr_cpg), aes(x = featureType, y = alpha, fill = featureType)) +
   geom_violin()+
   geom_boxplot(outlier.size = 0.5, alpha = 0.8, width = .3) +
   theme_minimal(base_size = 14) +
   labs(y = "p(hv)") + 
   scale_fill_brewer(palette = "Set2") +
   theme(legend.position = "none", axis.title.x = element_blank())
-dev.off()
 
-## TBC
-
-##############
-## Test TE hpv
-
-## Retrieve annotations of TE
-## Tutorial: https://www.bioconductor.org/packages/release/data/annotation/vignettes/UCSCRepeatMasker/inst/doc/UCSCRepeatMasker.html
-## Ran in local machine Alice in Nov 2025 (create DB in cache)
-
-library(AnnotationHub)
-ah <- AnnotationHub()
-query(ah, c("UCSC", "RepeatMasker", "Homo sapiens"))
-
-## Disable SSL verification temporarily
-library(httr)
-set_config(config(ssl_verifypeer = FALSE))
-
-rmskhg38 <- ah[["AH111333"]]
-rmskhg38
-
-## Find different classes
-table(rmskhg38$repClass)
-
-# Promoters/enhancers: FANTOM5 database: https://fantom.gsc.riken.jp/5/
-#   
-#   I think it would also be interesting to look at chromatin states using ChromHMM  to get a sense of regions that are transcriptionally active etc (as we’ve done in several of our papers):
-#   ChromHMM: https://compbio.mit.edu/ChromHMM/
-#   R package to work with ChromHMM: https://www.bioconductor.org/packages/release/bioc/vignettes/segmenter/inst/doc/segmenter.html
-# 
-# Tissue-specificity is a major complicating factor of course. Even though we’re dealing with MEs, functional relevance could vary according to cell type, as we’ve found with PAX8, POMC and LY6S!
-
-
-
-
-#################################################################################
-## Test for enrichment in other putative MEs for hvCpGs with alpha > threshold ##
-#################################################################################
-
-# Build GRanges
-allcpg_GR <- makeGRfromMyCpGPos(Atlas_dt$name)
-
-###########################################
-## meQTL (vmeQTL) identified in MZ twins by Jordana Bell 
-vmeQTL_hg19probes <- readxl::read_xlsx(here("B_MultiTissues/dataIn/vmeQTL_vCpG_359pair_sig_Zhang2025.xlsx"))
-vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]) ; rm(vmeQTL_hg19probes)
-
-# a vector of 1773 SIV from Harris 2012 (HarrisSIV_hg38)
-HarrisSIV_hg38
-
-# one of 1579 ESS from Van Baak 2018 (VanBaakESS_hg38)
-VanBaakESS_hg38
-
-# a GRange object for Kessler 2018 676 SIV regions (KesslerSIV_GRanges_hg38)
-overlaps <- findOverlaps(query = KesslerSIV_GRanges_hg38, subject = allcpg_GR)
-# Extract the overlapping ranges
-CpG_overlapping     <- allcpg_GR[subjectHits(overlaps)]
-KesslerSIV_hg38 <- na.omit(paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges))
-length(KesslerSIV_hg38) # 2700
-
-# a GRange object for Gunasekara 2019 9926 corSIV regions (corSIV_GRanges_hg38)
-overlaps <- findOverlaps(query = corSIV_GRanges_hg38, subject = allcpg_GR)
-# Extract the overlapping ranges
-CpG_overlapping     <- allcpg_GR[subjectHits(overlaps)]
-corSIV_hg38 <- na.omit(paste0(CpG_overlapping@seqnames, "_", CpG_overlapping@ranges))
-length(corSIV_hg38) # 70222
-
-# a vector of 3644 hvCpG from Derakhshan 2022 (DerakhshanhvCpGs_hg38)
-DerakhshanhvCpGs_hg38
-
-# a vector for matching mQTL controls (mQTLcontrols_hg38)
-mQTLcontrols_hg38
-
-# Silver2022_SoCCpGs_10WGBS 
-SoCCpGs_hg38
-
-#################################
-## Check overlaps with upset plot
-sets <- list(
-  vmeQTL = vmeQTL_hg38,
-  HarrisSIV = HarrisSIV_hg38,
-  VanBaakESS = VanBaakESS_hg38,
-  KesslerSIV = KesslerSIV_hg38,
-  CoRSIV = corSIV_hg38,
-  SoCCpGs = SoCCpGs_hg38,
-  hvCpG = DerakhshanhvCpGs_hg38,
-  mQTLcontrols = mQTLcontrols_hg38
-)
-
-# Create the plot in a base graphics device
-pdf(NULL)  # draw to null device to avoid displaying
-upset(fromList(sets), nsets = 7, order.by = "freq")
-grid_plot <- grid.grab()  # Capture as a grid object
-dev.off()
-
-# Now save the captured grid object to a real PDF
-pdf(here("B_MultiTissues/dataOut/figures/upsetPreviousME.pdf"), width = 12, height = 5)
-grid.draw(grid_plot)
-dev.off()
-
-#######################################################
-## Check alpha for the different MEs: are they high? ##
-
-MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
-  Atlas_dt[.(sets[[nm]]), on = .(name), .(name, alpha)][, ME := nm]
-}))
-
-MEsetdt <- na.omit(MEsetdt) ## 33478 so far (2 sept)
-
-## Control as baseline
-MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
-
-p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha)) +
-  geom_jitter(data = MEsetdt,
-              aes(fill=ME), pch=21, size = 3, alpha = .1)+
-  geom_violin(aes(col=ME))+
-  geom_boxplot(aes(col=ME), width = .1) +
-  theme_minimal(base_size = 14) +
-  theme(legend.position = "none", axis.title.x = element_blank()) +
-  ylab("Probability of being a hvCpG")
-
-p1
-
-## Statistical comparisons of alpha between MEs
-
-# 1️⃣ Fit the model with mQTLcontrols as baseline
-fit <- lm(alpha ~ ME, data = MEsetdt)
-
-# 2️⃣ Get estimated marginal means and contrasts vs baseline
-emm <- emmeans(fit, ~ ME)
-contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
-  as.data.frame()
-
-# 3️⃣ Prepare for plotting
-contrasts <- contrasts %>%
-  mutate(ME = contrast,  # rename for clarity
-         lower = estimate - 1.96*SE,
-         upper = estimate + 1.96*SE)
-
-# 4️⃣ Plot
-p2 <- ggplot(contrasts, aes(x = ME, y = estimate)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  coord_flip() +
-  labs(
-    y = "Difference in alpha vs mQTLcontrols",
-    x = "ME group",
-    title = "Comparison of ME groups to mQTLcontrols",
-    subtitle = "lm with multiple comparison correction (Sidak)"
-  ) +
-  theme_minimal()
-
-pdf(here("B_MultiTissues/dataOut/figures/alphaComparisonBetweenMEtypes.pdf"), width = 14, height = 4)
-cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
-dev.off()
-
-###############
-## FIND PAX8
-# Chromosome 2, NC_000002.12 (113215997..113278921,
-
-# PAX8 as a GRanges
-gr_PAX8 <- c(bed_features$promoters[grep("ENST00000429538.8", bed_features$promoters$name)],
-             bed_features$exons[grep("ENST00000429538.8", bed_features$exons$name)],
-             bed_features$introns[grep("ENST00000429538.8", bed_features$introns$name)],
-             bed_features$TSSes[grep("ENST00000429538.8", bed_features$TSSes$name)])
-
-# Find overlaps between CpGs and the gene region
-hits <- findOverlaps(gr_cpg, gr_PAX8)
-
-# Extract matching rows from original df
-df_hits <- gr_cpg[queryHits(hits), ]
-
-# Add all annotations
-df_hits <- Atlas_dt[match(paste0(df_hits@seqnames, "_", df_hits@ranges), Atlas_dt$name)]
-
-# Determine limits and breaks
-x_min <- floor(min(df_hits$pos) / 5000) * 5000
-x_max <- ceiling(max(df_hits$pos) / 5000) * 5000
-breaks_seq <- seq(x_min, x_max, by = 5000)
-
-ggplot(df_hits, aes(x = pos, y = alpha)) +
-  geom_smooth(col = "black") +
-  geom_point(aes(fill = region_type), pch = 21) +
-  theme_minimal(base_size = 14) +
-  ylab("p(hv)") +
-  scale_x_continuous(
-    breaks = breaks_seq,
-    labels = function(x) paste0(formatC(x / 1000, format = "f", digits = 0), "k")
-  ) +
-  xlab("Genomic position (chr2)") +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  )
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/barplotFeaturesbyAlpha.png"),
+  plot = p, width = 6, height = 4,
+  dpi = 300, bg = "white")

@@ -69,6 +69,9 @@ prepareChrDataset <- function(res){
 
 resArrayAll <- prepareChrDataset(resArrayAll)
 
+## Save for next scripts
+saveRDS(resArrayAll, here("B_MultiTissues/dataOut/resArray.RDS"))
+
 # Plot
 # Compute midpoints for chromosome labels
 chr_mid <- resArrayAll %>%
