@@ -37,20 +37,21 @@ makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
     ggplot2::theme_void()
 }
 
-prepAtlasdt <- function(dir = "Atlas10X"){
-  # Define parent folder containing all results folders
-  parent_dir = here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", dir))
+prepAtlasdt <- function(subdir, p0, p1) {
+  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", subdir))
+  rds_files  <- base::dir(parent_dir, pattern = paste0(p0, "p0_", p1, "p1.rds$"),
+                          recursive = TRUE, full.names = TRUE)
   
-  # Get list of relevant RDS files
-  rds_files <- dir(parent_dir, pattern = ".rds$", 
-                   recursive = TRUE, full.names = TRUE)
-  rds_files
+  if (length(rds_files) == 0)
+    stop("No files matched in: ", parent_dir)
+  
   all_cpg_values <- numeric()
-  pb <- progress_bar$new(total = length(rds_files), format = "📦 :current/:total [:bar] :percent")
+  pb <- progress_bar$new(total = length(rds_files), 
+                         format = "📦 :current/:total [:bar] :percent")
   
   for (file in rds_files) {
     obj <- readRDS(file)
-    if (is.matrix(obj)) obj <- obj[, 1]
+    if (is.matrix(obj)) obj <- setNames(obj[, 1], rownames(obj))  # fix order
     all_cpg_values <- c(all_cpg_values, obj)
     pb$tick()
   }
@@ -100,7 +101,7 @@ prepAtlasdt <- function(dir = "Atlas10X"){
   return(dt)
 }
 
-plotManhattanFromdt <- function(dt, transp = 0.01){
+plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
   # Compute chromosome centers for x-axis labeling
   df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
   df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
@@ -115,27 +116,31 @@ plotManhattanFromdt <- function(dt, transp = 0.01){
   df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
   vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
   
-  ggplot() +
+  p <- ggplot() +
     # background cloud
     geom_point_rast(data = dt[is.na(group)], 
                     aes(x = pos2, y = alpha),
                     color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
-    # hvCpG highlights
-    geom_point(data = dt[group == "hvCpG_Derakhshan"],
-               aes(x = pos2, y = alpha),
-               color = "#DC3220", size = 1, alpha = 0.7) +
-    # mQTL controls highlights
-    geom_point(data = dt[group == "mQTLcontrols"],
-               aes(x = pos2, y = alpha),
-               color = "#005AB5", size = 1, alpha = 0.7) +
     # Add dotted separators
     geom_vline(data = vlines, aes(xintercept = xintercept),
                linetype = 3, color = "grey60") +
     theme_classic() + theme(legend.position = "none") +
     scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
-    labs(x = "Chromosome", y = "Probability of being a hvCpG")+
+    labs(x = "Chromosome", y = "Pr(hv)")+
     theme_minimal(base_size = 14)
+  
+  if (plotDerakhshan == TRUE){
+    p <- p +   # hvCpG highlights
+      geom_point(data = dt[group == "hvCpG_Derakhshan"],
+                 aes(x = pos2, y = alpha),
+                 color = "#DC3220", size = 1, alpha = 0.7) +
+      # mQTL controls highlights
+      geom_point(data = dt[group == "mQTLcontrols"],
+                 aes(x = pos2, y = alpha),
+                 color = "#005AB5", size = 1, alpha = 0.7)
+  }
+  return(p)
 }
 
 # ---- Inner helper for makeCompPlot: build Z_inner ----
@@ -183,7 +188,7 @@ makeZ_inner <- function(X, Y, whichAlphaX = NULL, whichAlphaY = NULL) {
 
 makeCompPlot <- function(X, Y, title, xlab, ylab,
                          whichAlphaX = NULL, whichAlphaY = NULL,
-                         minplot = 100000) {
+                         minplot = 100000, drawline = TRUE) {
   
   # ---- Build Z_inner *and assign it* ----
   Z_inner <- makeZ_inner(X, Y, whichAlphaX = whichAlphaX, whichAlphaY = whichAlphaY)
@@ -200,11 +205,15 @@ makeCompPlot <- function(X, Y, title, xlab, ylab,
   p1 <- ggplot(Z_inner_plot, aes(alpha_X, alpha_Y)) +
     geom_point(pch = 21, alpha = 0.05) +
     geom_abline(slope = 1, linetype = 3) +
-    geom_smooth(linetype = 3) +
-    geom_smooth(method = "lm", fill = "black") +
     theme_minimal(base_size = 14) +
     annotate("text", x = .2, y = .8, label = paste0("R : ", round(c$estimate, 2))) +
     labs(title = title, x = xlab, y = ylab)
+  
+  if (drawline == TRUE){
+    p1 <- p1 +     
+      geom_smooth(linetype = 3) +
+      geom_smooth(method = "lm", fill = "black")
+  }
   
   # Make sure the folder exists
   dir.create(here::here("B_MultiTissues/dataOut/figures/correlations"),
@@ -231,100 +240,100 @@ makeGRfromMyCpGPos <- function(vec, setname){# Parse with regex all the cpg test
   return(GR)
 }
 
-# ## For a vector of CpGs in the format chromosome_position 
-# ## CpGvec <- c("chr1_17452", "chr1_17478", "chr1_17483")
-# ## 1. Keep CpGs in regions where at least 5 CpGs are in 50bp distance to each other
-# ## 2. annotate with associated genes
-# ## 3. run GO term enrichment with clusterProfiler::enrichGO
-# 
-# ## STEP 1 — ULTRA‑FAST DENSE CpG CLUSTERING (5 CpGs min within 50 bp)
-# clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
-#   dt <- data.table(
-#     raw = CpGvec,
-#     chr = sub("_.*", "", CpGvec),
-#     pos = as.integer(sub(".*_", "", CpGvec))
-#   )
-#   setkey(dt, chr, pos)
-#   
-#   # gap to previous CpG
-#   dt[, gap := pos - data.table::shift(pos), by = chr]
-#   
-#   # run ID increments whenever gap > max_gap OR different chromosome
-#   dt[, run_id := cumsum(is.na(gap) | gap > max_gap), by = chr]
-#   
-#   # Count CpGs in each run
-#   dt[, run_size := .N, by = .(chr, run_id)]
-#   
-#   # Keep only large runs
-#   dt[run_size >= min_size, raw]
-# }
-# 
-# ## STEP 2 — FAST GENE ANNOTATION (OFFLINE)
-# annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
-#   
-#   if (length(CpGs) == 0) return(character(0))
-#   
-#   chr <- sub("_.*", "", CpGs)
-#   pos <- as.integer(sub(".*_", "", CpGs))
-#   gr  <- GRanges(chr, IRanges(pos, pos))
-#   
-#   # Trim to seqinfo bounds to avoid out-of-bound warnings
-#   gr <- GenomicRanges::trim(gr)
-#   
-#   txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
-#   genes_txdb <- GenomicFeatures::genes(txdb)
-#   promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window, downstream = tss_window)
-#   
-#   # overlaps with gene bodies
-#   o1 <- findOverlaps(gr, genes_txdb)
-#   g1 <- genes_txdb$gene_id[subjectHits(o1)]
-#   
-#   # overlaps with promoters
-#   o2 <- findOverlaps(gr, promoters_txdb)
-#   g2 <- promoters_txdb$gene_id[subjectHits(o2)]
-#   
-#   return(unique(c(g1, g2)))
-# }
-# 
-# ## STEP 3 — GO ENRICHMENT (clusterProfiler)
-# runGO <- function(entrez_ids, universe = NULL, myont) {
-#   clusterProfiler::enrichGO(
-#     gene          = entrez_ids,
-#     OrgDb         = org.Hs.eg.db,
-#     ont           = myont,
-#     keyType       = "ENTREZID",
-#     universe      = universe,
-#     pAdjustMethod = "BH",
-#     readable      = TRUE
-#   )
-# }
-# 
-# ## 🚀 FULL PIPELINE FUNCTION 
-# CpG_GO_pipeline <- function(CpGvec,
-#                             max_gap = 50, min_size = 5,
-#                             tss_window = 10000,
-#                             universe = NULL) {
-#   
-#   message("Clustering CpGs...")
-#   CpGclustered <- clusterCpGs(CpGvec, max_gap, min_size)
-#   message(sprintf("Reduced from %d to %d clustered CpGs",
-#                   length(CpGvec), length(CpGclustered)))
-#   
-#   if (length(CpGclustered) == 0) {
-#     warning("No CpG clusters found.")
-#     return(NULL)
-#   }
-#   
-#   message("Annotating genes...")
-#   ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
-#   
-#   message(sprintf("Found %d Entrez genes", length(ensg)))
-#   
-#   message("Running GO enrichment...")
-#   list = lapply(c("BP", "MF", "CC"), function(x) {runGO(ensg, universe, x)})
-#   names(list) = c("BP", "MF", "CC")
-#   return(list)
-# }
+## For a vector of CpGs in the format chromosome_position
+## CpGvec <- c("chr1_17452", "chr1_17478", "chr1_17483")
+## 1. Keep CpGs in regions where at least 5 CpGs are in 50bp distance to each other
+## 2. annotate with associated genes
+## 3. run GO term enrichment with clusterProfiler::enrichGO
+
+## STEP 1 — ULTRA‑FAST DENSE CpG CLUSTERING (5 CpGs min within 50 bp)
+clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
+  dt <- data.table(
+    raw = CpGvec,
+    chr = sub("_.*", "", CpGvec),
+    pos = as.integer(sub(".*_", "", CpGvec))
+  )
+  setkey(dt, chr, pos)
+
+  # gap to previous CpG
+  dt[, gap := pos - data.table::shift(pos), by = chr]
+
+  # run ID increments whenever gap > max_gap OR different chromosome
+  dt[, run_id := cumsum(is.na(gap) | gap > max_gap), by = chr]
+
+  # Count CpGs in each run
+  dt[, run_size := .N, by = .(chr, run_id)]
+
+  # Keep only large runs
+  dt[run_size >= min_size, raw]
+}
+
+## STEP 2 — FAST GENE ANNOTATION (OFFLINE)
+annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
+
+  if (length(CpGs) == 0) return(character(0))
+
+  chr <- sub("_.*", "", CpGs)
+  pos <- as.integer(sub(".*_", "", CpGs))
+  gr  <- GRanges(chr, IRanges(pos, pos))
+
+  # Trim to seqinfo bounds to avoid out-of-bound warnings
+  gr <- GenomicRanges::trim(gr)
+
+  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  genes_txdb <- GenomicFeatures::genes(txdb)
+  promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window, downstream = tss_window)
+
+  # overlaps with gene bodies
+  o1 <- findOverlaps(gr, genes_txdb)
+  g1 <- genes_txdb$gene_id[subjectHits(o1)]
+
+  # overlaps with promoters
+  o2 <- findOverlaps(gr, promoters_txdb)
+  g2 <- promoters_txdb$gene_id[subjectHits(o2)]
+
+  return(unique(c(g1, g2)))
+}
+
+## STEP 3 — GO ENRICHMENT (clusterProfiler)
+runGO <- function(entrez_ids, universe = NULL, myont) {
+  clusterProfiler::enrichGO(
+    gene          = entrez_ids,
+    OrgDb         = org.Hs.eg.db,
+    ont           = myont,
+    keyType       = "ENTREZID",
+    universe      = universe,
+    pAdjustMethod = "BH",
+    readable      = TRUE
+  )
+}
+
+## 🚀 FULL PIPELINE FUNCTION
+CpG_GO_pipeline <- function(CpGvec,
+                            max_gap = 50, min_size = 5,
+                            tss_window = 10000,
+                            universe = NULL) {
+
+  message("Clustering CpGs...")
+  CpGclustered <- clusterCpGs(CpGvec, max_gap, min_size)
+  message(sprintf("Reduced from %d to %d clustered CpGs",
+                  length(CpGvec), length(CpGclustered)))
+
+  if (length(CpGclustered) == 0) {
+    warning("No CpG clusters found.")
+    return(NULL)
+  }
+
+  message("Annotating genes...")
+  ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
+
+  message(sprintf("Found %d Entrez genes", length(ensg)))
+
+  message("Running GO enrichment...")
+  list = lapply(c("BP", "MF", "CC"), function(x) {runGO(ensg, universe, x)})
+  names(list) = c("BP", "MF", "CC")
+  return(list)
+}
 # 
 # ###############
 # ## Check GO slim terms for easy interpretation

@@ -1,66 +1,96 @@
-quiet_library <- function(pkg) {
-  # Check if installed
-  installed <- requireNamespace(pkg, quietly = TRUE)
+# ─────────────────────────────────────────────────────────────────────────────
+#  Library loading
+#  Install if missing (CRAN, Bioconductor, GitHub), load silently, report version
+# ─────────────────────────────────────────────────────────────────────────────
+
+for (pkg in c("BiocManager", "remotes")) {
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+}
+
+cran_packages <- c(
+  # Data formatting / handling
+  "dplyr", "data.table", "matrixStats", "tidyr", "tibble",
+  "purrr", "forcats", "stringr",
+  # HDF5 / parallel
+  "parallel", "rhdf5",
+  # Graphics
+  "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram",
+  "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo",
+  "UpSetR",
+  # Stats
+  "boot", "emmeans",
+  # Reporting
+  "gt", "progress"
+)
+
+bioc_packages <- c(
+  # Methylation / genomics
+  "rtracklayer", "genomation",
+  "IlluminaHumanMethylation450kanno.ilmn12.hg19",
+  "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
+  "GenomicRanges", "IRanges",
+  "TxDb.Hsapiens.UCSC.hg38.knownGene",
+  "GSEABase",
+  "methylKit",
+  # Enrichment
+  "rGREAT", "simplifyEnrichment", "org.Hs.eg.db"
+)
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Installer / loader
+# ─────────────────────────────────────────────────────────────────────────────
+
+install_and_load <- function(packages, source = "cran") {
+  not_loaded <- character()
   
-  # Install if missing
-  if (!installed) {
-    if (!requireNamespace("BiocManager", quietly = TRUE)) {
-      suppressMessages(suppressWarnings(
-        install.packages("BiocManager", repos = "https://cloud.r-project.org", quiet = TRUE)
-      ))
+  for (pkg in packages) {
+    pkg_name <- basename(pkg)  # handles "user/repo" GitHub format
+    
+    # Install if missing
+    if (!requireNamespace(pkg_name, quietly = TRUE)) {
+      message("Installing: ", pkg)
+      tryCatch(
+        switch(source,
+               cran   = install.packages(pkg, repos = "https://cloud.r-project.org", quiet = TRUE),
+               bioc   = BiocManager::install(pkg, update = FALSE, ask = FALSE, quiet = TRUE),
+               github = remotes::install_github(pkg, quiet = TRUE)
+        ),
+        error = function(e) message("  Failed to install ", pkg, ": ", e$message)
+      )
     }
     
-    cran_pkgs <- suppressMessages(available.packages(repos = "https://cloud.r-project.org"))
-    if (pkg %in% rownames(cran_pkgs)) {
+    # Load silently
+    loaded <- suppressPackageStartupMessages(
       suppressMessages(suppressWarnings(
-        install.packages(pkg, repos = "https://cloud.r-project.org", quiet = TRUE)
+        require(pkg_name, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
       ))
+    )
+    
+    if (!loaded) {
+      not_loaded <- c(not_loaded, pkg_name)
     } else {
-      suppressMessages(suppressWarnings(
-        BiocManager::install(pkg, ask = FALSE, update = FALSE, quiet = TRUE)
-      ))
+      ver <- as.character(utils::packageVersion(pkg_name))
+      cat(sprintf("  %-55s %s\n", pkg_name, ver))
     }
   }
   
-  # Load silently
-  suppressPackageStartupMessages(
-    suppressMessages(
-      suppressWarnings(
-        library(pkg, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
-      )
-    )
-  )
-  
-  # Get version after loading
-  version <- as.character(utils::packageVersion(pkg))
-  
-  # Print only our message
-  cat(sprintf("Load package %s v%s\n", pkg, version))
+  if (length(not_loaded) > 0)
+    message("  Could not load: ", paste(not_loaded, collapse = ", "))
 }
 
-quiet_library_all <- function(pkgs) {
-  invisible(lapply(pkgs, quiet_library))
-}
+# ─────────────────────────────────────────────────────────────────────────────
+#  Load
+# ─────────────────────────────────────────────────────────────────────────────
 
-quiet_library_all(
-  c("dplyr", "data.table", "matrixStats", "tidyr", "tibble", ## data formatting
-    "parallel", "rhdf5",  "purrr","forcats", ## data handling
-    "ggplot2", "progress", "ggrastr", "ggrepel", "scales", "gt", "ggVennDiagram",
-    "UpSetR", "gridGraphics", "grid", "cowplot","ggExtra", "viridis", "Cairo", ## graphical
-    "boot", "emmeans", ## stats
-    "rtracklayer", "IlluminaHumanMethylation450kanno.ilmn12.hg19", 
-    "IlluminaHumanMethylationEPICanno.ilm10b4.hg19", "GenomicRanges", "IRanges", 
-     "TxDb.Hsapiens.UCSC.hg38.knownGene", "GSEABase", "stringr",
-    "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "methylKit", ## methylation
-    "testthat", "parallel" # grammar & packaging
-  ))
-## NB: not all libraries are necessary; to clean when packaging
+message("── CRAN packages ──────────────────────────────────────────────")
+install_and_load(cran_packages, source = "cran")
 
-rm(quiet_library_all, quiet_library)
+message("── Bioconductor packages ───────────────────────────────────────")
+install_and_load(bioc_packages, source = "bioc")
 
-## Error in ing-p5
-# "reshape2"
-# "clusterProfiler"
-#"compEpiTools"
+# ─────────────────────────────────────────────────────────────────────────────
+#  Cleanup
+# ─────────────────────────────────────────────────────────────────────────────
 
-libLoaded = TRUE
+rm(install_and_load, cran_packages, bioc_packages)
+libLoaded <- TRUE
