@@ -5,6 +5,16 @@ library(here)
 if (!exists("libLoaded")) {
   source(here("B_MultiTissues", "quiet_library.R"))}
 
+
+## REDO ON PCHUCKLE!!
+
+
+
+
+
+
+
+
 ## Atlas
 parent_dir_atlas <- here("05_hvCpGalgorithm/resultsDir/Atlas/Atlas10X_tissueAnalysis/")
 rds_files_atlas <- list.files(parent_dir_atlas, pattern = "\\.rds$", recursive = TRUE, full.names = TRUE)
