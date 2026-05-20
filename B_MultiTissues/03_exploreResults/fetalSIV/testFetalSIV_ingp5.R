@@ -1,15 +1,20 @@
 setwd("/home/alice/2024_hvCpG")
-library(here)
-library(ggVennDiagram)
-library(boot)
 
-source(here("05_hvCpGalgorithm/quiet_library.R"))
-<<<<<<<< HEAD:testFetalSIV_ingp5.R
-source(here("05_hvCpGalgorithm/exploreResults/functions.R"))
-source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
-========
-source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
->>>>>>>> e87aaa80fb7d3efd1f06e097df6feb49246fa77d:B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R
+#####################################################################
+## Prepare
+library(here)
+## Load libraries
+source(here("B_MultiTissues", "quiet_library.R"))
+
+## Load functions
+if (!exists("functionsLoaded")) {
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
+
+## Add previous MEs including Maria's results
+## Load the set of previously tested MEs & vmeQTL
+if (!exists("previousSIVprepared")) {
+  source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
+#####################################################################
 
 ########################
 ## Prepare fetal data ##

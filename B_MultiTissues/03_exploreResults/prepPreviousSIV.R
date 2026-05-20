@@ -50,7 +50,9 @@ rm(mapped, keep, KesslerSIV, KesslerSIV_GRanges)
 #######################################
 ## Gunasekara2019_9926CoRSIVs_10WGBS ##
 # Load corSIV intervals (already in hg38)
-corSIV <- readxl::read_excel(here("B_MultiTissues/dataIn/Gunasekara2019_9926CoRSIVs_10WGBS.xls"), sheet = 3)
+corSIV <- suppressWarnings(
+  readxl::read_excel(here("B_MultiTissues/dataIn/Gunasekara2019_9926CoRSIVs_10WGBS.xls"), sheet = 3)
+)
 corSIV <- unique(corSIV$USCS_Coordinates_CoRSIV)
 corSIV_split <- tstrsplit(corSIV, "[:-]", fixed = FALSE)
 
@@ -87,7 +89,8 @@ KesslerSIV_GRanges_hg38$set <- "Kessler SIV"
 corSIV_GRanges_hg38$set <- "Gunasekara corSIV"
 DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "Derakhshan hvCpG")
 
-putativeME_GR <- c(DerakhshanhvCpGs_hg38_GR, HarrisSIV_hg38_GR, VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
+putativeME_GR <- c(DerakhshanhvCpGs_hg38_GR, HarrisSIV_hg38_GR, 
+                   VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
                    corSIV_GRanges_hg38)
 
 putativeME_GR$set <- factor(putativeME_GR$set, 

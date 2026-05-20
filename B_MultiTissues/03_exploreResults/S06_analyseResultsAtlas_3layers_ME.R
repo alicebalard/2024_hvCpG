@@ -18,6 +18,11 @@ if (!exists("previousSIVprepared")) {
   source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
 #####################################################################
 
+## To avoid re-running everything:
+load(here("gitignore/fullTable3layers.Rda"))
+
+############################################
+
 endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
 meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
 ecto <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
@@ -411,7 +416,149 @@ summary_df %>%
 
 ## Screenshot saved in figures/topCpGsEnrichME_table.png
 
-## Are Harris MEs high in some layers? Done on Meso + Endo
+######################################################################
+## Check enrichement of telomeres and centromeres for high geomMean ##
+######################################################################
+
+# Centromeres (from cytoBand - acen bands)
+# wget -qO- https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz \
+# | zcat | awk '$5=="acen"' > centromeres_hg38.bed
+
+# Telomeres (from gap table)
+# wget -qO- https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/gap.txt.gz \
+# | zcat | awk '$8=="telomere"' | cut -f2-4 > telomeres_hg38.bed
+
+# 1. Parse coordinates from name vectors 
+parse_cpg_names <- function(names_vec) {
+  dt <- data.table(name = names_vec)
+  dt[, chr := sub("^(chr[^_]+)_.*", "\\1", name)]        # "chr1"
+  dt[, pos := as.integer(sub("^chr[^_]+_(\\d+)$", "\\1", name))]
+  dt[, pos_end := pos]
+  dt
+}
+
+getEnrichCentroTelo <- function(threshold = 0.90){
+  top <- table3layers[!is.na(table3layers$alpha_geomean) & 
+                        (table3layers$alpha_geomean >= threshold), ]$chr_pos
+  hv_dt <- parse_cpg_names(top)
+  total_dt <- parse_cpg_names(totalSiteswGeomMean)  # all background sites
+  
+  # 2. Load regions
+  centro <- fread(here("gitignore/centromeres_hg38.bed"),
+                  col.names = c("chr", "start", "end", "band", "stain"))
+  centro[, region := "centromere"]
+  
+  # Add 1Mb subtelomeric buffer using chrom sizes
+  chrom_sizes <- fread("https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/chromInfo.txt.gz",
+                       col.names = c("chr", "size", "file"))
+  chrom_sizes  <- chrom_sizes[chr %in% paste0("chr", c(1:22, "X", "Y"))]
+  SUBTELO_DIST <- 1e6
+  
+  subtelo <- rbind(
+    chrom_sizes[, .(chr, start = 0L, end = as.integer(SUBTELO_DIST), region = "subtelomere")],
+    chrom_sizes[, .(chr, start = as.integer(size - SUBTELO_DIST), end = size, region = "subtelomere")]
+  )
+  
+  regions <- rbind(
+    centro[, .(chr, start, end, region)],
+    subtelo[, .(chr, start, end, region)]
+  )
+  setkey(regions, chr, start, end)
+  
+  # 3. Overlap function 
+  get_region_hits <- function(dt, regions) {
+    setkey(dt, chr, pos, pos_end)
+    hits <- foverlaps(dt, regions,
+                      by.x = c("chr", "pos", "pos_end"),
+                      by.y = c("chr", "start", "end"),
+                      type = "within", nomatch = NULL)
+    unique(hits$name)  # CpG names overlapping any region
+  }
+  
+  hv_in_centro    <- get_region_hits(copy(hv_dt),    regions[region == "centromere"])
+  hv_in_subtelo   <- get_region_hits(copy(hv_dt),    regions[region == "subtelomere"])
+  bg_in_centro    <- get_region_hits(copy(total_dt), regions[region == "centromere"])
+  bg_in_subtelo   <- get_region_hits(copy(total_dt), regions[region == "subtelomere"])
+  
+  # 4. Contingency tables + Fisher test 
+  enrich_test <- function(hv_in, bg_in, hv_all, bg_all, label) {
+    a <- length(hv_in)                        # hvCpG in region
+    b <- length(hv_all) - a                   # hvCpG outside
+    c <- length(bg_in)                        # background in region
+    d <- length(bg_all) - c                   # background outside
+    
+    mat <- matrix(c(a, b, c, d), nrow = 2,
+                  dimnames = list(c("in_region", "outside"),
+                                  c("hvCpG", "background")))
+    
+    ft  <- fisher.test(mat, alternative = "greater")
+    pct_hv <- round(100 * a / length(hv_all), 2)
+    pct_bg <- round(100 * c / length(bg_all), 2)
+    fold   <- round(pct_hv / pct_bg, 2)
+    
+    cat("\n──", label, "──\n")
+    cat("  hvCpGs in region:     ", a, "/", length(hv_all),
+        paste0("(", pct_hv, "%)"), "\n")
+    cat("  Background in region: ", c, "/", length(bg_all),
+        paste0("(", pct_bg, "%)"), "\n")
+    cat("  Fold enrichment:      ", fold, "\n")
+    cat("  Fisher p (one-sided): ", ft$p.value, "\n")
+    cat("  Odds ratio:           ", round(ft$estimate, 2), "\n")
+  }
+  
+  enrich_test(hv_in_centro,  bg_in_centro,  top, totalSiteswGeomMean, "Centromere")
+  enrich_test(hv_in_subtelo, bg_in_subtelo, top, totalSiteswGeomMean, "Subtelomere (1Mb)")
+}
+
+getEnrichCentroTelo(0.9)
+## For 90%, no enrichment
+
+getEnrichCentroTelo(0.8)
+## enriched 
+# ── Centromere ──
+# hvCpGs in region:      2581 / 252246 (1.02%) 
+# Background in region:  154438 / 19921363 (0.78%) 
+# Fold enrichment:       1.31 
+# Fisher p (one-sided):  1.912864e-41 
+# Odds ratio:            1.32 
+# 
+# ── Subtelomere (1Mb) ──
+# hvCpGs in region:      5347 / 252246 (2.12%) 
+# Background in region:  408962 / 19921363 (2.05%) 
+# Fold enrichment:       1.03 
+# Fisher p (one-sided):  0.009733627 
+# Odds ratio:            1.03 
+
+getEnrichCentroTelo(0.70)
+## enriched 
+# ── Centromere ──
+# hvCpGs in region:      5705 / 335294 (1.7%) 
+# Background in region:  154438 / 19921363 (0.78%) 
+# Fold enrichment:       2.18 
+# Fisher p (one-sided):  0 
+# Odds ratio:            2.22 
+# 
+# ── Subtelomere (1Mb) ──
+# hvCpGs in region:      8260 / 335294 (2.46%) 
+# Background in region:  408962 / 19921363 (2.05%) 
+# Fold enrichment:       1.2 
+# Fisher p (one-sided):  1.007335e-58 
+# Odds ratio:            1.21
+
+## For 75%, enrichment
+# ── Centromere ──
+# hvCpGs in region:      3693 / 287686 (1.28%) 
+# Background in region:  154438 / 19921363 (0.78%) 
+# Fold enrichment:       1.64 
+# Fisher p (one-sided):  9.445851e-175 
+# Odds ratio:            1.66 
+# 
+# ── Subtelomere (1Mb) ──
+# hvCpGs in region:      6535 / 287686 (2.27%) 
+# Background in region:  408962 / 19921363 (2.05%) 
+# Fold enrichment:       1.11 
+# Fisher p (one-sided):  3.517959e-16 
+# Odds ratio:            1.11
 
 ##############################
 ## new candidate locus Matt ##
@@ -503,9 +650,9 @@ if (retest == TRUE){
     feature = bed_features
   )
   listGR$top90$featureType <- ifelse(topAnno@members[, "prom"] == 1, "promoter",
-                                          ifelse(topAnno@members[, "exon"] == 1, "exon",
-                                                 ifelse(topAnno@members[, "intron"] == 1, "intron",
-                                                        "intergenic")))
+                                     ifelse(topAnno@members[, "exon"] == 1, "exon",
+                                            ifelse(topAnno@members[, "intron"] == 1, "intron",
+                                                   "intergenic")))
   allButTop90Anno <- genomation::annotateWithGeneParts(
     target  = listGR$allButTop90,
     feature = bed_features

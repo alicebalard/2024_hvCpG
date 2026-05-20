@@ -55,22 +55,3 @@ ggplot(df_plot, aes(x = alpha_X, fill=threshold)) +
 dev.off()
 
 table(df_plot$threshold)
-
-########################################################################
-## What are the positions with a high alpha in array but low in WGBS? ##
-########################################################################
-
-saveRDS(object = Z_inner[!is.na(Z_inner$alpha_X) & !is.na(Z_inner$alpha_Y) &
-                           Z_inner$alpha_X > 0.95 & Z_inner$alpha_Y < 0.5,] %>%
-          dplyr::select(name) %>% dplyr::rename(chrpos = name) %>% as.vector(), 
-        here("B_MultiTissues/dataOut/CpGArray95moreAtlas50less.RDS"))
-
-saveRDS(object = Z_inner[!is.na(Z_inner$alpha_X) & !is.na(Z_inner$alpha_Y) &
-                           Z_inner$alpha_X > 0.95 & Z_inner$alpha_Y > 0.5,] %>%
-          dplyr::select(name) %>% dplyr::rename(chrpos = name) %>% as.vector(),
-        here("B_MultiTissues/dataOut/CpGArray95moreAtlas50more.RDS"))
-
-saveRDS(object = Z_inner[!is.na(Z_inner$alpha_X) & !is.na(Z_inner$alpha_Y) &
-                           Z_inner$alpha_X > 0.5 & Z_inner$alpha_Y > 0.5,] %>%
-          dplyr::select(name) %>% dplyr::rename(chrpos = name) %>% as.vector(), 
-        here("B_MultiTissues/dataOut/CpGArray50moreAtlas50more.RDS"))
