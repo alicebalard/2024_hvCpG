@@ -101,7 +101,8 @@ prepAtlasdt <- function(subdir, p0, p1) {
   return(dt)
 }
 
-plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
+plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
+                                colorBySet = FALSE){
   # Compute chromosome centers for x-axis labeling
   df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
   df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
@@ -117,13 +118,9 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
   vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
   
   p <- ggplot() +
-    # background cloud
-    geom_point_rast(data = dt[is.na(group)], 
-                    aes(x = pos2, y = alpha),
-                    color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
     # Add dotted separators
     geom_vline(data = vlines, aes(xintercept = xintercept),
-               linetype = 3, color = "grey60") +
+               linetype = 3, color = "black", linewidth = 1) +
     theme_classic() + theme(legend.position = "none") +
     scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
@@ -131,7 +128,11 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
     theme_minimal(base_size = 14)
   
   if (plotDerakhshan == TRUE){
-    p <- p +   # hvCpG highlights
+    p <- p +  
+      # background cloud
+      geom_point_rast(data = dt[is.na(group)], 
+                      aes(x = pos2, y = alpha),
+                      color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
       geom_point(data = dt[group == "hvCpG_Derakhshan"],
                  aes(x = pos2, y = alpha),
                  color = "#DC3220", size = 1, alpha = 0.7) +
@@ -139,6 +140,19 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
       geom_point(data = dt[group == "mQTLcontrols"],
                  aes(x = pos2, y = alpha),
                  color = "#005AB5", size = 1, alpha = 0.7)
+  }
+  if (colorBySet == TRUE){
+    p <- p +
+      geom_point(data = dt,
+                 aes(x = pos2, y = alpha, color = set),
+                 alpha = transp, size = 1) +
+      facet_wrap(.~set, nrow = 5)
+  } else {
+    p <- p +
+      # background cloud
+      geom_point_rast(data = dt, 
+                      aes(x = pos2, y = alpha),
+                      color = "black", size = 0.01, alpha = transp, raster.dpi = 72) 
   }
   return(p)
 }
@@ -254,44 +268,44 @@ clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
     pos = as.integer(sub(".*_", "", CpGvec))
   )
   setkey(dt, chr, pos)
-
+  
   # gap to previous CpG
   dt[, gap := pos - data.table::shift(pos), by = chr]
-
+  
   # run ID increments whenever gap > max_gap OR different chromosome
   dt[, run_id := cumsum(is.na(gap) | gap > max_gap), by = chr]
-
+  
   # Count CpGs in each run
   dt[, run_size := .N, by = .(chr, run_id)]
-
+  
   # Keep only large runs
   dt[run_size >= min_size, raw]
 }
 
 ## STEP 2 — FAST GENE ANNOTATION (OFFLINE)
 annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
-
+  
   if (length(CpGs) == 0) return(character(0))
-
+  
   chr <- sub("_.*", "", CpGs)
   pos <- as.integer(sub(".*_", "", CpGs))
   gr  <- GRanges(chr, IRanges(pos, pos))
-
+  
   # Trim to seqinfo bounds to avoid out-of-bound warnings
   gr <- GenomicRanges::trim(gr)
-
+  
   txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
   genes_txdb <- GenomicFeatures::genes(txdb)
   promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window, downstream = tss_window)
-
+  
   # overlaps with gene bodies
   o1 <- findOverlaps(gr, genes_txdb)
   g1 <- genes_txdb$gene_id[subjectHits(o1)]
-
+  
   # overlaps with promoters
   o2 <- findOverlaps(gr, promoters_txdb)
   g2 <- promoters_txdb$gene_id[subjectHits(o2)]
-
+  
   return(unique(c(g1, g2)))
 }
 
@@ -313,22 +327,22 @@ CpG_GO_pipeline <- function(CpGvec,
                             max_gap = 50, min_size = 5,
                             tss_window = 10000,
                             universe = NULL) {
-
+  
   message("Clustering CpGs...")
   CpGclustered <- clusterCpGs(CpGvec, max_gap, min_size)
   message(sprintf("Reduced from %d to %d clustered CpGs",
                   length(CpGvec), length(CpGclustered)))
-
+  
   if (length(CpGclustered) == 0) {
     warning("No CpG clusters found.")
     return(NULL)
   }
-
+  
   message("Annotating genes...")
   ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
-
+  
   message(sprintf("Found %d Entrez genes", length(ensg)))
-
+  
   message("Running GO enrichment...")
   list = lapply(c("BP", "MF", "CC"), function(x) {runGO(ensg, universe, x)})
   names(list) = c("BP", "MF", "CC")
