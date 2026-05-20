@@ -60,12 +60,55 @@ for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) 
 }
 ## NB: the non atlas_general are INCOMPLETE --> rm and rerun when all finished!!
 
-## This code does:
-### I. Histogram of coverage across datasets
-### II. Load data & Manhattan plot
-### III. Test enrichment of features for high alpha
-### IV. Test for enrichment in other putative MEs for hvCpGs with alpha > threshold
+## Different p0 and p1 tested
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_9")
+}
 
+###########################################
+## Test different p0 and p1 in raw alpha ##
+###########################################
+
+Atlas_dt <- readRDS(
+  "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")
+nrow(Atlas_dt) # 21.522.541
+
+if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
+  stop("stop here to only prepare atlas_dt")
+}
+
+Atlas_dt_80p090p1 <- readRDS(
+  "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")
+
+# Set key if not already set
+setkey(Atlas_dt, name)
+setkey(Atlas_dt_80p090p1, name)
+
+# Merge only columns needed for plotting
+merged_dt <- Atlas_dt[Atlas_dt_80p090p1, 
+                      .(name, 
+                        alpha_general  = alpha,   
+                        alpha_80p090p1 = i.alpha),
+                      on = "name",
+                      nomatch = NULL] # inner join
+
+# Check
+nrow(merged_dt)
+head(merged_dt)
+
+set.seed(1234)
+
+merged_dt[sample(.N, 100000)] |>
+  ggplot(aes(x = alpha_general, y = alpha_80p090p1)) +
+  geom_point(alpha = 0.05, size = 0.3) +   # small/transparent for density
+  geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+  labs(x = "Pr(hv) p0=80%, p1=65%", y = "Pr(hv) p0=80%, p1=90%") +
+  theme_minimal()
+
+## Ranking is preserved. The tight linear band confirms both settings agree on which 
+# CpGs are most variable --> hvCpG list is robust to this parameter choice
+
+#######################
 ## Data in WGBS atlas:
 
 ## from the CS cluster: sample_groups <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/all_matrix_noscale.h5","sample_groups")
@@ -89,9 +132,9 @@ table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 # 3  4  5  6 10 
 # 33  9  2  1  1 
 
-##############################################
-## I. Histogram of coverage across datasets ##
-##############################################
+###########################################
+## Histogram of coverage across datasets ##
+###########################################
 
 # t5 <- read.table(here("04_prepAtlas/CpG_coverage_freqtable5X.tsv"), header = T)
 # t10 <- read.table(here("04_prepAtlas/CpG_coverage_freqtable10X.tsv"), header = T)
@@ -137,32 +180,51 @@ table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 # ## 84% of all CpGs (23/27.5M) are covered in 46 cell types
 # rm(t_combined, t5, t10)
 
-####################################
-## II. Load data & Manhattan plot ##
-####################################
-Atlas_dt <- readRDS("/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")
-
-nrow(Atlas_dt) # 21.522.541
-
-if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
-  stop("stop here to only prepare atlas_dt")
-}
-
 ####################
 ## Plot Manhattan ##
 ####################
 
-# plotManhattan1 <- plotManhattanFromdt(Atlas_dt)
-# ggplot2::ggsave(
-#   filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas_withDerakhshan.png"),
-#   plot = plotManhattan1, width = 14, height = 4,
-#   dpi = 300, bg = "white")
+plotManhattan1 <- plotManhattanFromdt(Atlas_dt, plotDerakhshan = FALSE)
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas.png"),
+  plot = plotManhattan1, width = 14, height = 4,
+  dpi = 300, bg = "white")
 
-# plotManhattan2 <- plotManhattanFromdt(Atlas_dt, plotDerakhshan = FALSE)
-# ggplot2::ggsave(
-#   filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas.png"),
-#   plot = plotManhattan2, width = 14, height = 4,
-#   dpi = 300, bg = "white")
+
+## Only previous MEs: 
+
+# 1. Convert GRanges to data.table for foverlaps
+putativeME_dt <- as.data.table(putativeME_GR)[, .(
+  chr   = sub("chr", "", seqnames),   # "chr1" -> "1" to match Atlas_dt
+  start = start,
+  end   = end,
+  set = set
+)]
+
+# 2. Add a point range to Atlas_dt (foverlaps needs two position columns)
+Atlas_dt[, pos_end := pos]   # point interval: start == end
+
+# 3. Set keys for foverlaps
+setkey(Atlas_dt,  chr, pos, pos_end)
+setkey(putativeME_dt, chr, start, end)
+
+# 4. Overlap join — returns only Atlas_dt rows falling inside a corSIV region
+Atlas_putativeME <- foverlaps(Atlas_dt, putativeME_dt,
+                              by.x = c("chr", "pos", "pos_end"),
+                              by.y = c("chr", "start", "end"),
+                              type = "within",
+                              nomatch = NULL)   # NULL = only matched rows (like inner join)
+
+Atlas_dt[, pos_end := NULL]
+
+plotManhattan3 <- plotManhattanFromdt(Atlas_putativeME, colorBySet = TRUE,
+                                      plotDerakhshan = FALSE, transp = .2) +
+  theme(legend.position = "none")
+
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas_prevMEs.png"),
+  plot = plotManhattan3, width = 14, height = 10,
+  dpi = 300, bg = "white")
 
 ###################################################################
 ## Calculate proba hvCpG minus matching control: is it always +? ##
@@ -226,7 +288,6 @@ gaps_dt <- Atlas_dt[gap >= 500000, .(
 
 # Drop first NA (since shift introduces one per chromosome)
 gaps_dt[!is.na(gap_size)]
-## Load the results at https://genome.ucsc.edu/cgi-bin/hgTracks
 
 ####################################
 ## Mitochondrial DNAm variability ##
