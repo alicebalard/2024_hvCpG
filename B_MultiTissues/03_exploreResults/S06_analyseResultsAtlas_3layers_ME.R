@@ -16,6 +16,7 @@ if (!exists("functionsLoaded")) {
 ## Load the set of previously tested MEs & vmeQTL
 if (!exists("previousSIVprepared")) {
   source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
+
 #####################################################################
 
 ## To avoid re-running everything:
@@ -163,6 +164,8 @@ p <- ggplot(df[sample(nrow(df), 100000),],
        subtitle = "(100k random CpG plotted)")
 
 table(is.na(df$alpha_geomean))
+# FALSE     TRUE 
+# 21522541  3027679 
 table(is.na(df$alpha_meso))
 table(is.na(df$alpha_endo))
 table(is.na(df$alpha_ecto))
@@ -177,7 +180,7 @@ ggplot2::ggsave(
 ############################################
 
 table3layersdt <- as.data.table(table3layers)
-table3layersdt$alpha <- table3layersdt$alpha_geomean
+names(table3layersdt)[names(table3layersdt) %in% "alpha_geomean"] <- "alpha"
 names(table3layersdt)[names(table3layersdt) %in% "seqnames"] <- "chr"
 names(table3layersdt)[names(table3layersdt) %in% "start"] <- "pos"
 
@@ -201,6 +204,8 @@ table3layersdt[, cum_offset := as.numeric(cum_offset)]
 table3layersdt[, pos2 := pos + cum_offset]
 
 table(is.na(table3layersdt$alpha))
+# FALSE     TRUE 
+# 21522541  3027679 
 
 plotManhattan3 <- plotManhattanFromdt(table3layersdt, plotDerakhshan = FALSE)
 ggplot2::ggsave(
@@ -212,7 +217,6 @@ ggplot2::ggsave(
 #######################################################
 ## Check alpha for the different MEs: are they high? ##
 #######################################################
-load(here("gitignore/fullTable3layers.Rda"))
 
 # Build GRanges from geometric mean
 geomMeanGR <- GRanges(seqnames = table3layers@seqnames,
@@ -266,6 +270,17 @@ fit <- lm(alpha_geomean ~ ME, data = MEsetdt)
 emm <- emmeans(fit, ~ ME)
 contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
   as.data.frame()
+
+emm
+# ME           emmean      SE    df lower.CL upper.CL
+# mQTLcontrols  0.211 0.00635 69709    0.199    0.224
+# CoRSIV        0.315 0.00141 69709    0.312    0.318
+# HarrisSIV     0.361 0.00974 69709    0.342    0.380
+# hvCpG         0.526 0.00656 69709    0.513    0.539
+# KesslerSIV    0.404 0.00684 69709    0.391    0.418
+# VanBaakESS    0.474 0.01070 69709    0.453    0.495
+# 
+# Confidence level used: 0.95 
 
 contrasts <- contrasts %>%
   mutate(ME = contrast,  # rename for clarity
@@ -424,10 +439,6 @@ summary_df %>%
 # wget -qO- https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz \
 # | zcat | awk '$5=="acen"' > centromeres_hg38.bed
 
-# Telomeres (from gap table)
-# wget -qO- https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/gap.txt.gz \
-# | zcat | awk '$8=="telomere"' | cut -f2-4 > telomeres_hg38.bed
-
 # 1. Parse coordinates from name vectors 
 parse_cpg_names <- function(names_vec) {
   dt <- data.table(name = names_vec)
@@ -512,112 +523,56 @@ getEnrichCentroTelo <- function(threshold = 0.90){
 
 getEnrichCentroTelo(0.9)
 ## For 90%, no enrichment
-
-getEnrichCentroTelo(0.8)
-## enriched 
 # ── Centromere ──
-# hvCpGs in region:      2581 / 252246 (1.02%) 
-# Background in region:  154438 / 19921363 (0.78%) 
-# Fold enrichment:       1.31 
-# Fisher p (one-sided):  1.912864e-41 
-# Odds ratio:            1.32 
+# hvCpGs in region:      1871 / 196333 (0.95%) 
+# Background in region:  190918 / 21522541 (0.89%) 
+# Fold enrichment:       1.07 
+# Fisher p (one-sided):  0.001123841 
+# Odds ratio:            1.08 
 # 
 # ── Subtelomere (1Mb) ──
-# hvCpGs in region:      5347 / 252246 (2.12%) 
-# Background in region:  408962 / 19921363 (2.05%) 
-# Fold enrichment:       1.03 
-# Fisher p (one-sided):  0.009733627 
-# Odds ratio:            1.03 
+# hvCpGs in region:      4040 / 196333 (2.06%) 
+# Background in region:  482013 / 21522541 (2.24%) 
+# Fold enrichment:       0.92 
+# Fisher p (one-sided):  1 
+# Odds ratio:            0.92 
+
+getEnrichCentroTelo(0.8)
+## enriched in centromeres 
+# ── Centromere ──
+# hvCpGs in region:      3701 / 282564 (1.31%) 
+# Background in region:  190918 / 21522541 (0.89%) 
+# Fold enrichment:       1.47 
+# Fisher p (one-sided):  1.526111e-109 
+# Odds ratio:            1.48 
+# 
+# ── Subtelomere (1Mb) ──
+# hvCpGs in region:      6261 / 282564 (2.22%) 
+# Background in region:  482013 / 21522541 (2.24%) 
+# Fold enrichment:       0.99 
+# Fisher p (one-sided):  0.8037475 
+# Odds ratio:            0.99 
 
 getEnrichCentroTelo(0.70)
 ## enriched 
 # ── Centromere ──
-# hvCpGs in region:      5705 / 335294 (1.7%) 
-# Background in region:  154438 / 19921363 (0.78%) 
-# Fold enrichment:       2.18 
+# hvCpGs in region:      8246 / 415760 (1.98%) 
+# Background in region:  190918 / 21522541 (0.89%) 
+# Fold enrichment:       2.22 
 # Fisher p (one-sided):  0 
-# Odds ratio:            2.22 
+# Odds ratio:            2.26 
 # 
 # ── Subtelomere (1Mb) ──
-# hvCpGs in region:      8260 / 335294 (2.46%) 
-# Background in region:  408962 / 19921363 (2.05%) 
-# Fold enrichment:       1.2 
-# Fisher p (one-sided):  1.007335e-58 
-# Odds ratio:            1.21
-
-## For 75%, enrichment
-# ── Centromere ──
-# hvCpGs in region:      3693 / 287686 (1.28%) 
-# Background in region:  154438 / 19921363 (0.78%) 
-# Fold enrichment:       1.64 
-# Fisher p (one-sided):  9.445851e-175 
-# Odds ratio:            1.66 
-# 
-# ── Subtelomere (1Mb) ──
-# hvCpGs in region:      6535 / 287686 (2.27%) 
-# Background in region:  408962 / 19921363 (2.05%) 
-# Fold enrichment:       1.11 
-# Fisher p (one-sided):  3.517959e-16 
-# Odds ratio:            1.11
-
-##############################
-## new candidate locus Matt ##
-##############################
-
-## Matt's data are in hg19
-dataMatt <- readxl::read_xlsx(here("gitignore/DEGCAGS_intersect_repeats_Alice.xlsx"))
-
-# --- Download and import hg19 → hg38 chain file ---
-chain_dir <- here("B_MultiTissues/dataIn")
-chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
-chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
-
-if (!file.exists(chain_file)) {
-  message("⬇️  Downloading UCSC liftOver chain file...")
-  dir.create(chain_dir, showWarnings = FALSE, recursive = TRUE)
-  download.file(
-    url = "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz",
-    destfile = chain_gz,
-    quiet = TRUE
-  )
-  R.utils::gunzip(chain_gz, destname = chain_file, remove = FALSE)
-}
-chain <- import.chain(chain_file)
-
-# --- Liftover (hg19 → hg38) ---
-dataMatt_gr <- GRanges(
-  seqnames = dataMatt$chromosome,
-  ranges = IRanges(start = dataMatt$start, end = dataMatt$end),
-  alpha_endo = NA,  alpha_meso = NA,  alpha_ecto = NA,  alpha_all = NA,
-  hg19_chr = dataMatt$chromosome, hg19_start = dataMatt$start, hg19_end = dataMatt$end,
-  `%change` = dataMatt$`%change`, padj = dataMatt$padj,
-  TE_chromosome = dataMatt$TE_chromosome, TE_start = dataMatt$TE_start,
-  TE_end = dataMatt$TE_end, TE_family = dataMatt$TE_family,TE_type = dataMatt$TE_type
-)
-
-mapped <- liftOver(dataMatt_gr, chain)
-
-# Keep one-to-one mappings only
-keep <- lengths(mapped) == 1
-dataMatt_hg38_gr <- unlist(mapped[keep])
-
-# Initialise the column with NA first
-dataMatt_hg38_gr$alpha_geomean <- NA_real_
-# Find overlapping ranges
-overlaps <- findOverlaps(dataMatt_hg38_gr, geomMeanGR)
-dataMatt_hg38_gr[queryHits(overlaps),]$alpha_geomean <- 
-  geomMeanGR[subjectHits(overlaps),]$alpha_geomean
-
-ggplot(as.data.frame(dataMatt_hg38_gr), aes(x = "all", y=alpha_geomean)) +
-  geom_violin() +
-  geom_boxplot(width = .2) +
-  geom_jitter() +
-  theme_minimal(base_size = 14) 
+# hvCpGs in region:      9858 / 415760 (2.37%) 
+# Background in region:  482013 / 21522541 (2.24%) 
+# Fold enrichment:       1.06 
+# Fisher p (one-sided):  9.630318e-09 
+# Odds ratio:            1.06 
 
 ############################################################################
 ## Test in B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
 ############################################################################
-length(top90SNPrm) # 183090 (still running!!!)
+length(top90SNPrm) # 196.333
 
 ## Map on arrays
 matches <- match(x = top90SNPrm, table = dico$chrpos_hg38)
@@ -626,13 +581,10 @@ Pos <- dico[na.omit(matches), ]
 
 table(Pos$array)
 # 450k 450k and EPIC          EPIC 
-# 78           978           649 
-# 49+592 = 641 on the 450k array
-# 592+514 = 1106 on the EPIC array
+# 80          1026           718
 
-### TBC!!
-
-saveRDS(Pos, here("B_MultiTissues/03_exploreResults/fetalSIV/topIntersect90_pos.RDS"))
+# 80+1026 = 1106 on the 450k array
+# 1026+718 = 1744 on the EPIC array
 
 #################################
 ## Test enrichment of features ##
@@ -681,7 +633,7 @@ if (retest == TRUE){
   
   enrich_list <- lapply(feat_levels, function(f) {
     # 2x2 table for feature f vs not‑f
-    a <- sub_counts[f]                      # subset in feature f
+    a <- sub_counts[f]                     # subset in feature f
     b <- sum(sub_counts)  - a              # subset not in f
     c <- bg_counts[f] - a                  # background in f but not in subset
     d <- sum(bg_counts) - bg_counts[f] - b # background not in f and not in subset
@@ -709,7 +661,7 @@ if (retest == TRUE){
     mutate(p_adj = p.adjust(p_value, method = "BH")) |>
     mutate(log2_or = log2(odds_ratio))
   
-  ggplot(enrich_df, aes(x = reorder(feature, log2_or), y = log2_or)) +
+  p <- ggplot(enrich_df, aes(x = reorder(feature, log2_or), y = log2_or)) +
     geom_col(aes(fill = log2_or > 0)) +
     geom_hline(yintercept = 0, linetype = "dashed") +
     scale_fill_manual(values = c("TRUE" = "steelblue", "FALSE" = "indianred3"), 
@@ -717,6 +669,8 @@ if (retest == TRUE){
     labs(x = "Feature", y = "log₂(odds ratio)") +
     coord_flip()+
     theme_minimal(base_size = 14)
+  
+  p
 }
 
 ###############################
@@ -1010,6 +964,59 @@ ggplot() +
 
 
 
+##############################
+## new candidate locus Matt ##
+##############################
+
+## Matt's data are in hg19
+dataMatt <- readxl::read_xlsx(here("gitignore/DEGCAGS_intersect_repeats_Alice.xlsx"))
+
+# --- Download and import hg19 → hg38 chain file ---
+chain_dir <- here("B_MultiTissues/dataIn")
+chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
+chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
+
+if (!file.exists(chain_file)) {
+  message("⬇️  Downloading UCSC liftOver chain file...")
+  dir.create(chain_dir, showWarnings = FALSE, recursive = TRUE)
+  download.file(
+    url = "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz",
+    destfile = chain_gz,
+    quiet = TRUE
+  )
+  R.utils::gunzip(chain_gz, destname = chain_file, remove = FALSE)
+}
+chain <- import.chain(chain_file)
+
+# --- Liftover (hg19 → hg38) ---
+dataMatt_gr <- GRanges(
+  seqnames = dataMatt$chromosome,
+  ranges = IRanges(start = dataMatt$start, end = dataMatt$end),
+  alpha_endo = NA,  alpha_meso = NA,  alpha_ecto = NA,  alpha_all = NA,
+  hg19_chr = dataMatt$chromosome, hg19_start = dataMatt$start, hg19_end = dataMatt$end,
+  `%change` = dataMatt$`%change`, padj = dataMatt$padj,
+  TE_chromosome = dataMatt$TE_chromosome, TE_start = dataMatt$TE_start,
+  TE_end = dataMatt$TE_end, TE_family = dataMatt$TE_family,TE_type = dataMatt$TE_type
+)
+
+mapped <- liftOver(dataMatt_gr, chain)
+
+# Keep one-to-one mappings only
+keep <- lengths(mapped) == 1
+dataMatt_hg38_gr <- unlist(mapped[keep])
+
+# Initialise the column with NA first
+dataMatt_hg38_gr$alpha_geomean <- NA_real_
+# Find overlapping ranges
+overlaps <- findOverlaps(dataMatt_hg38_gr, geomMeanGR)
+dataMatt_hg38_gr[queryHits(overlaps),]$alpha_geomean <- 
+  geomMeanGR[subjectHits(overlaps),]$alpha_geomean
+
+ggplot(as.data.frame(dataMatt_hg38_gr), aes(x = "all", y=alpha_geomean)) +
+  geom_violin() +
+  geom_boxplot(width = .2) +
+  geom_jitter() +
+  theme_minimal(base_size = 14) 
 
 
 
