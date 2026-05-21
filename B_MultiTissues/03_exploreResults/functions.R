@@ -69,17 +69,9 @@ prepAtlasdt <- function(subdir, p0, p1) {
   # Convert to integer/numeric if not already
   dt[, pos := as.integer(pos)]
   
-  ## Check chromosomes present:
-  message("Chromosomes in the dataset:")
-  table(unique(dt$chr))
-  
   # Convert chr from "chrN" to  factor
   dt[, chr := sub("chr", "", chr)]
   dt[, chr := factor(chr, levels = as.character(c(1:22, "X", "Y", "M")))]
-  
-  ## Check chromosomes order:
-  message("Chromosomes in the dataset:")
-  table(unique(dt$chr))
   
   ## Mark group membership in dt
   dt[, group := NA_character_]

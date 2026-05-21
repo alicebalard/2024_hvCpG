@@ -32,24 +32,59 @@ if (!exists("resArray")) {
 ## Save all data in RDS objects ##
 ##################################
 savePrepedAtlasFile <- function(file, p0, p1) {
-  out_path <- here(paste0("gitignore/resultsAtlasPrepared/fullres_", 
+  out_path <- here(paste0("gitignore/resultsAtlasPrepared/fullres_",
                           p0, "p0_", p1, "p1_", file, ".rds"))
+  
+  # ── Completeness check ────────────────────────────────────────────────────
+  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", file))
+  pattern    <- paste0(p0, "p0_", p1, "p1.rds$")
+  rds_files  <- base::dir(parent_dir,
+                          pattern   = pattern,
+                          recursive = TRUE,
+                          full.names = TRUE)
+  n_files <- length(rds_files)
+  
+  if (n_files == 0) {
+    message("SKIP ", file, " - no matching files found (run incomplete?).")
+    return(invisible(NULL))
+  }
+  
+  # Check 1: batch number in folder name matches file count
+  batch_dirs <- unique(dirname(rds_files))
+  batch_nums <- as.integer(regmatches(batch_dirs,
+                                      regexpr("(?<=Atlas_batch)\\d+",
+                                              batch_dirs, perl = TRUE)))
+  expected_n <- max(batch_nums, na.rm = TRUE)  # e.g. 096 -> 96
+  
+  if (n_files != expected_n) {
+    message("SKIP ", file, " - expected ", expected_n,
+            " files (from Atlas_batch", expected_n, ") but found ", n_files, ".")
+    return(invisible(NULL))
+  }
+  
+  # Check 2: last file (most recent) must not have exactly 250000 CpGs
+  # (250000 = incomplete/truncated batch sentinel value)
+  last_file   <- rds_files[order(rds_files) |> tail(1)]
+  cpg_in_name <- as.integer(regmatches(last_file,
+                                       regexpr("(?<=_)\\d+(?=CpGs)",
+                                               last_file, perl = TRUE)))
+  
+  if (!is.na(cpg_in_name) && cpg_in_name == 250000) {
+    message("SKIP ", file, " - last file has exactly 250000 CpGs,",
+            " suggesting an incomplete/truncated run: ",
+            basename(last_file))
+    return(invisible(NULL))
+  }
+  
+  message("OK   ", file, " - ", n_files, "/", expected_n,
+          " files, last batch has ", cpg_in_name, " CpGs.")
   
   if (file.exists(out_path)) {
     message("File ", file, " already prepared - skipping.")
     return(invisible(NULL))
   }
   
-  # Check files exist before attempting
-  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", file))
-  n_files <- length(base::dir(parent_dir, 
-                              pattern = paste0(p0, "p0_", p1, "p1.rds$"),
-                              recursive = TRUE))
-  if (n_files == 0) {
-    message("Skipping ", file, " - no matching files found (incomplete run?).")
-    return(invisible(NULL))
-  }
-  
+  ## Prepare if not prepared yet (long):
   system.time(Atlas_dt <- prepAtlasdt(file, p0, p1))
   saveRDS(Atlas_dt, file = out_path)
   message("Saved: ", out_path)
@@ -58,12 +93,14 @@ savePrepedAtlasFile <- function(file, p0, p1) {
 for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_65")
 }
-## NB: the non atlas_general are INCOMPLETE --> rm and rerun when all finished!!
+
+## SKIP 18_mesoEndo - no matching files found (run incomplete?).
 
 ## Different p0 and p1 tested
 for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_9")
 }
+## SKIP atlas_general - expected 87 files (from Atlas_batch87) but found 86.
 
 ###########################################
 ## Test different p0 and p1 in raw alpha ##
@@ -76,6 +113,9 @@ nrow(Atlas_dt) # 21.522.541
 if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
   stop("stop here to only prepare atlas_dt")
 }
+
+## TBC !!!!!!!!!!!!!!!!!!!
+
 
 Atlas_dt_80p090p1 <- readRDS(
   "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")
@@ -111,20 +151,22 @@ merged_dt[sample(.N, 100000)] |>
 #######################
 ## Data in WGBS atlas:
 
-## from the CS cluster: sample_groups <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/all_matrix_noscale.h5","sample_groups")
-# sample_groups <- readRDS(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/sample_groups.RDS"))
-# 
-# ggplot(data.frame(table(sample_groups)), aes(x = Freq)) +
-#   geom_histogram(bins = 100, fill = "steelblue", color = "white") +
-#   theme_minimal(base_size = 14) +
-#   labs(
-#     title = "Distribution of number of samples per dataset",
-#     x = "Number of samples",
-#     y = "Count of datasets"
-#   ) +
-#   scale_x_continuous(breaks = seq(0, 10, by = 1))
-# 
-# table(sample_groups)
+## from the CS cluster: 
+## /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/output_atlas_general/sample_metadata.tsv
+sample_groups <- read.table(
+  here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/sample_metadata.tsv"), 
+  sep = "\t", header = T)
+
+sample_groups %>% group_by(dataset) %>% summarise(n = n()) %>% 
+  ggplot(aes(x = n)) +
+  geom_histogram(bins = 100, fill = "steelblue", color = "white") +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Distribution of number of samples per dataset",
+    x = "Number of samples",
+    y = "Count of datasets"
+  ) +
+  scale_x_continuous(breaks = seq(0, 10, by = 1))
 
 SupTab1_Loyfer2023 <- read.csv(here("B_MultiTissues/dataIn/SupTab1_Loyfer2023.csv"))
 SupTab1_Loyfer2023$group <- paste(SupTab1_Loyfer2023$Source.Tissue, SupTab1_Loyfer2023$Cell.type, sep = " - ")
@@ -189,7 +231,6 @@ ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas.png"),
   plot = plotManhattan1, width = 14, height = 4,
   dpi = 300, bg = "white")
-
 
 ## Only previous MEs: 
 
@@ -288,6 +329,33 @@ gaps_dt <- Atlas_dt[gap >= 500000, .(
 
 # Drop first NA (since shift introduces one per chromosome)
 gaps_dt[!is.na(gap_size)]
+
+# chr gap_start   gap_end gap_size
+# <fctr>     <int>     <int>    <int>
+#   1:      1        NA 124793275  2292432
+# 2:      1 124793275 143184605 18000029
+# 3:      2 143184605  91406100  1003595
+# 4:      5  91406100  49592147  2283407
+# 5:      9  49592147  60518620 15041410
+# 6:     14  60518620  18223731  2127270
+# 7:     16  18223731  46380693  8100344
+# 8:     19  46380693  27240939  2332752
+# 9:     21  27240939   6070102   677715
+# 10:     21   6070102  12966132  2151768
+# 11:     22  12966132  15158090  2253761
+# 12:      X  15158090  60274012   786392
+# 13:      X  60274012  61918466   981691
+# 14:      Y  61918466   5043719   914090
+# 15:      Y   5043719   5765474   721626
+# 16:      Y   5765474   6533721   768247
+# 17:      Y   6533721   7395909   860254
+# 18:      Y   7395909   8138220   742288
+# 19:      Y   8138220  10087019  1948799
+# 20:      Y  10087019  13725309  1975980
+# 21:      Y  13725309  17064135  3338784
+# 22:      Y  17064135  26436653  9337728
+# 23:      Y  26436653  56677947 30022457
+# chr gap_start   gap_end gap_size
 
 ####################################
 ## Mitochondrial DNAm variability ##
@@ -395,3 +463,19 @@ ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/barplotFeaturesbyAlpha.png"),
   plot = p, width = 6, height = 4,
   dpi = 300, bg = "white")
+
+###################
+## rmMultSamples ## 
+###################
+
+## Some individuals have multiple cells sampled. Does that affect our results? NOPE
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_0_vs_2_rmMultSamples.pdf")))){
+  makeCompPlot(
+    X = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")),
+    Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_02_rmMultSamples.rds")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_0_vs_2_rmMultSamples",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets keeping one sample/individual only")
+}
