@@ -30,8 +30,6 @@ dataMatt <- readxl::read_xlsx(here("gitignore/DEGCAGS_intersect_repeats_Alice.xl
 
 LTR41table <- dataMatt[grepl("LTR41", dataMatt$TE_family),]
 
-saveRDS(LTR41table, "fetalSIV/LTR41table.RDS")
-
 # --- Liftover (hg19 → hg38) ---
 LTR41table_gr <- GRanges(
   seqnames = LTR41table$chromosome,
@@ -60,6 +58,8 @@ chr_order <- paste0("chr", c(1:22, "X", "Y"))
 result_df <- result_df %>%
   mutate(seqnames = factor(seqnames,
                            levels = chr_order[chr_order %in% unique(seqnames)]))
+## Save for SIV test in fetal script
+saveRDS(result_df, "fetalSIV/LTR41table.RDS")
 
 # Get genome-wide means for reference lines
 genome_means <- table3layers %>%
