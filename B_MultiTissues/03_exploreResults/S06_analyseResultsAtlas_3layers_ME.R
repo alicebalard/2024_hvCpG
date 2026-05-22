@@ -21,6 +21,9 @@ if (!exists("previousSIVprepared")) {
 
 ## To avoid re-running everything:
 load(here("gitignore/fullTable3layers.Rda"))
+totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
+top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
+                             (table3layers$alpha_geomean >= .9), ]$chr_pos
 
 ############################################
 
@@ -317,19 +320,16 @@ top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) &
 message(paste0("Total CpG sites with non NA geometric mean: ", length(totalSiteswGeomMean)))
 message(paste0("Total top90 CpG sites: ", length(top90SNPrm), " (", 
                round(length(top90SNPrm)/length(totalSiteswGeomMean)*100,2), "% of total)"))
-
-saveRDS(top90SNPrm, file = here("gitignore/top90SNPrm.RDS"))
-saveRDS(totalSiteswGeomMean, file = here("gitignore/alButtop90SNPrm.RDS"))
+# Total CpG sites with non NA geometric mean: 21522541
+# 196333 (0.91% of total)
 
 ####################################################################################
 ## Test enrichement of the most likely germ layer-universal hvCpG in previous MEs ##
 ####################################################################################
-if (!exists("top90SNPrm")){
-  top90SNPrm <- readRDS(overlap, file = here("gitignore/top90SNPrm.RDS"))}
-
-listGR <- list(top90 = makeGRfromMyCpGPos(vec = top90SNPrm, setname = "top90CpGs"),
-               allButTop90 = makeGRfromMyCpGPos(
-                 setdiff(totalSiteswGeomMean, top90SNPrm), "allButTop90"))
+if (!exists("listGR")){
+  listGR <- list(top90 = makeGRfromMyCpGPos(vec = top90SNPrm, setname = "top90CpGs"),
+                 allButTop90 = makeGRfromMyCpGPos(
+                   setdiff(totalSiteswGeomMean, top90SNPrm), "allButTop90"))}
 
 # ---- Run it (ME sets in putativeME_GR$set will be tested separately)
 res_quadrants <- test_enrichment_quadrants(listGR, putativeME_GR, me_col = "set")
@@ -609,10 +609,10 @@ if (retest == TRUE){
     target  = listGR$allButTop90,
     feature = bed_features
   )
-  overlapLayers_GR$featureType <- ifelse(allAnno@members[, "prom"] == 1, "promoter",
-                                         ifelse(allAnno@members[, "exon"] == 1, "exon",
-                                                ifelse(allAnno@members[, "intron"] == 1, "intron",
-                                                       "intergenic")))
+  listGR$allButTop90$featureType <- ifelse(allButTop90Anno@members[, "prom"] == 1, "promoter",
+                                           ifelse(allButTop90Anno@members[, "exon"] == 1, "exon",
+                                                  ifelse(allButTop90Anno@members[, "intron"] == 1, "intron",
+                                                         "intergenic")))
   
   ## 1. Build counts for subset vs background 
   
@@ -620,8 +620,8 @@ if (retest == TRUE){
   feat_levels <- c("promoter", "exon", "intron", "intergenic")
   
   # Count CpGs per feature
-  bg_counts   <- table(factor(overlapLayers_GR$featureType,   levels = feat_levels))
-  sub_counts  <- table(factor(top90SNPrm_GR$featureType, levels = feat_levels))
+  bg_counts   <- table(factor(listGR$allButTop90$featureType,   levels = feat_levels))
+  sub_counts  <- table(factor(listGR$top90$featureType, levels = feat_levels))
   
   # Combine into a 2x4 contingency table
   cont_tab <- rbind(
@@ -660,22 +660,23 @@ if (retest == TRUE){
   enrich_df <- bind_rows(enrich_list) |>
     mutate(p_adj = p.adjust(p_value, method = "BH")) |>
     mutate(log2_or = log2(odds_ratio))
+  enrich_df
+  # feature subset_n     bg_n subset_prop    bg_prop odds_ratio       p_value         p_adj    log2_or
+  # 1   promoter    17168  3171023  0.08744327 0.14869137  0.5461601  1.000000e+00  1.000000e+00 -0.8726043
+  # 2       exon     7081  1194839  0.03606628 0.05602679  0.6281852  1.000000e+00  1.000000e+00 -0.6707382
+  # 3     intron   116681 12025864  0.59430152 0.56390072  1.1341610 3.351803e-165 6.703607e-165  0.1816254 ***
+  # 4 intergenic    55403  4934482  0.28218893 0.23138113  1.3093824  0.000000e+00  0.000000e+00  0.3888865 ***
   
-  p <- ggplot(enrich_df, aes(x = reorder(feature, log2_or), y = log2_or)) +
-    geom_col(aes(fill = log2_or > 0)) +
-    geom_hline(yintercept = 0, linetype = "dashed") +
-    scale_fill_manual(values = c("TRUE" = "steelblue", "FALSE" = "indianred3"), 
-                      guide = "none") +
-    labs(x = "Feature", y = "log₂(odds ratio)") +
-    coord_flip()+
-    theme_minimal(base_size = 14)
-  
-  p
+  ## Enrichment in intron & intergenic regions of the top 90% hvCpGs ***
 }
 
 ###############################
 ## Test GO of top candidates ##
 ###############################
+
+# totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
+# top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
+#                              (table3layers$alpha_geomean >= .9), ]$chr_pos
 
 # Method 1. ClusterProfiler
 
@@ -687,28 +688,59 @@ minimum_CpG_per_cluster = 2
 
 ## Create universe
 universe <- annotateCpGs_txdb(
-  clusterCpGs(overlapLayers, max_gap = 50, min_size = minimum_CpG_per_cluster),
-  tss_window = 10000
-)
+  clusterCpGs(totalSiteswGeomMean, max_gap = 50, min_size = minimum_CpG_per_cluster),
+  tss_window = 10000)
 
 print(paste0("Gene universe contains ", length(universe), " genes"))
-## "Gene universe contains 25159 genes"
+## "Gene universe contains 32717 genes"
 
 ## Annotate 
-resAnnot_topIntersect90 <- CpG_GO_pipeline(
-  topIntersect90, universe = universe, 
-  max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000)
-## Reduced from 174494 to 6906 clustered CpGs
+# resAnnot_top90SNPrm <- CpG_GO_pipeline(
+#   top90SNPrm, universe = universe, 
+#   max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000)
+# # Reduced from 196333 to 7111 clustered CpGs
+# # Found 1641 Entrez genes
+# # Running GO enrichment...
 
-df_all <- purrr::imap_dfr(resAnnot_topIntersect90, function(er, ont_name) {
+# Original (no length control)
+resAnnot_top90SNPrm <- CpG_GO_pipeline(
+  top90SNPrm, universe = universe,
+  max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000)
+# Reduced from 196333 to 7111 clustered CpGs
+# 2169 genes were dropped because they have exons located on both strands of the same reference sequence or on more than one
+# reference sequence, so cannot be represented by a single genomic range.
+# Found 1641 Entrez genes
+# Running GO enrichment...
+
+# Length-controlled
+resAnnot_top90SNPrm_lenCtrl <- CpG_GO_pipeline_lengthControlled(
+  top90SNPrm, universe = universe,
+  max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000,
+  control_length = TRUE)
+# Found 1641 Entrez genes
+# Controlling for gene length...
+# Median gene length — foreground: 5,514 bp, universe: 3,100 bp, ratio: 1.78
+# Length-matched universe: 16779 genes (was 32717)
+# Running GO enrichment...
+
+# Compare which terms survive
+terms_original    <- resAnnot_top90SNPrm$BP@result %>% filter(p.adjust < 0.05) %>% pull(ID)
+terms_lenCtrl     <- resAnnot_top90SNPrm_lenCtrl$BP@result %>% filter(p.adjust < 0.05) %>% pull(ID)
+
+cat("BP terms before length control:", length(terms_original), "\n")
+cat("BP terms after  length control:", length(terms_lenCtrl),  "\n")
+cat("Terms lost:", length(setdiff(terms_original, terms_lenCtrl)), "\n")
+cat("Terms gained:", length(setdiff(terms_lenCtrl, terms_original)), "\n")
+
+df_all <- purrr::imap_dfr(resAnnot_top90SNPrm_lenCtrl, function(er, ont_name) {
   if (is.null(er) || nrow(er@result) == 0) return(tibble())
   as_tibble(er@result) |> 
-    mutate(group_raw = "topIntersect90", ontology = ont_name)
+    mutate(group_raw = "top90SNPrm", ontology = ont_name)
 }) |> bind_rows()
 
 df_all <- df_all |>
   mutate(
-    group = "topIntersect90",
+    group = "top90SNPrm",
     group = factor(group),
     ontology = factor(ontology, levels = c("BP", "MF", "CC"))
   )
@@ -733,7 +765,7 @@ p <- ggplot(df_sig, aes(x = group, y = Description)) +
   facet_wrap(ontology ~ ., scales = "free", space = "free_x") +
   theme_bw(base_size = 11) +
   labs(x = NULL, y = NULL, 
-       title = "GO Enrichment: topIntersect90 (FDR < 0.05)") +
+       title = "GO Enrichment: top90SNPrm (FDR < 0.05)") +
   theme(
     legend.position = "top",
     axis.text.y = element_text(size = 9),
@@ -741,6 +773,8 @@ p <- ggplot(df_sig, aes(x = group, y = Description)) +
   )
 
 print(p)
+write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
+          quote = F, row.names = F)
 
 # Method 2. rgreat
 # GREAT analysis was conducted using the rGREAT R package (Gu and Hübschmann 2023).
@@ -750,18 +784,24 @@ print(p)
 # The background set consists of all the sequenced CpGs 
 # We reported ontologies after an FDR-adjusted hypergeometric p value<0.05 and an unadjusted hypergeometric p value<0.001. 
 ## The GREAT settings used were hg38 for the species assembly
-background <- makeGRfromMyCpGPos(overlapLayers, "background")
-foreground <- makeGRfromMyCpGPos(topIntersect90, "topIntersect90")
+background <- makeGRfromMyCpGPos(totalSiteswGeomMean, "background")
+foreground <- makeGRfromMyCpGPos(top90SNPrm, "top90SNPrm")
 
-system.time(res <- great(gr = foreground, gene_sets = "GO:BP", biomart_dataset = "hg38", background = background, cores = 10))
-saveRDS(res, file = here(paste0("B_MultiTissues/03_exploreResults/annotations/topIntersect90_rGREAT.RDS")))
+system.time(res <- great(gr = foreground, gene_sets = "GO:BP", biomart_dataset = "hg38", 
+                         background = background, cores = 10))
+saveRDS(res, file = here(paste0("B_MultiTissues/03_exploreResults/rGreatGO_top90SNPrm.RDS")))
+
+# Run both and compare. If ephrin/neuron recognition terms survive in GREAT, that tells something important
+# about the source of the signal = results are robust to the methodological choice.
+# I can report clusterProfiler with gene length correction as the primary analysis 
+# (more methodologically rigorous, more transparent) and GREAT as a validation with a different
+# and partially orthogonal approach to the length bias problem.
 
 #######################
 ## Enrichement in TE ##
 #######################
 
 # UCSC RepeatMasker annotations (Oct2022) for Human (hg38) from AnnotationHub
-library(AnnotationHub)
 ah <- AnnotationHub()
 query(ah, c("UCSC", "RepeatMasker", "Homo sapiens"))
 
@@ -775,254 +815,61 @@ te_regions <- rmskhg38[mcols(rmskhg38)$repFamily %in% c("ERV1", "ERVK")]
 table(mcols(te_regions)$repFamily)
 length(te_regions)  # Total TE regions
 
-top90SNPrm_GR <- makeGRfromMyCpGPos(topIntersect90, "topIntersect90")
-overlap.1or2_GR <- makeGRfromMyCpGPos(overlap.1or2, "overlap.1or2")
-overlapLayers_GR <- makeGRfromMyCpGPos(overlapLayers, "overlapLayers")
+top90SNPrm_GR <- makeGRfromMyCpGPos(top90SNPrm, "top90SNPrm")
+totalSiteswGeomMean_GR <- makeGRfromMyCpGPos(totalSiteswGeomMean, "totalSiteswGeomMean")
 
-getERVenrichTable <- function(te_regions, mysubtitle, target, nameTarget = "topIntersect90"){
-  # Find overlaps
-  te_intersectTarget <- te_regions[overlapsAny(te_regions, target, ignore.strand=TRUE)]
-  te_overlapLayers <- te_regions[overlapsAny(te_regions, overlapLayers_GR, ignore.strand=TRUE)]
+# Strict background = non-hvCpG sites only
+bg_only_GR <- makeGRfromMyCpGPos(totalSiteswGeomMean[!totalSiteswGeomMean %in% top90SNPrm], "bg_only")
+
+# Test: of all CpGs, are hvCpGs more likely to fall inside an ERV1/ERVK region than background CpGs?
+fisher_test_erv <- function(family, target, mybackground,
+                            nameTarget = "foreground") {
   
-  # Function for Fisher's test by repFamily
-  fisher_test_erv <- function(family, foreground, background) {
-    hits <- sum(mcols(foreground)$repFamily == family)
-    bg <- sum(mcols(background)$repFamily == family)
-    
-    contingency <- matrix(c(
-      hits,
-      length(target) - hits,
-      bg,
-      length(overlapLayers) - bg
-    ), nrow=2, byrow=TRUE)
-    
-    rownames(contingency) <- c(nameTarget, "background")
-    colnames(contingency) <- c(family, "other")
-    
-    test <- fisher.test(contingency)
-    list(
-      family = family,
-      contingency = contingency,
-      pvalue = test$p.value,
-      odds_ratio = test$estimate
-    )
-  }
+  te_family_gr <- te_regions[mcols(te_regions)$repFamily == family]  # fine as-is
   
-  # Test ERV1 and ERVK separately
-  erv1_test <- fisher_test_erv("ERV1", te_intersectTarget, te_overlapLayers)
-  ervk_test <- fisher_test_erv("ERVK", te_intersectTarget, te_overlapLayers)
+  fg_in  <- sum(overlapsAny(target,       te_family_gr, ignore.strand = TRUE))
+  fg_out <- length(target) - fg_in
+  bg_in  <- sum(overlapsAny(mybackground, te_family_gr, ignore.strand = TRUE))
+  bg_out <- length(mybackground) - bg_in
   
-  # Results
-  summary_df <- data.frame(
-    ERV = c("ERV1", "ERVK"),
-    contingency = I(list(erv1_test$contingency, ervk_test$contingency)),
-    n_hits = c(erv1_test$contingency[1,1], ervk_test$contingency[1,1]),
-    n_total = c(sum(erv1_test$contingency[1,]), sum(ervk_test$contingency[1,])),
-    n_bg_hits = c(erv1_test$contingency[2,1], ervk_test$contingency[2,1]),
-    n_bg_total = c(sum(erv1_test$contingency[2,]), sum(ervk_test$contingency[2,])),
-    p_value = c(erv1_test$pvalue, ervk_test$pvalue),  # Keep raw numbers
-    odds_ratio = c(erv1_test$odds_ratio, ervk_test$odds_ratio)
-  ) %>%
-    mutate(
-      pct_hits = n_hits / n_total,
-      pct_bg = n_bg_hits / n_bg_total,
-      p_value_fmt = case_when(
-        p_value < 2.2e-16 ~ "<2.2e-16",
-        p_value < 0.001 ~ sprintf("%.2e", p_value),
-        TRUE ~ sprintf("%.3f", p_value)
-      ))
-  
-  # Pretty GT table
-  summary_df %>%
-    dplyr::select(ERV, n_hits, n_total, pct_hits, n_bg_hits, n_bg_total, pct_bg, p_value_fmt, odds_ratio) %>%
-    gt() %>%
-    fmt_number(columns = c(n_hits, n_total, n_bg_hits, n_bg_total), decimals = 0) %>%
-    fmt_percent(columns = c(pct_hits, pct_bg), decimals = 1) %>%
-    # NO fmt_scientific() - use pre-formatted column
-    fmt_number(columns = odds_ratio, decimals = 3) %>%
-    cols_label(
-      ERV = "ERV Type",
-      n_hits = "Hits",
-      n_total = "Total", 
-      pct_hits = "%",
-      n_bg_hits = "BG Hits",
-      n_bg_total = "Total background",
-      pct_bg = "% in Background",
-      p_value_fmt = "P-value",  # Renamed column
-      odds_ratio = "Odds Ratio"
-    ) %>%
-    tab_style(style = list(cell_fill(color = "lightblue")),
-              locations = cells_column_labels()) %>%
-    tab_header(title = "ERV Enrichment Analysis (Fisher's Exact Test)",
-               subtitle = paste0(mysubtitle, " in ", nameTarget)) %>%
-    tab_options(table.font.size = 12, data_row.padding = px(4)) %>% print()
+  contingency <- matrix(c(fg_in, fg_out,
+                          bg_in, bg_out),
+                        nrow = 2, byrow = TRUE,
+                        dimnames = list(c(nameTarget, "background"),
+                                        c("in_ERV", "not_in_ERV")))
+  test <- fisher.test(contingency, alternative = "greater")
+  list(family      = family,
+       contingency = contingency,
+       pvalue      = test$p.value,
+       odds_ratio  = test$estimate)
 }
 
-getERVenrichTable(te_regions = te_regions, mysubtitle = "exact TE region", target = topIntersect90_GR, nameTarget = "topIntersect90")
-
-## Try for proximal of TE (<= 3kb or <= 10 kb)
-getERVenrichTable(te_regions = promoters(te_regions, upstream = 3000, downstream = 3000), 
-                  mysubtitle = "proximal TE region (<= 3kb)", target = topIntersect90_GR, nameTarget = "topIntersect90")
-getERVenrichTable(te_regions = promoters(te_regions, upstream = 10000, downstream = 10000), 
-                  mysubtitle = "proximal TE region (<= 10kb)", target = topIntersect90_GR, nameTarget = "topIntersect90")
-
-## And for CpG p90% in 1 or 2 layers only?
-getERVenrichTable(te_regions = te_regions, mysubtitle = "exact TE region", target = overlap.1or2_GR, nameTarget = "overlap.1or2")
-
-## Try for proximal of TE (<= 3kb or <= 10 kb)
-getERVenrichTable(te_regions = promoters(te_regions, upstream = 3000, downstream = 3000), 
-                  mysubtitle = "proximal TE region (<= 3kb)", target = overlap.1or2_GR, nameTarget = "overlap.1or2")
-getERVenrichTable(te_regions = promoters(te_regions, upstream = 10000, downstream = 10000), 
-                  mysubtitle = "proximal TE region (<= 10kb)", target = overlap.1or2_GR, nameTarget = "overlap.1or2")
-
-################################
-## Genomic positions of top90 ##
-################################
-## Reload if needed
-# system.time(Atlas_dt <- prepAtlasdt("Atlas10X"))
-# nrow(Atlas_dt) # 23036026
-
-topIntersect90_dt <- Atlas_dt[name %in% topIntersect90]
-head(topIntersect90_dt)
-
-# Compute chromosome centers for x-axis labeling
-df2 <- topIntersect90_dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
-             df2, by = "chr", all.x = TRUE, sort = TRUE)
-df2 <- na.omit(df2)
-
-# Compute chromosome boundaries
-df_bounds <- topIntersect90_dt[, .(min_pos = min(pos2, na.rm = TRUE), 
-                                   max_pos = max(pos2, na.rm = TRUE)), by = chr]
-
-# Midpoints between chromosomes = where to draw dotted lines
-df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
-vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
-
-
-global_dens <- density(topIntersect90_dt$pos2, na.rm = TRUE)
-global_df <- data.frame(x = global_dens$x, y = global_dens$y)
-
-ggplot() +
-  geom_line(data = global_df,
-            aes(x = x, y = y),
-            color = "darkred", linewidth = 0.7) +
-  geom_vline(data = vlines,
-             aes(xintercept = xintercept),
-             linetype = 3, color = "grey60") +
-  scale_x_continuous(breaks = df2$center,
-                     labels = as.character(df2$chr),
-                     expand = c(0, 0)) +
-  labs(x = "Chromosome", y = "CpG density") +
-  theme_minimal(base_size = 14)
-
-######################################
-## Test proximity to specific genes ##
-######################################
-# topIntersect90_GR <- makeGRfromMyCpGPos(vec = topIntersect90, setname = "topIntersect90")
-# bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
+# Call with explicit nameTarget
+erv1_test <- fisher_test_erv("ERV1", top90SNPrm_GR, bg_only_GR,
+                             nameTarget = "top90SNPrm")
+erv1_test
+# $contingency
+#             in_ERV not_in_ERV
+# top90SNPrm   7265     189068
+# background 632733   20693475
 # 
-# ens = "ENSG00000103126"
+# $pvalue
+# [1] 1.30206e-75
 # 
-# # Axin (human) as a GRanges
-# gr_axin <- c(bed_features$promoters[grep(ens, bed_features$promoters$name)],
-#              bed_features$exons[grep(ens, bed_features$exons$name)],
-#              bed_features$introns[grep(ens, bed_features$introns$name)],
-#              bed_features$TSSes[grep(ens, bed_features$TSSes$name)])
-# "ENST00000429538.8"
-# 287440..352723, complement)
-# gr_totest = topIntersect90_GR
-# gr_gene = gr_PAX8
+# $odds_ratio
+# odds ratio 
+# 1.256695
+ervk_test <- fisher_test_erv("ERVK", top90SNPrm_GR, bg_only_GR,
+                             nameTarget = "top90SNPrm")
+ervk_test
+# $contingency
+#             in_ERV not_in_ERV
+# top90SNPrm   1043     195290
+# background  84328   21241880
 # 
-# # Find overlaps between CpGs and the gene region
-# hits <- findOverlaps(gr_totest, gr_gene)
+# $pvalue
+# [1] 7.030883e-20
 # 
-# # Extract matching rows from original df
-# df_hits <- gr_totest[queryHits(hits), ]
-# 
-# # Add all annotations
-# df_hits <- Atlas_dt[match(paste0(df_hits@seqnames, "_", df_hits@ranges), Atlas_dt$name)]
-# 
-# # Determine limits and breaks
-# x_min <- floor(min(df_hits$pos) / 5000) * 5000
-# x_max <- ceiling(max(df_hits$pos) / 5000) * 5000
-# breaks_seq <- seq(x_min, x_max, by = 5000)
-# 
-# ggplot(df_hits, aes(x = pos, y = alpha)) +
-#   geom_smooth(col = "black") +
-#   geom_point(aes(fill = region_type), pch = 21) +
-#   theme_minimal(base_size = 14) +
-#   ylab("p(hv)") +
-#   scale_x_continuous(
-#     breaks = breaks_seq,
-#     labels = function(x) paste0(formatC(x / 1000, format = "f", digits = 0), "k")
-#   ) +
-#   xlab("Genomic position (chr2)") +
-#   theme(
-#     axis.text.x = element_text(angle = 45, hjust = 1)
-#   )
-
-
-
-##############################
-## new candidate locus Matt ##
-##############################
-
-## Matt's data are in hg19
-dataMatt <- readxl::read_xlsx(here("gitignore/DEGCAGS_intersect_repeats_Alice.xlsx"))
-
-# --- Download and import hg19 → hg38 chain file ---
-chain_dir <- here("B_MultiTissues/dataIn")
-chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
-chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
-
-if (!file.exists(chain_file)) {
-  message("⬇️  Downloading UCSC liftOver chain file...")
-  dir.create(chain_dir, showWarnings = FALSE, recursive = TRUE)
-  download.file(
-    url = "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz",
-    destfile = chain_gz,
-    quiet = TRUE
-  )
-  R.utils::gunzip(chain_gz, destname = chain_file, remove = FALSE)
-}
-chain <- import.chain(chain_file)
-
-# --- Liftover (hg19 → hg38) ---
-dataMatt_gr <- GRanges(
-  seqnames = dataMatt$chromosome,
-  ranges = IRanges(start = dataMatt$start, end = dataMatt$end),
-  alpha_endo = NA,  alpha_meso = NA,  alpha_ecto = NA,  alpha_all = NA,
-  hg19_chr = dataMatt$chromosome, hg19_start = dataMatt$start, hg19_end = dataMatt$end,
-  `%change` = dataMatt$`%change`, padj = dataMatt$padj,
-  TE_chromosome = dataMatt$TE_chromosome, TE_start = dataMatt$TE_start,
-  TE_end = dataMatt$TE_end, TE_family = dataMatt$TE_family,TE_type = dataMatt$TE_type
-)
-
-mapped <- liftOver(dataMatt_gr, chain)
-
-# Keep one-to-one mappings only
-keep <- lengths(mapped) == 1
-dataMatt_hg38_gr <- unlist(mapped[keep])
-
-# Initialise the column with NA first
-dataMatt_hg38_gr$alpha_geomean <- NA_real_
-# Find overlapping ranges
-overlaps <- findOverlaps(dataMatt_hg38_gr, geomMeanGR)
-dataMatt_hg38_gr[queryHits(overlaps),]$alpha_geomean <- 
-  geomMeanGR[subjectHits(overlaps),]$alpha_geomean
-
-ggplot(as.data.frame(dataMatt_hg38_gr), aes(x = "all", y=alpha_geomean)) +
-  geom_violin() +
-  geom_boxplot(width = .2) +
-  geom_jitter() +
-  theme_minimal(base_size = 14) 
-
-
-
-
-
-
-#####################################################################################
-## NEXT Find correlated regions = at least 5CpGs in 50bp which are hypervariable (>50%) ##
-
+# $odds_ratio
+# odds ratio 
+# 1.345317 
