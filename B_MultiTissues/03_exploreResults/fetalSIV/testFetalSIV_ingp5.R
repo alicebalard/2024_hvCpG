@@ -372,3 +372,11 @@ pdf(here("B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal_sepSIV.pdf
     width = 16, height = 7)
 final_plot
 dev.off()
+
+###########################
+## Add candidate to test ##
+###########################
+LTR41table <- readRDS("B_MultiTissues/03_exploreResults/fetalSIV/LTR41table.RDS")
+fetalData_subset_LTR41 <- fetalData_long[fetalData_long$chrpos_hg38 %in% LTR41table$chr_pos,]
+interlayer_corr_LTR41 <- getinterlayer_corr(fetalData_subset_LTR41, "LTR41")
+saveRDS(interlayer_corr_LTR41, "B_MultiTissues/03_exploreResults/fetalSIV/interlayer_corr_LTR41.RDS")
