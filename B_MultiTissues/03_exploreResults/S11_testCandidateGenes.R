@@ -1,247 +1,192 @@
-library(here)
+#####################################################################
+## Check pr(hv) geom means for target regions vs random background ##
+#####################################################################
 
+#####################################################################
+## Prepare
+library(here)
 ## Load libraries
-if (!exists("libLoaded")) {
-  source(here("B_MultiTissues", "quiet_library.R"))}
+source(here("B_MultiTissues", "quiet_library.R"))
 
 ## Load functions
 if (!exists("functionsLoaded")) {
   source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
 
+## Add previous MEs including Maria's results
+## Load the set of previously tested MEs & vmeQTL
+if (!exists("previousSIVprepared")) {
+  source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
+#####################################################################
 
-## TBC
+load(here("gitignore/fullTable3layers.Rda"))
+seqlevels(table3layers) <- paste0("chr", seqlevels(table3layers))
 
-## Bayes factor!
-
-# Statistical test
-
-
-
-
-##########################
-## Test candidate genes ##
-##########################
-# +/-10kb of TSS
-# CSGALNACT1
-# chr8:19669045-20022919
-
-# 
-# ## Matt's data are in hg19
-# dataMatt <- readxl::read_xlsx(here("gitignore/DEGCAGS_intersect_repeats_Alice.xlsx"))
-# 
-# head(dataMatt)
-
-endo_gr <- GRanges(seqnames = paste0("chr", endo$chr),
-                   ranges = IRanges(start = endo$pos, end = endo$pos), 
-                   alpha = endo$alpha)
-ecto_gr <- GRanges(seqnames = paste0("chr", ecto$chr),
-                   ranges = IRanges(start = ecto$pos, end = ecto$pos), 
-                   alpha = ecto$alpha)
-meso_gr <- GRanges(seqnames = paste0("chr", meso$chr),
-                   ranges = IRanges(start = meso$pos, end = meso$pos), 
-                   alpha = meso$alpha)
-all_gr <- GRanges(seqnames = paste0("chr", allLayers$chr),
-                  ranges = IRanges(start = allLayers$pos, end = allLayers$pos), 
-                  alpha = allLayers$alpha)
-
-######################################################
-## A function to output all the alphas per position ##
-######################################################
-
-getAlphasCandidates <- function(
-    df, ENDO = endo_gr, ECTO = ecto_gr, MESO = meso_gr, ALL = all_gr){
-  ## e.g.  df = data.frame(chromosome = "chr8", start = 19669045, end = 20022919, strand = "-", genome = "hg38")
-  
-  # --- Create GR object --- #
-  candidate_gr <- GRanges(
-    seqnames = df$chromosome,
-    ranges = IRanges(start = df$start, end = df$end),
-    strand = df$strand,
-    genome = df$genome,
-    gene = df$gene,
-    alpha_endo = NA,  alpha_meso = NA,  alpha_ecto = NA,  alpha_all = NA)
-  
-  # --- Liftover (hg19 → hg38) IF NEEDED --- #
-  if (candidate_gr$genome != "hg38"){
-    ## Download and import hg19 → hg38 chain file
-    chain_dir <- here("B_MultiTissues/dataIn")
-    chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
-    chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
-    
-    if (!file.exists(chain_file)) {
-      message("⬇️  Downloading UCSC liftOver chain file...")
-      dir.create(chain_dir, showWarnings = FALSE, recursive = TRUE)
-      download.file(
-        url = "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz",
-        destfile = chain_gz,
-        quiet = TRUE
-      )
-      R.utils::gunzip(chain_gz, destname = chain_file, remove = FALSE)
-    }
-    chain <- import.chain(chain_file)
-    
-    mapped <- liftOver(candidate_gr, chain)
-    
-    # Keep one-to-one mappings only
-    keep <- lengths(mapped) == 1
-    candidate_gr <- unlist(mapped[keep])
-  }
-  
-  # One data frame per layer
-  endo_df <- data.frame(
-    candidate_seqnames = seqnames(candidate_gr)[queryHits(findOverlaps(candidate_gr, ENDO))],
-    candidate_start = start(candidate_gr)[queryHits(findOverlaps(candidate_gr, ENDO))],
-    candidate_end = end(candidate_gr)[queryHits(findOverlaps(candidate_gr, ENDO))],
-    candidate_strand = as.character(strand(candidate_gr)[queryHits(findOverlaps(candidate_gr, ENDO))]),
-    match_seqnames = seqnames(ENDO)[subjectHits(findOverlaps(candidate_gr, ENDO))],
-    match_position = start(ENDO)[subjectHits(findOverlaps(candidate_gr, ENDO))],
-    layer = "endo",
-    alpha = ENDO$alpha[subjectHits(findOverlaps(candidate_gr, ENDO))]
-  )
-  
-  meso_df <- data.frame(
-    candidate_seqnames = seqnames(candidate_gr)[queryHits(findOverlaps(candidate_gr, MESO))],
-    candidate_start = start(candidate_gr)[queryHits(findOverlaps(candidate_gr, MESO))],
-    candidate_end = end(candidate_gr)[queryHits(findOverlaps(candidate_gr, MESO))],
-    candidate_strand = as.character(strand(candidate_gr)[queryHits(findOverlaps(candidate_gr, MESO))]),
-    match_seqnames = seqnames(MESO)[subjectHits(findOverlaps(candidate_gr, MESO))],
-    match_position = start(MESO)[subjectHits(findOverlaps(candidate_gr, MESO))],
-    layer = "meso",
-    alpha = MESO$alpha[subjectHits(findOverlaps(candidate_gr, MESO))]
-  )
-  
-  ecto_df <- data.frame(
-    candidate_seqnames = seqnames(candidate_gr)[queryHits(findOverlaps(candidate_gr, ECTO))],
-    candidate_start = start(candidate_gr)[queryHits(findOverlaps(candidate_gr, ECTO))],
-    candidate_end = end(candidate_gr)[queryHits(findOverlaps(candidate_gr, ECTO))],
-    candidate_strand = as.character(strand(candidate_gr)[queryHits(findOverlaps(candidate_gr, ECTO))]),
-    match_seqnames = seqnames(ECTO)[subjectHits(findOverlaps(candidate_gr, ECTO))],
-    match_position = start(ECTO)[subjectHits(findOverlaps(candidate_gr, ECTO))],
-    layer = "ecto",
-    alpha = ECTO$alpha[subjectHits(findOverlaps(candidate_gr, ECTO))]
-  )
-  
-  all_df <- data.frame(
-    candidate_seqnames = seqnames(candidate_gr)[queryHits(findOverlaps(candidate_gr, ALL))],
-    candidate_start = start(candidate_gr)[queryHits(findOverlaps(candidate_gr, ALL))],
-    candidate_end = end(candidate_gr)[queryHits(findOverlaps(candidate_gr, ALL))],
-    candidate_strand = as.character(strand(candidate_gr)[queryHits(findOverlaps(candidate_gr, ALL))]),
-    match_seqnames = seqnames(ALL)[subjectHits(findOverlaps(candidate_gr, ALL))],
-    match_position = start(ALL)[subjectHits(findOverlaps(candidate_gr, ALL))],
-    layer = "all",
-    alpha = ALL$alpha[subjectHits(findOverlaps(candidate_gr, ALL))]
-  )
-  
-  # Combine ALL layers
-  result_df <- rbind(endo_df, meso_df, ecto_df, all_df)
-  
-  return(result_df)
-}
-
-result_df_CSGALNACT1 <- getAlphasCandidates(
-  data.frame(chromosome = "chr8", start = 19669045, end = 20022919, strand = "-", 
-             genome = "hg38", gene = "CSGALNACT1"))
-
-ggplot(result_df, aes(x=match_position, y = alpha, col = layer))+
-  geom_point()+
-  theme_bw()
-
-ggplot(result_df, aes(x=layer, y = alpha, col = layer))+
-  geom_violin()+
-  geom_boxplot(width = .2)+
-  theme_bw()
-
-## BS & 95% CI like in Maria's paper TO DO
-
-
-## TBC
-
-
-##############################
-## new candidate locus Matt ##
-##############################
+############################
+## Define candidate sites ##
+############################
 
 ## Matt's data are in hg19
 dataMatt <- readxl::read_xlsx(here("gitignore/DEGCAGS_intersect_repeats_Alice.xlsx"))
 
-head(dataMatt)
+LTR41table <- dataMatt[grepl("LTR41", dataMatt$TE_family),]
 
-# --- Download and import hg19 → hg38 chain file ---
-chain_dir <- here("B_MultiTissues/dataIn")
-chain_gz <- file.path(chain_dir, "hg19ToHg38.over.chain.gz")
-chain_file <- file.path(chain_dir, "hg19ToHg38.over.chain")
-
-if (!file.exists(chain_file)) {
-  message("⬇️  Downloading UCSC liftOver chain file...")
-  dir.create(chain_dir, showWarnings = FALSE, recursive = TRUE)
-  download.file(
-    url = "http://hgdownload.cse.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz",
-    destfile = chain_gz,
-    quiet = TRUE
-  )
-  R.utils::gunzip(chain_gz, destname = chain_file, remove = FALSE)
-}
-chain <- import.chain(chain_file)
+saveRDS(LTR41table, "fetalSIV/LTR41table.RDS")
 
 # --- Liftover (hg19 → hg38) ---
-dataMatt_gr <- GRanges(
-  seqnames = dataMatt$chromosome,
-  ranges = IRanges(start = dataMatt$start, end = dataMatt$end),
-  alpha_endo = NA,  alpha_meso = NA,  alpha_ecto = NA,  alpha_all = NA,
-  hg19_chr = dataMatt$chromosome, hg19_start = dataMatt$start, hg19_end = dataMatt$end,
-  `%change` = dataMatt$`%change`, padj = dataMatt$padj,
-  TE_chromosome = dataMatt$TE_chromosome, TE_start = dataMatt$TE_start, 
-  TE_end = dataMatt$TE_end, TE_family = dataMatt$TE_family,TE_type = dataMatt$TE_type
+LTR41table_gr <- GRanges(
+  seqnames = LTR41table$chromosome,
+  ranges = IRanges(start = LTR41table$start, end = LTR41table$end),
+  hg19_chr = LTR41table$chromosome, hg19_start = LTR41table$start, hg19_end = LTR41table$end,
+  `%change` = LTR41table$`%change`, padj = LTR41table$padj,
+  TE_chromosome = LTR41table$TE_chromosome, TE_start = LTR41table$TE_start, 
+  TE_end = LTR41table$TE_end, TE_family = LTR41table$TE_family,TE_type = LTR41table$TE_type
 )
 
-mapped <- liftOver(dataMatt_gr, chain)
+mapped <- unlist(liftOver(LTR41table_gr, chain))
 
-# Keep one-to-one mappings only
-keep <- lengths(mapped) == 1
-dataMatt_hg38_gr <- unlist(mapped[keep])
+# Find overlaps
+hits <- findOverlaps(mapped, table3layers)
 
-endo_gr <- GRanges(seqnames = paste0("chr", endo$chr),
-                   ranges = IRanges(start = endo$pos, end = endo$pos), 
-                   alpha = endo$alpha)
-ecto_gr <- GRanges(seqnames = paste0("chr", ecto$chr),
-                   ranges = IRanges(start = ecto$pos, end = ecto$pos), 
-                   alpha = ecto$alpha)
-meso_gr <- GRanges(seqnames = paste0("chr", meso$chr),
-                   ranges = IRanges(start = meso$pos, end = meso$pos), 
-                   alpha = meso$alpha)
-all_gr <- GRanges(seqnames = paste0("chr", allLayers$chr),
-                  ranges = IRanges(start = allLayers$pos, end = allLayers$pos), 
-                  alpha = allLayers$alpha)
+# Extract both sides and combine metadata
+mapped_hits      <- mapped[queryHits(hits)]
+table3layers_hits <- table3layers[subjectHits(hits)]
 
-# Find overlapping ranges
-overlaps <- findOverlaps(dataMatt_hg38_gr, endo_gr)
-dataMatt_hg38_gr[queryHits(overlaps),]$alpha_endo <- endo_gr[subjectHits(overlaps),]$alpha
+# Combine 
+result_df <- as.data.frame(mapped_hits) %>%
+  cbind(as.data.frame(mcols(table3layers_hits)))
 
-# Find overlapping ranges
-overlaps <- findOverlaps(dataMatt_hg38_gr, meso_gr)
-dataMatt_hg38_gr[queryHits(overlaps),]$alpha_meso <- meso_gr[subjectHits(overlaps),]$alpha
+chr_order <- paste0("chr", c(1:22, "X", "Y"))
 
-# Find overlapping ranges
-overlaps <- findOverlaps(dataMatt_hg38_gr, ecto_gr)
-dataMatt_hg38_gr[queryHits(overlaps),]$alpha_ecto <- ecto_gr[subjectHits(overlaps),]$alpha
+result_df <- result_df %>%
+  mutate(seqnames = factor(seqnames,
+                           levels = chr_order[chr_order %in% unique(seqnames)]))
 
-# Find overlapping ranges
-overlaps <- findOverlaps(dataMatt_hg38_gr, all_gr)
-dataMatt_hg38_gr[queryHits(overlaps),]$alpha_all <- all_gr[subjectHits(overlaps),]$alpha
+# Get genome-wide means for reference lines
+genome_means <- table3layers %>%
+  as.data.frame() %>%
+  summarise(across(c(alpha_endo, alpha_meso, alpha_ecto, alpha_geomean), 
+                   ~ mean(.x, na.rm = TRUE))) %>%
+  pivot_longer(everything(), names_to = "layer", values_to = "genome_mean") %>%
+  mutate(layer = factor(layer,
+                        levels = c("alpha_endo", "alpha_meso", "alpha_ecto", "alpha_geomean"),
+                        labels = c("Endo", "Meso", "Ecto", "Geom.")))
 
-hist(dataMatt_hg38_gr$alpha_endo, breaks = 100)
-hist(dataMatt_hg38_gr$alpha_ecto, breaks = 100)
-hist(dataMatt_hg38_gr$alpha_meso, breaks = 100)
-hist(dataMatt_hg38_gr$alpha_all, breaks = 100)
+plotLTR41 <- result_df %>%
+  arrange(seqnames, start) %>%
+  mutate(chr_pos = factor(chr_pos, levels = unique(chr_pos)))%>%
+  pivot_longer(cols = c(alpha_endo, alpha_ecto, alpha_meso, alpha_geomean),
+               names_to = "layer", values_to = "alpha") %>%
+  mutate(layer = factor(layer,
+                        levels = c("alpha_endo", "alpha_meso", "alpha_ecto", "alpha_geomean"),
+                        labels = c("Endo", "Meso", "Ecto", "Geom."))) %>%
+  ggplot(aes(x = layer, y = alpha, fill = layer)) +
+  geom_col(width = 0.7) +
+  geom_hline(data = genome_means,
+             aes(yintercept = genome_mean, colour = layer),
+             linetype = "dashed", linewidth = 0.5, show.legend = FALSE) +
+  scale_fill_manual(values = c(Endo = "#5C8AE0", Meso = "#4CAF82",
+                               Ecto = "#E05C5C", "Geom." = "black"),
+                    guide = "none") +
+  scale_colour_manual(values = c(Endo = "#5C8AE0", Meso = "#4CAF82",
+                                 Ecto = "#E05C5C", "Geom." = "black")) +
+  scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+  facet_wrap(~ chr_pos, ncol = 6) +
+  labs(x = NULL, y = "Pr(hvCpG)",
+       caption = "Dashed lines = genome-wide mean per layer") +
+  theme_minimal(base_size = 9) +
+  theme(axis.text.x    = element_text(angle = 45, hjust = 1),
+        panel.grid.major.x = element_blank(),
+        strip.text     = element_text(size = 7))
 
-dataMatt_hg38_gr$is50pc <- (dataMatt_hg38_gr$alpha_endo > .5 & dataMatt_hg38_gr$alpha_meso > .5 & 
-                              dataMatt_hg38_gr$alpha_ecto > .5)
-dataMatt_hg38_gr$is40pc <- (dataMatt_hg38_gr$alpha_endo > .4 & dataMatt_hg38_gr$alpha_meso > .4 & 
-                              dataMatt_hg38_gr$alpha_ecto > .4)
+ggplot2::ggsave(
+  filename = here::here(paste0("B_MultiTissues/dataOut/figures/plotLTR41_prhv.pdf")),
+  plot = plotLTR41, width = 8, height = 8
+)
 
-write.csv(dataMatt_hg38_gr, here("gitignore/DEGCAGS_intersect_repeats_Alice_withalpha.csv"), 
-          row.names = F, quote = F)
+####################################
+## Formal test (if enough points) ##
+####################################
 
+# Build GRanges from geometric mean
+geomMeanGR <- GRanges(seqnames = table3layers@seqnames,
+                      ranges = IRanges(start = table3layers@ranges@start, 
+                                       end = table3layers@ranges@start),
+                      alpha_geomean = table3layers$alpha_geomean)
 
+geomMeanGR <- geomMeanGR[!is.na(geomMeanGR$alpha_geomean)]
+
+sets <- list(
+  mQTLcontrols = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
+  HarrisSIV = HarrisSIV_hg38_GR,
+  VanBaakESS = VanBaakESS_hg38_GR,
+  KesslerSIV = KesslerSIV_GRanges_hg38,
+  CoRSIV = corSIV_GRanges_hg38,
+  hvCpG = DerakhshanhvCpGs_hg38_GR,
+  LTR41 = makeGRfromMyCpGPos(result_df$chr_pos, "LTR41")
+)
+
+# Now do overlap join for each set
+MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+  hits <- findOverlaps(sets[[nm]], geomMeanGR)
+  data.table(
+    alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+    ME    = nm
+  )
+}))
+
+MEsetdt <- na.omit(MEsetdt) ## 69732
+
+# Set controls as baseline
+MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
+
+p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha_geomean)) +
+  geom_jitter(data = MEsetdt,
+              aes(fill=ME), pch=21, size = 3, alpha = .05)+
+  geom_violin(aes(col=ME))+
+  geom_boxplot(aes(col=ME), width = .1) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none", axis.title.x = element_blank()) +
+  ylab("Pr(hv) (geometric mean)")
+
+## Statistical comparisons of alpha between MEs
+
+# Fit the model with controls as baseline
+fit <- lm(alpha_geomean ~ ME, data = MEsetdt)
+
+# Get estimated marginal means and contrasts vs baseline
+emm <- emmeans(fit, ~ ME)
+contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
+  as.data.frame()
+
+emm
+# ME           emmean      SE    df lower.CL upper.CL
+# mQTLcontrols  0.211 0.00635 69709    0.199    0.224
+# CoRSIV        0.315 0.00141 69709    0.312    0.318
+# HarrisSIV     0.361 0.00974 69709    0.342    0.380
+# hvCpG         0.526 0.00656 69709    0.513    0.539
+# KesslerSIV    0.404 0.00684 69709    0.391    0.418
+# VanBaakESS    0.474 0.01070 69709    0.453    0.495
+# 
+# Confidence level used: 0.95 
+
+contrasts <- contrasts %>%
+  mutate(ME = contrast,  # rename for clarity
+         lower = estimate - 1.96*SE,
+         upper = estimate + 1.96*SE)
+
+p2 <- ggplot(contrasts, aes(x = ME, y = estimate)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  coord_flip() +
+  labs(
+    y = "Difference in Pr(hv) (geometric mean) vs mQTLcontrols",
+    x = "",
+    title = "Comparison of ME groups to mQTLcontrols",
+    subtitle = "lm with multiple comparison correction (Sidak)"
+  ) +
+  theme_minimal()
+
+cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
 
 
