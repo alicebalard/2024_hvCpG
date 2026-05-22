@@ -121,6 +121,9 @@ interlayer_corr_prevSIV <- getinterlayer_corr(fetalData_subset_prevSIV, "prevSIV
 # mean: 0.34
 interlayer_corr_top90SNPrm <- getinterlayer_corr(fetalData_subset_top90SNPrm, "top90SNPrm")
 # mean: 0.70
+interlayer_corr_all <- getinterlayer_corr(fetalData_long, "allEPICfetal")
+
+saveRDS(interlayer_corr_all, "B_MultiTissues/dataOut/interlayer_corr_all.RDS")
 
 interlayer_corr <- interlayer_corr_backgrd |>
   dplyr::full_join(interlayer_corr_prevSIV) |>
