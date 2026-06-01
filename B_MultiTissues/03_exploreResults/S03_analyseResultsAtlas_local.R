@@ -94,7 +94,10 @@ for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) 
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_65")
 }
 
-## SKIP 18_mesoEndo - no matching files found (run incomplete?).
+## New June 2026
+# Saved: /home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_18_mesoEndo.rds
+# Saved: /home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_19_endoEcto.rds
+# Saved: /home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_20_mesoEcto.rds                                        %
 
 ## Different p0 and p1 tested
 for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
@@ -114,15 +117,13 @@ if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
   stop("stop here to only prepare atlas_dt")
 }
 
-## TBC !!!!!!!!!!!!!!!!!!!
-
-
 Atlas_dt_80p090p1 <- readRDS(
   "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")
 
 # Set key if not already set
 setkey(Atlas_dt, name)
 setkey(Atlas_dt_80p090p1, name)
+#setkey(Atlas_dt_55p065p1, name)
 
 # Merge only columns needed for plotting
 merged_dt <- Atlas_dt[Atlas_dt_80p090p1, 
@@ -131,10 +132,6 @@ merged_dt <- Atlas_dt[Atlas_dt_80p090p1,
                         alpha_80p090p1 = i.alpha),
                       on = "name",
                       nomatch = NULL] # inner join
-
-# Check
-nrow(merged_dt)
-head(merged_dt)
 
 set.seed(1234)
 

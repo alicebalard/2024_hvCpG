@@ -56,9 +56,10 @@ allLayersGR <- GRanges(seqnames = Atlas_dt$chr,
 ## Test: are 6 groups enough? ##
 ################################
 
-## Endoderm
+## Endoderm &  Mesoderm
 if (!file.exists(here::here(
-  "B_MultiTissues/dataOut/figures/correlations/correlation_endoFullvsReduced6gp.pdf"))){
+  "B_MultiTissues/dataOut/figures/correlations/correlation_meso-endoFullvsReduced6gp.pdf"))){
+  
   ## Use data table to handle large data
   setDT(endo6gp)
   setDT(endo)
@@ -69,25 +70,17 @@ if (!file.exists(here::here(
   m <- x[y, nomatch = 0]   # keeps matched names only
   mycor <- cor(m$alpha_6gp, m$alpha_endo, use = "complete.obs")
   set.seed(1234)
-  p <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_endo))+
+  p_endo <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_endo))+
     geom_point(pch = 21, alpha = 0.1) +
     theme_minimal(base_size = 14) +
     ylim(c(0,1)) +
     annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
-    labs(title = "Probability of being hypervariable in WGBS atlas endoderm cell types",
+    labs(title = "Probability of being hypervariable in Loyfer WGBS endoderm cell types",
          subtitle = "(100k random CpG plotted)",
          x = "Pr(hv) calculated on a subset of cell types (N=6)",
          y = "Pr(hv) calculated on all cell types (N=21)")
   
-  ggplot2::ggsave(
-    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_endoFullvsReduced6gp.pdf")),
-    plot = p, width = 8, height = 8
-  )
-}
-
-## Mesoderm
-if (!file.exists(here::here(
-  "B_MultiTissues/dataOut/figures/correlations/correlation_mesoFullvsReduced6gp.pdf"))){
+  ## Meso
   setDT(meso6gp)
   setDT(meso)
   
@@ -98,20 +91,19 @@ if (!file.exists(here::here(
   mycor <- cor(m$alpha_6gp, m$alpha_meso, use = "complete.obs")
   
   set.seed(1234)
-  p <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_meso))+
+  p_meso <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_meso))+
     geom_point(pch = 21, alpha = 0.1) +
     theme_minimal(base_size = 14) +
     ylim(c(0,1)) +
     annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
-    labs(title = "Probability of being hypervariable in WGBS atlas mesoderm cell types",
+    labs(title = "Probability of being hypervariable in Loyfer WGBS mesoderm cell types",
          subtitle = "(100k random CpG plotted)",
          x = "Pr(hv) calculated on a subset of cell types (N=6)", 
          y = "Pr(hv) calculated on all cell types (N=19)")
   
   ggplot2::ggsave(
-    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_mesoFullvsReduced6gp.pdf")),
-    plot = p, width = 8, height = 8
-  )
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_meso-endoFullvsReduced6gp.pdf")),
+    plot = cowplot::plot_grid(p_endo, p_meso, labels = c("A", "B")), width = 17, height = 8)
 }
 
 ####################################################################
@@ -678,7 +670,7 @@ if (retest == TRUE){
 # top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
 #                              (table3layers$alpha_geomean >= .9), ]$chr_pos
 
-# Method 1. ClusterProfiler
+# Method. ClusterProfiler
 
 ## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
 ## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
@@ -756,6 +748,9 @@ df_sig <- df_sig |>
   mutate(Description = fct_reorder(Description, FoldEnrichment, .desc = TRUE)) |>
   ungroup()
 
+write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
+          quote = F, row.names = F)
+
 # Plot
 p <- ggplot(df_sig, aes(x = group, y = Description)) +
   geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
@@ -773,29 +768,6 @@ p <- ggplot(df_sig, aes(x = group, y = Description)) +
   )
 
 print(p)
-write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
-          quote = F, row.names = F)
-
-# Method 2. rgreat
-# GREAT analysis was conducted using the rGREAT R package (Gu and Hübschmann 2023).
-# GREAT performs hypergeometric tests using a foreground and background set and returns 
-# annotations of gene sets near the foreground CpGs. 
-# The foreground set consists of topIntersect90
-# The background set consists of all the sequenced CpGs 
-# We reported ontologies after an FDR-adjusted hypergeometric p value<0.05 and an unadjusted hypergeometric p value<0.001. 
-## The GREAT settings used were hg38 for the species assembly
-background <- makeGRfromMyCpGPos(totalSiteswGeomMean, "background")
-foreground <- makeGRfromMyCpGPos(top90SNPrm, "top90SNPrm")
-
-system.time(res <- great(gr = foreground, gene_sets = "GO:BP", biomart_dataset = "hg38", 
-                         background = background, cores = 10))
-saveRDS(res, file = here(paste0("B_MultiTissues/03_exploreResults/rGreatGO_top90SNPrm.RDS")))
-
-# Run both and compare. If ephrin/neuron recognition terms survive in GREAT, that tells something important
-# about the source of the signal = results are robust to the methodological choice.
-# I can report clusterProfiler with gene length correction as the primary analysis 
-# (more methodologically rigorous, more transparent) and GREAT as a validation with a different
-# and partially orthogonal approach to the length bias problem.
 
 #######################
 ## Enrichement in TE ##
