@@ -99,7 +99,7 @@ ggVennDiagram(cpgs, label_alpha = 0, label = "count") +
 # layer correlation was then defined as the average Pearson r across these three comparisons.
 
 ## NB: absolute values (just the strength of correlation)
-getinterlayer_corr <- function(fetalData_subset, name, min_samples = 10) {
+getinterlayer_corr <- function(fetalData_subset, name, min_samples = 8) {
   interlayer_corr <- fetalData_subset %>%
     dplyr::select(sample, layer, CpG, beta) %>%
     pivot_wider(names_from = layer, values_from = beta) %>%
@@ -114,7 +114,7 @@ getinterlayer_corr <- function(fetalData_subset, name, min_samples = 10) {
                             cor(Endo, Ecto, use = "pairwise.complete.obs"), NA),
       r_Meso_Ecto  = ifelse(n_Meso_Ecto  >= min_samples,
                             cor(Meso, Ecto, use = "pairwise.complete.obs"), NA),
-      interlayer_r = mean(c(r_Endo_Meso, r_Endo_Ecto, r_Meso_Ecto), na.rm = TRUE)
+      interlayer_r = mean(c(r_Endo_Meso, r_Endo_Ecto, r_Meso_Ecto), na.rm = FALSE)
     ) %>%
     mutate(group = name)
   
@@ -129,6 +129,7 @@ interlayer_corr_prevSIV <- getinterlayer_corr(fetalData_subset_prevSIV, "prevSIV
 interlayer_corr_top90SNPrm <- getinterlayer_corr(fetalData_subset_top90SNPrm, "top90SNPrm")
 # mean: 0.70
 interlayer_corr_all <- getinterlayer_corr(fetalData_long, "allEPICfetal")
+# mean: 0.059
 
 saveRDS(interlayer_corr_all, "B_MultiTissues/dataOut/interlayer_corr_all.RDS")
 
