@@ -99,19 +99,26 @@ ggVennDiagram(cpgs, label_alpha = 0, label = "count") +
 # layer correlation was then defined as the average Pearson r across these three comparisons.
 
 ## NB: absolute values (just the strength of correlation)
-getinterlayer_corr <- function(fetalData_subset, name){
-  interlayer_corr = fetalData_subset %>%
+getinterlayer_corr <- function(fetalData_subset, name, min_samples = 10) {
+  interlayer_corr <- fetalData_subset %>%
     dplyr::select(sample, layer, CpG, beta) %>%
     pivot_wider(names_from = layer, values_from = beta) %>%
     group_by(CpG) %>%
     summarise(
-      r_Endo_Meso = cor(Endo, Meso, use = "pairwise.complete.obs"),
-      r_Endo_Ecto = cor(Endo, Ecto, use = "pairwise.complete.obs"),
-      r_Meso_Ecto = cor(Meso, Ecto, use = "pairwise.complete.obs"),
+      n_Endo_Meso  = sum(!is.na(Endo) & !is.na(Meso)),
+      n_Endo_Ecto  = sum(!is.na(Endo) & !is.na(Ecto)),
+      n_Meso_Ecto  = sum(!is.na(Meso) & !is.na(Ecto)),
+      r_Endo_Meso  = ifelse(n_Endo_Meso  >= min_samples,
+                            cor(Endo, Meso, use = "pairwise.complete.obs"), NA),
+      r_Endo_Ecto  = ifelse(n_Endo_Ecto  >= min_samples,
+                            cor(Endo, Ecto, use = "pairwise.complete.obs"), NA),
+      r_Meso_Ecto  = ifelse(n_Meso_Ecto  >= min_samples,
+                            cor(Meso, Ecto, use = "pairwise.complete.obs"), NA),
       interlayer_r = mean(c(r_Endo_Meso, r_Endo_Ecto, r_Meso_Ecto), na.rm = TRUE)
-    ) %>% mutate(group = name)
+    ) %>%
+    mutate(group = name)
   
-  print(mean(interlayer_corr$interlayer_r))
+  print(mean(interlayer_corr$interlayer_r, na.rm = TRUE))
   return(interlayer_corr)
 }
 
