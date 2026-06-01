@@ -92,7 +92,7 @@ p1_manhattanArray <- ggplot() +
   guides(colour = guide_legend(override.aes = list(size = 5, alpha = 1))) +
   labs(x = "Chromosome", y = "Pr(hv)")+
   theme(legend.position = "inside",
-        legend.position.inside      = c(.8, 1.2),   # above the plot area
+        legend.position.inside      = c(0.9, 1.2),   # above the plot area
         legend.justification.inside = c(1, 1),
         plot.margin = margin(t = 40, r = 5, b = 5, l = 5),  # space for legend above
         legend.title = element_blank(),
@@ -240,7 +240,7 @@ row1 <- cowplot::plot_grid(
   # ggtitle("Detection of IIHV with both methods (red = cutoff, Pr(hv) in y = Bayesian)"),
   p2_DiffProbhvCpG_matchingcontrol_Array + theme(plot.margin = margin(50, 5, 5, 5)),
   ncol = 2, rel_widths = c(4, 1),
-  labels = c("A. Detection of IIHV with both methods (red = cutoff, Pr(hv) in y = Bayesian)", 
+  labels = c("A. Detection of highly variable CpGs with both methods (red = cutoff, Pr(hv) in y = Bayesian)", 
              "B. Difference between Pr(hv) of \nDerakhshan hvCpGs and \nPr(hv) of matching controls"),
   label_size = lab$size, label_x = lab$x, label_y = lab$y,
   hjust = lab$hjust, vjust = lab$vjust)
