@@ -114,7 +114,7 @@ getinterlayer_corr <- function(fetalData_subset, name, min_samples = 8) {
                             cor(Endo, Ecto, use = "pairwise.complete.obs"), NA),
       r_Meso_Ecto  = ifelse(n_Meso_Ecto  >= min_samples,
                             cor(Meso, Ecto, use = "pairwise.complete.obs"), NA),
-      interlayer_r = mean(c(r_Endo_Meso, r_Endo_Ecto, r_Meso_Ecto), na.rm = FALSE)
+      interlayer_r = abs(mean(c(r_Endo_Meso, r_Endo_Ecto, r_Meso_Ecto), na.rm = FALSE))
     ) %>%
     mutate(group = name)
   
@@ -123,13 +123,19 @@ getinterlayer_corr <- function(fetalData_subset, name, min_samples = 8) {
 }
 
 interlayer_corr_backgrd <- getinterlayer_corr(fetalData_subset_backgrd, "background")
-# mean: 0.058
+# mean: 0.18
 interlayer_corr_prevSIV <- getinterlayer_corr(fetalData_subset_prevSIV, "prevSIV")
-# mean: 0.34
+# mean: 0.39
 interlayer_corr_top90SNPrm <- getinterlayer_corr(fetalData_subset_top90SNPrm, "top90SNPrm")
-# mean: 0.70
+# mean: 0.71
 interlayer_corr_all <- getinterlayer_corr(fetalData_long, "allEPICfetal")
-# mean: 0.059
+# mean: 0.19
+
+# Compute the percentile rank of each interlayer_r value
+# (what % of all values are <= this value)
+interlayer_corr_all$percentile_r <- ecdf(interlayer_corr_all$interlayer_r)(interlayer_corr_all$interlayer_r) * 100
+# Percentile = 95 means the site is in the top 5%
+# top X% = percentile >= (100 - X)
 
 saveRDS(interlayer_corr_all, "B_MultiTissues/dataOut/interlayer_corr_all.RDS")
 
@@ -262,13 +268,13 @@ fetalData_subset_KesslerSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %i
 fetalData_subset_corSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% corSIV_hg38,]
 
 interlayer_corr_VanBaakESS <- getinterlayer_corr(fetalData_subset_VanBaakESS_hg38, "VanBaakESS")
-# mean: 0.46
+# mean: 0.49
 interlayer_corr_HarrisSIV <- getinterlayer_corr(fetalData_subset_HarrisSIV_hg38, "HarrisSIV")
-# mean: 0.25
+# mean: 0.32
 interlayer_corr_KesslerSIV <- getinterlayer_corr(fetalData_subset_KesslerSIV_hg38, "KesslerSIV")
-# mean: 0.35
+# mean: 0.41
 interlayer_corr_corSIV <- getinterlayer_corr(fetalData_subset_corSIV_hg38, "corSIV")
-# mean: 0.39
+# mean: 0.43
 
 interlayer_corr <- interlayer_corr_backgrd |>
   dplyr::full_join(interlayer_corr_VanBaakESS) |>
@@ -380,129 +386,6 @@ final_plot <- plot_grid(p1 + theme(axis.text.x = element_text(angle = 45, hjust 
                         ncol = 2, rel_widths = c(1, 1))
 
 pdf(here("B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal_sepSIV.pdf"),
-    width = 16, height = 7)
-final_plot
-dev.off()
-
-###########################
-## Add candidate to test ##
-###########################
-LTR41table <- readRDS("B_MultiTissues/03_exploreResults/fetalSIV/LTR41table.RDS")
-fetalData_subset_LTR41 <- fetalData_long[fetalData_long$chrpos_hg38 %in% LTR41table$chr_pos,]
-interlayer_corr_LTR41 <- getinterlayer_corr(fetalData_subset_LTR41, "LTR41")
-saveRDS(interlayer_corr_LTR41, "B_MultiTissues/03_exploreResults/fetalSIV/interlayer_corr_LTR41.RDS")
-
-interlayer_corr <- interlayer_corr_backgrd |>
-  dplyr::full_join(interlayer_corr_VanBaakESS) |>
-  dplyr::full_join(interlayer_corr_HarrisSIV) |>
-  dplyr::full_join(interlayer_corr_KesslerSIV) |>
-  dplyr::full_join(interlayer_corr_corSIV) |>
-  dplyr::full_join(interlayer_corr_top90SNPrm) |>
-  dplyr::full_join(interlayer_corr_LTR41) |>
-  mutate(group = forcats::fct_relevel(
-    group, "background", "VanBaakESS", "HarrisSIV", "KesslerSIV", "corSIV", 
-    "top90SNPrm", "LTR41"))
-
-p1 <- ggplot(interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
-  geom_violin(width=1.4) +
-  geom_boxplot(width=0.1, color="grey", alpha=0.2) +
-  scale_fill_viridis(discrete = TRUE) +
-  theme_minimal(base_size = 14) +
-  labs(y = "Mean inter-germ layer correlation\n(Pearson's r)")+
-  theme(axis.title.x = element_blank(), legend.position = "none") 
-
-p1
-
-# We calculated interindividual variation using the same metric as van Baak et al. (27):
-# for each CpG, we took the mean methylation value across the two germ-layer derived 
-# tissues for every individual (giving 27 values for each CpG) and defined interindividual 
-# variation of the CpG as the range of these means.
-
-interindividual_var <- fetalData_long %>%
-  group_by(sample, CpG) %>%
-  summarise(mean_beta = mean(beta, na.rm = TRUE), .groups = "drop") %>%
-  group_by(CpG) %>%
-  summarise(interindividual_var = max(mean_beta, na.rm = TRUE) - min(mean_beta, na.rm = TRUE))
-
-CpG_summary <- interlayer_corr %>%
-  left_join(interindividual_var, by = "CpG")
-
-table(CpG_summary$group)
-
-# background VanBaakESS  HarrisSIV KesslerSIV     corSIV top90SNPrm      LTR41 
-# 742416       1257       1316        188       1610        205         18 
-
-p2 <- ggplot(CpG_summary, aes(x = interindividual_var, color = group)) +
-  geom_density(alpha = 0.5)+
-  scale_colour_viridis(discrete = TRUE) +
-  theme_minimal(base_size = 14) +
-  labs(x = "Interindividual variation")
-
-p2
-
-###################################################################
-# Bin interindividual_var into 0.1 intervals and bootstrap for CI #
-###################################################################
-# Function to compute bootstrap CI for median
-boot_median_ci <- function(x, nboot = 1000, conf = 0.95) {
-  x <- x[!is.na(x)]
-  if (length(x) < 5) return(c(median = NA, low = NA, high = NA))  # skip small bins
-  
-  bootfun <- function(data, idx) median(data[idx], na.rm = TRUE)
-  b <- boot(x, statistic = bootfun, R = nboot)
-  ci <- boot.ci(b, type = "perc", conf = conf)
-  
-  if (!is.null(ci) && "percent" %in% names(ci)) {
-    c(median = median(x, na.rm = TRUE), low = ci$percent[4], high = ci$percent[5])
-  } else {
-    c(median = median(x, na.rm = TRUE), low = NA, high = NA)
-  }
-}
-
-# Apply bootstrap per (group, bin)
-binned_summary_boot <- CpG_summary %>%
-  mutate(bin = cut(
-    interindividual_var,
-    breaks = seq(0, max(interindividual_var, na.rm = TRUE) + 0.1, by = 0.1),
-    include.lowest = TRUE
-  )) %>%
-  group_by(group, bin) %>%
-  summarise(
-    boot_res = list(boot_median_ci(interlayer_r)),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    median_r = sapply(boot_res, `[[`, "median"),
-    low = sapply(boot_res, `[[`, "low"),
-    high = sapply(boot_res, `[[`, "high")
-  ) %>%
-  dplyr::select(-boot_res)
-
-# Plot
-p3 <- ggplot(binned_summary_boot,
-             aes(x = bin, y = median_r, color = group, fill = group)) +
-  geom_point(position = position_dodge(width = 0.5), size = 3) +
-  geom_errorbar(
-    aes(ymin = low, ymax = high),
-    width = 0.2,
-    position = position_dodge(width = 0.5)
-  ) +
-  scale_color_viridis(discrete = TRUE) +
-  scale_fill_viridis(discrete = TRUE) +
-  theme_minimal(base_size = 14) +
-  labs(
-    x = "Interindividual variation",
-    y = "Inter-germ layer correlation \n(median ± bootstrap CI)"
-  ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-p3
-
-final_plot <- plot_grid(p1 + theme(axis.text.x = element_text(angle = 45, hjust = 1)), 
-                        plot_grid(p2, p3, ncol = 1, align = "v"),
-                        ncol = 2, rel_widths = c(1, 1))
-
-pdf(here("B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal_sepSIV_LTR41.pdf"),
     width = 16, height = 7)
 final_plot
 dev.off()
