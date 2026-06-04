@@ -14,7 +14,7 @@ cran_packages <- c(
   # HDF5 / parallel
   "parallel", "rhdf5",
   # Graphics
-  "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram",
+  "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram", "patchwork",
   "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo",
   "UpSetR",
   # Stats

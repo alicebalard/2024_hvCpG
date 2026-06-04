@@ -102,13 +102,65 @@ for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) 
 ## Different p0 and p1 tested
 for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_9")
-}
-## SKIP atlas_general - expected 87 files (from Atlas_batch87) but found 86.
+} # OK
+
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  savePrepedAtlasFile(file = subdir, p0 = "0_55", p1 = "0_65")
+} # TBC (only 70/87 files yet)
+
+# SKIP atlas_general - expected 87 files (from Atlas_batch87) but found 70.
 
 ###########################################
 ## Test different p0 and p1 in raw alpha ##
 ###########################################
 
+## Sub test: just one small batch
+R0 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250CpGs_0_8p0_0_65p1.rds"))
+R1 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250CpGs_0_55p0_0_65p1.rds"))
+R2 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250CpGs_0_9p0_0_65p1.rds"))
+R3 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250CpGs_0_8p0_0_9p1.rds"))
+
+R0 <- data.table(alpha = as.vector(R0), param = "0.8p0_0.65p1", chr_pos = rownames(R0))
+R1 <- data.table(alpha = as.vector(R1), param = "0.55p0_0.65p1", chr_pos = rownames(R1))
+R2 <- data.table(alpha = as.vector(R2), param = "0.9p0_0.65p1", chr_pos = rownames(R2))
+R3 <- data.table(alpha = as.vector(R3), param = "0.8p0_0.9p1", chr_pos = rownames(R3))
+
+setkey(R0, chr_pos)
+setkey(R1, chr_pos)
+setkey(R2, chr_pos)
+setkey(R3, chr_pos)
+
+# Merge all into one wide table
+merged_dt <- R0[R1, .(chr_pos, alpha_R0 = alpha, alpha_R1 = i.alpha),
+                on = "chr_pos", nomatch = NULL]
+merged_dt <- merged_dt[R2, .(chr_pos, alpha_R0, alpha_R1, alpha_R2 = i.alpha),
+                       on = "chr_pos", nomatch = NULL]
+merged_dt <- merged_dt[R3, .(chr_pos, alpha_R0, alpha_R1, alpha_R2, alpha_R3 = i.alpha),
+                       on = "chr_pos", nomatch = NULL]
+
+# Reshape to long: one row per CpG per comparison vs R0
+plot_long <- merged_dt %>%
+  pivot_longer(cols = c(alpha_R1, alpha_R2, alpha_R3),
+               names_to = "param", values_to = "alpha_other") %>%
+  mutate(param = factor(param,
+                        levels = c("alpha_R1", "alpha_R2", "alpha_R3"),
+                        labels = c("p0=0.55, p1=0.65",
+                                   "p0=0.90, p1=0.65",
+                                   "p0=0.80, p1=0.90")))
+
+# Plot: 3 panels, x = R0 baseline, y = alternative
+ggplot(plot_long, aes(x = alpha_R0, y = alpha_other)) +
+  geom_point(alpha = 0.15, size = 0.4) +
+  geom_abline(slope = 1, intercept = 0,
+              colour = "red", linetype = "dashed", linewidth = 0.5) +
+  facet_wrap(~ param, ncol = 3) +
+  labs(x     = "Pr(hv) baseline (p0=0.80, p1=0.65)",
+       y     = "Pr(hv) alternative parameters",
+       title = "Sensitivity to parameter choice (batch 001, 250 CpGs)") +
+  theme_minimal(base_size = 11) +
+  theme(strip.text = element_text(face = "bold"))
+
+############
 Atlas_dt <- readRDS(
   "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")
 nrow(Atlas_dt) # 21.522.541
@@ -120,30 +172,59 @@ if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
 Atlas_dt_80p090p1 <- readRDS(
   "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")
 
+Atlas_dt_55p065p1 <- readRDS(
+  "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_55p0_0_65p1_atlas_general.rds")
+
+head(Atlas_dt_55p065p1, 1000)
+
+
+Atlas_dt_80p090p1[Atlas_dt_80p090p1$name %in% "chr1_19677896",]
+Atlas_dt_55p065p1[Atlas_dt_55p065p1$name %in% "chr1_19677896",]
+
 # Set key if not already set
 setkey(Atlas_dt, name)
 setkey(Atlas_dt_80p090p1, name)
-#setkey(Atlas_dt_55p065p1, name)
+setkey(Atlas_dt_55p065p1, name)
 
-# Merge only columns needed for plotting
-merged_dt <- Atlas_dt[Atlas_dt_80p090p1, 
-                      .(name, 
-                        alpha_general  = alpha,   
-                        alpha_80p090p1 = i.alpha),
-                      on = "name",
-                      nomatch = NULL] # inner join
+# Merge all three
+merged_dt <- Atlas_dt[Atlas_dt_80p090p1,
+                      .(name, alpha_general = alpha, alpha_80p090p1 = i.alpha),
+                      on = "name", nomatch = NULL]
 
+merged_dt <- merged_dt[Atlas_dt_55p065p1,
+                       .(name, alpha_general, alpha_80p090p1, alpha_55p065p1 = i.alpha),
+                       on = "name", nomatch = NULL]
+
+# Reshape to long
 set.seed(1234)
+plot_long <- merged_dt[sample(.N, 100000)] |>
+  melt(id.vars = c("name", "alpha_general"),
+       measure.vars = c("alpha_80p090p1", "alpha_55p065p1"),
+       variable.name = "params", value.name = "alpha_other") |>
+  mutate(params = factor(params,
+                         levels = c("alpha_80p090p1", "alpha_55p065p1"),
+                         labels = c("p0=80%, p1=90%", "p0=55%, p1=65%")))
 
-merged_dt[sample(.N, 100000)] |>
-  ggplot(aes(x = alpha_general, y = alpha_80p090p1)) +
-  geom_point(alpha = 0.05, size = 0.3) +   # small/transparent for density
-  geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
-  labs(x = "Pr(hv) p0=80%, p1=65%", y = "Pr(hv) p0=80%, p1=90%") +
+plotPvar <- ggplot(plot_long, aes(x = alpha_general, y = alpha_other, colour = params)) +
+  geom_point(alpha = 0.05, size = 0.3) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey20",
+              linetype = "dashed", linewidth = 0.5) +
+  scale_colour_manual(values = c("p0=80%, p1=90%" = "#E05C5C",
+                                 "p0=55%, p1=65%" = "#5C8AE0"),
+                      name = "Parameters") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2))) +
+  labs(x = "Pr(hv) baseline (p0=80%, p1=65%)",
+       y = "Pr(hv) alternative parameters") +
   theme_minimal()
+
+plotPvar
 
 ## Ranking is preserved. The tight linear band confirms both settings agree on which 
 # CpGs are most variable --> hvCpG list is robust to this parameter choice
+ggplot2::ggsave(
+  filename = here::here(paste0("B_MultiTissues/dataOut/figures/makep0p1vary.pdf")),
+  plot = plotPvar, width = 5, height = 5
+)
 
 #######################
 ## Data in WGBS atlas:

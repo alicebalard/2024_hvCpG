@@ -29,6 +29,13 @@ VanBaakESS <- VanBaakESS[VanBaakESS$`ESS hit`,]
 VanBaakESS_hg38 <- dico[match(VanBaakESS$CG, dico$CpG), "chrpos_hg38"]
 VanBaakESS_hg38 <- na.omit(VanBaakESS_hg38)
 length(VanBaakESS_hg38) # 1579
+
+## SIV hits
+VanBaakSIV <- VanBaakESS[VanBaakESS$`SIV hit`,]
+VanBaakSIV_hg38 <- dico[match(VanBaakSIV$CG, dico$CpG), "chrpos_hg38"]
+VanBaakSIV_hg38 <- na.omit(VanBaakSIV_hg38)
+length(VanBaakSIV_hg38) # 1041
+
 rm(VanBaakESS)
 
 ###########################################
@@ -85,23 +92,23 @@ length(SoCCpGs_hg38) #259
 
 HarrisSIV_hg38_GR <- makeGRfromMyCpGPos(HarrisSIV_hg38, "Harris SIV")  
 VanBaakESS_hg38_GR <- makeGRfromMyCpGPos(VanBaakESS_hg38, "VanBaak ESS")
+VanBaakSIV_hg38_GR <- makeGRfromMyCpGPos(VanBaakSIV_hg38, "VanBaak SIV")
 KesslerSIV_GRanges_hg38$set <- "Kessler SIV"
 corSIV_GRanges_hg38$set <- "Gunasekara corSIV"
 DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "Derakhshan hvCpG")
 
 putativeME_GR <- c(DerakhshanhvCpGs_hg38_GR, HarrisSIV_hg38_GR, 
-                   VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
-                   corSIV_GRanges_hg38)
+                   VanBaakESS_hg38_GR, VanBaakSIV_hg38_GR,
+                   KesslerSIV_GRanges_hg38, corSIV_GRanges_hg38)
 
 putativeME_GR$set <- factor(putativeME_GR$set, 
                             levels = c("Derakhshan hvCpG", "Harris SIV", 
-                                       "VanBaak ESS", "Kessler SIV", "Gunasekara corSIV"))
+                                       "VanBaak ESS", "VanBaak SIV",
+                                       "Kessler SIV", "Gunasekara corSIV"))
 putativeME_GR$genome <- "hg38"
 
 ## Save for paleo project (once)
 # saveRDS(putativeME_GR, "../../../2025_paleoMethylVar/gitignore/putativeME_GR.RDS")
-# 
-# putativeME_GR <- readRDS("/path/to/putativeME_GR.RDS")
 
 ###############################################################################
 ## Prepare CpG associated with vmeQTL identified in MZ twins by Jordana Bell ##
