@@ -441,12 +441,51 @@ universe <- annotateCpGs_txdb(
 )
 
 print(paste0("Gene universe contains ", length(universe), " genes"))
-## "Gene universe contains 30190 genes"
+## "Gene universe contains 30075 genes"
 
 ## Annotate the different CpGs categories
-resAnnot_cellUniversal <- CpG_GO_pipeline(cellUniversal, universe = universe)
-resAnnot_immune <- CpG_GO_pipeline(immune, universe = universe)
-resAnnot_notimmune <- CpG_GO_pipeline(notimmune, universe = universe)
+minimum_CpG_per_cluster = 5
+resAnnot_cellUniversal <- CpG_GO_pipeline_lengthControlled(cellUniversal, universe = universe)
+# Clustering CpGs...
+# Reduced from 994693 to 38792 clustered CpGs
+# Annotating genes...
+# 2169 genes were dropped because they have exons located on both strands of the same reference sequence or on more than one reference sequence, so
+# cannot be represented by a single genomic range.
+# Use 'single.strand.genes.only=FALSE' to get all the genes in a GRangesList object, or use suppressMessages() to suppress this message.
+
+# Found 2397 Entrez genes
+# Controlling for gene length...
+# Median gene length — foreground: 4,653 bp, universe: 3,387 bp, ratio: 1.37
+# Length-matched universe: 24123 genes (was 30075)
+# Running GO enrichment...
+
+resAnnot_immune <- CpG_GO_pipeline_lengthControlled(immune, universe = universe)
+# Clustering CpGs...
+# Reduced from 1626368 to 45702 clustered CpGs
+# Annotating genes...
+# 2169 genes were dropped because they have exons located on both strands of the same reference sequence or on more than one reference sequence, so
+# cannot be represented by a single genomic range.
+# Use 'single.strand.genes.only=FALSE' to get all the genes in a GRangesList object, or use suppressMessages() to suppress this message.
+
+# Found 3626 Entrez genes
+# Controlling for gene length...
+# Median gene length — foreground: 4,847 bp, universe: 3,387 bp, ratio: 1.43
+# Length-matched universe: 27417 genes (was 30075)
+# Running GO enrichment...
+
+resAnnot_notimmune <- CpG_GO_pipeline_lengthControlled(notimmune, universe = universe)
+# Clustering CpGs...
+# Reduced from 1231341 to 67607 clustered CpGs
+# Annotating genes...
+# 2169 genes were dropped because they have exons located on both strands of the same reference sequence or on more than one reference sequence, so
+# cannot be represented by a single genomic range.
+# Use 'single.strand.genes.only=FALSE' to get all the genes in a GRangesList object, or use suppressMessages() to suppress this message.
+
+# Found 4737 Entrez genes
+# Controlling for gene length...
+# Median gene length — foreground: 5,054 bp, universe: 3,387 bp, ratio: 1.49
+# Length-matched universe: 28551 genes (was 30075)
+# Running GO enrichment...
 
 resAnnot <- list(resAnnot_cellUniversal=resAnnot_cellUniversal,
                  resAnnot_immune=resAnnot_immune,
@@ -509,29 +548,27 @@ p <- ggplot(df_sig, aes(x = group, y = Description)) +
   )
 
 print(p)
+# 
+# p <- ggplot(df_sig[df_sig$ontology %in% "BP",], aes(x = group, y = Description)) +
+#   geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
+#   scale_size_continuous(name = "FoldEnrichment", range = c(1.5, 8)) +
+#   # smaller FDR should look darker; direction = -1 handles that
+#   scale_color_viridis_c(name = "FDR (p.adjust)", option = "plasma", direction = -1) +
+#   facet_grid(group ~ ontology, scales = "free", space = "free_y") +
+#   coord_flip() +
+#   theme_bw() +
+#   labs(x = NULL, y = NULL,
+#        title = "GO enrichment across groups and ontologies (FDR < 0.05)") +
+#   theme(
+#     legend.box.background = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+#     legend.background     = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+#     legend.key            = element_rect(fill = "#ebebeb", color = "#ebebeb"),
+#     legend.position       = "top",
+#     axis.text.y           = element_text(size = 8),
+#     axis.text.x           = element_text(size = 8, angle = 45, hjust = 1),
+#     strip.text            = element_text(face = "bold")
+#   )
 
-p <- ggplot(df_sig[df_sig$ontology %in% "BP",], aes(x = group, y = Description)) +
-  geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
-  scale_size_continuous(name = "FoldEnrichment", range = c(1.5, 8)) +
-  # smaller FDR should look darker; direction = -1 handles that
-  scale_color_viridis_c(name = "FDR (p.adjust)", option = "plasma", direction = -1) +
-  facet_grid(group ~ ontology, scales = "free", space = "free_y") +
-  coord_flip() +
-  theme_bw() +
-  labs(x = NULL, y = NULL,
-       title = "GO enrichment across groups and ontologies (FDR < 0.05)") +
-  theme(
-    legend.box.background = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-    legend.background     = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-    legend.key            = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-    legend.position       = "top",
-    axis.text.y           = element_text(size = 8),
-    axis.text.x           = element_text(size = 8, angle = 45, hjust = 1),
-    strip.text            = element_text(face = "bold")
-  )
-
-pdf(here("B_MultiTissues/dataOut/figures/GOenrichment.pdf"), width = 10, height = 7)
+pdf(here("B_MultiTissues/dataOut/figures/GOenrichment_lengthcontrolled.pdf"), width = 15, height = 7)
 p
 dev.off()
-
-## Nothing very clear...

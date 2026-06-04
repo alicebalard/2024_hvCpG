@@ -27,238 +27,184 @@ table3layers$percentile <- ecdf(table3layers$alpha_geomean)(table3layers$alpha_g
 # Percentile = 95 means the site is in the top 5%
 # top X% = percentile >= (100 - X)
 
+## Interlayer correlation obtained from fetal script
+interlayer_corr <- readRDS(here("B_MultiTissues/dataOut/interlayer_corr_all.RDS"))
+interlayer_corr$chr_pos <- dico$chrpos_hg38[match(interlayer_corr$CpG, dico$CpG)]
+
+## to check!!! commit
+interlayer_corr$interlayer_r <- rowMeans(
+  abs(interlayer_corr[, c("r_Endo_Meso", "r_Endo_Ecto", "r_Meso_Ecto")]),
+  na.rm = TRUE
+)
+interlayer_corr$percentile_r <- ecdf(interlayer_corr$interlayer_r)(interlayer_corr$interlayer_r) * 100
+
 ############################
 ## Define candidate sites ##
 ############################
 
 ## Matt's data are in hg19
-dataMatt <- readxl::read_xlsx(here("gitignore/DEGCAGS_intersect_repeats_Alice.xlsx"))
+LTR41table_gr_hg19 <- GRanges(seqnames = c("chr1", "chr1"), 
+                              ranges = IRanges(start = c(18081648, 18085651),
+                                               end = c(18082190, 18086109)),
+                              name = c("LTR41_1", "LTR41_2"))
 
-LTR41table <- dataMatt[grepl("LTR41", dataMatt$TE_family),]
+## ACTL8 position in hg38: chr1:17755333-17827063 (+)
 
 # --- Liftover (hg19 → hg38) ---
-LTR41table_gr <- GRanges(
-  seqnames = LTR41table$chromosome,
-  ranges = IRanges(start = LTR41table$start, end = LTR41table$end),
-  hg19_chr = LTR41table$chromosome, hg19_start = LTR41table$start, hg19_end = LTR41table$end,
-  `%change` = LTR41table$`%change`, padj = LTR41table$padj,
-  TE_chromosome = LTR41table$TE_chromosome, TE_start = LTR41table$TE_start, 
-  TE_end = LTR41table$TE_end, TE_family = LTR41table$TE_family,TE_type = LTR41table$TE_type
-)
+LTR41table_gr_hg38 <- unlist(liftOver(LTR41table_gr_hg19, chain))
 
-mapped <- unlist(liftOver(LTR41table_gr, chain))
+LTR41table_gr_hg38 <- c(
+  LTR41table_gr_hg38,
+  GRanges(seqnames = "chr1", 
+          ranges = IRanges(start = 17755333, end = 17827063),
+          name = "ACTL8"))
 
-## Focus 10k around ACTL8 primary transcript (chr1:17755333-17827063)
-target_window <- GRanges("chr1", IRanges(17755333-1000, 17827063+1000))  # region ±10kb
-hits <- subsetByOverlaps(mapped, target_window, ignore.strand = TRUE)
+## Focus 10k around ACTL8
+LTR41table_gr_hg38 <- c(
+  LTR41table_gr_hg38,
+  GRanges(seqnames = "chr1", 
+          ranges = IRanges(start = min(LTR41table_gr_hg38@ranges@start) - 3000,
+                           end = max(LTR41table_gr_hg38@ranges@start+
+                                       LTR41table_gr_hg38@ranges@width) + 3000),
+          name = NA))
 
-# Find overlaps with full results
-hits <- findOverlaps(hits, table3layers)
+# ── 1. Overlap table3layers with LTR41 region ─────────────────────────────────
+hits_t3 <- findOverlaps(table3layers, LTR41table_gr_hg38[is.na(LTR41table_gr_hg38$name)])
+t3_sub  <- as.data.table(table3layers[queryHits(hits_t3)])
+# keep only metadata columns (drop GRanges coordinate columns if not needed)
+t3_sub  <- t3_sub[, .(seqnames, start, chr_pos, 
+                      alpha_endo, alpha_ecto, alpha_meso, 
+                      alpha_allLayers, alpha_geomean, percentile)]
 
-# Extract both sides and combine metadata
-mapped_hits      <- mapped[queryHits(hits)]
-table3layers_hits <- table3layers[subjectHits(hits)]
+# ── 2. Overlap interlayer_corr with LTR41 region ──────────────────────────────
+# interlayer_corr is a tibble with chr_pos → convert to GRanges first
+interlayer_corr_clean <- interlayer_corr[!is.na(interlayer_corr$chr_pos), ]
 
-# Combine 
-result_df <- as.data.frame(mapped_hits) %>%
-  cbind(as.data.frame(mcols(table3layers_hits)))
-
-chr_order <- paste0("chr", c(1:22, "X", "Y"))
-
-result_df <- result_df %>%
-  mutate(seqnames = factor(seqnames,
-                           levels = chr_order[chr_order %in% unique(seqnames)]))
-
-## Save for SIV test in fetal script
-saveRDS(result_df, "fetalSIV/LTR41table.RDS")
-
-# Get genome-wide means for reference lines
-genome_means <- table3layers %>%
-  as.data.frame() %>%
-  summarise(across(c(alpha_endo, alpha_meso, alpha_ecto, alpha_geomean), 
-                   ~ mean(.x, na.rm = TRUE))) %>%
-  pivot_longer(everything(), names_to = "layer", values_to = "genome_mean") %>%
-  mutate(layer = factor(layer,
-                        levels = c("alpha_endo", "alpha_meso", "alpha_ecto", "alpha_geomean"),
-                        labels = c("Endo", "Meso", "Ecto", "Geom.")))
-
-## Interlayer correlation obtained from fetal script
-interlayer_corr <-
-  readRDS(here("B_MultiTissues/dataOut/interlayer_corr_all.RDS"))
-
-interlayer_corr$chr_pos <- dico$chrpos_hg38[match(interlayer_corr$CpG, dico$CpG)]
-
-# Join interlayer_r to result_df by chr_pos
-result_df_annot <- result_df %>%
-  left_join(interlayer_corr %>%
-              dplyr::select(chr_pos, interlayer_r, percentile_r) %>%
-              distinct(chr_pos, .keep_all = TRUE),
-            by = "chr_pos") %>%
-  arrange(seqnames, start) %>%
-  mutate(chr_pos_r = factor(
-    paste0(chr_pos, "\nr = ", round(interlayer_r, 2)),
-    levels = unique(paste0(chr_pos, "\nr = ", round(interlayer_r, 2)))
-  ))
-
-result_df_annot %>% dplyr::select(chr_pos, alpha_geomean, percentile, interlayer_r, percentile_r)
-
-plot_df <- result_df_annot %>%
-  arrange(seqnames, start) %>%
-  mutate(chr_num = as.integer(factor(seqnames, levels = paste0("chr", c(1:22,"X","Y"))))) %>%
-  dplyr::select(seqnames, start, chr_pos, alpha_geomean, percentile, interlayer_r, percentile_r, chr_num) %>%
-  pivot_longer(cols = c(alpha_geomean, percentile, interlayer_r, percentile_r),
-               names_to = "metric", values_to = "value") %>%
-  mutate(metric = factor(metric,
-                         levels = c("alpha_geomean", "percentile", "interlayer_r", "percentile_r"),
-                         labels = c("Pr(hv) (geom. mean)", "Percentile rank Pr(hv)", "Inter-layer r", "Percentile rank inter-layer r")))
-
-# Add percentile reference line (e.g. 90th percentile threshold)
-ref_lines <- data.frame(
-  metric = c("Pr(hv) (geom. mean)", "Percentile rank Pr(hv)", "Inter-layer r", "Percentile rank inter-layer r"),
-  ref    = c(genome_means$genome_mean[genome_means$layer == "Geom."],
-             90,
-             mean(result_df_annot$interlayer_r),
-             90)
-)
-
-# Build offsets (unchanged)
-chr_offsets <- result_df_annot %>%
-  arrange(seqnames, start) %>%
-  distinct(seqnames) %>%
-  mutate(
-    chr_num = as.integer(factor(seqnames, levels = paste0("chr", c(1:22,"X","Y")))),
-    offset  = (chr_num - 1) * 5e8
+interlayer_gr <- GRanges(
+  seqnames = sub("_.*", "", interlayer_corr_clean$chr_pos),
+  ranges   = IRanges(
+    start = as.integer(sub(".*_", "", interlayer_corr_clean$chr_pos)),
+    width = 1
   )
-
-plot_df <- plot_df %>%
-  left_join(chr_offsets, by = "seqnames") %>%
-  mutate(x_pos = start + offset)
-
-chr_labels <- plot_df %>%
-  group_by(seqnames, offset) %>%
-  summarise(x_mid = mean(start + offset), .groups = "drop")
-
-# Replace metric labels with numbered versions to avoid any string matching issues
-plot_df <- plot_df %>%
-  mutate(metric_num = as.integer(metric))  # 1,2,3,4 in level order
-
-# Custom labeller
-metric_labels <- c(
-  "1" = "Pr(hv) (geom. mean)",
-  "2" = "Percentile rank Pr(hv)",
-  "3" = "Inter-layer r",
-  "4" = "Percentile rank inter-layer r"
 )
+mcols(interlayer_gr) <- interlayer_corr_clean
 
-# Match ref_lines to numeric too
-ref_lines$metric_num <- as.integer(factor(ref_lines$metric,
-                                          levels = levels(plot_df$metric)))
+hits_ic  <- findOverlaps(interlayer_gr, LTR41table_gr_hg38[is.na(LTR41table_gr_hg38$name)])
+ic_sub   <- as.data.table(mcols(interlayer_gr[queryHits(hits_ic)]))
 
-plot_df <- plot_df %>%
-  mutate(metric_num = factor(as.integer(metric), 
-                             levels = c(4, 3, 2, 1))) %>%
-  ggplot(aes(x = x_pos, y = value, colour = seqnames)) +
-  geom_point(size = 3) +
-  geom_hline(data = ref_lines, aes(yintercept = ref),
-             linetype = "dashed", colour = "grey40", linewidth = 0.5) +
-  geom_vline(xintercept = chr_offsets$offset[-1] - 2.5e8,
-             colour = "grey85", linewidth = 0.4) +
-  facet_wrap(~ metric_num, ncol = 1, scales = "free_y",
-             as.table = FALSE,
-             labeller = labeller(metric_num = metric_labels)) +
-  scale_x_continuous(
-    breaks = plot_df %>% distinct(chr_pos, x_pos) %>% pull(x_pos),
-    labels = plot_df %>%
-      distinct(chr_pos, x_pos) %>%
-      mutate(label = format(as.integer(sub(".*_", "", chr_pos)),
-                            big.mark = ",", scientific = FALSE)) %>%
-      pull(label),
-    expand = c(0.05, 0)
-  ) +
-  scale_colour_viridis_d(guide = "none") +
-  labs(x = NULL, y = NULL,
-       title = "LTR41 CpGs: Pr(hv), percentile rank and inter-germ layer correlation",
-       caption = "Dashed lines: 90th percentile (percentile ranks) / genome wide mean (Pr(hv) and r)") +
-  theme_minimal(base_size = 10) +
-  theme(
-    axis.text.x        = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 7),
-    panel.grid.major.x = element_line(colour = "grey92"),
-    panel.grid.minor.x = element_blank(),
-    strip.text         = element_text(face = "bold")
-  )
+# ── Join on chr_pos ────────────────────────────────────────────────────────
+result <- merge(t3_sub, ic_sub, by = "chr_pos", all = TRUE)
+result <- result[!is.na(result$start),]
 
-ggplot2::ggsave(
-  filename = here::here(paste0("B_MultiTissues/dataOut/figures/SIV/plotLTR41_alongChr.pdf")),
-  plot = plot_df, width = 8, height = 8
+# ── result → GRanges ──────────────────────────────────────────────────────────
+result_gr <- GRanges(
+  seqnames = result$seqnames,
+  ranges   = IRanges(start = result$start, width = 1)
 )
+mcols(result_gr)$chr_pos <- result$chr_pos
 
-plotLTR41 <- result_df_annot %>%
-  pivot_longer(cols = c(alpha_endo, alpha_ecto, alpha_meso, alpha_geomean),
-               names_to = "layer", values_to = "alpha") %>%
-  mutate(layer = factor(layer,
-                        levels = c("alpha_endo", "alpha_meso", "alpha_ecto", "alpha_geomean"),
-                        labels = c("Endo", "Meso", "Ecto", "Geom."))) %>%
-  ggplot(aes(x = layer, y = alpha, fill = layer)) +
-  geom_col(width = 0.7) +
-  geom_hline(data = genome_means,
-             aes(yintercept = genome_mean, colour = layer),
-             linetype = "dashed", linewidth = 0.5, show.legend = FALSE) +
-  scale_fill_manual(values = c(Endo = "#5C8AE0", Meso = "#4CAF82",
-                               Ecto = "#E05C5C", "Geom." = "black"),
-                    guide = "none") +
-  scale_colour_manual(values = c(Endo = "#5C8AE0", Meso = "#4CAF82",
-                                 Ecto = "#E05C5C", "Geom." = "black")) +
-  scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
-  facet_wrap(~ chr_pos_r, ncol = 6) +
-  labs(x = NULL, y = "Pr(hvCpG)",
-       caption = "Dashed lines = genome-wide mean per layer. r = mean inter-layer correlation in fetus data") +
-  theme_minimal(base_size = 9) +
-  theme(axis.text.x        = element_text(angle = 45, hjust = 1),
-        panel.grid.major.x = element_blank(),
-        strip.text         = element_text(size = 7))
+# ── overlap with putativeME_GR ────────────────────────────────────────────────
+hits <- findOverlaps(result_gr, putativeME_GR)
+length(hits) # no hits
 
-ggplot2::ggsave(
-  filename = here::here(paste0("B_MultiTissues/dataOut/figures/SIV/plotLTR41_prhv.pdf")),
-  plot = plotLTR41, width = 8, height = 8
-)
+# ── melt to long for the alpha / r tracks ─────────────────────────────────────
+alpha_cols <- c("alpha_endo", "alpha_ecto", "alpha_meso", "alpha_geomean")
+r_cols     <- c("r_Endo_Meso", "r_Endo_Ecto", "r_Meso_Ecto", "interlayer_r")
 
-result_df_annot$CpG <- dico$CpG[match(result_df_annot$chr_pos, dico$chrpos_hg38)]
+long_alpha <- melt(result, id.vars = c("start"),
+                   measure.vars = alpha_cols,
+                   variable.name = "track", value.name = "value")
 
-p2 <- ggplot(result_df_annot, aes(x = alpha_geomean, y = interlayer_r, 
-                                  label = paste(chr_pos, CpG, sep = "\n"))) +
-  geom_hline(yintercept = 0) +
-  geom_point() +
-  geom_label(aes(col = seqnames), size = 2) +
-  theme_bw() +
-  theme(legend.position = "none")
+long_r     <- melt(result, id.vars = c("start"),
+                   measure.vars = r_cols,
+                   variable.name = "track", value.name = "value")
 
-ggplot2::ggsave(
-  filename = here::here(paste0("B_MultiTissues/dataOut/figures/SIV/plotLTR41_corprhv_r.pdf")),
-  plot = p2, width = 5, height = 5
-)
+# ── colour for set annotation ─────────────────────────────────────────────────
+set_colours <- c("Derakhshan" = "#E69F00",
+                 "Gunasekara" = "#56B4E9",
+                 "other"      = "#009E73")
 
-####################################################################################################
-## Correlations pr(hv)(WGBS Loyfer) and inter-germ layer correlation (fetus) for all data on EPIC ##
-####################################################################################################
-interlayer_corr_all <- readRDS(here("B_MultiTissues/dataOut/interlayer_corr_all.RDS"))
+# ── shared theme ──────────────────────────────────────────────────────────────
+th <- theme_bw(base_size = 10) +
+  theme(axis.title.x  = element_blank(),
+        axis.text.x   = element_blank(),
+        axis.ticks.x  = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position  = "none")
 
-## Add hg38 coordinates
-interlayer_corr_all$chr_pos <- dico$chrpos_hg38[match(interlayer_corr_all$CpG, dico$CpG)]
+th_bottom <- theme_bw(base_size = 10) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position  = "none")
 
-interlayer_corr_all$alpha_geomean <- table3layers$alpha_geomean[
-  match(interlayer_corr_all$chr_pos, table3layers$chr_pos)]
+# ── LTR41 / ACTL8 annotation rectangles ──────────────────────────────────────
+annot <- as.data.table(LTR41table_gr_hg38)[!is.na(name)]
 
-p3 <- ggplot(interlayer_corr_all, aes(x = alpha_geomean, y = abs(interlayer_r))) +
-  geom_hline(yintercept = 0) +
-  geom_point(alpha = .05) +
-  geom_smooth(col="red")+
-  geom_smooth(method = "lm") +
-  labs(x="Pr(hv) (geometric mean on the 3 germ layers analyses)",
-       y="Inter-germ layer correlation (absolute value)")+
-  theme_bw() +
-  theme(legend.position = "none")
+add_annot <- function(p) {
+  p + geom_rect(data = annot,
+                aes(xmin = start, xmax = end,
+                    ymin = -Inf, ymax = Inf,
+                    fill = name),
+                inherit.aes = FALSE,
+                alpha = 0.12) +
+    scale_fill_manual(values = c("LTR41_1" = "#CC79A7",
+                                 "LTR41_2" = "#CC79A7",
+                                 "ACTL8"   = "grey60"))
+}
 
-ggplot2::ggsave(
-  filename = here::here(paste0("B_MultiTissues/dataOut/figures/SIV/allEPICfetus_corprhv_rinter.pdf")),
-  plot = p3, width = 5, height = 5
-)
+# ── 1. Alpha tracks (0–1) ─────────────────────────────────────────────────────
+p_alpha <- ggplot(long_alpha, aes(x = start, y = value, colour = track)) +
+  geom_smooth(alpha = 0.2, na.rm = TRUE, span = 0.1) +
+  geom_point(size = 1.2, alpha = 0.7, na.rm = TRUE) +
+  scale_colour_manual(values = c(
+    alpha_endo      = "#1D9E75",
+    alpha_ecto      = "#185FA5",
+    alpha_meso      = "#D85A30",
+    alpha_geomean   = "black")) +
+  scale_y_continuous("Pr(HV)", limits = c(0, 1)) +
+  th +
+  theme(legend.position = "right")
+p_alpha <- add_annot(p_alpha)
+
+# ── 2. Percentile (alpha_geomean) ─────────────────────────────────────────────
+p_pct <- ggplot(result, aes(x = start, y = percentile)) +
+  geom_smooth(alpha = 0.2, na.rm = TRUE, span = 0.1) +
+  geom_point(aes(colour = !is.na(set)), size = 1.5, na.rm = TRUE) +
+  geom_hline(yintercept = 95, linetype = "dashed", colour = "firebrick") +
+  scale_colour_manual(values = c("FALSE" = "grey60", "TRUE" = "#E69F00")) +
+  scale_y_continuous("Percentile\n(geomean)") +
+  th
+p_pct <- add_annot(p_pct)
+
+# ── 3. Interlayer r tracks ────────────────────────────────────────────────────
+p_r <- ggplot(long_r[long_r$track %in% "interlayer_r",],
+              aes(x = start, y = value, colour = track)) +
+  geom_point(size = 1.2, alpha = 0.7, na.rm = TRUE) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  scale_colour_manual(values = c(
+    r_Endo_Meso  = "#1D9E75",
+    r_Endo_Ecto  = "#185FA5",
+    r_Meso_Ecto  = "#D85A30",
+    interlayer_r = "black")) +
+  scale_y_continuous("Interlayer r", limits = c(-1, 1)) +
+  th +
+  theme(legend.position = "right")
+p_r <- add_annot(p_r)
+
+# ── 4. Percentile_r ───────────────────────────────────────────────────────────
+p_pct_r <- ggplot(result, aes(x = start, y = percentile_r)) +
+  geom_point(aes(colour = !is.na(set)), size = 1.5, na.rm = TRUE) +
+  geom_hline(yintercept = 95, linetype = "dashed", colour = "firebrick") +
+  scale_colour_manual(values = c("FALSE" = "grey60", "TRUE" = "#E69F00")) +
+  scale_y_continuous("Percentile\n(interlayer r)") +
+  scale_x_continuous("Position (hg38)") +
+  th_bottom
+p_pct_r <- add_annot(p_pct_r)
+
+# ── 5. Stack ──────────────────────────────────────────────────────────────────
+(p_alpha / p_pct / p_r / p_pct_r) +
+  plot_layout(heights = c(2, 1, 2, 1))
+
+# ggplot2::ggsave(
+#   filename = here::here(paste0("B_MultiTissues/dataOut/figures/SIV/allEPICfetus_corprhv_rinter.pdf")),
+#   plot = p3, width = 5, height = 5
+# )
