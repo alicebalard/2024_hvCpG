@@ -56,63 +56,78 @@ if (!exists("functionsLoaded")) {
 wide <- readRDS(here("gitignore/wide_script10_3layers6gp.RDS"))
 
 ## Define a cutoff
-HV <- 0.90 # top 10%
-notHV <- 0.5 # bottom 50% are clearly not hv
+HV <- 0.90 
+notHV <- 0.5 
 
 # ── 1. Categories based on 3 "one vs two others" comparisons ─────────────────
 wide[, `:=`(
-  HV_meso     = meso     > HV,   # HV within mesoderm
-  HV_endo     = endo     > HV,   # HV within endoderm
-  HV_ecto     = ecto     > HV   # HV within ectoderm
+  HV_meso     = meso > HV,
+  HV_endo     = endo > HV,
+  HV_ecto     = ecto > HV,
+  notHV_meso  = meso < notHV,
+  notHV_endo  = endo < notHV,
+  notHV_ecto  = ecto < notHV
 )]
 
 wide[, category := fcase(
-  # HV all 3 layers → pre-gastrulation ME
+  # ME: HV in all 3
   HV_meso & HV_endo & HV_ecto,
   "ME",
   
-  # meso-specific stochastic
-  HV_meso & !HV_endo & !HV_ecto,
-  "Meso_specific",
+  # layer-specific: HV in one, clearly NOT HV in the other two
+  HV_meso & notHV_endo & notHV_ecto, "Meso_specific",
+  HV_endo & notHV_meso & notHV_ecto, "Endo_specific",
+  HV_ecto & notHV_meso & notHV_endo, "Ecto_specific",
   
-  # endo-specific stochastic
-  HV_endo & !HV_meso & !HV_ecto,
-  "Endo_specific",
+  # clearly not HV anywhere → constitutive
+  notHV_meso & notHV_endo & notHV_ecto, "constitutive",
   
-  # ecto-specific stochastic
-  HV_ecto & !HV_meso & !HV_endo,
-  "Ecto_specific",
-  
-  default = "constitutive"
+  # anything else: one layer HV but others not clearly low, or intermediate
+  default = "ambiguous"
 )]
 
 print(table(wide$category))
-# constitutive Ecto_specific Endo_specific     ME     Meso_specific 
-# 21729450        187031        155443        122180        133357 
+# ambiguous  constitutive Ecto_specific Endo_specific            ME Meso_specific 
+# 4849045      17209524         67489         50028        122180         29195
 
 # ── 2. Three plots: each layer vs its "two others" pool ───────────────────────
 category_colours <- c(
-  ME               = "#E69F00",   
-  Meso_specific    = "#56B4E9",   
-  Endo_specific    = "#009E73",   
-  Ecto_specific    = "#CC79A7",   
-  constitutive     = "grey80"
+  ME             = "#E69F00",
+  Meso_specific  = "#56B4E9",
+  Endo_specific  = "#009E73",
+  Ecto_specific  = "#CC79A7",
+  ambiguous      = "grey90", 
+  constitutive   = "black"
 )
 
 set.seed(1234)
 
 make_plot <- function(data, x_col, y_col, x_lab, y_lab, title) {
-  data = data[sample(nrow(data), 100000), ]
-  ggplot(data, aes(x = .data[[x_col]], y = .data[[y_col]], colour = category)) +
+  data <- data[sample(nrow(data), 100000), ]
+  
+  ggplot(data, aes(x = .data[[x_col]], y = .data[[y_col]], 
+                   colour = category, shape = category)) +
     geom_point(data = data[category == "constitutive"],
-               alpha = 0.15, size = 0.3) +
-    geom_point(data = data[category != "constitutive"],
-               alpha = 0.6,  size = 1.5) +
-    geom_hline(yintercept = HV, linetype = "dashed", colour = "grey40", linewidth = 0.4) +
-    geom_vline(xintercept = HV, linetype = "dashed", colour = "grey40", linewidth = 0.4) +
+               alpha = 0.3, size = 0.3) +
+    geom_point(data = data[category == "ambiguous"],
+               alpha = 0.4, size = 0.5) +
+    geom_point(data = data[!category %in% c("constitutive", "ambiguous")],
+               alpha = 0.8, size = 1.5) +
+    geom_hline(yintercept = HV,    linetype = "dashed", colour = "grey40", linewidth = 0.4) +
+    geom_vline(xintercept = HV,    linetype = "dashed", colour = "grey40", linewidth = 0.4) +
+    geom_hline(yintercept = notHV, linetype = "dotted", colour = "grey60", linewidth = 0.3) +
+    geom_vline(xintercept = notHV, linetype = "dotted", colour = "grey60", linewidth = 0.3) +
     scale_x_continuous(limits = c(0, 1), name = x_lab) +
     scale_y_continuous(limits = c(0, 1), name = y_lab) +
     scale_colour_manual(values = category_colours, drop = FALSE) +
+    scale_shape_manual(values = c(
+      ME             = 16,   # filled circle
+      Meso_specific  = 16,
+      Endo_specific  = 16,
+      Ecto_specific  = 16,
+      ambiguous      = 1,    # empty circle
+      constitutive   = 4     # cross
+    ), drop = FALSE) +
     ggtitle(title) +
     theme_bw(base_size = 11) +
     theme(legend.position = "none")
@@ -148,113 +163,26 @@ legend_p <- ggplot(wide[sample(.N, 1000)],
 (p_mesovsendo | p_mesovsecto | p_endovsecto | cowplot::get_legend(legend_p)) +
   plot_layout(widths = c(1, 1, 1, 0.35))
 
-### With all data (power issue)
-# # ── 1. Load ───────────────────────────────────────────────────────────────────
-# endo     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
-# meso     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
-# ecto     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
-# 
-# analyses <- list(endo = endo, meso = meso, ecto = ecto)
-# 
-# # ── 2. Wide table ─────────────────────────────────────────────────────────────
-# wide <- Reduce(
-#   function(a, b) merge(a, b, by = "name"),
-#   Map(function(dt, nm) setnames(copy(dt), "alpha", nm), analyses, names(analyses))
-# )
-# 
-# saveRDS(wide, here("gitignore/wide_script10_3layersfull.RDS"))
-# rm(ecto, endo, meso, analyses)
-# wide <- readRDS(here("gitignore/wide_script10_3layersfull.RDS"))
-# 
-# ## Define a cutoff
-# HV <- 0.9 # top 10%
-# notHV <- 0.5 # bottom 50% are clearly not hv
-# 
-# # ── 1. Categories based on 3 "one vs two others" comparisons ─────────────────
-# wide[, `:=`(
-#   HV_meso     = meso     > HV,   # HV within mesoderm
-#   HV_endo     = endo     > HV,   # HV within endoderm
-#   HV_ecto     = ecto     > HV   # HV within ectoderm
-# )]
-# 
-# wide[, category := fcase(
-#   # HV all 3 layers → pre-gastrulation ME
-#   HV_meso & HV_endo & HV_ecto,
-#   "ME",
-#   
-#   # meso-specific stochastic
-#   HV_meso & !HV_endo & !HV_ecto,
-#   "Meso_specific",
-#   
-#   # endo-specific stochastic
-#   HV_endo & !HV_meso & !HV_ecto,
-#   "Endo_specific",
-#   
-#   # ecto-specific stochastic
-#   HV_ecto & !HV_meso & !HV_endo,
-#   "Ecto_specific",
-#   
-#    default = "constitutive"
-# )]
-# 
-# print(table(wide$category))
-# # constitutive Ecto_specific Endo_specific     ME      Meso_specific 
-# # 21121234        179727         28385        131844         61351 
-# 
-# # ── 2. Three plots: each layer vs its "two others" pool ───────────────────────
-# category_colours <- c(
-#   ME               = "#E69F00",   
-#   Meso_specific    = "#56B4E9",   
-#   Endo_specific    = "#009E73",   
-#   Ecto_specific    = "#CC79A7",   
-#   constitutive     = "grey80"
-# )
-# 
-# set.seed(1234)
-# 
-# make_plot <- function(data, x_col, y_col, x_lab, y_lab, title) {
-#   data = data[sample(nrow(data), 100000), ]
-#   ggplot(data, aes(x = .data[[x_col]], y = .data[[y_col]], colour = category)) +
-#     geom_point(data = data[category == "constitutive"],
-#                alpha = 0.15, size = 0.3) +
-#     geom_point(data = data[category != "constitutive"],
-#                alpha = 0.6,  size = 1.5) +
-#     geom_hline(yintercept = HV, linetype = "dashed", colour = "grey40", linewidth = 0.4) +
-#     geom_vline(xintercept = HV, linetype = "dashed", colour = "grey40", linewidth = 0.4) +
-#     scale_x_continuous(limits = c(0, 1), name = x_lab) +
-#     scale_y_continuous(limits = c(0, 1), name = y_lab) +
-#     scale_colour_manual(values = category_colours, drop = FALSE) +
-#     ggtitle(title) +
-#     theme_bw(base_size = 11) +
-#     theme(legend.position = "none")
-# }
-# 
-# p_mesovsendo <- make_plot(wide,
-#                     x_col = "meso",     y_col = "endo",
-#                     x_lab = "Pr(HV) meso",
-#                     y_lab = "Pr(HV) endo",
-#                     title = "Meso vs endo")
-# 
-# p_mesovsecto <- make_plot(wide,
-#                           x_col = "meso",     y_col = "ecto",
-#                           x_lab = "Pr(HV) meso",
-#                           y_lab = "Pr(HV) ecto",
-#                           title = "Meso vs ecto")
-# 
-# p_endovsecto <- make_plot(wide,
-#                           x_col = "endo",     y_col = "ecto",
-#                           x_lab = "Pr(HV) endo",
-#                           y_lab = "Pr(HV) ecto",
-#                           title = "Endo vs ecto")
-# 
-# # shared legend
-# legend_p <- ggplot(wide[sample(.N, 1000)],
-#                    aes(x = meso, y = endo, colour = category)) +
-#   geom_point(size = 3) +
-#   scale_colour_manual(values = category_colours, drop = FALSE, name = NULL) +
-#   guides(colour = guide_legend(override.aes = list(size = 3, alpha = 1))) +
-#   theme_void() +
-#   theme(legend.position = "right")
-# 
-# (p_mesovsendo | p_mesovsecto | p_endovsecto | cowplot::get_legend(legend_p)) +
-#   plot_layout(widths = c(1, 1, 1, 0.35))
+## GO enrichement
+
+## Test of raw data between people
+Loyfer <- read.csv("../dataIn/SupTab1_Loyfer2023.csv")
+
+dupPeople <- Loyfer[Loyfer$PatientID %in% Loyfer$PatientID[duplicated(Loyfer$PatientID)],]
+
+head(dupPeople)
+
+setDT(dupPeople)
+
+# one row per patientID × tissue_celltype combination
+dupPeople[, tissue_cell := paste(Source.Tissue, Cell.type, sep = " | ")]
+
+# collapse all tissue_cell types per patient into one string
+combo_summary <- dupPeople[, .(
+  n_samples    = .N,
+  combinations = paste(sort(unique(tissue_cell)), collapse = " + ")
+), by = PatientID]
+
+# count how many patients share each combination
+dt <- combo_summary[, .N, by = combinations][order(-N)]
+as.data.frame(dt)
