@@ -11,6 +11,10 @@
 ## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
 ## for each quadrant vs the other three combined
 ### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
+## Functions extracted from S06 for reuse in downstream scripts:
+### make_MEsetdt
+### make_MEsetdt_regionMean
+### plot_decay_curve
 
 makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   size = 4
@@ -497,6 +501,61 @@ plotMyVenn <- function(cutoff, ...) {
             subtitle = paste0("Sequenced CpGs N = ", length(overlap)))
   
   return(p)
+}
+
+## functions_S06.R
+## Functions extracted from S06 for reuse in downstream scripts
+
+make_MEsetdt <- function(sets, geomMeanGR) {
+  MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    data.table(
+      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      ME = nm
+    )
+  }))
+  na.omit(MEsetdt)
+}
+
+make_MEsetdt_regionMean <- function(sets, geomMeanGR) {
+  MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    dt <- data.table(
+      region_idx    = queryHits(hits),
+      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      ME = nm
+    )
+    dt[, .(alpha_geomean = mean(alpha_geomean, na.rm = TRUE)),
+       by = .(region_idx, ME)]
+  }))
+  na.omit(MEsetdt)
+}
+
+plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
+  thresholds <- seq(10, 90, by = 10) / 100
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    MEsetdt[, .(
+      proportion = mean(alpha_geomean > thr, na.rm = TRUE),
+      n_above    = sum(alpha_geomean > thr, na.rm = TRUE),
+      n_total    = .N
+    ), by = ME][, threshold := thr]
+  }))
+  
+  # Build colour vector: black for reference, Set2 for the rest
+  me_levels <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols <- c(mQTLcontrols = "black",
+               setNames(set2_cols[seq_along(other_levels)], other_levels))
+  
+  ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Proportion above threshold", labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw() +
+    ggtitle(title)
 }
 
 functionsLoaded = TRUE

@@ -4,12 +4,13 @@
 source(here("B_MultiTissues/03_exploreResults/makeProbes2GenDictionary.R"))
 
 message("Creates:
-        \na vector of 1773 SIV from Harris 2012 (HarrisSIV_hg38)
-        \none of 1579 ESS from Van Baak 2018 (VanBaakESS_hg38)
-        \na GRange object for Kessler 2018 676 SIV regions (KesslerSIV_GRanges_hg38)
-        \na GRange object for Gunasekara 2019 9926 corSIV regions (corSIV_GRanges_hg38)
-        \na vector of 3644 hvCpG from Derakhshan 2022 (DerakhshanhvCpGs_hg38)
-        \na vector for matching mQTL controls (mQTLcontrols_hg38)
+        \na vector of 1773 SIV from Harris 2012, from 450k (HarrisSIV_hg38)
+        \none of 1579 ESS from Van Baak 2018, from 450k (VanBaakESS_hg38)
+        \none of 1041 SIV from Van Baak 2018, from 450k (VanBaakSIV_hg38)
+        \na GRange object for Kessler 2018 676 SIV regions, from WGBS (KesslerSIV_GRanges_hg38)
+        \na GRange object for Gunasekara 2019 9926 corSIV regions, from WGBS (corSIV_GRanges_hg38)
+        \na vector of 3644 hvCpG from Derakhshan 2022, from 450k (DerakhshanhvCpGs_hg38)
+        \na vector for matching mQTL controls, from 450k (mQTLcontrols_hg38)
         \na vector for 259 Silver 2022 SoCCpGs on 10WGBS (SoCCpGs_hg38)
         \na GRange object for  CpG associated with vmeQTL identified in MZ twins by Jordana Bell (vmeQTL_hg38_GR)")
 
@@ -36,7 +37,7 @@ VanBaakSIV_hg38 <- dico[match(VanBaakSIV$CG, dico$CpG), "chrpos_hg38"]
 VanBaakSIV_hg38 <- na.omit(VanBaakSIV_hg38)
 length(VanBaakSIV_hg38) # 1041
 
-rm(VanBaakESS)
+rm(VanBaakESS, VanBaakSIV)
 
 ###########################################
 ## Kessler2018_687SIVregions_2WGBS hg19! ##

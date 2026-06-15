@@ -20,131 +20,136 @@ if (!exists("previousSIVprepared")) {
 #####################################################################
 
 ## To avoid re-running everything:
-load(here("gitignore/fullTable3layers.Rda"))
+if (!exists("table3layers")) load(here("gitignore/fullTable3layers.Rda"))
 totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
 top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
                              (table3layers$alpha_geomean >= .9), ]$chr_pos
 
 ############################################
-
-endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
-meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
-ecto <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
-Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds"))
-
-## With only 6 groups (to see if power)
-endo6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_2_endo6gp.rds"))
-meso6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_2_meso6gp.rds"))
-
-endoGR <- GRanges(seqnames = endo$chr,
-                  ranges = IRanges(start = endo$pos, end = endo$pos),
-                  alpha_endo = endo$alpha)
-
-ectoGR <- GRanges(seqnames = ecto$chr,
-                  ranges = IRanges(start = ecto$pos, end = ecto$pos),
-                  alpha_ecto = ecto$alpha)
-
-mesoGR <- GRanges(seqnames = meso$chr,
-                  ranges = IRanges(start = meso$pos, end = meso$pos),
-                  alpha_meso = meso$alpha)
-
-allLayersGR <- GRanges(seqnames = Atlas_dt$chr,
-                       ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
-                       alpha_allLayers = Atlas_dt$alpha)
-
-################################
-## Test: are 6 groups enough? ##
-################################
-
-## Endoderm &  Mesoderm
-if (!file.exists(here::here(
-  "B_MultiTissues/dataOut/figures/correlations/correlation_meso-endoFullvsReduced6gp.pdf"))){
+if (!file.exists(here("gitignore/fullTable3layers.Rda"))){
+  endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
+  meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
+  ecto <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
+  Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds"))
   
-  ## Use data table to handle large data
-  setDT(endo6gp)
-  setDT(endo)
+  ## With only 6 groups (to see if power)
+  endo6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_2_endo6gp.rds"))
+  meso6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_2_meso6gp.rds"))
   
-  x <- endo6gp[, .(name, alpha_6gp = alpha)]; setkey(x, name)
-  y <- endo[, .(name, alpha_endo = alpha)]; setkey(y, name)
+  endoGR <- GRanges(seqnames = endo$chr,
+                    ranges = IRanges(start = endo$pos, end = endo$pos),
+                    alpha_endo = endo$alpha)
   
-  m <- x[y, nomatch = 0]   # keeps matched names only
-  mycor <- cor(m$alpha_6gp, m$alpha_endo, use = "complete.obs")
-  set.seed(1234)
-  p_endo <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_endo))+
-    geom_point(pch = 21, alpha = 0.1) +
-    theme_minimal(base_size = 14) +
-    ylim(c(0,1)) +
-    annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
-    labs(title = "Probability of being hypervariable in Loyfer WGBS endoderm cell types",
-         subtitle = "(100k random CpG plotted)",
-         x = "Pr(hv) calculated on a subset of cell types (N=6)",
-         y = "Pr(hv) calculated on all cell types (N=21)")
+  ectoGR <- GRanges(seqnames = ecto$chr,
+                    ranges = IRanges(start = ecto$pos, end = ecto$pos),
+                    alpha_ecto = ecto$alpha)
   
-  ## Meso
-  setDT(meso6gp)
-  setDT(meso)
+  mesoGR <- GRanges(seqnames = meso$chr,
+                    ranges = IRanges(start = meso$pos, end = meso$pos),
+                    alpha_meso = meso$alpha)
   
-  x <- meso6gp[, .(name, alpha_6gp = alpha)]; setkey(x, name)
-  y <- meso[, .(name, alpha_meso = alpha)]; setkey(y, name)
+  allLayersGR <- GRanges(seqnames = Atlas_dt$chr,
+                         ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
+                         alpha_allLayers = Atlas_dt$alpha)
   
-  m <- x[y, nomatch = 0]   # keeps matched names only
-  mycor <- cor(m$alpha_6gp, m$alpha_meso, use = "complete.obs")
+  ################################
+  ## Test: are 6 groups enough? ##
+  ################################
   
-  set.seed(1234)
-  p_meso <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_meso))+
-    geom_point(pch = 21, alpha = 0.1) +
-    theme_minimal(base_size = 14) +
-    ylim(c(0,1)) +
-    annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
-    labs(title = "Probability of being hypervariable in Loyfer WGBS mesoderm cell types",
-         subtitle = "(100k random CpG plotted)",
-         x = "Pr(hv) calculated on a subset of cell types (N=6)", 
-         y = "Pr(hv) calculated on all cell types (N=19)")
+  ## Endoderm &  Mesoderm
+  if (!file.exists(here::here(
+    "B_MultiTissues/dataOut/figures/correlations/correlation_meso-endoFullvsReduced6gp.pdf"))){
+    
+    ## Use data table to handle large data
+    setDT(endo6gp)
+    setDT(endo)
+    
+    x <- endo6gp[, .(name, alpha_6gp = alpha)]; setkey(x, name)
+    y <- endo[, .(name, alpha_endo = alpha)]; setkey(y, name)
+    
+    m <- x[y, nomatch = 0]   # keeps matched names only
+    mycor <- cor(m$alpha_6gp, m$alpha_endo, use = "complete.obs")
+    set.seed(1234)
+    p_endo <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_endo))+
+      geom_point(pch = 21, alpha = 0.1) +
+      theme_minimal(base_size = 14) +
+      ylim(c(0,1)) +
+      annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
+      labs(title = "Probability of being hypervariable in Loyfer WGBS endoderm cell types",
+           subtitle = "(100k random CpG plotted)",
+           x = "Pr(hv) calculated on a subset of cell types (N=6)",
+           y = "Pr(hv) calculated on all cell types (N=21)")
+    
+    ## Meso
+    setDT(meso6gp)
+    setDT(meso)
+    
+    x <- meso6gp[, .(name, alpha_6gp = alpha)]; setkey(x, name)
+    y <- meso[, .(name, alpha_meso = alpha)]; setkey(y, name)
+    
+    m <- x[y, nomatch = 0]   # keeps matched names only
+    mycor <- cor(m$alpha_6gp, m$alpha_meso, use = "complete.obs")
+    
+    set.seed(1234)
+    p_meso <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_meso))+
+      geom_point(pch = 21, alpha = 0.1) +
+      theme_minimal(base_size = 14) +
+      ylim(c(0,1)) +
+      annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
+      labs(title = "Probability of being hypervariable in Loyfer WGBS mesoderm cell types",
+           subtitle = "(100k random CpG plotted)",
+           x = "Pr(hv) calculated on a subset of cell types (N=6)", 
+           y = "Pr(hv) calculated on all cell types (N=19)")
+    
+    ggplot2::ggsave(
+      filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_meso-endoFullvsReduced6gp.pdf")),
+      plot = cowplot::plot_grid(p_endo, p_meso, labels = c("A", "B")), width = 17, height = 8)
+  }
   
-  ggplot2::ggsave(
-    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_meso-endoFullvsReduced6gp.pdf")),
-    plot = cowplot::plot_grid(p_endo, p_meso, labels = c("A", "B")), width = 17, height = 8)
+  ####################################################################
+  ## Create a table with all CpG sites & pr(hv) for each germ layer ##
+  ####################################################################
+  
+  ## 1. Create union of all unique CpG positions
+  table3layers <- union(union(allLayersGR, union(ectoGR, mesoGR)), endoGR)
+  
+  ## 2. Use findOverlaps to map alpha values back
+  # we want endoGR[i] -> table3layers[endoHits[[i]]] for each i, etc.
+  
+  endoHits <- findOverlaps(endoGR, table3layers, select = "first")
+  ectoHits <- findOverlaps(ectoGR, table3layers, select = "first")
+  mesoHits <- findOverlaps(mesoGR, table3layers, select = "first")
+  allLayersHits <- findOverlaps(allLayersGR, table3layers, select = "first")
+  
+  # initialize columns with NA
+  mcols(table3layers)$alpha_endo <- NA_real_
+  mcols(table3layers)$alpha_ecto <- NA_real_
+  mcols(table3layers)$alpha_meso <- NA_real_
+  mcols(table3layers)$alpha_allLayers <- NA_real_
+  
+  # copy only the hits
+  mcols(table3layers)$alpha_endo[endoHits]   <- mcols(endoGR)$alpha_endo
+  mcols(table3layers)$alpha_ecto[ectoHits]   <- mcols(ectoGR)$alpha_ecto
+  mcols(table3layers)$alpha_meso[mesoHits]   <- mcols(mesoGR)$alpha_meso
+  mcols(table3layers)$alpha_allLayers[allLayersHits]   <- mcols(allLayersGR)$alpha_allLayers
+  
+  ## Add chr_pos column to identify positions
+  table3layers$chr_pos <- paste0("chr", table3layers@seqnames, "_", table3layers@ranges@start)
+  
+  ## add a geometric mean between the 3 layers
+  table3layers$alpha_geomean <- exp(rowMeans(
+    log(cbind(table3layers$alpha_endo, 
+              table3layers$alpha_ecto, 
+              table3layers$alpha_meso)),
+    na.rm = FALSE))
+  
+  if (sum(grepl("chr", seqlevels(table3layers))) == 0){
+    seqlevels(table3layers) <- paste0("chr", seqlevels(table3layers))
+  }
+  
+  ### SAVED ###
+  save(table3layers, file = here("gitignore/fullTable3layers.Rda"))
 }
-
-####################################################################
-## Create a table with all CpG sites & pr(hv) for each germ layer ##
-####################################################################
-
-## 1. Create union of all unique CpG positions
-table3layers <- union(union(allLayersGR, union(ectoGR, mesoGR)), endoGR)
-
-## 2. Use findOverlaps to map alpha values back
-# we want endoGR[i] -> table3layers[endoHits[[i]]] for each i, etc.
-
-endoHits <- findOverlaps(endoGR, table3layers, select = "first")
-ectoHits <- findOverlaps(ectoGR, table3layers, select = "first")
-mesoHits <- findOverlaps(mesoGR, table3layers, select = "first")
-allLayersHits <- findOverlaps(allLayersGR, table3layers, select = "first")
-
-# initialize columns with NA
-mcols(table3layers)$alpha_endo <- NA_real_
-mcols(table3layers)$alpha_ecto <- NA_real_
-mcols(table3layers)$alpha_meso <- NA_real_
-mcols(table3layers)$alpha_allLayers <- NA_real_
-
-# copy only the hits
-mcols(table3layers)$alpha_endo[endoHits]   <- mcols(endoGR)$alpha_endo
-mcols(table3layers)$alpha_ecto[ectoHits]   <- mcols(ectoGR)$alpha_ecto
-mcols(table3layers)$alpha_meso[mesoHits]   <- mcols(mesoGR)$alpha_meso
-mcols(table3layers)$alpha_allLayers[allLayersHits]   <- mcols(allLayersGR)$alpha_allLayers
-
-## Add chr_pos column to identify positions
-table3layers$chr_pos <- paste0("chr", table3layers@seqnames, "_", table3layers@ranges@start)
-
-## add a geometric mean between the 3 layers
-table3layers$alpha_geomean <- exp(rowMeans(
-  log(cbind(table3layers$alpha_endo, 
-            table3layers$alpha_ecto, 
-            table3layers$alpha_meso)),
-  na.rm = FALSE))
-
-### SAVED ###
-save(table3layers, file = here("gitignore/fullTable3layers.Rda"))
 
 df <- as.data.frame(table3layers)
 
@@ -221,30 +226,18 @@ geomMeanGR <- GRanges(seqnames = table3layers@seqnames,
 
 geomMeanGR <- geomMeanGR[!is.na(geomMeanGR$alpha_geomean)]
 
-# Fix chromosome names in geomMeanGR (1 -> chr1)
-seqlevels(geomMeanGR) <- paste0("chr", seqlevels(geomMeanGR))
-
 sets <- list(
   mQTLcontrols = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
   HarrisSIV = HarrisSIV_hg38_GR,
+  VanBaakSIV = VanBaakSIV_hg38_GR,
   VanBaakESS = VanBaakESS_hg38_GR,
   KesslerSIV = KesslerSIV_GRanges_hg38,
   CoRSIV = corSIV_GRanges_hg38,
   hvCpG = DerakhshanhvCpGs_hg38_GR
 )
 
-# Now do overlap join for each set
-MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
-  hits <- findOverlaps(sets[[nm]], geomMeanGR)
-  data.table(
-    alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
-    ME    = nm
-  )
-}))
-
-MEsetdt <- na.omit(MEsetdt) ## 63078
-
-# Set controls as baseline
+# ── ME overlap ────────────────────────────────────────────
+MEsetdt            <- make_MEsetdt(sets, geomMeanGR)
 MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
 
 p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha_geomean)) +
@@ -268,12 +261,13 @@ contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust 
 
 emm
 # ME           emmean      SE    df lower.CL upper.CL
-# mQTLcontrols  0.211 0.00635 69709    0.199    0.224
-# CoRSIV        0.315 0.00141 69709    0.312    0.318
-# HarrisSIV     0.361 0.00974 69709    0.342    0.380
-# hvCpG         0.526 0.00656 69709    0.513    0.539
-# KesslerSIV    0.404 0.00684 69709    0.391    0.418
-# VanBaakESS    0.474 0.01070 69709    0.453    0.495
+# mQTLcontrols  0.211 0.00634 69972    0.199    0.224
+# CoRSIV        0.315 0.00141 69972    0.312    0.318
+# HarrisSIV     0.361 0.00974 69972    0.342    0.380
+# hvCpG         0.526 0.00655 69972    0.513    0.539
+# KesslerSIV    0.404 0.00684 69972    0.391    0.418
+# VanBaakESS    0.474 0.01070 69972    0.453    0.495
+# VanBaakSIV    0.633 0.02110 69972    0.591    0.674
 # 
 # Confidence level used: 0.95 
 
@@ -299,6 +293,106 @@ pdf(here("B_MultiTissues/dataOut/figures/alphaComparisonBetweenMEtypes.pdf"),
     width = 14, height = 4)
 cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
 dev.off()
+
+############################################################ 
+## Now, summarising for the regions, one value per region ##
+############################################################
+MEsetdt_regionMean <- make_MEsetdt_regionMean(sets, geomMeanGR)
+MEsetdt_regionMean[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
+
+# Set controls as baseline
+MEsetdt_regionMean[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
+
+p1 <- ggplot(MEsetdt_regionMean, aes(x = ME, y = alpha_geomean)) +
+  geom_jitter(data = MEsetdt,
+              aes(fill=ME), pch=21, size = 3, alpha = .05)+
+  geom_violin(aes(col=ME))+
+  geom_boxplot(aes(col=ME), width = .1) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none", axis.title.x = element_blank()) +
+  ylab("Pr(hv) (geometric mean)")
+
+## Statistical comparisons of alpha between MEs
+
+# Fit the model with controls as baseline
+fit <- lm(alpha_geomean ~ ME, data = MEsetdt_regionMean)
+
+# Get estimated marginal means and contrasts vs baseline
+emm <- emmeans(fit, ~ ME)
+contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
+  as.data.frame()
+
+emm
+# ME           emmean      SE    df lower.CL upper.CL
+# mQTLcontrols  0.211 0.00405 18292    0.203    0.219
+# CoRSIV        0.262 0.00224 18292    0.258    0.267
+# HarrisSIV     0.361 0.00621 18292    0.349    0.373
+# hvCpG         0.526 0.00418 18292    0.517    0.534
+# KesslerSIV    0.402 0.00989 18292    0.382    0.421
+# VanBaakESS    0.474 0.00680 18292    0.461    0.487
+# VanBaakSIV    0.633 0.01350 18292    0.606    0.659
+# 
+# Confidence level used: 0.95 
+
+contrasts <- contrasts %>%
+  mutate(ME = contrast,  # rename for clarity
+         lower = estimate - 1.96*SE,
+         upper = estimate + 1.96*SE)
+
+p2 <- ggplot(contrasts, aes(x = ME, y = estimate)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  coord_flip() +
+  labs(
+    y = "Difference in Pr(hv) (geometric mean) vs mQTLcontrols",
+    x = "",
+    title = "Comparison of ME groups to mQTLcontrols",
+    subtitle = "lm with multiple comparison correction (Sidak)"
+  ) +
+  theme_minimal()
+
+pdf(here("B_MultiTissues/dataOut/figures/alphaComparisonBetweenMEtypes_meanPerRegion.pdf"), 
+    width = 14, height = 4)
+cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
+dev.off()
+
+############################
+## decay curve per ME set ##
+thresholds <- seq(10, 90, by = 10) / 100
+
+# one row per threshold per ME set
+prop_table <- rbindlist(lapply(thresholds, function(thr) {
+  MEsetdt[, .(
+    proportion = mean(alpha_geomean > thr, na.rm = TRUE),
+    n_above    = sum(alpha_geomean > thr, na.rm = TRUE),
+    n_total    = .N
+  ), by = ME][, threshold := thr]
+}))
+
+# plot
+p1 <- plot_decay_curve(MEsetdt,            "Based on one Pr(HV) per CpG")
+
+# one row per threshold per ME set
+prop_table <- rbindlist(lapply(thresholds, function(thr) {
+  MEsetdt_regionMean[, .(
+    proportion = mean(alpha_geomean > thr, na.rm = TRUE),
+    n_above    = sum(alpha_geomean > thr, na.rm = TRUE),
+    n_total    = .N
+  ), by = ME][, threshold := thr]
+}))
+
+# plot
+p2 <- plot_decay_curve(MEsetdt_regionMean, "Based on one Pr(HV) per region")
+
+pdf(here("B_MultiTissues/dataOut/figures/decayAlpha.pdf"), width = 14, height = 4)
+p1 + p2 + plot_layout(guides = "collect")
+dev.off()
+
+# ── Save key objects for S07 ──────────────────────────────────────────────────
+saveRDS(MEsetdt,            here("gitignore/MEsetdt.rds"))
+saveRDS(MEsetdt_regionMean, here("gitignore/MEsetdt_regionMean.rds"))
+saveRDS(geomMeanGR,         here("gitignore/geomMeanGR.rds"))
 
 ##############################
 ## Save the top alpha > 90% ##
