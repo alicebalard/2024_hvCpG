@@ -4,12 +4,13 @@
 source(here("B_MultiTissues/03_exploreResults/makeProbes2GenDictionary.R"))
 
 message("Creates:
-        \na vector of 1773 SIV from Harris 2012 (HarrisSIV_hg38)
-        \none of 1579 ESS from Van Baak 2018 (VanBaakESS_hg38)
-        \na GRange object for Kessler 2018 676 SIV regions (KesslerSIV_GRanges_hg38)
-        \na GRange object for Gunasekara 2019 9926 corSIV regions (corSIV_GRanges_hg38)
-        \na vector of 3644 hvCpG from Derakhshan 2022 (DerakhshanhvCpGs_hg38)
-        \na vector for matching mQTL controls (mQTLcontrols_hg38)
+        \na vector of 1773 SIV from Harris 2012, from 450k (HarrisSIV_hg38)
+        \none of 1579 ESS from Van Baak 2018, from 450k (VanBaakESS_hg38)
+        \none of 1041 SIV from Van Baak 2018, from 450k (VanBaakSIV_hg38)
+        \na GRange object for Kessler 2018 676 SIV regions, from WGBS (KesslerSIV_GRanges_hg38)
+        \na GRange object for Gunasekara 2019 9926 corSIV regions, from WGBS (corSIV_GRanges_hg38)
+        \na vector of 3644 hvCpG from Derakhshan 2022, from 450k (DerakhshanhvCpGs_hg38)
+        \na vector for matching mQTL controls, from 450k (mQTLcontrols_hg38)
         \na vector for 259 Silver 2022 SoCCpGs on 10WGBS (SoCCpGs_hg38)
         \na GRange object for  CpG associated with vmeQTL identified in MZ twins by Jordana Bell (vmeQTL_hg38_GR)")
 
@@ -29,7 +30,14 @@ VanBaakESS <- VanBaakESS[VanBaakESS$`ESS hit`,]
 VanBaakESS_hg38 <- dico[match(VanBaakESS$CG, dico$CpG), "chrpos_hg38"]
 VanBaakESS_hg38 <- na.omit(VanBaakESS_hg38)
 length(VanBaakESS_hg38) # 1579
-rm(VanBaakESS)
+
+## SIV hits
+VanBaakSIV <- VanBaakESS[VanBaakESS$`SIV hit`,]
+VanBaakSIV_hg38 <- dico[match(VanBaakSIV$CG, dico$CpG), "chrpos_hg38"]
+VanBaakSIV_hg38 <- na.omit(VanBaakSIV_hg38)
+length(VanBaakSIV_hg38) # 1041
+
+rm(VanBaakESS, VanBaakSIV)
 
 ###########################################
 ## Kessler2018_687SIVregions_2WGBS hg19! ##
@@ -50,7 +58,9 @@ rm(mapped, keep, KesslerSIV, KesslerSIV_GRanges)
 #######################################
 ## Gunasekara2019_9926CoRSIVs_10WGBS ##
 # Load corSIV intervals (already in hg38)
-corSIV <- readxl::read_excel(here("B_MultiTissues/dataIn/Gunasekara2019_9926CoRSIVs_10WGBS.xls"), sheet = 3)
+corSIV <- suppressWarnings(
+  readxl::read_excel(here("B_MultiTissues/dataIn/Gunasekara2019_9926CoRSIVs_10WGBS.xls"), sheet = 3)
+)
 corSIV <- unique(corSIV$USCS_Coordinates_CoRSIV)
 corSIV_split <- tstrsplit(corSIV, "[:-]", fixed = FALSE)
 
@@ -83,22 +93,23 @@ length(SoCCpGs_hg38) #259
 
 HarrisSIV_hg38_GR <- makeGRfromMyCpGPos(HarrisSIV_hg38, "Harris SIV")  
 VanBaakESS_hg38_GR <- makeGRfromMyCpGPos(VanBaakESS_hg38, "VanBaak ESS")
+VanBaakSIV_hg38_GR <- makeGRfromMyCpGPos(VanBaakSIV_hg38, "VanBaak SIV")
 KesslerSIV_GRanges_hg38$set <- "Kessler SIV"
 corSIV_GRanges_hg38$set <- "Gunasekara corSIV"
 DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "Derakhshan hvCpG")
 
-putativeME_GR <- c(DerakhshanhvCpGs_hg38_GR, HarrisSIV_hg38_GR, VanBaakESS_hg38_GR, KesslerSIV_GRanges_hg38,
-                   corSIV_GRanges_hg38)
+putativeME_GR <- c(DerakhshanhvCpGs_hg38_GR, HarrisSIV_hg38_GR, 
+                   VanBaakESS_hg38_GR, VanBaakSIV_hg38_GR,
+                   KesslerSIV_GRanges_hg38, corSIV_GRanges_hg38)
 
 putativeME_GR$set <- factor(putativeME_GR$set, 
                             levels = c("Derakhshan hvCpG", "Harris SIV", 
-                                       "VanBaak ESS", "Kessler SIV", "Gunasekara corSIV"))
+                                       "VanBaak ESS", "VanBaak SIV",
+                                       "Kessler SIV", "Gunasekara corSIV"))
 putativeME_GR$genome <- "hg38"
 
 ## Save for paleo project (once)
 # saveRDS(putativeME_GR, "../../../2025_paleoMethylVar/gitignore/putativeME_GR.RDS")
-# 
-# putativeME_GR <- readRDS("/path/to/putativeME_GR.RDS")
 
 ###############################################################################
 ## Prepare CpG associated with vmeQTL identified in MZ twins by Jordana Bell ##

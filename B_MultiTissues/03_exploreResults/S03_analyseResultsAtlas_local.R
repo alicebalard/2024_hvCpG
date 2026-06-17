@@ -32,24 +32,59 @@ if (!exists("resArray")) {
 ## Save all data in RDS objects ##
 ##################################
 savePrepedAtlasFile <- function(file, p0, p1) {
-  out_path <- here(paste0("gitignore/resultsAtlasPrepared/fullres_", 
+  out_path <- here(paste0("gitignore/resultsAtlasPrepared/fullres_",
                           p0, "p0_", p1, "p1_", file, ".rds"))
+  
+  # ── Completeness check ────────────────────────────────────────────────────
+  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", file))
+  pattern    <- paste0(p0, "p0_", p1, "p1.rds$")
+  rds_files  <- base::dir(parent_dir,
+                          pattern   = pattern,
+                          recursive = TRUE,
+                          full.names = TRUE)
+  n_files <- length(rds_files)
+  
+  if (n_files == 0) {
+    message("SKIP ", file, " - no matching files found (run incomplete?).")
+    return(invisible(NULL))
+  }
+  
+  # Check 1: batch number in folder name matches file count
+  batch_dirs <- unique(dirname(rds_files))
+  batch_nums <- as.integer(regmatches(batch_dirs,
+                                      regexpr("(?<=Atlas_batch)\\d+",
+                                              batch_dirs, perl = TRUE)))
+  expected_n <- max(batch_nums, na.rm = TRUE)  # e.g. 096 -> 96
+  
+  if (n_files != expected_n) {
+    message("SKIP ", file, " - expected ", expected_n,
+            " files (from Atlas_batch", expected_n, ") but found ", n_files, ".")
+    return(invisible(NULL))
+  }
+  
+  # Check 2: last file (most recent) must not have exactly 250000 CpGs
+  # (250000 = incomplete/truncated batch sentinel value)
+  last_file   <- rds_files[order(rds_files) |> tail(1)]
+  cpg_in_name <- as.integer(regmatches(last_file,
+                                       regexpr("(?<=_)\\d+(?=CpGs)",
+                                               last_file, perl = TRUE)))
+  
+  if (!is.na(cpg_in_name) && cpg_in_name == 250000) {
+    message("SKIP ", file, " - last file has exactly 250000 CpGs,",
+            " suggesting an incomplete/truncated run: ",
+            basename(last_file))
+    return(invisible(NULL))
+  }
+  
+  message("OK   ", file, " - ", n_files, "/", expected_n,
+          " files, last batch has ", cpg_in_name, " CpGs.")
   
   if (file.exists(out_path)) {
     message("File ", file, " already prepared - skipping.")
     return(invisible(NULL))
   }
   
-  # Check files exist before attempting
-  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", file))
-  n_files <- length(base::dir(parent_dir, 
-                              pattern = paste0(p0, "p0_", p1, "p1.rds$"),
-                              recursive = TRUE))
-  if (n_files == 0) {
-    message("Skipping ", file, " - no matching files found (incomplete run?).")
-    return(invisible(NULL))
-  }
-  
+  ## Prepare if not prepared yet (long):
   system.time(Atlas_dt <- prepAtlasdt(file, p0, p1))
   saveRDS(Atlas_dt, file = out_path)
   message("Saved: ", out_path)
@@ -58,30 +93,158 @@ savePrepedAtlasFile <- function(file, p0, p1) {
 for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_65")
 }
-## NB: the non atlas_general are INCOMPLETE --> rm and rerun when all finished!!
 
-## This code does:
-### I. Histogram of coverage across datasets
-### II. Load data & Manhattan plot
-### III. Test enrichment of features for high alpha
-### IV. Test for enrichment in other putative MEs for hvCpGs with alpha > threshold
+## New June 2026
+# Saved: /home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_18_mesoEndo.rds
+# Saved: /home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_19_endoEcto.rds
+# Saved: /home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_20_mesoEcto.rds                                        %
 
+## Different p0 and p1 tested
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_9")
+} # OK
+
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  savePrepedAtlasFile(file = subdir, p0 = "0_55", p1 = "0_65")
+} # TBC (only 70/87 files yet)
+
+# SKIP atlas_general - expected 87 files (from Atlas_batch87) but found 70.
+
+###########################################
+## Test different p0 and p1 in raw alpha ##
+###########################################
+
+## Sub test: just one small batch
+R0 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250CpGs_0_8p0_0_65p1.rds"))
+R1 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250CpGs_0_55p0_0_65p1.rds"))
+R2 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250CpGs_0_9p0_0_65p1.rds"))
+R3 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250CpGs_0_8p0_0_9p1.rds"))
+
+R0 <- data.table(alpha = as.vector(R0), param = "0.8p0_0.65p1", chr_pos = rownames(R0))
+R1 <- data.table(alpha = as.vector(R1), param = "0.55p0_0.65p1", chr_pos = rownames(R1))
+R2 <- data.table(alpha = as.vector(R2), param = "0.9p0_0.65p1", chr_pos = rownames(R2))
+R3 <- data.table(alpha = as.vector(R3), param = "0.8p0_0.9p1", chr_pos = rownames(R3))
+
+setkey(R0, chr_pos)
+setkey(R1, chr_pos)
+setkey(R2, chr_pos)
+setkey(R3, chr_pos)
+
+# Merge all into one wide table
+merged_dt <- R0[R1, .(chr_pos, alpha_R0 = alpha, alpha_R1 = i.alpha),
+                on = "chr_pos", nomatch = NULL]
+merged_dt <- merged_dt[R2, .(chr_pos, alpha_R0, alpha_R1, alpha_R2 = i.alpha),
+                       on = "chr_pos", nomatch = NULL]
+merged_dt <- merged_dt[R3, .(chr_pos, alpha_R0, alpha_R1, alpha_R2, alpha_R3 = i.alpha),
+                       on = "chr_pos", nomatch = NULL]
+
+# Reshape to long: one row per CpG per comparison vs R0
+plot_long <- merged_dt %>%
+  pivot_longer(cols = c(alpha_R1, alpha_R2, alpha_R3),
+               names_to = "param", values_to = "alpha_other") %>%
+  mutate(param = factor(param,
+                        levels = c("alpha_R1", "alpha_R2", "alpha_R3"),
+                        labels = c("p0=0.55, p1=0.65",
+                                   "p0=0.90, p1=0.65",
+                                   "p0=0.80, p1=0.90")))
+
+# Plot: 3 panels, x = R0 baseline, y = alternative
+ggplot(plot_long, aes(x = alpha_R0, y = alpha_other)) +
+  geom_point(alpha = 0.15, size = 0.4) +
+  geom_abline(slope = 1, intercept = 0,
+              colour = "red", linetype = "dashed", linewidth = 0.5) +
+  facet_wrap(~ param, ncol = 3) +
+  labs(x     = "Pr(hv) baseline (p0=0.80, p1=0.65)",
+       y     = "Pr(hv) alternative parameters",
+       title = "Sensitivity to parameter choice (batch 001, 250 CpGs)") +
+  theme_minimal(base_size = 11) +
+  theme(strip.text = element_text(face = "bold"))
+
+############
+Atlas_dt <- readRDS(
+  "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")
+nrow(Atlas_dt) # 21.522.541
+
+if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
+  stop("stop here to only prepare atlas_dt")
+}
+
+Atlas_dt_80p090p1 <- readRDS(
+  "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")
+
+Atlas_dt_55p065p1 <- readRDS(
+  "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_55p0_0_65p1_atlas_general.rds")
+
+head(Atlas_dt_55p065p1, 1000)
+
+
+Atlas_dt_80p090p1[Atlas_dt_80p090p1$name %in% "chr1_19677896",]
+Atlas_dt_55p065p1[Atlas_dt_55p065p1$name %in% "chr1_19677896",]
+
+# Set key if not already set
+setkey(Atlas_dt, name)
+setkey(Atlas_dt_80p090p1, name)
+setkey(Atlas_dt_55p065p1, name)
+
+# Merge all three
+merged_dt <- Atlas_dt[Atlas_dt_80p090p1,
+                      .(name, alpha_general = alpha, alpha_80p090p1 = i.alpha),
+                      on = "name", nomatch = NULL]
+
+merged_dt <- merged_dt[Atlas_dt_55p065p1,
+                       .(name, alpha_general, alpha_80p090p1, alpha_55p065p1 = i.alpha),
+                       on = "name", nomatch = NULL]
+
+# Reshape to long
+set.seed(1234)
+plot_long <- merged_dt[sample(.N, 100000)] |>
+  melt(id.vars = c("name", "alpha_general"),
+       measure.vars = c("alpha_80p090p1", "alpha_55p065p1"),
+       variable.name = "params", value.name = "alpha_other") |>
+  mutate(params = factor(params,
+                         levels = c("alpha_80p090p1", "alpha_55p065p1"),
+                         labels = c("p0=80%, p1=90%", "p0=55%, p1=65%")))
+
+plotPvar <- ggplot(plot_long, aes(x = alpha_general, y = alpha_other, colour = params)) +
+  geom_point(alpha = 0.05, size = 0.3) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey20",
+              linetype = "dashed", linewidth = 0.5) +
+  scale_colour_manual(values = c("p0=80%, p1=90%" = "#E05C5C",
+                                 "p0=55%, p1=65%" = "#5C8AE0"),
+                      name = "Parameters") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2))) +
+  labs(x = "Pr(hv) baseline (p0=80%, p1=65%)",
+       y = "Pr(hv) alternative parameters") +
+  theme_minimal()
+
+plotPvar
+
+## Ranking is preserved. The tight linear band confirms both settings agree on which 
+# CpGs are most variable --> hvCpG list is robust to this parameter choice
+ggplot2::ggsave(
+  filename = here::here(paste0("B_MultiTissues/dataOut/figures/makep0p1vary.pdf")),
+  plot = plotPvar, width = 5, height = 5
+)
+
+#######################
 ## Data in WGBS atlas:
 
-## from the CS cluster: sample_groups <- h5read("/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/10X/all_matrix_noscale.h5","sample_groups")
-# sample_groups <- readRDS(here("05_hvCpGalgorithm/runAlgo_myDatasets/Atlas/sample_groups.RDS"))
-# 
-# ggplot(data.frame(table(sample_groups)), aes(x = Freq)) +
-#   geom_histogram(bins = 100, fill = "steelblue", color = "white") +
-#   theme_minimal(base_size = 14) +
-#   labs(
-#     title = "Distribution of number of samples per dataset",
-#     x = "Number of samples",
-#     y = "Count of datasets"
-#   ) +
-#   scale_x_continuous(breaks = seq(0, 10, by = 1))
-# 
-# table(sample_groups)
+## from the CS cluster: 
+## /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/output_atlas_general/sample_metadata.tsv
+sample_groups <- read.table(
+  here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/sample_metadata.tsv"), 
+  sep = "\t", header = T)
+
+sample_groups %>% group_by(dataset) %>% summarise(n = n()) %>% 
+  ggplot(aes(x = n)) +
+  geom_histogram(bins = 100, fill = "steelblue", color = "white") +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Distribution of number of samples per dataset",
+    x = "Number of samples",
+    y = "Count of datasets"
+  ) +
+  scale_x_continuous(breaks = seq(0, 10, by = 1))
 
 SupTab1_Loyfer2023 <- read.csv(here("B_MultiTissues/dataIn/SupTab1_Loyfer2023.csv"))
 SupTab1_Loyfer2023$group <- paste(SupTab1_Loyfer2023$Source.Tissue, SupTab1_Loyfer2023$Cell.type, sep = " - ")
@@ -89,9 +252,9 @@ table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 # 3  4  5  6 10 
 # 33  9  2  1  1 
 
-##############################################
-## I. Histogram of coverage across datasets ##
-##############################################
+###########################################
+## Histogram of coverage across datasets ##
+###########################################
 
 # t5 <- read.table(here("04_prepAtlas/CpG_coverage_freqtable5X.tsv"), header = T)
 # t10 <- read.table(here("04_prepAtlas/CpG_coverage_freqtable10X.tsv"), header = T)
@@ -137,32 +300,50 @@ table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 # ## 84% of all CpGs (23/27.5M) are covered in 46 cell types
 # rm(t_combined, t5, t10)
 
-####################################
-## II. Load data & Manhattan plot ##
-####################################
-Atlas_dt <- readRDS("/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")
-
-nrow(Atlas_dt) # 21.522.541
-
-if (exists("doIprepAtlas") && isTRUE(doIprepAtlas)) {
-  stop("stop here to only prepare atlas_dt")
-}
-
 ####################
 ## Plot Manhattan ##
 ####################
 
-# plotManhattan1 <- plotManhattanFromdt(Atlas_dt)
-# ggplot2::ggsave(
-#   filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas_withDerakhshan.png"),
-#   plot = plotManhattan1, width = 14, height = 4,
-#   dpi = 300, bg = "white")
+plotManhattan1 <- plotManhattanFromdt(Atlas_dt, plotDerakhshan = FALSE)
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas.png"),
+  plot = plotManhattan1, width = 14, height = 4,
+  dpi = 300, bg = "white")
 
-# plotManhattan2 <- plotManhattanFromdt(Atlas_dt, plotDerakhshan = FALSE)
-# ggplot2::ggsave(
-#   filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas.png"),
-#   plot = plotManhattan2, width = 14, height = 4,
-#   dpi = 300, bg = "white")
+## Only previous MEs: 
+
+# 1. Convert GRanges to data.table for foverlaps
+putativeME_dt <- as.data.table(putativeME_GR)[, .(
+  chr   = sub("chr", "", seqnames),   # "chr1" -> "1" to match Atlas_dt
+  start = start,
+  end   = end,
+  set = set
+)]
+
+# 2. Add a point range to Atlas_dt (foverlaps needs two position columns)
+Atlas_dt[, pos_end := pos]   # point interval: start == end
+
+# 3. Set keys for foverlaps
+setkey(Atlas_dt,  chr, pos, pos_end)
+setkey(putativeME_dt, chr, start, end)
+
+# 4. Overlap join — returns only Atlas_dt rows falling inside a corSIV region
+Atlas_putativeME <- foverlaps(Atlas_dt, putativeME_dt,
+                              by.x = c("chr", "pos", "pos_end"),
+                              by.y = c("chr", "start", "end"),
+                              type = "within",
+                              nomatch = NULL)   # NULL = only matched rows (like inner join)
+
+Atlas_dt[, pos_end := NULL]
+
+plotManhattan3 <- plotManhattanFromdt(Atlas_putativeME, colorBySet = TRUE,
+                                      plotDerakhshan = FALSE, transp = .2) +
+  theme(legend.position = "none")
+
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/Manhattan/ManhattanAlphaPlot_atlas_prevMEs.png"),
+  plot = plotManhattan3, width = 14, height = 10,
+  dpi = 300, bg = "white")
 
 ###################################################################
 ## Calculate proba hvCpG minus matching control: is it always +? ##
@@ -226,7 +407,33 @@ gaps_dt <- Atlas_dt[gap >= 500000, .(
 
 # Drop first NA (since shift introduces one per chromosome)
 gaps_dt[!is.na(gap_size)]
-## Load the results at https://genome.ucsc.edu/cgi-bin/hgTracks
+
+# chr gap_start   gap_end gap_size
+# <fctr>     <int>     <int>    <int>
+#   1:      1        NA 124793275  2292432
+# 2:      1 124793275 143184605 18000029
+# 3:      2 143184605  91406100  1003595
+# 4:      5  91406100  49592147  2283407
+# 5:      9  49592147  60518620 15041410
+# 6:     14  60518620  18223731  2127270
+# 7:     16  18223731  46380693  8100344
+# 8:     19  46380693  27240939  2332752
+# 9:     21  27240939   6070102   677715
+# 10:     21   6070102  12966132  2151768
+# 11:     22  12966132  15158090  2253761
+# 12:      X  15158090  60274012   786392
+# 13:      X  60274012  61918466   981691
+# 14:      Y  61918466   5043719   914090
+# 15:      Y   5043719   5765474   721626
+# 16:      Y   5765474   6533721   768247
+# 17:      Y   6533721   7395909   860254
+# 18:      Y   7395909   8138220   742288
+# 19:      Y   8138220  10087019  1948799
+# 20:      Y  10087019  13725309  1975980
+# 21:      Y  13725309  17064135  3338784
+# 22:      Y  17064135  26436653  9337728
+# 23:      Y  26436653  56677947 30022457
+# chr gap_start   gap_end gap_size
 
 ####################################
 ## Mitochondrial DNAm variability ##
@@ -334,3 +541,19 @@ ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/barplotFeaturesbyAlpha.png"),
   plot = p, width = 6, height = 4,
   dpi = 300, bg = "white")
+
+###################
+## rmMultSamples ## 
+###################
+
+## Some individuals have multiple cells sampled. Does that affect our results? NOPE
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_0_vs_2_rmMultSamples.pdf")))){
+  makeCompPlot(
+    X = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")),
+    Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_02_rmMultSamples.rds")),
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_0_vs_2_rmMultSamples",
+    xlab = "Pr(hv) calculated on WGBS atlas datasets",
+    ylab = "Pr(hv) calculated on WGBS atlas datasets keeping one sample/individual only")
+}

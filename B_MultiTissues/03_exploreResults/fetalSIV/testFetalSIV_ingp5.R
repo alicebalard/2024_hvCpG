@@ -1,20 +1,25 @@
 setwd("/home/alice/2024_hvCpG")
-library(here)
-library(ggVennDiagram)
-library(boot)
 
-source(here("05_hvCpGalgorithm/quiet_library.R"))
-<<<<<<<< HEAD:testFetalSIV_ingp5.R
-source(here("05_hvCpGalgorithm/exploreResults/functions.R"))
-source(here("05_hvCpGalgorithm/exploreResults/prepPreviousSIV.R"))
-========
-source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
->>>>>>>> e87aaa80fb7d3efd1f06e097df6feb49246fa77d:B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R
+#####################################################################
+## Prepare
+library(here)
+## Load libraries
+source(here("B_MultiTissues", "quiet_library.R"))
+
+## Load functions
+if (!exists("functionsLoaded")) {
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
+
+## Add previous MEs including Maria's results
+## Load the set of previously tested MEs & vmeQTL
+if (!exists("previousSIVprepared")) {
+  source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
+#####################################################################
 
 ########################
 ## Prepare fetal data ##
 ########################
-fetalData <- readRDS("/mnt/ing-s1/ICH_fetal/fetal_EPIC_processed/Beta_matrices/Foetal_ICH_beta_mat_adjusted_EPIC.RDS")
+fetalData <- readRDS("/mnt/sod/ICH_fetal/fetal_EPIC_processed/Beta_matrices/Foetal_ICH_beta_mat_adjusted_EPIC.RDS")
 nrow(fetalData) # 746,492 sites after preprocessing by Maria
 
 fetalData_long <- data.frame(fetalData) %>%
@@ -33,19 +38,13 @@ fetalData_long <- data.frame(fetalData) %>%
 
 fetalData_long$chrpos_hg38 <- dico$chrpos_hg38[match(fetalData_long$CpG, dico$CpG)]
 
-#################################################################################################
-## Load positions to test for SIV (calculated in B_MultiTissues/03_exploreResults/S03 and S07) ##
-#################################################################################################
+#########################################################################################
+## Load positions to test for SIV (calculated in B_MultiTissues/03_exploreResults/S06) ##
+#########################################################################################
 
-### 1/ based on high alpha
-highAlphaPos_atlas0.7 <- readRDS(here("B_MultiTissues/03_exploreResults/fetalSIV/highAlphaPos_atlas0.7.RDS"))
-fetalData_subset_highVar0.7 <- fetalData_long[
-  fetalData_long$chrpos_hg38 %in% highAlphaPos_atlas0.7$chrpos_hg38,]
-
-### 2/ based on high alpha when test is run also in each germ layer, independently
-topIntersect90_pos <- readRDS(here("B_MultiTissues/03_exploreResults/fetalSIV/topIntersect90_pos.RDS"))
-fetalData_subset_topIntersect90 <- fetalData_long[
-  fetalData_long$chrpos_hg38 %in% topIntersect90_pos$chrpos_hg38,]
+top90SNPrm <- readRDS(here("gitignore/top90SNPrm.RDS"))
+fetalData_subset_top90SNPrm <- fetalData_long[
+  fetalData_long$chrpos_hg38 %in% top90SNPrm,]
 
 #######################################
 ## Prepare previously identified SIV ##
@@ -76,18 +75,19 @@ fetalData_subset_prevSIV <- fetalData_long[fetalData_long$chrpos_hg38 %in% prevD
 ##############################
 fetalData_subset_backgrd <- fetalData_long[
   !fetalData_long$chrpos_hg38 %in% 
-    c(fetalData_subset_highVar0.7$chrpos_hg38, 
-      fetalData_subset_topIntersect90$chrpos_hg38,
+    c(fetalData_subset_top90SNPrm$chrpos_hg38,
       fetalData_subset_prevSIV$chrpos_hg38),]
 
 ## Check overlap on a Venn diagram
-
-cpgs <- list(backgrd = fetalData_subset_backgrd$CpG, highVar0.7 = fetalData_subset_highVar0.7$CpG,
-             topIntersect90 = fetalData_subset_topIntersect90$CpG, prevSIV = fetalData_subset_prevSIV$CpG)
+cpgs <- list(backgrd = fetalData_subset_backgrd$CpG, 
+             top90SNPrm = fetalData_subset_top90SNPrm$CpG, 
+             prevSIV = fetalData_subset_prevSIV$CpG)
 
 ggVennDiagram(cpgs, label_alpha = 0, label = "count") +
   scale_fill_gradient2(low = "white", mid = "yellow", high = "red")+
   theme(legend.position = "none")
+
+## top 90: 123 overlap with prevSIV, 82 extra ones!!
 
 #########################
 ## Shape data for plot ##
@@ -99,37 +99,51 @@ ggVennDiagram(cpgs, label_alpha = 0, label = "count") +
 # layer correlation was then defined as the average Pearson r across these three comparisons.
 
 ## NB: absolute values (just the strength of correlation)
-getinterlayer_corr <- function(fetalData_subset, name){
-  interlayer_corr = fetalData_subset %>%
+getinterlayer_corr <- function(fetalData_subset, name, min_samples = 8) {
+  interlayer_corr <- fetalData_subset %>%
     dplyr::select(sample, layer, CpG, beta) %>%
     pivot_wider(names_from = layer, values_from = beta) %>%
     group_by(CpG) %>%
     summarise(
-      r_Endo_Meso = cor(Endo, Meso, use = "pairwise.complete.obs"),
-      r_Endo_Ecto = cor(Endo, Ecto, use = "pairwise.complete.obs"),
-      r_Meso_Ecto = cor(Meso, Ecto, use = "pairwise.complete.obs"),
-      interlayer_r = mean(c(r_Endo_Meso, r_Endo_Ecto, r_Meso_Ecto), na.rm = TRUE)
-    ) %>% mutate(group = name)
+      n_Endo_Meso  = sum(!is.na(Endo) & !is.na(Meso)),
+      n_Endo_Ecto  = sum(!is.na(Endo) & !is.na(Ecto)),
+      n_Meso_Ecto  = sum(!is.na(Meso) & !is.na(Ecto)),
+      r_Endo_Meso  = ifelse(n_Endo_Meso  >= min_samples,
+                            cor(Endo, Meso, use = "pairwise.complete.obs"), NA),
+      r_Endo_Ecto  = ifelse(n_Endo_Ecto  >= min_samples,
+                            cor(Endo, Ecto, use = "pairwise.complete.obs"), NA),
+      r_Meso_Ecto  = ifelse(n_Meso_Ecto  >= min_samples,
+                            cor(Meso, Ecto, use = "pairwise.complete.obs"), NA),
+      interlayer_r = abs(mean(c(r_Endo_Meso, r_Endo_Ecto, r_Meso_Ecto), na.rm = FALSE))
+    ) %>%
+    mutate(group = name)
   
-  print(mean(interlayer_corr$interlayer_r))
+  print(mean(interlayer_corr$interlayer_r, na.rm = TRUE))
   return(interlayer_corr)
 }
 
 interlayer_corr_backgrd <- getinterlayer_corr(fetalData_subset_backgrd, "background")
-# mean: 0.057
+# mean: 0.18
 interlayer_corr_prevSIV <- getinterlayer_corr(fetalData_subset_prevSIV, "prevSIV")
-# mean: 0.34
-interlayer_corr_highVar0.7 <- getinterlayer_corr(fetalData_subset_highVar0.7, "highVar0.7")
-# mean: 0.50
-interlayer_corr_topIntersect90 <- getinterlayer_corr(fetalData_subset_topIntersect90, "topIntersect90")
-# mean: 0.74
+# mean: 0.39
+interlayer_corr_top90SNPrm <- getinterlayer_corr(fetalData_subset_top90SNPrm, "top90SNPrm")
+# mean: 0.71
+interlayer_corr_all <- getinterlayer_corr(fetalData_long, "allEPICfetal")
+# mean: 0.19
+
+# Compute the percentile rank of each interlayer_r value
+# (what % of all values are <= this value)
+interlayer_corr_all$percentile_r <- ecdf(interlayer_corr_all$interlayer_r)(interlayer_corr_all$interlayer_r) * 100
+# Percentile = 95 means the site is in the top 5%
+# top X% = percentile >= (100 - X)
+
+saveRDS(interlayer_corr_all, "B_MultiTissues/dataOut/interlayer_corr_all.RDS")
 
 interlayer_corr <- interlayer_corr_backgrd |>
   dplyr::full_join(interlayer_corr_prevSIV) |>
-  dplyr::full_join(interlayer_corr_highVar0.7) |>
-  dplyr::full_join(interlayer_corr_topIntersect90) |>
+  dplyr::full_join(interlayer_corr_top90SNPrm) |>
   mutate(group = forcats::fct_relevel(group,
-                                      "background", "prevSIV", "highVar0.7", "topIntersect90"))
+                                      "background", "prevSIV", "top90SNPrm"))
 
 p1 <- ggplot(interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
   geom_violin(width=1.4) +
@@ -156,8 +170,8 @@ CpG_summary <- interlayer_corr %>%
   left_join(interindividual_var, by = "CpG")
 
 table(CpG_summary$group)
-# background        prevSIV     highVar0.7 topIntersect90 
-# 741621           3994           1295             50 
+# background    prevSIV top90SNPrm 
+# 742416       3994        205 
 
 p2 <- ggplot(CpG_summary, aes(x = interindividual_var, color = group)) +
   geom_density(alpha = 0.5)+
@@ -231,7 +245,7 @@ p3
 final_plot <- plot_grid(p1, plot_grid(p2, p3, ncol = 1, align = "v"),
                         ncol = 2, rel_widths = c(.7, 1))
 
-pdf(here("B_MultiTissues/dataOut/figures/intercorrelationSIVfetal.pdf"),
+pdf(here("B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal.pdf"),
     width = 12, height = 7)
 final_plot
 dev.off()
@@ -254,24 +268,23 @@ fetalData_subset_KesslerSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %i
 fetalData_subset_corSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% corSIV_hg38,]
 
 interlayer_corr_VanBaakESS <- getinterlayer_corr(fetalData_subset_VanBaakESS_hg38, "VanBaakESS")
-# mean: 0.46
+# mean: 0.49
 interlayer_corr_HarrisSIV <- getinterlayer_corr(fetalData_subset_HarrisSIV_hg38, "HarrisSIV")
-# mean: 0.25
+# mean: 0.32
 interlayer_corr_KesslerSIV <- getinterlayer_corr(fetalData_subset_KesslerSIV_hg38, "KesslerSIV")
-# mean: 0.35
+# mean: 0.41
 interlayer_corr_corSIV <- getinterlayer_corr(fetalData_subset_corSIV_hg38, "corSIV")
-# mean: 0.39
+# mean: 0.43
 
 interlayer_corr <- interlayer_corr_backgrd |>
   dplyr::full_join(interlayer_corr_VanBaakESS) |>
   dplyr::full_join(interlayer_corr_HarrisSIV) |>
   dplyr::full_join(interlayer_corr_KesslerSIV) |>
   dplyr::full_join(interlayer_corr_corSIV) |>
-  dplyr::full_join(interlayer_corr_highVar0.7) |>
-  dplyr::full_join(interlayer_corr_topIntersect90) |>
+  dplyr::full_join(interlayer_corr_top90SNPrm) |>
   mutate(group = forcats::fct_relevel(
     group, "background", "VanBaakESS", "HarrisSIV", "KesslerSIV", "corSIV", 
-    "highVar0.7", "topIntersect90"))
+    "top90SNPrm"))
 
 p1 <- ggplot(interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
   geom_violin(width=1.4) +
@@ -298,10 +311,9 @@ CpG_summary <- interlayer_corr %>%
   left_join(interindividual_var, by = "CpG")
 
 table(CpG_summary$group)
-# background VanBaakESS  HarrisSIV KesslerSIV     corSIV      highVar0.7 
-# 741621            1257            1316             188            1610            1295 
-# topIntersect90 
-# 50 
+
+# background VanBaakESS  HarrisSIV KesslerSIV     corSIV top90SNPrm 
+# 742416       1257       1316        188       1610        205
 
 p2 <- ggplot(CpG_summary, aes(x = interindividual_var, color = group)) +
   geom_density(alpha = 0.5)+
@@ -373,8 +385,7 @@ final_plot <- plot_grid(p1 + theme(axis.text.x = element_text(angle = 45, hjust 
                         plot_grid(p2, p3, ncol = 1, align = "v"),
                         ncol = 2, rel_widths = c(1, 1))
 
-pdf(here("B_MultiTissues/dataOut/figures/intercorrelationSIVfetal_sepSIV.pdf"),
+pdf(here("B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal_sepSIV.pdf"),
     width = 16, height = 7)
-
 final_plot
 dev.off()

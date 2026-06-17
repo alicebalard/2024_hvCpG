@@ -1,5 +1,13 @@
-if (!exists("libLoaded")) {
-  source(here("B_MultiTissues", "quiet_library.R"))}
+#####################################################################
+## Prepare
+library(here)
+## Load libraries
+source(here("B_MultiTissues", "quiet_library.R"))
+
+## Load functions
+if (!exists("functionsLoaded")) {
+  source(here("B_MultiTissues/03_exploreResults", "functions.R"))}
+#####################################################################
 
 ################
 ## Sex effect ##
@@ -8,30 +16,63 @@ if (!exists("libLoaded")) {
 ### only 6 groups, 3 people
 
 ## 1/ male
-if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_4_vs_6_maleEffect.pdf")))){
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_4_vs_6_maleEffect_chrX.pdf")))){
+  X = readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_04_maleOnly.rds"))
+  Y = readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_06_bothsexes6gp.rds"))
+  X_autosomes = X[X$chr %in% 1:22,]
+  Y_autosomes = Y[Y$chr %in% 1:22,]
+  X_chrX = X[X$chr %in% "X",]
+  Y_chrX = Y[Y$chr %in% "X",]
+
   makeCompPlot(
-    X = readRDS(here("gitignore/fullres_Atlas10X_4_maleOnly")),
-    Y = readRDS(here("gitignore/fullres_Atlas10X_6_bothsexes6gp")),
+    X = X_autosomes,
+    Y = Y_autosomes,
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
-    title = "Atlas_4_vs_6_maleEffect",
+    title = "Atlas_4_vs_6_maleEffect_autosomes",
+    xlab = "Pr(hv) on WGBS atlas with 6 datasets of only males",
+    ylab = "Pr(hv) on WGBS atlas with 6 datasets of mix males/females")
+  
+  makeCompPlot(
+    X = X_chrX,
+    Y = Y_chrX,
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_4_vs_6_maleEffect_chrX",
     xlab = "Pr(hv) on WGBS atlas with 6 datasets of only males",
     ylab = "Pr(hv) on WGBS atlas with 6 datasets of mix males/females")
 }
 
 ## 2/ female
-if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_5_vs_6_femaleEffect.pdf")))){
+if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_5_vs_6_femaleEffect_chrX.pdf")))){
+  X = readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_05_femaleOnly6gp.rds"))
+  Y = readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_06_bothsexes6gp.rds"))
+  X_autosomes = X[X$chr %in% 1:22,]
+  Y_autosomes = Y[Y$chr %in% 1:22,]
+  X_chrX = X[X$chr %in% "X",]
+  Y_chrX = Y[Y$chr %in% "X",]
+  
   makeCompPlot(
-    X = readRDS(here("gitignore/fullres_Atlas10X_5_femaleOnly6gp")),
-    Y = readRDS(here("gitignore/fullres_Atlas10X_6_bothsexes6gp")),
+    X = X_autosomes,
+    Y = Y_autosomes,
     whichAlphaX = "alpha",
     whichAlphaY = "alpha",          
-    title = "Atlas_5_vs_6_femaleEffect",
+    title = "Atlas_5_vs_6_femaleEffect_autosomes",
+    xlab = "Pr(hv) on WGBS atlas with 6 datasets of only females",
+    ylab = "Pr(hv) on WGBS atlas with 6 datasets of mix males/females")
+  
+  makeCompPlot(
+    X = X_chrX,
+    Y = Y_chrX,
+    whichAlphaX = "alpha",
+    whichAlphaY = "alpha",          
+    title = "Atlas_5_vs_6_femaleEffect_chrX",
     xlab = "Pr(hv) on WGBS atlas with 6 datasets of only females",
     ylab = "Pr(hv) on WGBS atlas with 6 datasets of mix males/females")
 }
 
-### only 2 people, 22 groups
+
+### only 2 people, 22 groups (still running on cluster...)
 
 ## 1/ male
 if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_maleEffect_pairs_autosomes.pdf")))){
