@@ -11,6 +11,11 @@
 ## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
 ## for each quadrant vs the other three combined
 ### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
+## Functions extracted from S06 for reuse in downstream scripts:
+### make_MEsetdt
+### make_MEsetdt_regionMean
+### plot_decay_curve
+### plot_decay_curve_layered (by germ layers)
 
 makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   size = 4
@@ -69,17 +74,9 @@ prepAtlasdt <- function(subdir, p0, p1) {
   # Convert to integer/numeric if not already
   dt[, pos := as.integer(pos)]
   
-  ## Check chromosomes present:
-  message("Chromosomes in the dataset:")
-  table(unique(dt$chr))
-  
   # Convert chr from "chrN" to  factor
   dt[, chr := sub("chr", "", chr)]
   dt[, chr := factor(chr, levels = as.character(c(1:22, "X", "Y", "M")))]
-  
-  ## Check chromosomes order:
-  message("Chromosomes in the dataset:")
-  table(unique(dt$chr))
   
   ## Mark group membership in dt
   dt[, group := NA_character_]
@@ -101,7 +98,8 @@ prepAtlasdt <- function(subdir, p0, p1) {
   return(dt)
 }
 
-plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
+plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
+                                colorBySet = FALSE){
   # Compute chromosome centers for x-axis labeling
   df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
   df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
@@ -117,13 +115,9 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
   vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
   
   p <- ggplot() +
-    # background cloud
-    geom_point_rast(data = dt[is.na(group)], 
-                    aes(x = pos2, y = alpha),
-                    color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
     # Add dotted separators
     geom_vline(data = vlines, aes(xintercept = xintercept),
-               linetype = 3, color = "grey60") +
+               linetype = 3, color = "black", linewidth = 1) +
     theme_classic() + theme(legend.position = "none") +
     scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
@@ -131,7 +125,11 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
     theme_minimal(base_size = 14)
   
   if (plotDerakhshan == TRUE){
-    p <- p +   # hvCpG highlights
+    p <- p +  
+      # background cloud
+      geom_point_rast(data = dt[is.na(group)], 
+                      aes(x = pos2, y = alpha),
+                      color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
       geom_point(data = dt[group == "hvCpG_Derakhshan"],
                  aes(x = pos2, y = alpha),
                  color = "#DC3220", size = 1, alpha = 0.7) +
@@ -139,6 +137,19 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE){
       geom_point(data = dt[group == "mQTLcontrols"],
                  aes(x = pos2, y = alpha),
                  color = "#005AB5", size = 1, alpha = 0.7)
+  }
+  if (colorBySet == TRUE){
+    p <- p +
+      geom_point(data = dt,
+                 aes(x = pos2, y = alpha, color = set),
+                 alpha = transp, size = 1) +
+      facet_wrap(.~set, nrow = 5)
+  } else {
+    p <- p +
+      # background cloud
+      geom_point_rast(data = dt, 
+                      aes(x = pos2, y = alpha),
+                      color = "black", size = 0.01, alpha = transp, raster.dpi = 72) 
   }
   return(p)
 }
@@ -240,13 +251,17 @@ makeGRfromMyCpGPos <- function(vec, setname){# Parse with regex all the cpg test
   return(GR)
 }
 
+########
+## GO ##
+########
+
 ## For a vector of CpGs in the format chromosome_position
 ## CpGvec <- c("chr1_17452", "chr1_17478", "chr1_17483")
 ## 1. Keep CpGs in regions where at least 5 CpGs are in 50bp distance to each other
-## 2. annotate with associated genes
+## 2. annotate with associated genes CONTROLLING FOR GENE LENGTH
 ## 3. run GO term enrichment with clusterProfiler::enrichGO
 
-## STEP 1 — ULTRA‑FAST DENSE CpG CLUSTERING (5 CpGs min within 50 bp)
+## ULTRA‑FAST DENSE CpG CLUSTERING (5 CpGs min within 50 bp)
 clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
   dt <- data.table(
     raw = CpGvec,
@@ -268,7 +283,7 @@ clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
   dt[run_size >= min_size, raw]
 }
 
-## STEP 2 — FAST GENE ANNOTATION (OFFLINE)
+## FAST GENE ANNOTATION (OFFLINE)
 annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
 
   if (length(CpGs) == 0) return(character(0))
@@ -295,7 +310,48 @@ annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
   return(unique(c(g1, g2)))
 }
 
-## STEP 3 — GO ENRICHMENT (clusterProfiler)
+# ── Helper: get gene lengths from TxDb ──────────────────────────────────────
+get_gene_lengths <- function() {
+  txdb  <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  exons <- GenomicFeatures::exonsBy(txdb, by = "gene")
+  # Sum of non-overlapping exon widths per gene
+  lengths <- sum(width(GenomicRanges::reduce(exons)))
+  data.table(entrez_id = names(lengths), gene_length = as.integer(lengths))
+}
+
+# ── Length-matched universe subsampling ─────────────────────────────────────
+length_match_universe <- function(foreground_genes, universe_genes,
+                                  gene_lengths_dt, n_bins = 20, seed = 42) {
+  set.seed(seed)
+  
+  fg_dt  <- data.table(entrez_id = foreground_genes)
+  uni_dt <- data.table(entrez_id = universe_genes)
+  
+  # Merge lengths
+  fg_dt  <- merge(fg_dt,  gene_lengths_dt, by = "entrez_id", all.x = TRUE)
+  uni_dt <- merge(uni_dt, gene_lengths_dt, by = "entrez_id", all.x = TRUE)
+  
+  # Bin gene lengths
+  breaks <- quantile(fg_dt$gene_length, probs = seq(0, 1, length.out = n_bins + 1),
+                     na.rm = TRUE)
+  breaks[1]         <- 0
+  breaks[n_bins + 1] <- Inf
+  
+  fg_dt[,  len_bin := cut(gene_length, breaks, include.lowest = TRUE)]
+  uni_dt[, len_bin := cut(gene_length, breaks, include.lowest = TRUE)]
+  
+  # For each bin, sample from universe to match foreground count
+  fg_counts  <- fg_dt[, .N, by = len_bin]
+  matched_bg <- uni_dt[!entrez_id %in% foreground_genes][  # exclude foreground
+    , .SD[sample(.N, min(.N, fg_counts[len_bin == .BY$len_bin, N] * 10))],
+    # 10x more background than foreground per bin = good power
+    by = len_bin
+  ]
+  
+  unique(c(foreground_genes, matched_bg$entrez_id))
+}
+
+## GO ENRICHMENT core function (clusterProfiler)
 runGO <- function(entrez_ids, universe = NULL, myont) {
   clusterProfiler::enrichGO(
     gene          = entrez_ids,
@@ -308,110 +364,51 @@ runGO <- function(entrez_ids, universe = NULL, myont) {
   )
 }
 
-## 🚀 FULL PIPELINE FUNCTION
-CpG_GO_pipeline <- function(CpGvec,
-                            max_gap = 50, min_size = 5,
-                            tss_window = 10000,
-                            universe = NULL) {
-
+## 🚀 FULL PIPELINE FUNCTIONS
+# ── Updated CpG_GO_pipeline with length control ──────────────────────────────
+CpG_GO_pipeline_lengthControlled <- function(CpGvec,
+                                             max_gap    = 50,
+                                             min_size   = minimum_CpG_per_cluster,
+                                             tss_window = 10000,
+                                             universe   = NULL,
+                                             control_length = TRUE) {
   message("Clustering CpGs...")
   CpGclustered <- clusterCpGs(CpGvec, max_gap, min_size)
   message(sprintf("Reduced from %d to %d clustered CpGs",
                   length(CpGvec), length(CpGclustered)))
-
-  if (length(CpGclustered) == 0) {
-    warning("No CpG clusters found.")
-    return(NULL)
-  }
-
+  
+  if (length(CpGclustered) == 0) { warning("No CpG clusters found."); return(NULL) }
+  
   message("Annotating genes...")
   ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
-
   message(sprintf("Found %d Entrez genes", length(ensg)))
-
+  
+  if (control_length) {
+    message("Controlling for gene length...")
+    gene_lengths_dt <- get_gene_lengths()
+    
+    # Check: are foreground genes longer than universe?
+    fg_len  <- gene_lengths_dt[entrez_id %in% ensg, median(gene_length, na.rm = TRUE)]
+    uni_len <- gene_lengths_dt[entrez_id %in% universe, median(gene_length, na.rm = TRUE)]
+    message(sprintf("  Median gene length — foreground: %s bp, universe: %s bp, ratio: %.2f",
+                    format(fg_len, big.mark = ","),
+                    format(uni_len, big.mark = ","),
+                    fg_len / uni_len))
+    
+    universe_matched <- length_match_universe(ensg, universe, gene_lengths_dt)
+    message(sprintf("  Length-matched universe: %d genes (was %d)",
+                    length(universe_matched), length(universe)))
+  } else {
+    universe_matched <- universe
+  }
+  
   message("Running GO enrichment...")
-  list = lapply(c("BP", "MF", "CC"), function(x) {runGO(ensg, universe, x)})
-  names(list) = c("BP", "MF", "CC")
-  return(list)
+  result <- lapply(c("BP", "MF", "CC"), function(x) {
+    runGO(ensg, universe_matched, x)
+  })
+  names(result) <- c("BP", "MF", "CC")
+  return(result)
 }
-# 
-# ###############
-# ## Check GO slim terms for easy interpretation
-# ## GO subsets (also known as GO slims) are condensed versions of the GO containing a subset of the terms.
-# # dl the GO slim Developed by GO Consortium for the Alliance of Genomes Resources
-# # download.file(url = "https://current.geneontology.org/ontology/subsets/goslim_agr.obo",
-# # destfile = here("gitignore/goslim_agr.obo"))
-# slim <- GSEABase::getOBOCollection(here("gitignore/goslim_agr.obo"))
-# 
-# getGOslim <- function(x){
-#   res = x@result
-#   onto = x@ontology
-#   
-#   # Create the GOCollection 
-#   go_collection = GSEABase::GOCollection(ids = res[res$p.adjust < 0.05 & res$Count >= 10, "ID"])
-#   
-#   # Perform the GO slim mapping
-#   slimdf = GSEABase::goSlim(idSrc = go_collection, 
-#                             slimCollection = slim,
-#                             ontology = onto)
-#   
-#   # Map the original GO terms to the slim terms
-#   mappedIds <- function(df, collection, OFFSPRING) {
-#     map <- as.list(OFFSPRING[rownames(df)])
-#     mapped <- lapply(map, intersect, ids(collection))
-#     df[["mapped_go_terms"]] <- vapply(unname(mapped), paste, collapse = ";", character(1L))
-#     
-#     # Get GO term names
-#     go_names <- AnnotationDbi::select(GO.db, keys = unlist(mapped), columns = "TERM", keytype = "GOID")
-#     go_names_list <- split(go_names$TERM, go_names$GOID)
-#     df[["mapped_go_names"]] <- vapply(mapped, function(x) {
-#       paste(go_names_list[x], collapse = ";")
-#     }, character(1L))
-#     
-#     # Get GO slim term full names
-#     slim_names <- AnnotationDbi::select(GO.db, keys = rownames(df), columns = "TERM", keytype = "GOID")
-#     df[["go_slim_full_name"]] <- slim_names$TERM
-#     
-#     df
-#   }
-#   
-#   # Use the appropriate OFFSPRING database based on the ontology
-#   offspring_db <- switch(onto,
-#                          "BP" = GO.db::GOBPOFFSPRING,
-#                          "CC" = GO.db::GOCCOFFSPRING,
-#                          "MF" = GO.db::GOMFOFFSPRING)
-#   
-#   slimdf_with_terms <- mappedIds(slimdf, go_collection, offspring_db)
-#   
-#   slimdf_with_terms %>%
-#     filter(Count != 0) %>%
-#     dplyr::mutate(GO.category = onto)
-# }
-# 
-# makeGOslimPlot_all <- function(dfGOslim_all, posleg = "top") {
-#   if (nrow(dfGOslim_all) == 0) {
-#     stop("dfGOslim_all is empty — no slim categories to plot.")
-#   }
-#   
-#   ggplot(dfGOslim_all, aes(x = group, y = Term)) +
-#     geom_point(aes(size = Percent)) +
-#     scale_size_continuous(
-#       name = "% of GO terms in this GO slim category",
-#       range = c(1, 8)
-#     ) +
-#     theme_bw() +
-#     ylab("") + xlab("") +
-#     theme(
-#       legend.box.background = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-#       legend.background     = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-#       legend.key            = element_rect(fill = "#ebebeb", color = "#ebebeb"),
-#       legend.position       = posleg,
-#       axis.text.y           = element_text(size = 12),
-#       axis.text.x           = element_text(size = 12, angle = 45, hjust = 1)
-#     ) +
-#     facet_grid(group ~ fct_inorder(GO.category), scales = "free", space = "free") +
-#     coord_flip()
-# }
 
 # test enrichment of ME for each quadrant vs the other three combined
 
@@ -505,6 +502,148 @@ plotMyVenn <- function(cutoff, ...) {
             subtitle = paste0("Sequenced CpGs N = ", length(overlap)))
   
   return(p)
+}
+
+## functions_S06.R
+## Functions extracted from S06 for reuse in downstream scripts
+
+make_MEsetdt <- function(sets, geomMeanGR) {
+  MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    data.table(
+      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      ME = nm
+    )
+  }))
+  na.omit(MEsetdt)
+}
+
+make_MEsetdt_regionMean <- function(sets, geomMeanGR) {
+  MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    dt <- data.table(
+      region_idx    = queryHits(hits),
+      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      ME = nm
+    )
+    dt[, .(alpha_geomean = mean(alpha_geomean, na.rm = TRUE)),
+       by = .(region_idx, ME)]
+  }))
+  na.omit(MEsetdt)
+}
+
+plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
+  thresholds <- seq(10, 90, by = 10) / 100
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    MEsetdt[, .(
+      proportion = mean(alpha_geomean > thr, na.rm = TRUE),
+      n_above    = sum(alpha_geomean > thr, na.rm = TRUE),
+      n_total    = .N
+    ), by = ME][, threshold := thr]
+  }))
+  
+  # Build colour vector: black for reference, Set2 for the rest
+  me_levels <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols <- c(mQTLcontrols = "black",
+               setNames(set2_cols[seq_along(other_levels)], other_levels))
+  
+  ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Proportion above threshold", labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw() +
+    ggtitle(title)
+}
+
+plot_decay_curve_layered <- function(MEsetdt, title = "Decay curve by layer") {
+  thresholds <- seq(0, 100, by = 10) / 100
+  proportion <- seq(0, 100, by = 10) / 100
+  
+  # melt the 3 alpha columns to long format
+  long <- melt(MEsetdt,
+               id.vars = "ME",
+               measure.vars = c("alpha_endo", "alpha_meso", "alpha_ecto"),
+               variable.name = "layer", value.name = "alpha")
+  
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    long[, .(
+      proportion = mean(alpha > thr, na.rm = TRUE),
+      n_above    = sum(alpha > thr, na.rm = TRUE),
+      n_total    = .N
+    ), by = .(ME, layer)][, threshold := thr]
+  }))
+  
+  # colours
+  me_levels    <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols      <- c(mQTLcontrols = "black",
+                    setNames(set2_cols[seq_along(other_levels)], other_levels))
+  
+  ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~ layer, nrow = 1,
+               labeller = labeller(layer = c(
+                 alpha_endo = "Endoderm",
+                 alpha_meso = "Mesoderm",
+                 alpha_ecto = "Ectoderm"))) +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Proportion above threshold", breaks = proportion, labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw() +
+    ggtitle(title)
+}
+
+plot_residuals_layered <- function(MEsetdt, title = "Excess Pr(HV) vs mQTLcontrols by layer") {
+  thresholds <- seq(0, 100, by = 10) / 100
+  
+  long <- melt(MEsetdt,
+               id.vars = "ME",
+               measure.vars = c("alpha_endo", "alpha_meso", "alpha_ecto"),
+               variable.name = "layer", value.name = "alpha")
+  
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    long[, .(
+      proportion = mean(alpha > thr, na.rm = TRUE)
+    ), by = .(ME, layer)][, threshold := thr]
+  }))
+  
+  # subtract control proportion per layer × threshold
+  ctrl <- prop_table[ME == "mQTLcontrols", .(layer, threshold, ctrl_proportion = proportion)]
+  prop_table <- merge(prop_table, ctrl, by = c("layer", "threshold"))
+  prop_table[, residual := proportion - ctrl_proportion]
+  prop_table <- prop_table[ME != "mQTLcontrols"]
+  
+  # layer factor order
+  layer_labels <- c(alpha_endo = "Endoderm",
+                    alpha_meso = "Mesoderm",
+                    alpha_ecto = "Ectoderm")
+  prop_table[, layer_label := factor(layer_labels[as.character(layer)],
+                                     levels = c("Endoderm", "Mesoderm", "Ectoderm"))]
+  
+  # colours
+  me_levels    <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols      <- setNames(set2_cols[seq_along(other_levels)], other_levels)
+  
+  ggplot(prop_table, aes(x = threshold, y = residual, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "black", linewidth = 0.4) +
+    facet_wrap(~ layer_label, nrow = 1) +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Excess proportion vs mQTLcontrols",
+                       labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "right") +
+    ggtitle(title)
 }
 
 functionsLoaded = TRUE
