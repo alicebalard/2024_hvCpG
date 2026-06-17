@@ -237,7 +237,7 @@ sets <- list(
 )
 
 # ── ME overlap ────────────────────────────────────────────
-MEsetdt            <- make_MEsetdt(sets, geomMeanGR)
+MEsetdt <- make_MEsetdt(sets, geomMeanGR)
 MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
 
 p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha_geomean)) +
@@ -393,6 +393,32 @@ dev.off()
 saveRDS(MEsetdt,            here("gitignore/MEsetdt.rds"))
 saveRDS(MEsetdt_regionMean, here("gitignore/MEsetdt_regionMean.rds"))
 saveRDS(geomMeanGR,         here("gitignore/geomMeanGR.rds"))
+
+###########################################################################
+## Make decay plot by germ layer, to understand where Maria's hvCpGs are ##
+###########################################################################
+
+allLayersAlphaGR <- GRanges(seqnames = table3layers@seqnames,
+                      ranges = IRanges(start = table3layers@ranges@start, 
+                                       end = table3layers@ranges@start),
+                      alpha_meso = table3layers$alpha_meso,
+                      alpha_endo = table3layers$alpha_endo,
+                      alpha_ecto = table3layers$alpha_ecto)
+
+### Make plot decay by gene layer
+MEsetdt_layered <- rbindlist(lapply(names(sets), function(nm) {
+  hits <- findOverlaps(sets[[nm]], allLayersAlphaGR)
+  data.table(
+    alpha_endo = allLayersAlphaGR$alpha_endo[subjectHits(hits)],
+    alpha_meso = allLayersAlphaGR$alpha_meso[subjectHits(hits)],
+    alpha_ecto = allLayersAlphaGR$alpha_ecto[subjectHits(hits)],
+    ME = nm
+  )
+}))
+
+MEsetdt_layered[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
+plot_decay_curve_layered(MEsetdt_layered)
+plot_residuals_layered(MEsetdt_layered)
 
 ##############################
 ## Save the top alpha > 90% ##
