@@ -15,6 +15,7 @@
 ### make_MEsetdt
 ### make_MEsetdt_regionMean
 ### plot_decay_curve
+### plot_decay_curve_layered (by germ layers)
 
 makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   size = 4
@@ -555,6 +556,93 @@ plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
     scale_y_continuous("Proportion above threshold", labels = scales::percent) +
     scale_colour_manual(values = my_cols) +
     theme_bw() +
+    ggtitle(title)
+}
+
+plot_decay_curve_layered <- function(MEsetdt, title = "Decay curve by layer") {
+  thresholds <- seq(0, 100, by = 10) / 100
+  proportion <- seq(0, 100, by = 10) / 100
+  
+  # melt the 3 alpha columns to long format
+  long <- melt(MEsetdt,
+               id.vars = "ME",
+               measure.vars = c("alpha_endo", "alpha_meso", "alpha_ecto"),
+               variable.name = "layer", value.name = "alpha")
+  
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    long[, .(
+      proportion = mean(alpha > thr, na.rm = TRUE),
+      n_above    = sum(alpha > thr, na.rm = TRUE),
+      n_total    = .N
+    ), by = .(ME, layer)][, threshold := thr]
+  }))
+  
+  # colours
+  me_levels    <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols      <- c(mQTLcontrols = "black",
+                    setNames(set2_cols[seq_along(other_levels)], other_levels))
+  
+  ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~ layer, nrow = 1,
+               labeller = labeller(layer = c(
+                 alpha_endo = "Endoderm",
+                 alpha_meso = "Mesoderm",
+                 alpha_ecto = "Ectoderm"))) +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Proportion above threshold", breaks = proportion, labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw() +
+    ggtitle(title)
+}
+
+plot_residuals_layered <- function(MEsetdt, title = "Excess Pr(HV) vs mQTLcontrols by layer") {
+  thresholds <- seq(0, 100, by = 10) / 100
+  
+  long <- melt(MEsetdt,
+               id.vars = "ME",
+               measure.vars = c("alpha_endo", "alpha_meso", "alpha_ecto"),
+               variable.name = "layer", value.name = "alpha")
+  
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    long[, .(
+      proportion = mean(alpha > thr, na.rm = TRUE)
+    ), by = .(ME, layer)][, threshold := thr]
+  }))
+  
+  # subtract control proportion per layer × threshold
+  ctrl <- prop_table[ME == "mQTLcontrols", .(layer, threshold, ctrl_proportion = proportion)]
+  prop_table <- merge(prop_table, ctrl, by = c("layer", "threshold"))
+  prop_table[, residual := proportion - ctrl_proportion]
+  prop_table <- prop_table[ME != "mQTLcontrols"]
+  
+  # layer factor order
+  layer_labels <- c(alpha_endo = "Endoderm",
+                    alpha_meso = "Mesoderm",
+                    alpha_ecto = "Ectoderm")
+  prop_table[, layer_label := factor(layer_labels[as.character(layer)],
+                                     levels = c("Endoderm", "Mesoderm", "Ectoderm"))]
+  
+  # colours
+  me_levels    <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols      <- setNames(set2_cols[seq_along(other_levels)], other_levels)
+  
+  ggplot(prop_table, aes(x = threshold, y = residual, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "black", linewidth = 0.4) +
+    facet_wrap(~ layer_label, nrow = 1) +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Excess proportion vs mQTLcontrols",
+                       labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "right") +
     ggtitle(title)
 }
 

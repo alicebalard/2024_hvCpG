@@ -299,12 +299,14 @@ makePlotDecayTarget <- function(window_gr){
 }
 
 p4 <- makePlotDecayTarget(region1_gr[!is.na(region1_gr$name)])
-p5 <- makePlotDecayTarget(region2_gr[!is.na(region2_gr$name)])
+p5 <- makePlotDecayTarget(region2_gr[grep("LTR41_2", region2_gr$name),])
 
 ggplot2::ggsave(
   filename = here::here(paste0("B_MultiTissues/dataOut/figures/ACTL8_LTR41.pdf")),
   plot = cowplot::plot_grid(
-    cowplot::plot_grid(p1,p2, p3, ncol = 3),
-    cowplot::plot_grid(p4, p5, ncol = 2), nrow = 2., rel_heights = c(3,1)),
+    cowplot::plot_grid(p4, p5, ncol = 2, labels = c("a", "b")),
+    cowplot::plot_grid(p1,p2, p3, ncol = 3, labels = c("c", "d", "e")),
+    nrow = 2., rel_heights = c(1,3)),
   width = 15, height = 12
 )
+
