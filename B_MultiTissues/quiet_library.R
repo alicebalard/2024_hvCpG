@@ -14,7 +14,7 @@ cran_packages <- c(
   # HDF5 / parallel
   "parallel", "rhdf5",
   # Graphics
-  "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram",
+  "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram", "patchwork",
   "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo",
   "UpSetR",
   # Stats
@@ -31,9 +31,10 @@ bioc_packages <- c(
   "GenomicRanges", "IRanges",
   "TxDb.Hsapiens.UCSC.hg38.knownGene",
   "GSEABase",
-  "methylKit",
+  "methylKit", 
   # Enrichment
-  "rGREAT", "simplifyEnrichment", "org.Hs.eg.db"
+  "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "BioMartGOGeneSets",
+  "AnnotationHub"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
