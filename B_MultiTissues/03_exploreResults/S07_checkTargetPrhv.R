@@ -24,6 +24,22 @@ interlayer_corr$interlayer_r <- rowMeans(
 interlayer_corr$percentile_r <- ecdf(interlayer_corr$interlayer_r)(
   interlayer_corr$interlayer_r) * 100
 
+# ── Build interlayer_gr once (used inside plot_region) ───────────────────────
+interlayer_corr_clean <- interlayer_corr[!is.na(interlayer_corr$chr_pos), ]
+
+# check for non-standard chr_pos format
+pos_check <- as.integer(sub(".*_", "", interlayer_corr_clean$chr_pos))
+interlayer_corr_clean <- interlayer_corr_clean[!is.na(pos_check), ]
+
+interlayer_gr <- GRanges(
+  seqnames = sub("_.*", "", interlayer_corr_clean$chr_pos),
+  ranges   = IRanges(
+    start = as.integer(sub(".*_", "", interlayer_corr_clean$chr_pos)),
+    width = 1
+  )
+)
+mcols(interlayer_gr) <- interlayer_corr_clean
+
 # ══════════════════════════════════════════════════════════════════════════════
 # plot_region
 # peak_anchor_gr : GRanges used ONLY to define the detection zone
@@ -312,8 +328,7 @@ target_regions <- list(
   LTR41_2      = LTR41_hg38[2],
   ACTL8        = ACTL8_hg38,
   region1_window = region1_gr[is.na(region1_gr$name)],
-  region2_window = region2_gr[is.na(region2_gr$name)],
-  region3_window = region3_gr[is.na(region3_gr$name)]
+  region2_window = region2_gr[is.na(region2_gr$name)]
 )
 
 # For each region, find overlapping CpGs in table3layers and extract chr_pos
@@ -460,9 +475,7 @@ plot_percpg_interlayer_corr <- function(meth_sub, x_min, x_max,
     coord_cartesian(xlim = c(x_min, x_max)) +
     theme_bw(base_size = 10) +
     theme(axis.text.x = element_text(size = 8), panel.grid.minor = element_blank(),
-          legend.position = "none")    # theme(axis.title.x = element_blank(), axis.text.x = element_blank(),
-    #       axis.ticks.x = element_line(), panel.grid.minor = element_blank(),
-    #       legend.position = "right")
+          legend.position = "none")
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -496,11 +509,247 @@ makePlotDecayTarget <- function(window_gr) {
 p4 <- makePlotDecayTarget(region1_gr[!is.na(region1_gr$name)])
 p5 <- makePlotDecayTarget(region2_gr[grep("LTR41_2", region2_gr$name), ])
 
+# ==========================================
+## Compare our LTR41s with average LTR41s
+# ==========================================
+library(AnnotationHub)
+ah        <- AnnotationHub()
+rmskhg38  <- ah[["AH111333"]]
+
+LTR41_all_hg38 <- rmskhg38[mcols(rmskhg38)$repName == "LTR41"]
+message("Total LTR41 elements: ", length(LTR41_all_hg38))
+
+# ── which LTR41s are our targets ─────────────────────────────────────────────
+target_idx <- which(
+  as.character(seqnames(LTR41_all_hg38)) == "chr1" &
+    start(LTR41_all_hg38) %in% start(LTR41_hg38)
+)
+
+target_cols      <- c("LTR41_1" = "#E69F00", "LTR41_2" = "#CC79A7")
+mean_ltr41_width <- mean(width(LTR41_all_hg38))
+ltr41_widths     <- width(LTR41_hg38)
+
+# ── Loess ribbon fitter ───────────────────────────────────────────────────────
+fit_loess_ribbon <- function(dt, x_col, y_col, span = 0.5, n_out = 300,
+                             max_n = 20000) {
+  df <- dt[!is.na(get(y_col)), .(x = get(x_col), y = get(y_col))]
+  if (nrow(df) < 10) return(NULL)
+  if (nrow(df) > max_n) { set.seed(42); df <- df[sample(.N, max_n)] }
+  fit   <- loess(y ~ x, data = df, span = span)
+  x_seq <- seq(min(df$x), max(df$x), length.out = n_out)
+  pred  <- predict(fit, newdata = data.frame(x = x_seq), se = TRUE)
+  data.table(x    = x_seq,
+             y    = pred$fit,
+             ymin = pred$fit - 1.96 * pred$se.fit,
+             ymax = pred$fit + 1.96 * pred$se.fit)
+}
+
+# ── Plot function ─────────────────────────────────────────────────────────────
+make_ltr41_plot <- function(smooth_mean, smooth_target, smooth_indiv,
+                            y_lab, y_limits, y_breaks,
+                            x_limits = NULL,
+                            extra_layers = NULL,
+                            title = NULL, subtitle = NULL) {
+  p <- ggplot() +
+    geom_line(data = smooth_indiv,
+              aes(x = x, y = y, group = ltr_idx),
+              colour = "grey70", alpha = 0.2, linewidth = 0.2) +
+    geom_ribbon(data = smooth_mean,
+                aes(x = x, ymin = ymin, ymax = ymax),
+                fill = "grey70", alpha = 0.3) +
+    geom_line(data = smooth_mean,
+              aes(x = x, y = y),
+              colour = "grey30", linewidth = 1) +
+    geom_ribbon(data = smooth_target,
+                aes(x = x, ymin = ymin, ymax = ymax, fill = ltr_name),
+                alpha = 0.25) +
+    geom_line(data = smooth_target,
+              aes(x = x, y = y, colour = ltr_name),
+              linewidth = 1.2) +
+    scale_colour_manual(values = target_cols, name = "Target LTR41") +
+    scale_fill_manual(values   = target_cols, name = "Target LTR41") +
+    geom_vline(xintercept = 0,
+               linetype = "dashed", colour = "grey40") +
+    geom_vline(xintercept = mean_ltr41_width,
+               linetype = "dashed", colour = "grey40") +
+    geom_vline(xintercept = ltr41_widths[1],
+               colour = target_cols["LTR41_1"],
+               linetype = "dotted", linewidth = 0.8) +
+    geom_vline(xintercept = ltr41_widths[2],
+               colour = target_cols["LTR41_2"],
+               linetype = "dotted", linewidth = 0.8) +
+    annotate("text", x = 0, y = max(y_limits),
+             label = "TE start", hjust = 0, vjust = 1.5,
+             size = 2.5, colour = "grey40") +
+    annotate("text", x = mean_ltr41_width, y = max(y_limits),
+             label = sprintf("TE end\n(mean=%d bp)", round(mean_ltr41_width)),
+             hjust = 1, vjust = 1.5, size = 2.5, colour = "grey40") +
+    scale_x_continuous("Position relative to LTR41 start (bp)",
+                       labels = function(x) paste0(round(x / 1e3, 1), " kb")) +
+    scale_y_continuous(y_lab, limits = y_limits, breaks = y_breaks) +
+    theme_bw(base_size = 11) +
+    theme(panel.grid.minor = element_blank(), legend.position = "right")
+  
+  if (!is.null(x_limits))
+    p <- p + coord_cartesian(xlim = x_limits)
+  if (!is.null(extra_layers)) p <- p + extra_layers
+  if (!is.null(title))        p <- p + ggtitle(title, subtitle = subtitle)
+  p
+}
+
+# ── Build dataset + smoothers for each zoom level ────────────────────────────
+zoom_levels <- list(
+  "1kb"  = 1000,
+  "2kb"  = 2000,
+  "3kb"  = 3000
+)
+
+# Build once with max padding (3kb), reuse for all zoom levels
+LTR41_windows <- GRanges(
+  seqnames = seqnames(LTR41_all_hg38),
+  ranges   = IRanges(
+    start = pmax(start(LTR41_all_hg38) - 3000, 1),
+    end   = end(LTR41_all_hg38) + 3000
+  )
+)
+
+message("Extracting CpGs for ", length(LTR41_all_hg38), " LTR41 elements...")
+hits_all <- findOverlaps(table3layers, LTR41_windows)
+
+cpg_dt <- as.data.table(table3layers[queryHits(hits_all)])[
+  , .(start, alpha_geomean, percentile, chr_pos)]
+cpg_dt[, ltr_idx   := subjectHits(hits_all)]
+cpg_dt[, ltr_start := start(LTR41_all_hg38)[ltr_idx]]
+cpg_dt[, rel_pos   := start - ltr_start]
+cpg_dt[, is_target := ltr_idx %in% target_idx]
+cpg_dt[, ltr_name  := fcase(
+  ltr_idx == target_idx[1], "LTR41_1",
+  ltr_idx == target_idx[2], "LTR41_2",
+  default = "other"
+)]
+
+ltr41_cpg_dt <- cpg_dt
+message(sprintf("  %d CpG observations across %d elements (%d unique CpGs)",
+                nrow(ltr41_cpg_dt),
+                uniqueN(ltr41_cpg_dt$ltr_idx),
+                uniqueN(ltr41_cpg_dt$chr_pos)))
+
+# subsample for individual grey lines
+set.seed(42)
+non_target_idx <- setdiff(unique(ltr41_cpg_dt$ltr_idx), target_idx)
+sample_idx     <- sample(non_target_idx, min(200, length(non_target_idx)))
+
+# ── Pre-compute smoothers once on full ±3kb range ────────────────────────────
+message("Computing smoothers...")
+
+smooth_mean_alpha <- fit_loess_ribbon(
+  ltr41_cpg_dt[is_target == FALSE], "rel_pos", "alpha_geomean")
+smooth_mean_pct   <- fit_loess_ribbon(
+  ltr41_cpg_dt[is_target == FALSE], "rel_pos", "percentile")
+
+smooth_target_alpha <- rbindlist(lapply(unique(target_idx), function(ti) {
+  dt <- ltr41_cpg_dt[ltr_idx == ti]
+  s  <- fit_loess_ribbon(dt, "rel_pos", "alpha_geomean")
+  if (is.null(s)) return(NULL)
+  s[, ltr_name := dt$ltr_name[1]]; s
+}))
+
+smooth_target_pct <- rbindlist(lapply(unique(target_idx), function(ti) {
+  dt <- ltr41_cpg_dt[ltr_idx == ti]
+  s  <- fit_loess_ribbon(dt, "rel_pos", "percentile")
+  if (is.null(s)) return(NULL)
+  s[, ltr_name := dt$ltr_name[1]]; s
+}))
+
+smooth_indiv_alpha <- rbindlist(lapply(sample_idx, function(ti) {
+  dt <- ltr41_cpg_dt[ltr_idx == ti & !is.na(alpha_geomean)]
+  if (nrow(dt) < 5) return(NULL)
+  fit   <- loess(alpha_geomean ~ rel_pos, data = dt, span = 0.5)
+  x_seq <- seq(min(dt$rel_pos), max(dt$rel_pos), length.out = 100)
+  data.table(x = x_seq, y = predict(fit, x_seq), ltr_idx = ti)
+}))
+
+smooth_indiv_pct <- rbindlist(lapply(sample_idx, function(ti) {
+  dt <- ltr41_cpg_dt[ltr_idx == ti & !is.na(percentile)]
+  if (nrow(dt) < 5) return(NULL)
+  fit   <- loess(percentile ~ rel_pos, data = dt, span = 0.5)
+  x_seq <- seq(min(dt$rel_pos), max(dt$rel_pos), length.out = 100)
+  data.table(x = x_seq, y = predict(fit, x_seq), ltr_idx = ti)
+}))
+
+message("Smoothers done.")
+
+# ── Build 3 zoom-level pairs ──────────────────────────────────────────────────
+ltr41_plots <- lapply(names(zoom_levels), function(zoom_name) {
+  pad      <- zoom_levels[[zoom_name]]
+  x_limits <- c(-pad, mean_ltr41_width + pad)
+  
+  p_alpha <- make_ltr41_plot(
+    smooth_mean   = smooth_mean_alpha,
+    smooth_target = smooth_target_alpha,
+    smooth_indiv  = smooth_indiv_alpha,
+    y_lab    = "Pr(HV) geomean",
+    y_limits = c(0, 1),
+    y_breaks = c(0, 0.25, 0.5, 0.75, 1),
+    x_limits = x_limits,
+    title    = sprintf("LTR41 ± %s", zoom_name),
+    subtitle = sprintf("grey = all LTR41 (n=%d, n=%d shown) | coloured = our 2 LTR41s",
+                       length(LTR41_all_hg38), length(sample_idx))
+  )
+  
+  p_pct <- make_ltr41_plot(
+    smooth_mean   = smooth_mean_pct,
+    smooth_target = smooth_target_pct,
+    smooth_indiv  = smooth_indiv_pct,
+    y_lab         = "Percentile (geomean)",
+    y_limits      = c(0, 100),
+    y_breaks      = c(0, 25, 50, 75, 95, 100),
+    x_limits      = x_limits,
+    extra_layers  = geom_hline(yintercept = 95,
+                               linetype = "dashed", colour = "firebrick")
+  )
+  
+  p_alpha / p_pct + plot_layout(guides = "collect") &
+    theme(legend.position = "right")
+})
+
+# ── Combine 3 zoom levels side by side + legend ─────────────────────────
+
+# ── Extract legend from a single ggplot panel (not the patchwork) ─────────────
+legend_plot <- make_ltr41_plot(
+  smooth_mean   = smooth_mean_alpha,
+  smooth_target = smooth_target_alpha,
+  smooth_indiv  = smooth_indiv_alpha,
+  y_lab    = "Pr(HV) geomean",
+  y_limits = c(0, 1),
+  y_breaks = c(0, 0.25, 0.5, 0.75, 1),
+  x_limits = c(-3000, mean_ltr41_width + 3000)
+)
+
+legend <- cowplot::get_legend(legend_plot)
+
+# ── Remove legend from all patchwork plots ────────────────────────────────────
+ltr41_plots_nolegend <- lapply(ltr41_plots, function(x) {
+  x & theme(legend.position = "none")
+})
+
+# ── Combine: 3 zoom plots + shared legend on the right ───────────────────────
+p6 <- cowplot::plot_grid(
+  cowplot::plot_grid(plotlist = ltr41_plots_nolegend, ncol = 3,
+                     labels = c("a", "b", "c")),
+  legend,
+  ncol        = 2,
+  rel_widths  = c(1, 0.1)
+)
+
+p6
+
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/ACTL8_LTR41.pdf"),
   plot = cowplot::plot_grid(
     cowplot::plot_grid(p1, p2, ncol = 2, labels = c("a", "b")),
     cowplot::plot_grid(p4, p5, ncol = 2, labels = c("c", "d")),
-    nrow = 2, rel_heights = c(3, 1)),
-  width = 12, height = 12
+    p6, labels = c("", "", "e"),
+    nrow = 3, rel_heights = c(3, 1, 3)),
+  width = 12, height = 18
 )
