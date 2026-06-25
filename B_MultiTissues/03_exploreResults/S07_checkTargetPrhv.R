@@ -221,7 +221,7 @@ plot_region <- function(region_gr, annot_gr, peak_anchor_gr, meth,
                   colour = "black", fill = "grey60",
                   alpha = 0.2, na.rm = TRUE, span = peak_span,
                   method = "loess", se = TRUE) +
-          th + theme(legend.position = "right"))
+      th + theme(legend.position = "right"))
   
   # ── Diagnose inter-layer coverage ─────────────────────────────────────────
   layer_per_patient <- meth_window[, .(n_layers = uniqueN(germ_layer)), by = patient_id]
@@ -266,6 +266,9 @@ LTR41_hg38 <- unlist(liftOver(LTR41_hg19, chain))
 LTR41_hg38$name <- c("LTR41_1", "LTR41_2")
 ACTL8_hg38 <- GRanges("chr1", IRanges(17755333, 17827063), name = "ACTL8")
 
+SUSPECT_ALICE <- c(GRanges("chr1", IRanges(17757500, 17757900),name = "SUSPECT_1"),
+                   GRanges("chr1", IRanges(17760700, 17761100),name = "SUSPECT_2"))
+
 # ── Region GRanges (plot windows) ────────────────────────────────────────────
 region1_gr <- c(
   LY6SVMR_hg38, MER11C_hg38,
@@ -275,7 +278,7 @@ region1_gr <- c(
           name = NA))
 
 region2_gr <- c(
-  LTR41_hg38, ACTL8_hg38,
+  LTR41_hg38, ACTL8_hg38, SUSPECT_ALICE,
   GRanges("chr1",
           IRanges(start = min(start(LTR41_hg38)) - 3000,
                   end   = max(start(LTR41_hg38)) + 3000),
@@ -293,27 +296,10 @@ annot_gr_region1 <- GRanges(
 annot_gr_region2 <- GRanges(
   seqnames   = "chr1",
   ranges     = IRanges(
-    start = c(start(LTR41_hg38), start(ACTL8_hg38)),
-    end   = c(end(LTR41_hg38),   end(ACTL8_hg38))),
-  name       = c("LTR41_1", "LTR41_2", "ACTL8"),
-  annot_type = c("TE",      "TE",      "gene"))
-
-# ── Peak anchor GRanges (detection zone only — no full gene body) ─────────────
-# Region 1: VMR + MER11C only; gene body excluded to avoid biasing baseline
-peak_anchor_region1 <- GRanges(
-  seqnames   = "chr8",
-  ranges     = IRanges(
-    start = c(start(LY6SVMR_hg38), start(MER11C_hg38)),
-    end   = c(end(LY6SVMR_hg38),   end(MER11C_hg38))),
-  name       = c("LY6S-VMR", "MER11C"),
-  annot_type = c("geneVMR",  "TE"))
-
-# Region 2: LTR41 elements only; ACTL8 gene body excluded
-peak_anchor_region2 <- GRanges(
-  seqnames   = "chr1",
-  ranges     = IRanges(start = start(LTR41_hg38), end = end(LTR41_hg38)),
-  name       = c("LTR41_1", "LTR41_2"),
-  annot_type = c("TE", "TE"))
+    start = c(start(LTR41_hg38), start(ACTL8_hg38), start(SUSPECT_ALICE)),
+    end   = c(end(LTR41_hg38),   end(ACTL8_hg38), end(SUSPECT_ALICE))),
+  name       = c("LTR41_1", "LTR41_2", "ACTL8", "SUSPECT_1", "SUSPECT_2"),
+  annot_type = c("TE",      "TE",      "gene", "geneVMR", "geneVMR"))
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Extract all CpGs in target regions → chr_pos format for S00 script
@@ -733,23 +719,342 @@ ltr41_plots_nolegend <- lapply(ltr41_plots, function(x) {
   x & theme(legend.position = "none")
 })
 
+# ══════════════════════════════════════════════════════════════════════════════
+# LD-style pairwise methylation correlation heatmaps
+#
+# CONCEPT: In genetics, LD (r²) measures how often two SNP alleles co-occur
+# across individuals. Here we do the exact analogue for methylation:
+# for each pair of CpGs, we compute Pearson r of their methylation values
+# across 135 patients. High r = the two CpGs tend to be methylated (or
+# unmethylated) together across individuals → epigenetic co-regulation.
+# Negative r = when one is methylated, the other tends not to be → competing
+# states. This is displayed as an upper-triangle heatmap ordered by genomic
+# position, exactly like a standard LD block plot.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Region windows ────────────────────────────────────────────────────────────
+ld_region1_gr <- GRanges("chr8",
+                         IRanges(start = min(start(LY6SVMR_hg38), start(MER11C_hg38)) - 3000,
+                                 end   = max(end(LY6SVMR_hg38),   end(MER11C_hg38))   + 3000))
+
+ld_region2_gr <- GRanges("chr1",
+                         IRanges(start = min(start(LTR41_hg38)) - 3000,
+                                 end   = max(end(LTR41_hg38))   + 3000))
+
+feature_ticks_region1 <- data.table(
+  pos   = c(start(LY6SVMR_hg38), end(LY6SVMR_hg38),
+            start(MER11C_hg38),  end(MER11C_hg38)),
+  label = c("VMR start", "VMR end", "MER11C start", "MER11C end")
+)
+
+feature_ticks_region2 <- data.table(
+  pos   = c(start(SUSPECT_ALICE[1]), end(SUSPECT_ALICE[1]),
+            start(SUSPECT_ALICE[2]), end(SUSPECT_ALICE[2]),
+            start(LTR41_hg38[1]), end(LTR41_hg38[1]),
+            start(LTR41_hg38[2]), end(LTR41_hg38[2])),
+  label = c("SUSPECT_1 start", "SUSPECT_1 end",
+            "SUSPECT_2 start", "SUSPECT_2 end",
+            "LTR41_1 start", "LTR41_1 end",
+            "LTR41_2 start", "LTR41_2 end")
+)
+
+# ── build_meth_matrix ─────────────────────────────────────────────────────────
+# Extracts raw methylation from `meth` for all CpGs in the window,
+# averages across tissues per patient (so each patient contributes one value
+# per CpG regardless of how many tissues they have), then returns a
+# CpG × patient matrix sorted by genomic position.
+# Rows with fewer than min_patients non-NA values are dropped.
+build_meth_matrix <- function(window_gr, meth, min_patients = 5) {
+  
+  x_min      <- as.integer(start(window_gr))
+  x_max      <- as.integer(end(window_gr))
+  chr_window <- as.character(seqnames(window_gr))
+  
+  if (!"pos" %in% names(meth)) meth[, pos := as.integer(sub(".*_", "", cpg_site))]
+  if (!"chr" %in% names(meth)) meth[, chr := sub("_.*", "", cpg_site)]
+  
+  mw <- meth[chr == chr_window & pos >= x_min & pos <= x_max]
+  message(sprintf("  Window %s:%d-%d — %d rows, %d CpGs, %d patients",
+                  chr_window, x_min, x_max,
+                  nrow(mw), uniqueN(mw$cpg_site), uniqueN(mw$patient_id)))
+  if (nrow(mw) == 0) return(NULL)
+  
+  agg  <- mw[, .(methylation = mean(methylation, na.rm = TRUE)),
+             by = .(cpg_site, pos, patient_id)]
+  wide <- dcast(agg, pos + cpg_site ~ patient_id, value.var = "methylation")
+  setorder(wide, pos)
+  mat  <- as.matrix(wide[, -(1:2)])
+  keep <- rowSums(!is.na(mat)) >= min_patients
+  
+  list(mat       = mat[keep, , drop = FALSE],
+       positions = wide$pos[keep],
+       cpg_sites = wide$cpg_site[keep])
+}
+
+# ── compute_pairwise_cor ──────────────────────────────────────────────────────
+# THE CORE LD-EQUIVALENT CALCULATION.
+# Takes a CpG × sample matrix and computes all pairwise Pearson correlations
+# between rows (CpGs) across columns (samples = patients or layers).
+# This is exactly r from LD analysis, applied to methylation instead of alleles:
+#   r(CpG_i, CpG_j) = cor(meth[i, ], meth[j, ], use="pairwise.complete.obs")
+# Rows with near-zero variance (CpGs uniformly methylated across all samples)
+# are removed first as they produce undefined correlations.
+compute_pairwise_cor <- function(mat) {
+  rv  <- apply(mat, 1, var, na.rm = TRUE)
+  mat <- mat[!is.na(rv) & rv > 1e-10, , drop = FALSE]
+  if (nrow(mat) < 2) return(NULL)
+  cor_mat <- suppressWarnings(
+    cor(t(mat), use = "pairwise.complete.obs", method = "pearson"))
+  keep    <- rowSums(!is.na(cor_mat)) > 0
+  cor_mat <- cor_mat[keep, keep, drop = FALSE]
+  if (nrow(cor_mat) < 2) return(NULL)
+  cor_mat
+}
+
+# ── trim_positions ────────────────────────────────────────────────────────────
+# Removes genomic positions corresponding to zero-variance CpG rows,
+# keeping positions in sync with the rows that survive into the cor matrix.
+trim_positions <- function(mat, positions) {
+  rv   <- apply(mat, 1, var, na.rm = TRUE)
+  keep <- !is.na(rv) & rv > 1e-10
+  positions[keep]
+}
+
+# ── make_cpg_density_strip ────────────────────────────────────────────────────
+# Builds a barplot showing how many CpGs fall in each genomic bin across the
+# window. This is shown below the heatmap so the reader can interpret
+# dense vs sparse regions of the rank-ordered x/y axis.
+make_cpg_density_strip <- function(positions, feature_ticks = NULL, n_bins = 50) {
+  if (length(positions) == 0 || !is.finite(min(positions))) return(ggplot() + theme_void())
+  
+  pos_min <- min(positions); pos_max <- max(positions)
+  breaks  <- seq(pos_min, pos_max, length.out = n_bins + 1)
+  counts  <- hist(positions, breaks = breaks, plot = FALSE)$counts
+  dt      <- data.table(bin   = seq_len(n_bins), count = counts,
+                        pos   = (breaks[-length(breaks)] + breaks[-1]) / 2)
+  
+  label_pos  <- pretty(positions, n = 5)
+  label_pos  <- label_pos[label_pos >= pos_min & label_pos <= pos_max]
+  label_bins <- sapply(label_pos, function(p) which.min(abs(dt$pos - p)))
+  label_text <- paste0(round(label_pos / 1e3, 1), " kb")
+  
+  p <- ggplot(dt, aes(x = bin, y = count, fill = count)) +
+    geom_col(width = 1) +
+    scale_fill_gradient(low = "grey85", high = "grey20", guide = "none") +
+    scale_x_continuous(breaks = label_bins, labels = label_text, expand = c(0,0)) +
+    scale_y_continuous(expand = c(0, 0), name = "CpG\ndensity") +
+    theme_bw(base_size = 7) +
+    theme(axis.text.x  = element_text(size = 6, angle = 45, hjust = 1),
+          axis.text.y  = element_text(size = 5),
+          axis.title.x = element_blank(),
+          panel.grid   = element_blank(),
+          plot.margin  = margin(0,0,0,0))
+  
+  if (!is.null(feature_ticks) && nrow(feature_ticks) > 0) {
+    ft_bins <- sapply(feature_ticks$pos, function(fp) which.min(abs(dt$pos - fp)))
+    p <- p + geom_vline(xintercept = ft_bins, colour = "black",
+                        linetype = "dashed", linewidth = 0.4)
+  }
+  p
+}
+
+# ── make_ld_heatmap ───────────────────────────────────────────────────────────
+# Renders the pairwise correlation matrix as an upper-triangle heatmap.
+# X and Y axes use rank indices (1 to n CpGs) rather than genomic coordinates
+# so every CpG gets equal visual space regardless of genomic spacing —
+# exactly as in standard LD plots. Axis tick labels are converted back to
+# genomic kb positions for readability. Feature boundaries are shown as
+# dashed lines at the nearest CpG rank. Colour scale is diverging:
+# blue = negative r (anti-correlated), white = r≈0, orange/red = positive r.
+make_ld_heatmap <- function(cor_mat, positions, title, feature_ticks = NULL) {
+  
+  if (is.null(cor_mat) || nrow(cor_mat) < 2) {
+    return(ggplot() +
+             annotate("text", x=0.5, y=0.5,
+                      label = sprintf("Insufficient data\n(n=%d CpGs)",
+                                      if (is.null(cor_mat)) 0L else nrow(cor_mat)),
+                      hjust=0.5, size=3, colour="grey50") +
+             theme_void() + ggtitle(title))
+  }
+  
+  n   <- nrow(cor_mat)
+  idx <- which(upper.tri(cor_mat, diag = TRUE), arr.ind = TRUE)
+  dt  <- data.table(i = idx[,1], j = idx[,2], r = cor_mat[idx])
+  dt  <- dt[!is.na(r)]
+  
+  label_idx  <- round(seq(1, n, length.out = min(6, n)))
+  label_text <- paste0(round(positions[label_idx] / 1e3, 1), " kb")
+  
+  p <- ggplot(dt, aes(x = i, y = j, fill = r)) +
+    geom_tile(width = 1, height = 1) +
+    scale_fill_gradientn(
+      colours  = c("blue", "dodgerblue", "white", "orange", "red"),
+      rescaler = ~ scales::rescale_mid(.x, mid = 0),
+      limits   = c(-1, 1),
+      breaks   = c(-1, -0.5, 0, 0.5, 1),
+      name     = "Pearson r",
+      na.value = "grey90"
+    ) +
+    scale_x_continuous(breaks = label_idx, labels = label_text, expand = c(0,0)) +
+    scale_y_continuous(breaks = label_idx, labels = label_text, expand = c(0,0)) +
+    coord_fixed() +
+    ggtitle(title) +
+    theme_bw(base_size = 9) +
+    theme(axis.text.x     = element_text(angle = 45, hjust = 1, size = 7),
+          axis.text.y     = element_text(size = 7),
+          axis.title      = element_blank(),
+          panel.grid      = element_blank(),
+          legend.position = "right")
+  
+  if (!is.null(feature_ticks) && nrow(feature_ticks) > 0) {
+    ft_ranks <- sapply(feature_ticks$pos, function(p) which.min(abs(positions - p)))
+    ft <- data.table(rank = ft_ranks, label = feature_ticks$label)
+    p  <- p +
+      geom_vline(data = ft, aes(xintercept = rank), colour = "grey",
+                 linetype = "dashed", linewidth = 0.5, inherit.aes = FALSE) +
+      geom_hline(data = ft, aes(yintercept = rank), colour = "grey",
+                 linetype = "dashed", linewidth = 0.5, inherit.aes = FALSE) +
+      annotate("text", x = ft_ranks, y = n, label = ft$label,
+               angle = 90, hjust = 1, vjust = -0.3, size = 2, colour = "black")
+  }
+  p
+}
+
+# ── make_ld_panel ─────────────────────────────────────────────────────────────
+# Stacks the LD heatmap on top of the CpG density strip (15:1 height ratio),
+# giving a compact panel that shows both the correlation structure and
+# where CpGs are actually located in the genome.
+make_ld_panel <- function(cor_mat, positions, title, feature_ticks = NULL) {
+  p_heat <- make_ld_heatmap(cor_mat, positions, title, feature_ticks)
+  if (length(positions) >= 2 && is.finite(min(positions))) {
+    p_strip <- make_cpg_density_strip(positions, feature_ticks)
+    return(p_heat / p_strip + plot_layout(heights = c(15, 1)))
+  }
+  p_heat
+}
+
+# ── make_region_ld_plots ──────────────────────────────────────────────────────
+# raw methylation LD — 135 patients × CpGs
+# Returns a named list of three patchwork panels.
+make_region_ld_plots <- function(window_gr, meth, region_name,
+                                 feature_ticks = NULL, min_samples = 5) {
+  
+  x_min      <- as.integer(start(window_gr))
+  x_max      <- as.integer(end(window_gr))
+  chr_window <- as.character(seqnames(window_gr))
+  
+  if (!"pos" %in% names(meth)) meth[, pos := as.integer(sub(".*_", "", cpg_site))]
+  if (!"chr" %in% names(meth)) meth[, chr := sub("_.*", "", cpg_site)]
+  mw <- meth[chr == chr_window & pos >= x_min & pos <= x_max]
+  
+  message(sprintf("  %s: %d rows, %d CpGs, %d patients",
+                  region_name, nrow(mw), uniqueN(mw$cpg_site),
+                  uniqueN(mw$patient_id)))
+  if (nrow(mw) == 0) { message("  No data"); return(list()) }
+  
+  # raw methylation
+  mw_agg    <- mw[, .(methylation = mean(methylation, na.rm=TRUE)),
+                  by = .(cpg_site, pos, patient_id)][!is.na(methylation)]
+  meth_wide <- dcast(mw_agg, pos + cpg_site ~ patient_id, value.var = "methylation")
+  setorder(meth_wide, pos)
+  meth_mat       <- as.matrix(meth_wide[, -(1:2)])
+  keep_m         <- rowSums(!is.na(meth_mat)) >= min_samples
+  meth_mat       <- meth_mat[keep_m, , drop = FALSE]
+  positions_meth <- meth_wide$pos[keep_m]
+  cor_meth       <- compute_pairwise_cor(meth_mat)
+  positions_meth <- trim_positions(meth_mat, positions_meth)
+  if (!is.null(cor_meth))
+    positions_meth <- positions_meth[seq_len(nrow(cor_meth))]
+  message(sprintf("  Raw meth: %d CpGs in cor matrix", length(positions_meth)))
+  
+  list(
+    meth = make_ld_panel(cor_meth, positions_meth,
+                         title         = sprintf("%s\nRaw methylation", region_name),
+                         feature_ticks = feature_ticks)
+  )
+}
+
+# ── Run ───────────────────────────────────────────────────────────────────────
+ld_region1 <- make_region_ld_plots(ld_region1_gr, meth, "LY6S-VMR / MER11C",
+                                   feature_ticks_region1)
+ld_region2 <- make_region_ld_plots(ld_region2_gr, meth, "ACTL8 / LTR41",
+                                   feature_ticks_region2)
+
+##################
+## Final figure ##
+##################
+
+# Regional overview (p1, p2) — what does Pr(HV) look like at each locus
+# LD heatmaps (ld_region1, ld_region2) — methylation co-variation structure
+# LTR41 genome-wide comparison (ltr41_plots) — how our LTR41s compare to all others
+# Decay curves (p4, p5) — ME signature strength
+
 # ── Combine: 3 zoom plots + shared legend on the right ───────────────────────
 p6 <- cowplot::plot_grid(
   cowplot::plot_grid(plotlist = ltr41_plots_nolegend, ncol = 3,
-                     labels = c("a", "b", "c")),
+                     labels = c("e.i", "e.ii", "e.iii")),
   legend,
-  ncol        = 2,
-  rel_widths  = c(1, 0.1)
+  ncol       = 2,
+  rel_widths = c(1, 0.08)
 )
 
-p6
+# ── Extract single LD plots from lists ───────────────────────────────────────
+p_ld1 <- ld_region1$meth
+p_ld2 <- ld_region2$meth
+
+# ── Row 1: regional Pr(HV) overview ──────────────────────────────────────────
+row1 <- cowplot::plot_grid(
+  p1, p2,
+  ncol   = 2,
+  labels = c("a", "b")
+)
+
+# ── Row 2: LD heatmaps ───────────────────────────────────────────────────────
+row2 <- cowplot::plot_grid(
+  p_ld1, p_ld2,
+  ncol   = 2,
+  labels = c("c", "d")
+)
+
+# ── Row 3: decay curves ───────────────────────────────────────────────────────
+row3 <- cowplot::plot_grid(
+  p4, p5,
+  ncol   = 2,
+  labels = c("e", "f") # wait, used below — reorder
+)
+
+# ── Final assembly ────────────────────────────────────────────────────────────
+# Relabel to keep narrative order:
+# a/b = region plots, c/d = LD heatmaps, e = LTR41 genome-wide, f/g = decay
+
+row1 <- cowplot::plot_grid(p1, p2,    ncol=2, labels=c("a","b"))
+row2 <- cowplot::plot_grid(p_ld1, p_ld2, ncol=2, labels=c("c","d"))
+row3 <- p6   # already has labels e.i/ii/iii internally; add outer label
+row3_labelled <- cowplot::plot_grid(
+  cowplot::plot_grid(NULL, labels="e"),  # blank label holder
+  row3,
+  ncol       = 1,
+  rel_heights = c(0.05, 1)
+)
+row4 <- cowplot::plot_grid(p4, p5, ncol=2, labels=c("f","g"))
+
+final_plot <- cowplot::plot_grid(
+  row1,
+  row2,
+  row3_labelled,
+  row4,
+  ncol        = 1,
+  rel_heights = c(
+    3,    # row1: region plots are tall (4 panels stacked each)
+    1.8,  # row2: LD heatmaps — square
+    2,  # row3: LTR41 comparison — 2 panels stacked × 3 zooms
+    1   # row4: decay curves — compact
+  )
+)
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/ACTL8_LTR41.pdf"),
-  plot = cowplot::plot_grid(
-    cowplot::plot_grid(p1, p2, ncol = 2, labels = c("a", "b")),
-    cowplot::plot_grid(p4, p5, ncol = 2, labels = c("c", "d")),
-    p6, labels = c("", "", "e"),
-    nrow = 3, rel_heights = c(3, 1, 3)),
-  width = 12, height = 18
+  plot     = final_plot,
+  width    = 14,
+  height   = 22
 )
