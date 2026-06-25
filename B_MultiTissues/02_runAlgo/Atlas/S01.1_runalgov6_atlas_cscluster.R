@@ -43,7 +43,7 @@ message(paste0("If new, results will be saved in dir: ", result_dir))
 ## Run
 myNthreads <- as.numeric(Sys.getenv("NSLOTS", unset = "1"))  # Use all cores
 
-message("Run algo:")
+message(paste0("Run algo with p0=", p0, " and p1=", p1, ":"))
 
 system.time(hyperVarMeth::runAndSave_fast(
     analysis = analysis,
