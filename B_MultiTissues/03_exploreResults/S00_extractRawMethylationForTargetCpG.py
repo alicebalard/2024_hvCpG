@@ -119,33 +119,78 @@ id_to_label   = dict(zip(meta["_short_id"], meta["_tissue_cell"]))
 #  Extract: one row per (patient, tissue_cell, cpg)
 # ──────────────────────────────────────────────
 
+# print(f"\n  Extracting from {len(sample_to_path):,} beta files...")
+# 
+# rows = []
+# for i, (short_id, path) in enumerate(sample_to_path.items()):
+#     if (i + 1) % 50 == 0:
+#         print(f"    {i+1:,} / {len(sample_to_path):,} processed...")
+# 
+#     patient_id  = id_to_patient.get(short_id)
+#     tissue_cell = id_to_label.get(short_id)
+# 
+#     if patient_id is None or tissue_cell is None:
+#         print(f"    Skipping {short_id}: not found in metadata.")
+#         continue
+# 
+#     mm   = np.memmap(path, dtype=np.uint8, mode="r").reshape(-1, 2)
+#     meth = mm[sorted_indices, 0].astype(np.float32)
+#     cov  = mm[sorted_indices, 1]
+#     beta = np.where(cov == 0, np.nan, meth / cov).astype(np.float32)
+#     beta[cov < args.minCov] = np.nan
+# 
+#     for cpg, b in zip(sorted_cpgs, beta):
+#         rows.append({
+#             "cpg_site"              : cpg,
+#             "patient_id"            : patient_id,
+#             "source_tissue_celltype": tissue_cell,
+#             "methylation"           : None if np.isnan(b) else round(float(b), 6),
+#         })
+# ── Replace the extraction loop with a batched, streaming version ─────────────
+
+import csv
+
 print(f"\n  Extracting from {len(sample_to_path):,} beta files...")
 
-rows = []
-for i, (short_id, path) in enumerate(sample_to_path.items()):
-    if (i + 1) % 50 == 0:
-        print(f"    {i+1:,} / {len(sample_to_path):,} processed...")
+os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
 
-    patient_id  = id_to_patient.get(short_id)
-    tissue_cell = id_to_label.get(short_id)
+with open(args.output, "w", newline="") as fout:
+    writer = csv.writer(fout, delimiter="\t")
+    writer.writerow(["cpg_site", "patient_id", "source_tissue_celltype", "methylation"])
 
-    if patient_id is None or tissue_cell is None:
-        print(f"    Skipping {short_id}: not found in metadata.")
-        continue
+    for i, (short_id, path) in enumerate(sample_to_path.items()):
+        if (i + 1) % 50 == 0:
+            print(f"    {i+1:,} / {len(sample_to_path):,} processed...")
 
-    mm   = np.memmap(path, dtype=np.uint8, mode="r").reshape(-1, 2)
-    meth = mm[sorted_indices, 0].astype(np.float32)
-    cov  = mm[sorted_indices, 1]
-    beta = np.where(cov == 0, np.nan, meth / cov).astype(np.float32)
-    beta[cov < args.minCov] = np.nan
+        patient_id  = id_to_patient.get(short_id)
+        tissue_cell = id_to_label.get(short_id)
 
-    for cpg, b in zip(sorted_cpgs, beta):
-        rows.append({
-            "cpg_site"              : cpg,
-            "patient_id"            : patient_id,
-            "source_tissue_celltype": tissue_cell,
-            "methylation"           : None if np.isnan(b) else round(float(b), 6),
-        })
+        if patient_id is None or tissue_cell is None:
+            print(f"    Skipping {short_id}: not found in metadata.")
+            continue
+
+        try:
+            # open memmap, extract only target rows, then close immediately
+            mm   = np.memmap(path, dtype=np.uint8, mode="r")
+            mm   = mm.reshape(-1, 2)
+            meth = mm[sorted_indices, 0].astype(np.float32)
+            cov  = mm[sorted_indices, 1]
+            del mm   # release memmap immediately after extraction
+
+            with np.errstate(invalid="ignore", divide="ignore"):
+                beta = np.where(cov == 0, np.nan, meth / cov).astype(np.float32)
+            beta[cov < args.minCov] = np.nan
+
+            for cpg, b in zip(sorted_cpgs, beta):
+                mval = None if np.isnan(b) else round(float(b), 6)
+                writer.writerow([cpg, patient_id, tissue_cell, mval if mval is not None else "NA"])
+
+        except OSError as e:
+            print(f"    ERROR on {short_id} ({path}): {e} — skipping.")
+            continue
+
+print(f"\n  Output: {args.output}")
+print("\n🎉 Done!")
 
 # ──────────────────────────────────────────────
 #  Output
