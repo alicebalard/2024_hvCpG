@@ -32,7 +32,6 @@ python prepare_beta_matrices.py \\
   --meta      /data/metadata_with_analysis_group.csv \\
   --minCov    10 \\
   --min_samples 3 \\
-  --min_datasets 46 \\
   --chunk_size 100000
 
 Author: Alice Balard
@@ -89,8 +88,8 @@ parser.add_argument("--minCov",        type=int,   default=10,
                     help="Minimum read coverage to include a beta value (default: 10).")
 parser.add_argument("--min_samples",   type=int,   default=3,
                     help="Minimum samples per group (default: 3).")
-parser.add_argument("--min_datasets",  type=int,   default=46,
-                    help="Minimum datasets a CpG must be covered in (default: 46).")
+parser.add_argument("--min_datasets",  type=int,   default=None,
+                    help="Minimum datasets a CpG must be covered in (default: None).")
 parser.add_argument("--lambda_percentile", type=float, default=95.0,
                     help="Upper percentile for lambda = perc/median (default: 95).")
 
@@ -170,6 +169,19 @@ sample_to_path        = build_sample_to_path_map(beta_files, id_pattern=args.id_
 samples_per_group     = filter_valid_groups(meta, args.group_col, args.sample_col, args.min_samples)
 samples_per_group_short = shorten_sample_ids(samples_per_group, sep=args.id_sep)
 
+
+# Default min_datasets = all groups that pass min_samples
+n_passing_groups = len(samples_per_group)
+if args.min_datasets is None:
+    args.min_datasets = n_passing_groups
+    print(f"  min_datasets  : {args.min_datasets} (auto = all {n_passing_groups} passing groups)")
+else:
+    if args.min_datasets > n_passing_groups:
+        print(f"  WARNING: --min_datasets={args.min_datasets} exceeds number of passing "
+              f"groups ({n_passing_groups}). No CpGs will be selected. "
+              f"Consider omitting --min_datasets to use all groups automatically.")
+    print(f"  min_datasets  : {args.min_datasets} (of {n_passing_groups} passing groups)")
+ 
 # ──────────────────────────────────────────────
 #  Core computation  (stats computed AFTER filtration inside this call)
 # ──────────────────────────────────────────────
