@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-extract_cpg_methylation_byPatient.py — Extract methylation values per patient
-==============================================================================
-Same as extract_cpg_methylation.py but uses PatientID instead of Sample name.
-One row per (cpg_site, patient_id, source_tissue_celltype).
+S00_extractRawMethylationForTargetCpG.py - Extract methylation values per patient
+==================================================================================
+Given a list of CpG sites (one chr_pos per line), extracts raw beta values
+from all matching WGBS .beta files and returns a long-format dataframe:
 
-Output columns:
-    cpg_site | patient_id | source_tissue_celltype | methylation
+    cpg_site | patient_id | source_tissue_celltype | germ_layer | methylation
 
 Usage
 -----
-python extract_cpg_methylation_byPatient.py \\
-    --cpg_list   /path/to/my_cpg_sites.txt \\
-    --cpg_bed    /data/hg38/CpG.bed.gz \\
-    --beta_files "/data/betaFiles/GSM*.hg38.beta" \\
-    --meta       /path/to/SupTab1_Loyfer2023_amended.csv \\
-    --output     /path/to/output.tsv \\
+python S00_extractRawMethylationForTargetCpG.py \
+    --cpg_list   /path/to/my_cpg_sites.txt \
+    --cpg_bed    /path/to/hg38/CpG.bed.gz \
+    --beta_files "/path/to/betaFiles/GSM*.hg38.beta" \
+    --meta       /path/to/SupTab1_Loyfer2023_amended.csv \
+    --output     /path/to/output.tsv \
     --minCov     10
+
+Input CpG list format (one per line, chr_pos):
+    chr1_17752162
+    chr1_17752319
+    chr1_17752421
 
 Author: Alice Balard
 """
@@ -29,7 +34,7 @@ import argparse
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, "/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues/01_dataPrep")
 from cpg_utils import (
     load_cpg_names_from_bed,
     build_sample_to_path_map,
@@ -44,18 +49,32 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     epilog=__doc__,
 )
-parser.add_argument("--cpg_list",    required=True)
-parser.add_argument("--cpg_bed",     required=True)
-parser.add_argument("--beta_files",  required=True)
-parser.add_argument("--meta",        required=True)
-parser.add_argument("--output",      required=True)
-parser.add_argument("--minCov",      type=int, default=10)
-parser.add_argument("--id_pattern",  default=r"-([A-Za-z0-9_]+)\.hg38\.beta$")
-parser.add_argument("--sample_col",  default="Sample name")
-parser.add_argument("--patient_col", default="PatientID")
-parser.add_argument("--tissue_col",  default="Source Tissue")
-parser.add_argument("--cell_col",    default="Cell type")
-parser.add_argument("--id_sep",      default="-")
+parser.add_argument("--cpg_list",       required=True,
+                    help="Text file with one CpG site per line in chr_pos format.")
+parser.add_argument("--cpg_bed",        required=True,
+                    help="CpG BED reference file (.bed or .bed.gz).")
+parser.add_argument("--beta_files",     required=True,
+                    help="Glob pattern for .beta files.")
+parser.add_argument("--meta",           required=True,
+                    help="Metadata CSV.")
+parser.add_argument("--output",         required=True,
+                    help="Output TSV path.")
+parser.add_argument("--minCov",         type=int, default=10,
+                    help="Minimum read coverage (default: 10). Below = NA.")
+parser.add_argument("--id_pattern",     default=r"-([A-Za-z0-9_]+)\.hg38\.beta$",
+                    help="Regex to extract sample ID from beta filename.")
+parser.add_argument("--sample_col",     default="Sample name",
+                    help="Metadata column for sample names (default: 'Sample name').")
+parser.add_argument("--patient_col",    default="PatientID",
+                    help="Metadata column for patient ID (default: 'PatientID').")
+parser.add_argument("--tissue_col",     default="Source Tissue",
+                    help="Metadata column for source tissue (default: 'Source Tissue').")
+parser.add_argument("--cell_col",       default="Cell type",
+                    help="Metadata column for cell type (default: 'Cell type').")
+parser.add_argument("--germ_layer_col", default="Germ layer",
+                    help="Metadata column for germ layer (default: 'Germ layer').")
+parser.add_argument("--id_sep",         default="-",
+                    help="Separator to shorten sample IDs (default: '-').")
 
 args = parser.parse_args()
 
@@ -64,7 +83,7 @@ args = parser.parse_args()
 # ──────────────────────────────────────────────
 
 print("\n" + "="*62)
-print("  extract_cpg_methylation_byPatient.py")
+print("  S00_extractRawMethylationForTargetCpG.py")
 print("="*62)
 
 # 1. Target CpGs
@@ -72,7 +91,7 @@ with open(args.cpg_list) as f:
     target_cpgs = [l.strip() for l in f if l.strip() and not l.startswith("#")]
 print(f"  Target CpGs : {len(target_cpgs):,}")
 
-# 2. BED reference → index
+# 2. BED reference -> index
 cpg_names = load_cpg_names_from_bed(args.cpg_bed)
 cpg_index = {name: i for i, name in enumerate(cpg_names)}
 
@@ -86,7 +105,11 @@ for cpg in target_cpgs:
         target_indices[cpg] = idx
 
 if missing:
-    print(f"  Warning: {len(missing):,} CpG(s) not found in reference — skipped.")
+    print(f"  Warning: {len(missing):,} CpG(s) not found in reference -- skipped.")
+    for m in missing[:10]:
+        print(f"    {m}")
+    if len(missing) > 10:
+        print(f"    ... and {len(missing) - 10} more.")
 
 sorted_cpgs    = sorted(target_indices.keys(), key=lambda c: target_indices[c])
 sorted_indices = np.array([target_indices[c] for c in sorted_cpgs])
@@ -96,11 +119,13 @@ print(f"  Matched {len(sorted_cpgs):,} / {len(target_cpgs):,} CpGs.")
 beta_files = sorted(glob.glob(args.beta_files))
 if not beta_files:
     raise FileNotFoundError(f"No beta files matched: {args.beta_files}")
+print(f"  Beta files  : {len(beta_files):,}")
 sample_to_path = build_sample_to_path_map(beta_files, id_pattern=args.id_pattern)
 
-# 4. Metadata — short_id → (patient_id, tissue_cell)
+# 4. Metadata
 meta = pd.read_csv(args.meta)
-for col in [args.sample_col, args.patient_col, args.tissue_col, args.cell_col]:
+for col in [args.sample_col, args.patient_col, args.tissue_col,
+            args.cell_col, args.germ_layer_col]:
     if col not in meta.columns:
         raise ValueError(f"Metadata missing required column: '{col}'")
 
@@ -114,6 +139,7 @@ meta["_tissue_cell"] = (meta[args.tissue_col].astype(str)
 
 id_to_patient = dict(zip(meta["_short_id"], meta[args.patient_col]))
 id_to_label   = dict(zip(meta["_short_id"], meta["_tissue_cell"]))
+id_to_germ    = dict(zip(meta["_short_id"], meta[args.germ_layer_col]))
 
 # ──────────────────────────────────────────────
 #  Extract: one row per (patient, tissue_cell, cpg)
@@ -197,7 +223,8 @@ print("\n🎉 Done!")
 # ──────────────────────────────────────────────
 
 df = pd.DataFrame(rows, columns=[
-    "cpg_site", "patient_id", "source_tissue_celltype", "methylation"
+    "cpg_site", "patient_id", "source_tissue_celltype",
+    "germ_layer", "methylation"
 ])
 df = df.sort_values(["cpg_site", "patient_id", "source_tissue_celltype"])
 
@@ -208,6 +235,8 @@ print(f"\n  Output          : {args.output}")
 print(f"  Rows            : {len(df):,}")
 print(f"  Unique patients : {df['patient_id'].nunique():,}")
 print(f"  Unique tissues  : {df['source_tissue_celltype'].nunique():,}")
+print(f"  Unique layers   : {df['germ_layer'].nunique():,} "
+      f"({df['germ_layer'].unique().tolist()})")
 print(f"  NA              : {df['methylation'].isna().sum():,} "
       f"({df['methylation'].isna().mean()*100:.1f}%)")
-print("\n🎉 Done!")
+print("\nDone!")

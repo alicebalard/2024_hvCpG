@@ -1,5 +1,11 @@
+#!/bin/bash
+
+## done
 ## qsub run_pipeline_atlas.sh --preset atlas_general
+
 qsub run_pipeline_atlas.sh --preset 02_rmMultSamples
+
+
 qsub run_pipeline_atlas.sh --preset 04_maleOnly
 qsub run_pipeline_atlas.sh --preset 05_femaleOnly6gp
 qsub run_pipeline_atlas.sh --preset 06_bothsexes6gp
@@ -17,3 +23,7 @@ qsub run_pipeline_atlas.sh --preset 14_ecto
 qsub run_pipeline_atlas.sh --preset 15_pairs_MM
 qsub run_pipeline_atlas.sh --preset 16_pairs_FF
 qsub run_pipeline_atlas.sh --preset 17_pairs_MF
+
+qsub run_pipeline_atlas.sh --preset 18_mesoEndo
+qsub run_pipeline_atlas.sh --preset 19_endoEcto
+qsub run_pipeline_atlas.sh --preset 20_mesoEcto
