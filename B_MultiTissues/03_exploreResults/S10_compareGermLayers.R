@@ -35,24 +35,21 @@ if (!exists("functionsLoaded")) {
 # rSet at ectoderm commitment — latestLow Pr(hv) everywhere, no correlationConstitutive (always on/off)
 
 ###################################################################
-### Same with 6 groups only per germ layer to exclude a power issue 
-## that would explain the difference in ectoderm vs the rest
-
 #── 1. Load ───────────────────────────────────────────────────────────────────
-# endo6gp     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_2_endo6gp.rds"))
-# meso6gp     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_2_meso6gp.rds"))
-# ecto6gp     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
-#  
-# analyses <- list(endo = endo6gp, meso = meso6gp, ecto = ecto6gp)
-#  
+# endo     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
+# meso     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
+# ecto     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
+# 
+# analyses <- list(endo = endo, meso = meso, ecto = ecto)
+# 
 # # ── 2. Wide table ─────────────────────────────────────────────────────────────
 # wide <- Reduce(
 #   function(a, b) merge(a, b, by = "name"),
 #   Map(function(dt, nm) setnames(copy(dt), "alpha", nm), analyses, names(analyses))
 # )
-# 
-# saveRDS(wide, here("gitignore/wide_script10_3layers6gp.RDS"))
-# rm(endo6gp, meso6gp, ecto6gp, analyses)
+# saveRDS(wide, here("gitignore/wide_script10_3layers.RDS"))
+# rm(endo, meso, ecto, analyses)
+
 wide <- readRDS(here("gitignore/wide_script10_3layers6gp.RDS"))
 
 ## Define a cutoff
@@ -88,7 +85,7 @@ wide[, category := fcase(
 
 print(table(wide$category))
 # ambiguous  constitutive Ecto_specific Endo_specific            ME Meso_specific 
-# 4849045      17209524         67489         50028        122180         29195
+# 4026474      17287114         69748          1674        131844          5687 
 
 # ── 2. Three plots: each layer vs its "two others" pool ───────────────────────
 category_colours <- c(
@@ -152,7 +149,7 @@ p_endovsecto <- make_plot(wide,
                           title = "Endo vs ecto")
 
 # shared legend
-legend_p <- ggplot(wide[sample(.N, 1000)],
+legend_p <- ggplot(wide[sample(.N, 10000)],
                    aes(x = meso, y = endo, colour = category)) +
   geom_point(size = 3) +
   scale_colour_manual(values = category_colours, drop = FALSE, name = NULL) +
@@ -163,26 +160,48 @@ legend_p <- ggplot(wide[sample(.N, 1000)],
 (p_mesovsendo | p_mesovsecto | p_endovsecto | cowplot::get_legend(legend_p)) +
   plot_layout(widths = c(1, 1, 1, 0.35))
 
-## GO enrichement
+############################
+## Test of SIV of targets ##
+############################
 
 ## Test of raw data between people
 Loyfer <- read.csv("../dataIn/SupTab1_Loyfer2023.csv")
 
 dupPeople <- Loyfer[Loyfer$PatientID %in% Loyfer$PatientID[duplicated(Loyfer$PatientID)],]
 
-head(dupPeople)
+# from the table above, build a summary of patients by their germ layer combination
+layer_summary <- as.data.table(dupPeople)[
+  , .(
+    n_tissues   = .N,
+    germ_layers = paste(sort(unique(Germ.layer)), collapse = "+")
+  ),
+  by = PatientID
+]
 
-setDT(dupPeople)
+# cross-tab: how many patients have each combination
+result <- layer_summary[, .N, by = .(germ_layers, n_tissues)]
+setorder(result, germ_layers, n_tissues)
+result
+# germ_layers n_tissues     N
+# <char>     <int> <int>
+#   1:        Ecto         2     5
+# 2:        Ecto         3     1
+# 3:        Ecto         4     1
+# 4:        Endo         2     9
+# 5:        Endo         3     5
+# 6:   Endo+Meso         2     1
+# 7:   Endo+Meso         3     1
+# 8:   Endo+Meso         4     1
+# 9:   Endo+Meso         5     1
+# 10:        Meso         2     3
+# 11:        Meso         3     1
+# 12:        Meso         5     1
+# 13:        Meso         6     2
+# 14:        Meso         7     2
 
-# one row per patientID × tissue_celltype combination
-dupPeople[, tissue_cell := paste(Source.Tissue, Cell.type, sep = " | ")]
+# Test if the meso-specific candidate are correlated within mesodermal t
 
-# collapse all tissue_cell types per patient into one string
-combo_summary <- dupPeople[, .(
-  n_samples    = .N,
-  combinations = paste(sort(unique(tissue_cell)), collapse = " + ")
-), by = PatientID]
+####################
+## GO enrichement ##
+####################
 
-# count how many patients share each combination
-dt <- combo_summary[, .N, by = combinations][order(-N)]
-as.data.frame(dt)
