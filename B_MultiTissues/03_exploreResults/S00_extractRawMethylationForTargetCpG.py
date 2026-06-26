@@ -217,26 +217,3 @@ with open(args.output, "w", newline="") as fout:
 
 print(f"\n  Output: {args.output}")
 print("\n🎉 Done!")
-
-# ──────────────────────────────────────────────
-#  Output
-# ──────────────────────────────────────────────
-
-df = pd.DataFrame(rows, columns=[
-    "cpg_site", "patient_id", "source_tissue_celltype",
-    "germ_layer", "methylation"
-])
-df = df.sort_values(["cpg_site", "patient_id", "source_tissue_celltype"])
-
-os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-df.to_csv(args.output, sep="\t", index=False, na_rep="NA")
-
-print(f"\n  Output          : {args.output}")
-print(f"  Rows            : {len(df):,}")
-print(f"  Unique patients : {df['patient_id'].nunique():,}")
-print(f"  Unique tissues  : {df['source_tissue_celltype'].nunique():,}")
-print(f"  Unique layers   : {df['germ_layer'].nunique():,} "
-      f"({df['germ_layer'].unique().tolist()})")
-print(f"  NA              : {df['methylation'].isna().sum():,} "
-      f"({df['methylation'].isna().mean()*100:.1f}%)")
-print("\nDone!")
