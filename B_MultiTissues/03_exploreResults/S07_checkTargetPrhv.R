@@ -389,41 +389,6 @@ plot_raw_meth <- function(meth_sub, x_min, x_max, annot_dt,
 # For each patient who has samples from >= 2 different germ layers,
 # correlate methylation across CpG positions between layers
 
-# ── Compute per-CpG interlayer correlation from raw meth ─────────────────────
-compute_percpg_interlayer_corr <- function(meth_sub) {
-  
-  meth_sub[, pos := as.integer(sub(".*_", "", cpg_site))]
-  
-  # mean per (patient, germ_layer, pos) — collapses multiple tissues same layer
-  meth_agg <- meth_sub[, .(methylation = mean(methylation, na.rm = TRUE)),
-                       by = .(patient_id, germ_layer, pos, cpg_site)]
-  
-  # wide: one column per germ layer
-  wide <- dcast(meth_agg, patient_id + pos + cpg_site ~ germ_layer,
-                value.var = "methylation")
-  
-  layers_present <- intersect(c("Endo", "Meso", "Ecto"), names(wide))
-  if (length(layers_present) < 2) return(NULL)
-  
-  layer_pairs <- combn(layers_present, 2, simplify = FALSE)
-  
-  rbindlist(lapply(layer_pairs, function(pair) {
-    l1 <- pair[1]; l2 <- pair[2]
-    
-    # per-CpG correlation across patients
-    wide[, {
-      idx <- !is.na(get(l1)) & !is.na(get(l2))
-      if (sum(idx) >= 3) {
-        list(r    = cor(get(l1)[idx], get(l2)[idx], method = "pearson"),
-             n    = sum(idx),
-             pair = paste(l1, l2, sep = "-"))
-      } else {
-        list(r = NA_real_, n = sum(idx), pair = paste(l1, l2, sep = "-"))
-      }
-    }, by = .(pos, cpg_site)]
-  }))
-}
-
 # ── Plot per-CpG interlayer r along genomic position ─────────────────────────
 plot_percpg_interlayer_corr <- function(meth_sub, x_min, x_max,
                                         annot_dt, annot_colours) {
