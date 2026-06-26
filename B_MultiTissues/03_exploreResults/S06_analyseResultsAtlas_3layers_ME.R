@@ -420,6 +420,44 @@ MEsetdt_layered[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
 plot_decay_curve_layered(MEsetdt_layered)
 plot_residuals_layered(MEsetdt_layered)
 
+# ── Decay table for all ME sets ───────────────────────────────────────────────
+decay_dt <- rbindlist(lapply(thresholds, function(thr) {
+  MEsetdt[, .(
+    prop_above = mean(alpha_geomean > thr, na.rm = TRUE),
+    threshold  = thr
+  ), by = ME]
+}))
+
+decay_dt
+
+# ═══════════════════════════════════════════════════
+# Data-driven thresholds:
+# High threshold = where the best positive controls (VanBaakSIV) still retain a 
+# good proportion AND controls have dropped to near zero
+# Low threshold = where controls dominate and even the best SIV sets have barely 
+# separated from them
+# ═══════════════════════════════════════════════════
+
+thresholds_fine <- seq(0, 1, by = 0.01)
+
+decay_fine <- rbindlist(lapply(thresholds_fine, function(thr) {
+  MEsetdt[, .(
+    prop_above = mean(alpha_geomean > thr, na.rm = TRUE),
+    threshold  = thr
+  ), by = ME]
+}))
+
+# pivot wide: one col per ME
+decay_wide <- dcast(decay_fine, threshold ~ ME, value.var = "prop_above")
+
+decay_wide[mQTLcontrols <= 0.01, min(threshold)]
+## at Pr(hv) > 69%, only 1% of controls remain
+
+decay_wide[VanBaakSIV > 0.50, max(threshold)]
+# at Pr(hv) > 0.71, we capture 50% of the Van Baak SIV
+
+decay_fine[threshold>=0.71] # and only .7% of controls
+
 ##############################
 ## Save the top alpha > 90% ##
 ##############################
