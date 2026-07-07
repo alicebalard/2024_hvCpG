@@ -198,6 +198,7 @@ message(sprintf("Missing germ_layer: %d | Missing category: %d",
 multi_patients <- meth[, .(n = uniqueN(source_tissue_celltype)),
                        by = patient_id][n > 1, patient_id]
 message(sprintf("%d patients with >1 tissue", length(multi_patients)))
+# 32 patients with >1 tissue
 meth_multi <- meth[patient_id %in% multi_patients]
 
 # ── Descriptive table of multi-tissue patients ────────────────────────────────
@@ -408,6 +409,39 @@ compute_cross_layer_r <- function(meth_sub, layer1, layer2) {
   }, by = cpg_site]
 }
 
+# ── Extract "true layer-specific" CpGs on THREE criteria ──────────────────────
+#   1. high  same-layer intra-individual r in the OWN layer   (r_own   >= r_high)
+#   2. low   same-layer intra-individual r in the OTHER layer (r_other <  r_low)
+#   3. low   cross-layer within-person r (own <-> other)       (r_cross <  r_low)
+extract_layer_specific_cpgs <- function(meth_sub,
+                                        own_layer, other_layer,
+                                        r_high = 0.5,      # "high" bar for own layer
+                                        r_low  = 0.2,      # "low"  bar (matches notHVt)
+                                        min_same_obs  = 3, # pooled tissue-pair points
+                                        min_cross_obs = 3) # cross-layer patients
+{
+  r_own   <- compute_same_layer_r(meth_sub, own_layer)                 # high in own
+  r_other <- compute_same_layer_r(meth_sub, other_layer)              # low in other
+  r_cross <- compute_cross_layer_r(meth_sub, other_layer, own_layer)  # low cross-layer
+  if (is.null(r_own) || is.null(r_other) || is.null(r_cross)) return(NULL)
+  
+  setnames(r_own,   c("r", "n_obs"), c("r_own",   "n_own"))
+  setnames(r_other, c("r", "n_obs"), c("r_other", "n_other"))
+  setnames(r_cross, c("r", "n_obs"), c("r_cross", "n_cross"))
+  
+  m <- Reduce(function(a, b) merge(a, b, by = "cpg_site"),
+              list(r_own, r_other, r_cross))               # inner: need all three
+  
+  hits <- m[!is.na(r_own) & !is.na(r_other) & !is.na(r_cross) &
+              n_own   >= min_same_obs &
+              n_other >= min_same_obs &
+              n_cross >= min_cross_obs &
+              r_own   >= r_high &     # criterion 1: high in Meso
+              r_other <  r_low  &     # criterion 2: low in Endo
+              r_cross <  r_low]       # criterion 3: low Endo<->Meso
+  hits[order(-r_own)]
+}
+
 set.seed(1234)
 constitutive_sample <- sample(wideFull[category == "constitutive", name], 10000)
 ambiguous_sample    <- sample(wideFull[category == "ambiguous",    name], 10000)
@@ -496,6 +530,15 @@ results_summary <- rbindlist(list(
 ))
 
 print(results_summary)
+#        category same_layer_tested n_cpgs_tested pct_high_same     mean_r   median_r
+# 1: Meso_specific              Meso          7972    40.9433016 0.45638404 0.39158308
+# 2: Meso_specific              Endo          8949    26.7962901 0.27413938 0.23979101
+# 3: Endo_specific              Endo          3072    71.6471354 0.61370364 0.67129866
+# 4: Endo_specific              Meso          2702     4.1080681 0.12484106 0.09576758
+# 5:  constitutive              Meso          9111     0.6695204 0.05071192 0.02592049
+# 6:  constitutive              Endo          9924    10.8625554 0.12255948 0.08111064
+# 7:     ambiguous              Meso          9081     5.6491576 0.19011905 0.17497508
+# 8:     ambiguous              Endo          9893    42.1510159 0.39634798 0.40997976
 
 # ── Annotate and plot ─────────────────────────────────────────────────────────
 results_summary[, expected := fcase(
@@ -549,9 +592,9 @@ density_dt <- rbindlist(list(
   r_same_endo_for_meso[!is.na(r), .(cpg_site, r, category = "Meso_specific", layer_context = "Endo")],
   r_same_endo[!is.na(r),          .(cpg_site, r, category = "Endo_specific", layer_context = "Endo")],
   r_same_meso_for_endo[!is.na(r), .(cpg_site, r, category = "Endo_specific", layer_context = "Meso")],
-  r_same_const[!is.na(r),         .(cpg_site, r, category = "constitutive",  layer_context = "Meso")],
+  r_same_meso_const[!is.na(r),         .(cpg_site, r, category = "constitutive",  layer_context = "Meso")],
   r_same_endo_const[!is.na(r),    .(cpg_site, r, category = "constitutive",  layer_context = "Endo")],
-  r_same_amb[!is.na(r),           .(cpg_site, r, category = "ambiguous",     layer_context = "Meso")],
+  r_same_meso_amb[!is.na(r),           .(cpg_site, r, category = "ambiguous",     layer_context = "Meso")],
   r_same_endo_amb[!is.na(r),      .(cpg_site, r, category = "ambiguous",     layer_context = "Endo")]
 ))
 
@@ -597,8 +640,8 @@ ggplot(density_dt, aes(x = r, colour = layer_context, fill = layer_context)) +
 # ══════════════════════════════════════════════════════════════════════════════
 same_r_all <- rbind(
   r_same_meso[,  .(cpg_site, r, category = "Meso_specific")],
-  r_same_const[, .(cpg_site, r, category = "constitutive")],
-  r_same_amb[,   .(cpg_site, r, category = "ambiguous")]
+  r_same_meso_const[, .(cpg_site, r, category = "constitutive")],
+  r_same_meso_amb[,   .(cpg_site, r, category = "ambiguous")]
 )
 
 ggplot(same_r_all[!is.na(r)],
@@ -624,7 +667,198 @@ ggplot(same_r_all[!is.na(r)],
 # This within-individual concordance across independent blood lineages is the hallmark of pre-haematopoietic stochastic establishment
 # Controls show r≈0, confirming this is not a general property of blood measurements
 
-# # ####################
-# # ## GO enrichement ##
-# # ####################
-# # 
+###### Add now the 3rd criteria, low r between both layers
+
+r_high        <- 0.5    # own-layer "high"
+r_low         <- 0.2    # other/cross "low" (matches notHVt)
+min_same_obs  <- 3
+min_cross_obs <- 3
+
+# per-CpG: the three r's for one category under one pipeline (own vs other) ------
+tri_rs <- function(meth_sub, own_layer, other_layer, category_name) {
+  ro <- compute_same_layer_r(meth_sub, own_layer)
+  rt <- compute_same_layer_r(meth_sub, other_layer)
+  rc <- compute_cross_layer_r(meth_sub, other_layer, own_layer)
+  if (is.null(ro)) return(NULL)
+  setnames(ro, c("r","n_obs"), c("r_own","n_own"))
+  base <- ro[, .(cpg_site, r_own, n_own)]
+  if (!is.null(rt)) { setnames(rt, c("r","n_obs"), c("r_other","n_other"))
+    base <- merge(base, rt[, .(cpg_site, r_other, n_other)], by="cpg_site", all.x=TRUE)
+  } else base[, `:=`(r_other = NA_real_, n_other = 0L)]
+  if (!is.null(rc)) { setnames(rc, c("r","n_obs"), c("r_cross","n_cross"))
+    base <- merge(base, rc[, .(cpg_site, r_cross, n_cross)], by="cpg_site", all.x=TRUE)
+  } else base[, `:=`(r_cross = NA_real_, n_cross = 0L)]
+  base[, `:=`(category = category_name, own_layer = own_layer)][]
+}
+
+# cumulative pass counts over the 3 criteria ------------------------------------
+tri_steps <- function(tab) {
+  if (is.null(tab)) return(NULL)
+  tested <- tab[!is.na(r_own) & n_own >= min_same_obs]
+  N  <- nrow(tested)
+  p1 <- tested[r_own >= r_high]
+  p2 <- p1[!is.na(r_other) & n_other >= min_same_obs & r_other < r_low]
+  p3 <- p2[!is.na(r_cross) & n_cross >= min_cross_obs & r_cross < r_low]
+  data.table(
+    category  = tab$category[1],
+    own_layer = tab$own_layer[1],
+    step = factor(c("1. high own r", "2. + low other r", "3. + low cross r"),
+                  levels = c("1. high own r", "2. + low other r", "3. + low cross r")),
+    n   = c(nrow(p1), nrow(p2), nrow(p3)),
+    pct = 100 * c(nrow(p1), nrow(p2), nrow(p3)) / N,
+    n_tested = N)
+}
+
+tri_tabs <- rbindlist(list(
+  # Meso pipeline (own = Meso, other = Endo)
+  tri_steps(tri_rs(meth_meso_specific,                       "Meso","Endo","Meso_specific")),
+  tri_steps(tri_rs(meth_endo_specific,                       "Meso","Endo","Endo_specific")),
+  tri_steps(tri_rs(meth_control_multi[category=="constitutive"], "Meso","Endo","constitutive")),
+  tri_steps(tri_rs(meth_control_multi[category=="ambiguous"],    "Meso","Endo","ambiguous")),
+  # Endo pipeline (own = Endo, other = Meso)
+  tri_steps(tri_rs(meth_endo_specific,                       "Endo","Meso","Endo_specific")),
+  tri_steps(tri_rs(meth_meso_specific,                       "Endo","Meso","Meso_specific")),
+  tri_steps(tri_rs(meth_control_multi[category=="constitutive"], "Endo","Meso","constitutive")),
+  tri_steps(tri_rs(meth_control_multi[category=="ambiguous"],    "Endo","Meso","ambiguous"))
+), fill = TRUE)
+
+tri_tabs[, category_f := factor(category,
+                                levels = c("Meso_specific","Endo_specific","constitutive","ambiguous"))]
+
+ggplot(tri_tabs, aes(category_f, pct, fill = step)) +
+  geom_col(position = position_dodge(0.7), width = 0.65,
+           colour = "grey30", linewidth = 0.3) +
+  geom_text(aes(label = n), position = position_dodge(0.7),
+            vjust = -0.3, size = 2.7) +
+  facet_wrap(~ own_layer, nrow = 1,
+             labeller = labeller(own_layer = c(
+               Meso = "Own = Meso (other = Endo)",
+               Endo = "Own = Endo (other = Meso)"))) +
+  scale_fill_brewer(palette = "Blues", name = "Cumulative criterion") +
+  scale_y_continuous("% of CpGs tested in own layer", limits = c(0, NA)) +
+  scale_x_discrete("CpG category") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 30, hjust = 1),
+        strip.text  = element_text(face = "bold"),
+        legend.position = "right") +
+  ggtitle("Layer-specific selection: cumulative pass rate over 3 criteria",
+          subtitle = sprintf("high own r (\u2265%.1f)  \u2192  + low other r (<%.1f)  \u2192  + low cross-layer r (<%.1f)",
+                             r_high, r_low, r_low))
+
+## Higherbackground concordance for endo than meso
+
+#################################
+## Save the interesting targets##
+#################################
+meso_hits <- extract_layer_specific_cpgs(meth_meso_specific,
+                                         own_layer = "Meso", other_layer = "Endo")
+endo_hits <- extract_layer_specific_cpgs(meth_endo_specific,
+                                         own_layer = "Endo", other_layer = "Meso")
+
+message(sprintf("Meso_specific true-signature CpGs: %d", nrow(meso_hits)))
+message(sprintf("Endo_specific true-signature CpGs: %d", nrow(endo_hits)))
+
+head(meso_hits)   # cpg_site, r_same, n_same, r_cross, n_cross
+
+#################################
+## Annotation of these targets ##
+#################################
+library(data.table)
+library(GenomicRanges)
+library(GenomicFeatures)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(org.Hs.eg.db)
+
+# ── Shared annotation objects (built once) ────────────────────────────────────
+txdb     <- TxDb.Hsapiens.UCSC.hg38.knownGene
+genes_gr <- genes(txdb)
+genes_gr$symbol <- mapIds(org.Hs.eg.db, names(genes_gr), "SYMBOL", "ENTREZID")
+
+cpg_to_gr <- function(cpg) {                     # "chr7_107543290" -> 1bp GRanges
+  GRanges(sub("_.*", "", cpg),
+          IRanges(as.integer(sub(".*_", "", cpg)), width = 1),
+          cpg_site = cpg)
+}
+
+# universe of tested CpGs (built once, reused by every call)
+uni <- copy(wideFull[, .(cpg_site = name, category)])
+uni[, `:=`(chr = sub("_.*", "", cpg_site),
+           pos = as.integer(sub(".*_", "", cpg_site)))]
+uni_gr <- GRanges(uni$chr, IRanges(uni$pos, width = 1))
+
+# ── Main function ─────────────────────────────────────────────────────────────
+annotate_layer_hits <- function(hits,                       # data.table with cpg_site
+                                label,                     # e.g. "meso" / "endo"
+                                genes_gr, uni, uni_gr,
+                                gap        = 50,           # bp to merge hit clusters
+                                min_hits   = 2,            # min hits per cluster
+                                drop_regex = "LOC|LINC",   # gene names to discard
+                                flank      = 5000,
+                                out_dir    = here("B_MultiTissues/dataOut")) {
+  
+  hit_col <- paste0("is_", label, "_hit")
+  hit_set <- hits$cpg_site
+  
+  ## (1a) annotate each hit with nearest gene ---------------------------------
+  hits_gr <- cpg_to_gr(hit_set)
+  nr  <- distanceToNearest(hits_gr, genes_gr, ignore.strand = TRUE)
+  ann <- as.data.table(hits)
+  ann[, `:=`(gene = NA_character_, dist_to_gene = NA_integer_)]
+  ann[queryHits(nr),
+      `:=`(gene         = genes_gr$symbol[subjectHits(nr)],
+           dist_to_gene = mcols(nr)$distance)]
+  ann[, `:=`(pos = as.integer(sub(".*_", "", cpg_site)),
+             chr = sub("_.*", "", cpg_site))]
+  setorder(ann, chr, pos)
+  
+  ## (1b) cluster hits within `gap` bp ----------------------------------------
+  hs <- cpg_to_gr(ann$cpg_site)
+  clust <- reduce(resize(hs, 1), min.gapwidth = gap + 1)
+  ov    <- findOverlaps(hs, clust)
+  ann[, cluster_id := subjectHits(ov)[match(seq_len(.N), queryHits(ov))]]
+  
+  clust_dt <- ann[, .(n_hits = .N, span = max(pos) - min(pos)),
+                  by = .(gene, cluster_id)][n_hits >= min_hits]
+  if (nzchar(drop_regex))
+    clust_dt <- clust_dt[!grepl(drop_regex, gene) & !is.na(gene)]
+  clust_dt[, density := n_hits / (span + 1)]
+  setorder(clust_dt, -n_hits, span)
+  
+  ## (2) all CpGs in each top gene + flank, flagged ---------------------------
+  top_genes <- unique(clust_dt$gene)
+  extract_gene_cpgs <- function(sym) {
+    g <- genes_gr[which(genes_gr$symbol == sym)]
+    if (!length(g)) return(NULL)
+    g   <- g[1]
+    win <- GRanges(as.character(seqnames(g)),
+                   IRanges(start(g) - flank, end(g) + flank))
+    out <- uni[which(overlapsAny(uni_gr, win, ignore.strand = TRUE))]
+    out[, `:=`(gene = sym,
+               gene_start = start(g), gene_end = end(g),
+               in_gene_body = pos >= start(g) & pos <= end(g))]
+    out[, (hit_col) := cpg_site %in% hit_set]
+    out[order(pos)]
+  }
+  gene_cpgs <- rbindlist(lapply(top_genes, extract_gene_cpgs), fill = TRUE)
+  
+  fwrite(gene_cpgs,
+         file.path(out_dir, sprintf("%s_hits_topGenes_allCpGs.csv", label)))
+  
+  list(ann = ann, clusters = clust_dt, gene_cpgs = gene_cpgs)
+}
+
+meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr)
+endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr)
+
+meso_res$clusters  # clustered genes
+endo_res$clusters
+
+# save all CpGs in top genes ± flank, is_meso_hit column
+fwrite(meso_res$gene_cpgs,
+       here("B_MultiTissues/dataOut/meso_hits_genesClusters.csv"))
+
+fwrite(endo_res$gene_cpgs,
+       here("B_MultiTissues/dataOut/endo_hits_genesClusters.csv"))
+
+##TO DO:addan MEtest to findsome more
