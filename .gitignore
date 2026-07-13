@@ -13,3 +13,6 @@ B_MultiTissues/resultsDir_gitIgnored/Arrays/tissue
 .RData
 *.Rhistory
 B_MultiTissues/dataOut/figures/
+
+## Matt's data
+B_MultiTissues/dataIn/DEGCAGS_intersect_repeats_Alice_withalpha_GITIGNORE.xlsx

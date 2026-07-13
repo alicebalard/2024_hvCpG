@@ -906,7 +906,7 @@ plot_candidate_locus <- function(gene_name_arg,
   
   layer_min <- max(3L, min_samples %/% 2L)               # relaxed for single layers
   ld_all  <- make_ld(mdw[, .(sample_id, cpg_site, pos, methylation)],
-                     sprintf("d. LD pairwise r \u2014 %s \u00b1%gkb (all samples)",
+                     sprintf("d. Co-methylation pairwise r \u2014 %s \u00b1%gkb (all samples)",
                              gene_name_arg, flank / 1e3),
                      min_samples)
   ld_endo <- make_ld(mdw[germ_layer == "Endo", .(sample_id, cpg_site, pos, methylation)],

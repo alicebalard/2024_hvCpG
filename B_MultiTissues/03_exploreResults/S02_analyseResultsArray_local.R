@@ -265,7 +265,7 @@ row2 <- cowplot::plot_grid(row2_1, row2_2)
 figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
 
 ggplot2::ggsave(
-  filename = here::here("B_MultiTissues/dataOut/figures/Figure2.png"),
+  filename = here::here("B_MultiTissues/dataOut/figures/script02/testOnArray.png"),
   plot = figure2, width = 16, height = 8,
   dpi = 300, bg = "white")
 

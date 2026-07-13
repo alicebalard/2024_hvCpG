@@ -28,7 +28,7 @@ bioc_packages <- c(
   "rtracklayer", "genomation",
   "IlluminaHumanMethylation450kanno.ilmn12.hg19",
   "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
-  "GenomicRanges", "IRanges",
+  "GenomicRanges", "IRanges", "GenomicFeatures",
   "TxDb.Hsapiens.UCSC.hg38.knownGene",
   "GSEABase",
   "methylKit", 
