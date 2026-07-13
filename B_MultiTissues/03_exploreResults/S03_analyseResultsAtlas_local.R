@@ -37,7 +37,11 @@ savePrepedAtlasFile <- function(file, p0, p1) {
   
   # ── Completeness check ────────────────────────────────────────────────────
   parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", file))
+<<<<<<< HEAD
   pattern    <- paste0(p0, "p0_", p1, "p1.rds$")
+=======
+  pattern <- paste0("^results_.*", p0, "p0_", p1, "p1\\.rds$")
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
   rds_files  <- base::dir(parent_dir,
                           pattern   = pattern,
                           recursive = TRUE,
@@ -90,10 +94,15 @@ savePrepedAtlasFile <- function(file, p0, p1) {
   message("Saved: ", out_path)
 }
 
+<<<<<<< HEAD
+=======
+## Different p0 and p1 tested
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_65")
 }
 
+<<<<<<< HEAD
 ## SKIP 18_mesoEndo - no matching files found (run incomplete?).
 
 ## Different p0 and p1 tested
@@ -101,10 +110,93 @@ for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) 
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_9")
 }
 ## SKIP atlas_general - expected 87 files (from Atlas_batch87) but found 86.
+=======
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_9")
+} 
+
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  savePrepedAtlasFile(file = subdir, p0 = "0_55", p1 = "0_65")
+}
+
+# Saved in: /home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_xxx.rds
+
+## Test files:
+saveTestPrepedAtlasFile <- function(file, p0, p1) {
+  out_path <- here(paste0("gitignore/resultsAtlasPrepared/testres_",
+                          p0, "p0_", p1, "p1_", file, ".rds"))
+  
+  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", file))
+  pattern    <- paste0("^resultsTEST_.*", p0, "p0_", p1, "p1\\.rds$")
+  rds_files  <- base::dir(parent_dir,
+                          pattern    = pattern,
+                          recursive  = TRUE,
+                          full.names = TRUE)
+  
+  if (length(rds_files) == 0) {
+    message("SKIP TEST ", file, " - no TEST files found for ", p0, "p0_", p1, "p1.")
+    return(invisible(NULL))
+  }
+  
+  message("OK   TEST ", file, " - found ", length(rds_files), " file(s): ",
+          paste(basename(rds_files), collapse = ", "))
+  
+  if (file.exists(out_path)) {
+    message("TEST file ", file, " already prepared - skipping.")
+    return(invisible(NULL))
+  }
+  
+  system.time(Atlas_dt <- prepAtlasdt(file, p0, p1))
+  saveRDS(Atlas_dt, file = out_path)
+  message("Saved: ", out_path)
+}
+
+## TEST runs, same three p0/p1 combos
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  saveTestPrepedAtlasFile(file = subdir, p0 = "0_8",  p1 = "0_65")
+}
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  saveTestPrepedAtlasFile(file = subdir, p0 = "0_8",  p1 = "0_9")
+}
+for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
+  saveTestPrepedAtlasFile(file = subdir, p0 = "0_55", p1 = "0_65")
+}
+
+##################
+## Test bug fix ##
+##################
+
+sub_endo_0_80p0_0_65p1 <- readRDS(here("gitignore/resultsAtlasPrepared/testres_0_8p0_0_65p1_12_endo.rds"))
+setkey(sub_endo_0_80p0_0_65p1, name)
+
+## Previously (before bug fix)
+endo_dt <- readRDS(here("gitignore/resultsAtlasPrepared/prevBugFix/fullres_0_8p0_0_65p1_12_endo.rds"))
+setkey(endo_dt, name)
+
+## Merge with sub_endo_0_80p0_0_65p1 at matching CpGs and do a plot of one by the other alpha
+beforeafter_dt <- endo_dt[sub_endo_0_80p0_0_65p1,
+                          .(name, alpha_before = alpha, alpha_after = i.alpha),
+                          on = "name", nomatch = NULL]
+
+plotBeforeAfter <- ggplot(beforeafter_dt, aes(x = alpha_before, y = alpha_after)) +
+  geom_point(alpha = 0.5, size = 0.5, colour = "#5C8AE0") +
+  geom_abline(slope = 1, intercept = 0, colour = "grey20",
+              linetype = "dashed", linewidth = 0.5) +
+  labs(x = "Pr(hv) before bug fix (p0=80%, p1=65%)",
+       y = "Pr(hv) after bug fix (p0=80%, p1=65%)",
+       title = "Effect of the alpha-marginalisation fix at fixed parameters") +
+  theme_minimal()
+
+ggplot2::ggsave(
+  filename = here::here(paste0("B_MultiTissues/dataOut/figures/script03/plotBeforeAfter.pdf")),
+  plot = plotBeforeAfter, width = 6, height = 5
+)
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 
 ###########################################
 ## Test different p0 and p1 in raw alpha ##
 ###########################################
+<<<<<<< HEAD
 
 Atlas_dt <- readRDS(
   "/home/alice/Documents/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")
@@ -147,6 +239,55 @@ merged_dt[sample(.N, 100000)] |>
 
 ## Ranking is preserved. The tight linear band confirms both settings agree on which 
 # CpGs are most variable --> hvCpG list is robust to this parameter choice
+=======
+sub_endo_0_8p0_0_9p1 <- readRDS(here("gitignore/resultsAtlasPrepared/testres_0_8p0_0_9p1_12_endo.rds"))
+setkey(sub_endo_0_8p0_0_9p1, name)
+sub_endo_0_55p0_0_65p1 <- readRDS(here("gitignore/resultsAtlasPrepared/testres_0_55p0_0_65p1_12_endo.rds"))
+setkey(sub_endo_0_55p0_0_65p1, name)
+
+# Merge all three
+merged_dt <- sub_endo_0_80p0_0_65p1[sub_endo_0_8p0_0_9p1,
+                      .(name, alpha_general = alpha, alpha_80p090p1 = i.alpha),
+                      on = "name", nomatch = NULL]
+
+merged_dt <- merged_dt[sub_endo_0_55p0_0_65p1,
+                       .(name, alpha_general, alpha_80p090p1, alpha_55p065p1 = i.alpha),
+                       on = "name", nomatch = NULL]
+
+# Reshape to long
+plot_long <- merged_dt|>
+  melt(id.vars = c("name", "alpha_general"),
+       measure.vars = c("alpha_80p090p1", "alpha_55p065p1"),
+       variable.name = "params", value.name = "alpha_other") |>
+  mutate(params = factor(params,
+                         levels = c("alpha_80p090p1", "alpha_55p065p1"),
+                         labels = c("p0=80%, p1=90%", "p0=55%, p1=65%")))
+
+plotPvar <- ggplot(plot_long, aes(x = alpha_general, y = alpha_other, colour = params)) +
+  geom_point(alpha = 0.5, size = 0.5) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey20",
+              linetype = "dashed", linewidth = 0.5) +
+  scale_colour_manual(values = c("p0=80%, p1=90%" = "#E05C5C",
+                                 "p0=55%, p1=65%" = "#5C8AE0"),
+                      name = "Parameters") +
+  guides(colour = guide_legend(override.aes = list(alpha = 1, size = 2))) +
+  labs(x = "Pr(hv) baseline (p0=80%, p1=65%)",
+       y = "Pr(hv) alternative parameters") +
+  theme_minimal()
+
+plotPvar
+
+## Ranking is preserved. The tight linear band confirms both settings agree on which 
+# CpGs are most variable --> hvCpG list is robust to this parameter choice
+ggplot2::ggsave(
+  filename = here::here(paste0("B_MultiTissues/dataOut/figures/script03/makep0p1vary.pdf")),
+  plot = plotPvar, width = 6, height = 5
+)
+
+## TBC from here
+
+
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 
 #######################
 ## Data in WGBS atlas:

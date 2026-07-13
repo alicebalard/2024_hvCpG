@@ -11,6 +11,16 @@
 ## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
 ## for each quadrant vs the other three combined
 ### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
+<<<<<<< HEAD
+=======
+## Functions extracted from S06 for reuse in downstream scripts:
+### make_MEsetdt
+### make_MEsetdt_regionMean
+### plot_decay_curve
+### plot_decay_curve_layered (by germ layers)
+### compute_percpg_interlayer_corr: Compute per-CpG interlayer correlation from raw meth
+### plot_stochastic_test
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 
 makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   size = 4
@@ -264,6 +274,7 @@ clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
     pos = as.integer(sub(".*_", "", CpGvec))
   )
   setkey(dt, chr, pos)
+<<<<<<< HEAD
 
   # gap to previous CpG
   dt[, gap := pos - data.table::shift(pos), by = chr]
@@ -274,12 +285,25 @@ clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
   # Count CpGs in each run
   dt[, run_size := .N, by = .(chr, run_id)]
 
+=======
+  
+  # gap to previous CpG
+  dt[, gap := pos - data.table::shift(pos), by = chr]
+  
+  # run ID increments whenever gap > max_gap OR different chromosome
+  dt[, run_id := cumsum(is.na(gap) | gap > max_gap), by = chr]
+  
+  # Count CpGs in each run
+  dt[, run_size := .N, by = .(chr, run_id)]
+  
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
   # Keep only large runs
   dt[run_size >= min_size, raw]
 }
 
 ## FAST GENE ANNOTATION (OFFLINE)
 annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
+<<<<<<< HEAD
 
   if (length(CpGs) == 0) return(character(0))
 
@@ -302,6 +326,30 @@ annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
   o2 <- findOverlaps(gr, promoters_txdb)
   g2 <- promoters_txdb$gene_id[subjectHits(o2)]
 
+=======
+  
+  if (length(CpGs) == 0) return(character(0))
+  
+  chr <- sub("_.*", "", CpGs)
+  pos <- as.integer(sub(".*_", "", CpGs))
+  gr  <- GRanges(chr, IRanges(pos, pos))
+  
+  # Trim to seqinfo bounds to avoid out-of-bound warnings
+  gr <- GenomicRanges::trim(gr)
+  
+  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  genes_txdb <- GenomicFeatures::genes(txdb)
+  promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window, downstream = tss_window)
+  
+  # overlaps with gene bodies
+  o1 <- findOverlaps(gr, genes_txdb)
+  g1 <- genes_txdb$gene_id[subjectHits(o1)]
+  
+  # overlaps with promoters
+  o2 <- findOverlaps(gr, promoters_txdb)
+  g2 <- promoters_txdb$gene_id[subjectHits(o2)]
+  
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
   return(unique(c(g1, g2)))
 }
 
@@ -499,4 +547,455 @@ plotMyVenn <- function(cutoff, ...) {
   return(p)
 }
 
+<<<<<<< HEAD
+=======
+## functions_S06.R
+## Functions extracted from S06 for reuse in downstream scripts
+
+make_MEsetdt <- function(sets, geomMeanGR) {
+  MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    data.table(
+      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      ME = nm
+    )
+  }))
+  na.omit(MEsetdt)
+}
+
+make_MEsetdt_regionMean <- function(sets, geomMeanGR) {
+  MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    dt <- data.table(
+      region_idx    = queryHits(hits),
+      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      ME = nm
+    )
+    dt[, .(alpha_geomean = mean(alpha_geomean, na.rm = TRUE)),
+       by = .(region_idx, ME)]
+  }))
+  na.omit(MEsetdt)
+}
+
+plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
+  thresholds <- seq(10, 90, by = 10) / 100
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    MEsetdt[, .(
+      proportion = mean(alpha_geomean > thr, na.rm = TRUE),
+      n_above    = sum(alpha_geomean > thr, na.rm = TRUE),
+      n_total    = .N
+    ), by = ME][, threshold := thr]
+  }))
+  
+  # Build colour vector: black for reference, Set2 for the rest
+  me_levels <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols <- c(mQTLcontrols = "black",
+               setNames(set2_cols[seq_along(other_levels)], other_levels))
+  
+  ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Proportion above threshold", labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw() +
+    ggtitle(title)
+}
+
+plot_decay_curve_layered <- function(MEsetdt, title = "Decay curve by layer") {
+  thresholds <- seq(0, 100, by = 10) / 100
+  proportion <- seq(0, 100, by = 10) / 100
+  
+  # melt the 3 alpha columns to long format
+  long <- melt(MEsetdt,
+               id.vars = "ME",
+               measure.vars = c("alpha_endo", "alpha_meso", "alpha_ecto"),
+               variable.name = "layer", value.name = "alpha")
+  
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    long[, .(
+      proportion = mean(alpha > thr, na.rm = TRUE),
+      n_above    = sum(alpha > thr, na.rm = TRUE),
+      n_total    = .N
+    ), by = .(ME, layer)][, threshold := thr]
+  }))
+  
+  # colours
+  me_levels    <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols      <- c(mQTLcontrols = "black",
+                    setNames(set2_cols[seq_along(other_levels)], other_levels))
+  
+  ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~ layer, nrow = 1,
+               labeller = labeller(layer = c(
+                 alpha_endo = "Endoderm",
+                 alpha_meso = "Mesoderm",
+                 alpha_ecto = "Ectoderm"))) +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Proportion above threshold", breaks = proportion, labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw() +
+    ggtitle(title)
+}
+
+plot_residuals_layered <- function(MEsetdt, title = "Excess Pr(HV) vs mQTLcontrols by layer") {
+  thresholds <- seq(0, 100, by = 10) / 100
+  
+  long <- melt(MEsetdt,
+               id.vars = "ME",
+               measure.vars = c("alpha_endo", "alpha_meso", "alpha_ecto"),
+               variable.name = "layer", value.name = "alpha")
+  
+  prop_table <- rbindlist(lapply(thresholds, function(thr) {
+    long[, .(
+      proportion = mean(alpha > thr, na.rm = TRUE)
+    ), by = .(ME, layer)][, threshold := thr]
+  }))
+  
+  # subtract control proportion per layer × threshold
+  ctrl <- prop_table[ME == "mQTLcontrols", .(layer, threshold, ctrl_proportion = proportion)]
+  prop_table <- merge(prop_table, ctrl, by = c("layer", "threshold"))
+  prop_table[, residual := proportion - ctrl_proportion]
+  prop_table <- prop_table[ME != "mQTLcontrols"]
+  
+  # layer factor order
+  layer_labels <- c(alpha_endo = "Endoderm",
+                    alpha_meso = "Mesoderm",
+                    alpha_ecto = "Ectoderm")
+  prop_table[, layer_label := factor(layer_labels[as.character(layer)],
+                                     levels = c("Endoderm", "Mesoderm", "Ectoderm"))]
+  
+  # colours
+  me_levels    <- unique(prop_table$ME)
+  other_levels <- setdiff(me_levels, "mQTLcontrols")
+  set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+  my_cols      <- setNames(set2_cols[seq_along(other_levels)], other_levels)
+  
+  ggplot(prop_table, aes(x = threshold, y = residual, colour = ME)) +
+    geom_line() +
+    geom_point() +
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "black", linewidth = 0.4) +
+    facet_wrap(~ layer_label, nrow = 1) +
+    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    scale_y_continuous("Excess proportion vs mQTLcontrols",
+                       labels = scales::percent) +
+    scale_colour_manual(values = my_cols) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "right") +
+    ggtitle(title)
+}
+
+# ── Compute per-CpG interlayer correlation from raw meth
+compute_percpg_interlayer_corr <- function(meth_sub) {
+  
+  meth_sub[, pos := as.integer(sub(".*_", "", cpg_site))]
+  
+  # mean per (patient, germ_layer, pos) — collapses multiple tissues same layer
+  meth_agg <- meth_sub[, .(methylation = mean(methylation, na.rm = TRUE)),
+                       by = .(patient_id, germ_layer, pos, cpg_site)]
+  
+  # wide: one column per germ layer
+  wide <- dcast(meth_agg, patient_id + pos + cpg_site ~ germ_layer,
+                value.var = "methylation")
+  
+  layers_present <- intersect(c("Endo", "Meso", "Ecto"), names(wide))
+  if (length(layers_present) < 2) return(NULL)
+  
+  layer_pairs <- combn(layers_present, 2, simplify = FALSE)
+  
+  rbindlist(lapply(layer_pairs, function(pair) {
+    l1 <- pair[1]; l2 <- pair[2]
+    
+    # per-CpG correlation across patients
+    wide[, {
+      idx <- !is.na(get(l1)) & !is.na(get(l2))
+      if (sum(idx) >= 3) {
+        list(r    = cor(get(l1)[idx], get(l2)[idx], method = "pearson"),
+             n    = sum(idx),
+             pair = paste(l1, l2, sep = "-"))
+      } else {
+        list(r = NA_real_, n = sum(idx), pair = paste(l1, l2, sep = "-"))
+      }
+    }, by = .(pos, cpg_site)]
+  }))
+}
+
+plot_candidate_locus <- function(gene_name_arg,
+                                 candidates_cpgs_full,
+                                 interlayer_loyfer,
+                                 meth,
+                                 gene_coords_dt,
+                                 table3layers,
+                                 flank        = 5000,
+                                 min_samples  = 5,
+                                 peak_span    = 0.3) {
+  
+  ## patchwork is needed for the 2x2 assembly + the nested panel d
+  if (!requireNamespace("patchwork", quietly = TRUE))
+    stop("plot_candidate_locus() needs the 'patchwork' package.")
+  
+  ## ── palettes (colour-blind friendly, matched to the germ layers) ─────────────
+  layer_pal <- c(Endo = "#009E73", Meso = "#56B4E9", Ecto = "#CC79A7")
+  corr_pal  <- c("Inter Endo\u00d7Meso" = "grey55",
+                 "Intra Endo"           = "#009E73",
+                 "Intra Meso"           = "#56B4E9",
+                 "Intra Ecto"           = "#CC79A7")
+  me_yellow <- "#E6AB02"
+  
+  ## ── Gene coordinates ─────────────────────────────────────────────────────────
+  gc <- gene_coords_dt[gene_name == gene_name_arg]
+  if (nrow(gc) == 0)
+    stop(sprintf("Gene '%s' not found in gene_coords_dt", gene_name_arg))
+  gene_start <- gc$start
+  gene_end   <- gc$end
+  chr        <- as.character(gc$seqnames)
+  x_min      <- gene_start - flank
+  x_max      <- gene_end   + flank
+  
+  ## shared building blocks for the three linear (a/b/c) panels
+  gene_band <- annotate("rect",
+                        xmin = gene_start, xmax = gene_end,
+                        ymin = -Inf,       ymax = Inf,
+                        fill = "grey90",   alpha = 0.6)
+  kb_lab       <- function(x) paste0(round(x / 1e3, 1), " kb")
+  shared_x     <- scale_x_continuous("Position (hg38)", labels = kb_lab, expand = c(0.01, 0))
+  shared_coord <- coord_cartesian(xlim = c(x_min, x_max))
+  base_th      <- theme_bw(base_size = 9) +
+    theme(panel.grid.minor = element_blank(),
+          plot.subtitle    = element_text(size = 7.5))
+  hide_x       <- theme(axis.title.x = element_blank(), axis.text.x = element_blank())
+  
+  ## ── CpG-level table for this gene ────────────────────────────────────────────
+  cpg_sub <- copy(as.data.table(candidates_cpgs_full)[gene == gene_name_arg])
+  cpg_sub[, pos := as.integer(sub(".*_", "", chr_pos))]
+  
+  # alpha_geomean: use from candidates_cpgs_full if present, else join table3layers
+  if (!"alpha_geomean" %in% names(cpg_sub) || all(is.na(cpg_sub$alpha_geomean))) {
+    cpg_sub <- merge(
+      cpg_sub,
+      as.data.table(table3layers)[, .(chr_pos, alpha_geomean)],
+      by = "chr_pos", all.x = TRUE)
+  } else if ("alpha_geomean.x" %in% names(cpg_sub)) {
+    cpg_sub[, alpha_geomean := fcoalesce(alpha_geomean.x, alpha_geomean.y)]
+    cpg_sub[, c("alpha_geomean.x", "alpha_geomean.y") := NULL]
+  }
+  # CpGs not matched get NA -> set to 0 so panel a still renders
+  cpg_sub[is.na(alpha_geomean), alpha_geomean := 0]
+  if (nrow(cpg_sub) == 0)
+    stop(sprintf("No CpGs found for gene '%s'", gene_name_arg))
+  
+  gene_title <- sprintf("%s  (%s:%s-%s, flank \u00b1%gkb)",
+                        gene_name_arg, chr,
+                        format(gene_start, big.mark = ","),
+                        format(gene_end,   big.mark = ","),
+                        flank / 1e3)
+  
+  ## ═══ Panel a : ME test — alpha_geomean, yellow if >= 0.5 ══════════════════════
+  cpg_sub[, is_me := alpha_geomean >= 0.5]
+  pa <- ggplot(cpg_sub, aes(pos, alpha_geomean)) +
+    gene_band +
+    geom_hline(yintercept = 0.5, linetype = 2, linewidth = 0.3) +
+    geom_point(aes(colour = is_me), size = 1, alpha = 0.85) +
+    scale_colour_manual(values = c(`TRUE` = me_yellow, `FALSE` = "grey60"),
+                        guide = "none") +
+    shared_x + shared_coord +
+    scale_y_continuous(limits = c(0, 1), expand = expansion(mult = c(0.02, 0.05))) +
+    base_th + hide_x +
+    labs(y = "Pr(HV)\ngeomean",
+         title    = gene_title,
+         subtitle = "a. ME test: yellow = alpha_geomean \u2265 0.5") +
+    theme(plot.title = element_text(face = "bold", size = 11))
+  
+  ## ═══ Panel b : layer-specific test ═══════════════════════════════════════════
+  layer_cols <- intersect(c("alpha_endo", "alpha_meso", "alpha_ecto"), names(cpg_sub))
+  pb <- NULL
+  if (length(layer_cols) == 3) {
+    b   <- cpg_sub[, .(pos, alpha_endo, alpha_meso, alpha_ecto)]
+    m   <- as.matrix(b[, .(alpha_endo, alpha_meso, alpha_ecto)])
+    b[, max_alpha := suppressWarnings(apply(m, 1, max, na.rm = TRUE))]
+    b[, dom_idx   := max.col(replace(m, is.na(m), -Inf), ties.method = "first")]
+    b[, dom_layer := c("Endo", "Meso", "Ecto")[dom_idx]]
+    b[, delta := apply(m, 1, function(v) {
+      v <- sort(v[is.finite(v)], decreasing = TRUE)
+      if (length(v) >= 2) v[1] - v[2] else NA_real_
+    })]
+    b <- b[is.finite(max_alpha)]
+    b[, dom_layer := factor(dom_layer, levels = c("Ecto", "Endo", "Meso"))]
+    
+    pb <- ggplot(b, aes(pos, max_alpha)) +
+      gene_band +
+      geom_hline(yintercept = 0.5, linetype = 2, linewidth = 0.3) +
+      geom_point(aes(colour = dom_layer, size = delta), alpha = 0.75) +
+      scale_colour_manual("Dominant\nlayer",
+                          values = c(Ecto = layer_pal[["Ecto"]],
+                                     Endo = layer_pal[["Endo"]],
+                                     Meso = layer_pal[["Meso"]]),
+                          drop = FALSE) +
+      scale_size_continuous("Delta Pr(HV)\n(max \u2212 2nd)", range = c(0.3, 3.2)) +
+      shared_x + shared_coord +
+      base_th + hide_x +
+      labs(y = "max Pr(HV)\nacross layers",
+           subtitle = paste0("b. Layer-specific test | Colour = dominant layer | ",
+                             "Size = delta Pr(HV) (max \u2212 2nd)"))
+  }
+  
+  ## ═══ Panel c : inter- vs intra-layer Pearson r ═══════════════════════════════
+  il <- copy(as.data.table(interlayer_loyfer))
+  if ("cpg_site" %in% names(il)) il[, pos := as.integer(sub(".*_", "", cpg_site))]
+  inter_dt <- if (all(c("pos", "r_Endo_Meso") %in% names(il)))
+    il[pos >= x_min & pos <= x_max, .(pos, r = r_Endo_Meso, grp = "Inter Endo\u00d7Meso")]
+  else NULL
+  
+  intra_parts <- list()
+  if ("r_intra_Endo" %in% names(cpg_sub))
+    intra_parts[["Intra Endo"]] <- cpg_sub[, .(pos, r = r_intra_Endo, grp = "Intra Endo")]
+  if ("r_intra_Meso" %in% names(cpg_sub))
+    intra_parts[["Intra Meso"]] <- cpg_sub[, .(pos, r = r_intra_Meso, grp = "Intra Meso")]
+  if ("r_intra_Ecto" %in% names(cpg_sub))
+    intra_parts[["Intra Ecto"]] <- cpg_sub[, .(pos, r = r_intra_Ecto, grp = "Intra Ecto")]
+  
+  corr_dt <- rbindlist(c(list(inter_dt), intra_parts), use.names = TRUE, fill = TRUE)
+  corr_dt <- corr_dt[!is.na(r)]
+  pc <- NULL
+  if (nrow(corr_dt) > 0) {
+    corr_dt[, grp := factor(grp, levels = names(corr_pal))]
+    pc <- ggplot(corr_dt, aes(pos, r, colour = grp, fill = grp)) +
+      gene_band +
+      geom_hline(yintercept = c(-0.5, 0, 0.5), linetype = 2,
+                 linewidth = 0.25, colour = "grey40") +
+      geom_point(size = 0.5, alpha = 0.30) +
+      geom_smooth(method = "loess", span = peak_span, se = TRUE,
+                  linewidth = 0.7, alpha = 0.15) +
+      scale_colour_manual("Correlation", values = corr_pal, drop = FALSE) +
+      scale_fill_manual("Correlation", values = corr_pal, drop = FALSE) +
+      shared_x + shared_coord +
+      scale_y_continuous(limits = c(-1, 1)) +
+      base_th +
+      labs(y = "Pearson r",
+           subtitle = paste0("c. Grey = inter-layer (Endo\u00d7Meso) | ",
+                             "Coloured = intra-layer (within individuals)"))
+  }
+  
+  ## ═══ Panels d-g : LD-style pairwise r (all samples + one per germ layer) ══════
+  ## Prepare a per-sample x CpG methylation table for the whole window, keeping
+  ## germ_layer so we can subset per layer.
+  meth_dt <- copy(as.data.table(meth))
+  mdw <- data.table()
+  if (nrow(meth_dt) > 0 &&
+      all(c("methylation", "cpg_site", "patient_id") %in% names(meth_dt))) {
+    if (!"pos" %in% names(meth_dt))
+      meth_dt[, pos := as.integer(sub(".*_", "", cpg_site))]
+    mdw <- meth_dt[pos >= x_min & pos <= x_max & !is.na(methylation)]
+    if (nrow(mdw) > 0) {
+      mdw[, sample_id := if ("source_tissue_celltype" %in% names(mdw))
+        paste(patient_id, source_tissue_celltype, sep = "|")
+        else as.character(patient_id)]
+      if (!"germ_layer" %in% names(mdw)) mdw[, germ_layer := NA_character_]
+      mdw <- mdw[, .(methylation = mean(methylation, na.rm = TRUE)),
+                 by = .(sample_id, germ_layer, cpg_site, pos)]
+    }
+  }
+  
+  max_ld_cpg <- 600L   # thin CpGs beyond this for tractable, readable triangles
+  
+  ## Helper: build one LD-style pairwise-r heatmap from a sample x CpG table.
+  ## Uses a CpG *index* axis (one equal cell per CpG) so the triangle fills even
+  ## when CpG spacing is irregular; a few breaks are labelled with real positions.
+  make_ld <- function(md_sub, label, ms) {
+    if (is.null(md_sub) || !nrow(md_sub)) return(NULL)
+    keep   <- md_sub[, .(n = uniqueN(sample_id)), by = .(cpg_site, pos)][n >= ms]
+    md_sub <- md_sub[cpg_site %in% keep$cpg_site]
+    lev    <- sort(unique(md_sub$pos))
+    if (length(lev) < 3) return(NULL)
+    if (length(lev) > max_ld_cpg)                       # thin evenly
+      lev <- lev[round(seq(1, length(lev), length.out = max_ld_cpg))]
+    md_sub <- md_sub[pos %in% lev]
+    
+    w   <- dcast(md_sub, sample_id ~ pos, value.var = "methylation")
+    mat <- as.matrix(w[, -1, with = FALSE])
+    mat <- mat[, order(as.integer(colnames(mat))), drop = FALSE]
+    if (ncol(mat) < 3) return(NULL)
+    cpos   <- as.integer(colnames(mat))
+    cormat <- suppressWarnings(stats::cor(mat, use = "pairwise.complete.obs"))
+    n      <- ncol(cormat)
+    
+    long <- as.data.table(as.table(cormat))
+    setnames(long, c("c1", "c2", "r"))
+    idx  <- setNames(seq_len(n), colnames(cormat))
+    long[, i := idx[as.character(c1)]]
+    long[, j := idx[as.character(c2)]]
+    long <- long[j > i & !is.na(r)]                     # upper triangle
+    if (!nrow(long)) return(NULL)
+    
+    br <- unique(round(seq(1, n, length.out = 6)))
+    ggplot(long, aes(i, j, fill = r)) +
+      geom_raster() +
+      scale_fill_gradient2("Pearson r", low = "#2166AC", mid = "white",
+                           high = "#D73027", midpoint = 0, limits = c(-1, 1)) +
+      scale_x_continuous(breaks = br, labels = kb_lab(cpos[br]), expand = c(0, 0)) +
+      scale_y_continuous(breaks = br, labels = kb_lab(cpos[br]), expand = c(0, 0)) +
+      coord_fixed() +
+      base_th +
+      theme(axis.title  = element_blank(),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+      labs(subtitle = label)
+  }
+  
+  layer_min <- max(3L, min_samples %/% 2L)               # relaxed for single layers
+  ld_all  <- make_ld(mdw[, .(sample_id, cpg_site, pos, methylation)],
+                     sprintf("d. Co-methylation pairwise r \u2014 %s \u00b1%gkb (all samples)",
+                             gene_name_arg, flank / 1e3),
+                     min_samples)
+  ld_endo <- make_ld(mdw[germ_layer == "Endo", .(sample_id, cpg_site, pos, methylation)],
+                     "e. LD \u2014 Endoderm", layer_min)
+  ld_meso <- make_ld(mdw[germ_layer == "Meso", .(sample_id, cpg_site, pos, methylation)],
+                     "f. LD \u2014 Mesoderm", layer_min)
+  ld_ecto <- make_ld(mdw[germ_layer == "Ecto", .(sample_id, cpg_site, pos, methylation)],
+                     "g. LD \u2014 Ectoderm", layer_min)
+  
+  ## CpG-density track (position based); placed as a compact inset in the empty
+  ## lower-right corner of the 'all samples' triangle so it matches the square.
+  pd_dens <- NULL
+  if (nrow(mdw) > 0) {
+    pd_dens <- ggplot(data.table(pos = sort(unique(mdw$pos))), aes(pos)) +
+      geom_histogram(bins = 60, fill = "grey40") +
+      scale_x_continuous(labels = kb_lab, limits = c(x_min, x_max), expand = c(0, 0)) +
+      base_th +
+      theme(axis.title.x   = element_blank(),
+            axis.title.y   = element_text(size = 6),
+            axis.text      = element_text(size = 5),
+            plot.background = element_rect(fill = "white", colour = NA)) +
+      labs(y = "CpG\ndensity")
+  }
+  pd_all <- if (!is.null(ld_all) && !is.null(pd_dens))
+    ld_all +
+    patchwork::inset_element(pd_dens,
+                             left = 0.50, bottom = 0.02,
+                             right = 1.00, top   = 0.32,
+                             align_to = "panel")
+  else ld_all
+  
+  ## ── Assemble the figure ──────────────────────────────────────────────────────
+  ## Row 1: a | b   Row 2: c | d(all)   Row 3: e | f | g  (per-layer LD)
+  row1 <- patchwork::wrap_plots(Filter(Negate(is.null), list(pa, pb)), ncol = 2)
+  row2 <- patchwork::wrap_plots(Filter(Negate(is.null), list(pc, pd_all)), ncol = 2)
+  
+  layer_ld <- Filter(Negate(is.null), list(ld_endo, ld_meso, ld_ecto))
+  if (length(layer_ld) > 0) {
+    row3     <- patchwork::wrap_plots(layer_ld, ncol = 3, guides = "collect")
+    combined <- patchwork::wrap_plots(row1, row2, row3, ncol = 1,
+                                      heights = c(1, 1.15, 0.9))
+  } else {
+    combined <- patchwork::wrap_plots(row1, row2, ncol = 1, heights = c(1, 1.2))
+  }
+  return(combined)
+}
+
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 functionsLoaded = TRUE

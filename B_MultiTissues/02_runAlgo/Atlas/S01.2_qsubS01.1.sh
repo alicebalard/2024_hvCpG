@@ -4,10 +4,17 @@
 #$ -pe smp 5 
 #$ -l tmem=5G
 #$ -l h_vmem=5G
+<<<<<<< HEAD
 #$ -l h_rt=30:00:00
 #$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
 #$ -R y
 #$ -t 10 ## 1-120 ## to accomodate also tests with more CpGs covered
+=======
+#$ -l h_rt=50:00:00
+#$ -wd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/logs
+#$ -R y
+#$ -t 1-120 ## to accomodate also tests with more CpGs covered
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 #$ -tc 30
 
 # ---- Config ----
@@ -17,6 +24,7 @@ RSCRIPT="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues/02
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID started at $(date) ****"
 
+<<<<<<< HEAD
 P0=0.80
 P1=0.65
 MININD=3
@@ -24,11 +32,39 @@ ANALYSIS="atlas_general"
 
 Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
 
+=======
+##P0=0.80
+##P1=0.65
+##MININD=3
+##
+##for ANALYSIS in "atlas_general" "02_rmMultSamples" "04_maleOnly" "05_femaleOnly6gp" "06_bothsexes6gp" "09_immuneOnly" "10_noImmune" "11_noImmune_sample11gp" "12_endo" "12_2_endo6gp" "13_meso" "13_2_meso6gp" "14_ecto" "18_mesoEndo" "19_endoEcto" "20_mesoEcto"; do
+##    echo "[INFO] Running analysis: $ANALYSIS"
+##    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+##done
+
+##P0=0.80
+##P1=0.9
+##MININD=3
+##ANALYSIS="atlas_general"
+##
+##echo "[INFO] Running analysis: $ANALYSIS"
+##Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+
+P0=0.55
+P1=0.65
+MININD=3
+ANALYSIS="atlas_general"
+echo "[INFO] Running analysis: $ANALYSIS"
+Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+
+## to do: pairs (if needed)
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 ##MININD=2 # very few, for specific analysis
 ##for ANALYSIS in "10X_15_pairs_MM" "10X_16_pairs_FF" "10X_17_pairs_MF"; do
 ##    echo "[INFO] Running analysis: $ANALYSIS"
 ##    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
 ##done
+<<<<<<< HEAD
 ##
 ##MININD=3 # back to default
 ##for ANALYSIS in "10X_12.2_endo6gp" "10X_13.2_meso6gp"; do
@@ -59,3 +95,7 @@ echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"
 ##5000  	7	     0.1	0.004	     18.4288208	            250000	 92.144104	0.2	              5	5
 ## I chose: 15 threads, 5G each, 93 chunks of 250k CpGs which should each run for 5h.
 ## The code ~/monitor_resources.sh 5 & was used to check that all resources were used
+=======
+
+echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7

@@ -14,7 +14,7 @@ cran_packages <- c(
   # HDF5 / parallel
   "parallel", "rhdf5",
   # Graphics
-  "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram",
+  "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram", "patchwork",
   "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo",
   "UpSetR",
   # Stats
@@ -28,7 +28,7 @@ bioc_packages <- c(
   "rtracklayer", "genomation",
   "IlluminaHumanMethylation450kanno.ilmn12.hg19",
   "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
-  "GenomicRanges", "IRanges",
+  "GenomicRanges", "IRanges", "GenomicFeatures",
   "TxDb.Hsapiens.UCSC.hg38.knownGene",
   "GSEABase",
   "methylKit", 

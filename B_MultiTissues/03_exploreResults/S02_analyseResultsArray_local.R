@@ -92,7 +92,11 @@ p1_manhattanArray <- ggplot() +
   guides(colour = guide_legend(override.aes = list(size = 5, alpha = 1))) +
   labs(x = "Chromosome", y = "Pr(hv)")+
   theme(legend.position = "inside",
+<<<<<<< HEAD
         legend.position.inside      = c(.8, 1.2),   # above the plot area
+=======
+        legend.position.inside      = c(0.9, 1.2),   # above the plot area
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
         legend.justification.inside = c(1, 1),
         plot.margin = margin(t = 40, r = 5, b = 5, l = 5),  # space for legend above
         legend.title = element_blank(),
@@ -240,7 +244,11 @@ row1 <- cowplot::plot_grid(
   # ggtitle("Detection of IIHV with both methods (red = cutoff, Pr(hv) in y = Bayesian)"),
   p2_DiffProbhvCpG_matchingcontrol_Array + theme(plot.margin = margin(50, 5, 5, 5)),
   ncol = 2, rel_widths = c(4, 1),
+<<<<<<< HEAD
   labels = c("A. Detection of IIHV with both methods (red = cutoff, Pr(hv) in y = Bayesian)", 
+=======
+  labels = c("A. Detection of highly variable CpGs with both methods (red = cutoff, Pr(hv) in y = Bayesian)", 
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
              "B. Difference between Pr(hv) of \nDerakhshan hvCpGs and \nPr(hv) of matching controls"),
   label_size = lab$size, label_x = lab$x, label_y = lab$y,
   hjust = lab$hjust, vjust = lab$vjust)
@@ -265,8 +273,16 @@ row2 <- cowplot::plot_grid(row2_1, row2_2)
 figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
 
 ggplot2::ggsave(
+<<<<<<< HEAD
   filename = here::here("B_MultiTissues/dataOut/figures/Figure2.png"),
   plot = figure2, width = 16, height = 8,
   dpi = 300, bg = "white")
 
 rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)
+=======
+  filename = here::here("B_MultiTissues/dataOut/figures/script02/testOnArray.png"),
+  plot = figure2, width = 16, height = 8,
+  dpi = 300, bg = "white")
+
+rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
