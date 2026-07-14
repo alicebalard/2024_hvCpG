@@ -3,11 +3,8 @@ logs
 .git/objects/
 gitignore
 
-## The Atlas results are too big for git
-B_MultiTissues/resultsDir_gitIgnored/Atlas
-
-## The tissue result file is big for array
-B_MultiTissues/resultsDir_gitIgnored/Arrays/tissue
+## The results are too big for git, we keep them in local
+B_MultiTissues/resultsDir_gitIgnored/
 
 *.RData
 .RData
