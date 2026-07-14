@@ -24,10 +24,8 @@ if (!exists("previousSIVprepared")) {
 ## Load full results on array ##
 ################################
 
-load(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1.RData"))
-
-resArrayAll <- as.data.frame(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
-rm(results_arrayAll_algov5_394240CpGs_0_8p0_0_65p1)
+resArrayAll <- as.data.frame(
+  readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_all_406036CpGs_0_8p0_0_65p1.rds")))
 
 prepareChrDataset <- function(res){
   res$chrpos <- dico$chrpos_hg38[
@@ -72,6 +70,19 @@ resArrayAll <- prepareChrDataset(resArrayAll)
 ## Save for next scripts
 saveRDS(resArrayAll, here("B_MultiTissues/dataOut/resArray.RDS"))
 
+################################################################################
+## Compare with previous buggy version (fix 13th July 2026)
+# resArrayAll_prev <- readRDS(here("B_MultiTissues/dataOut/resArray_beforep0p1bugcorrection.RDS"))
+# resArrayAll_prev <- resArrayAll_prev[c("alpha", "chrpos")]
+# names(resArrayAll_prev) <- c("alpha_beforeBugp0p1", "chrpos")
+# 
+# compare <- merge(resArrayAll_prev, resArrayAll, all =T)
+# ggplot(compare, aes(x = alpha_beforeBugp0p1, y = alpha)) +
+#   geom_abline(slope = 1) +
+#   geom_point(alpha=.01)+
+#   theme_bw()
+################################################################################
+
 # Plot
 # Compute midpoints for chromosome labels
 chr_mid <- resArrayAll %>%
@@ -92,11 +103,7 @@ p1_manhattanArray <- ggplot() +
   guides(colour = guide_legend(override.aes = list(size = 5, alpha = 1))) +
   labs(x = "Chromosome", y = "Pr(hv)")+
   theme(legend.position = "inside",
-<<<<<<< HEAD
-        legend.position.inside      = c(.8, 1.2),   # above the plot area
-=======
         legend.position.inside      = c(0.9, 1.2),   # above the plot area
->>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
         legend.justification.inside = c(1, 1),
         plot.margin = margin(t = 40, r = 5, b = 5, l = 5),  # space for legend above
         legend.title = element_blank(),
@@ -166,17 +173,14 @@ makePlotNrob <- function(resCompArray, N){
     coord_cartesian(xlim = c(0,1), ylim = c(0,1))
 }
 
-load(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1.RData"))
-
-resArray3ind <- as.data.frame(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
-rm(results_Arrays_3indperds_394240CpGs_0_8p0_0_65p1)
+resArray3ind <- as.data.frame(readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_3ind_406036CpGs_0_8p0_0_65p1.rds")))
 resArray3ind <- prepareChrDataset(resArray3ind)
 names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_reduce"
 resCompArray_allvs3 <- dplyr::left_join(resArray3ind, resArrayAll)
 names(resCompArray_allvs3)[names(resCompArray_allvs3) %in% "alpha"] <- "alpha_array_all"
 p3ind <- makePlotNrob(resCompArray_allvs3, 3)
 
-resArray2ind <- as.data.frame(readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_2indperds_394240CpGs_0_8p0_0_65p1.rds")))
+resArray2ind <- as.data.frame(readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_2ind_406036CpGs_0_8p0_0_65p1.rds")))
 resArray2ind <- prepareChrDataset(resArray2ind)
 names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_reduce"
 resCompArray_allvs2 <- dplyr::left_join(resArray2ind, resArrayAll)
@@ -185,7 +189,7 @@ names(resCompArray_allvs2)[names(resCompArray_allvs2) %in% "alpha"] <- "alpha_ar
 p2ind <- makePlotNrob(resCompArray_allvs2, 2)
 
 ## From script S01:
-x <- readRDS(here("B_MultiTissues/dataOut/figures/arrayCutoffLowPower2or3ind.RDS"))
+x <- readRDS(here("B_MultiTissues/dataOut/arrayCutoffLowPower2or3ind.RDS"))
 
 library(sf)
 
@@ -273,16 +277,8 @@ row2 <- cowplot::plot_grid(row2_1, row2_2)
 figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
 
 ggplot2::ggsave(
-<<<<<<< HEAD
-  filename = here::here("B_MultiTissues/dataOut/figures/Figure2.png"),
-  plot = figure2, width = 16, height = 8,
-  dpi = 300, bg = "white")
-
-rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)
-=======
   filename = here::here("B_MultiTissues/dataOut/figures/script02/testOnArray.png"),
   plot = figure2, width = 16, height = 8,
   dpi = 300, bg = "white")
 
 rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)
->>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
