@@ -21,15 +21,21 @@ if (!exists("previousSIVprepared")) {
 
 ## To avoid re-running everything:
 <<<<<<< HEAD
+if (!exists("table3layers")) load(here("gitignore/fullTable3layers.Rda"))
+=======
+<<<<<<< HEAD
 load(here("gitignore/fullTable3layers.Rda"))
 =======
 if (!exists("table3layers")) load(here("gitignore/fullTable3layers.Rda"))
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
 top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
                              (table3layers$alpha_geomean >= .9), ]$chr_pos
 
 ############################################
+<<<<<<< HEAD
+=======
 <<<<<<< HEAD
 
 endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
@@ -160,6 +166,7 @@ table3layers$alpha_geomean <- exp(rowMeans(
 save(table3layers, file = here("gitignore/fullTable3layers.Rda"))
 
 =======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 if (!file.exists(here("gitignore/fullTable3layers.Rda"))){
   endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
   meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
@@ -285,7 +292,10 @@ if (!file.exists(here("gitignore/fullTable3layers.Rda"))){
   save(table3layers, file = here("gitignore/fullTable3layers.Rda"))
 }
 
+<<<<<<< HEAD
+=======
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 df <- as.data.frame(table3layers)
 
 p <- ggplot(df[sample(nrow(df), 100000),],
@@ -362,6 +372,8 @@ geomMeanGR <- GRanges(seqnames = table3layers@seqnames,
 geomMeanGR <- geomMeanGR[!is.na(geomMeanGR$alpha_geomean)]
 
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
 # Fix chromosome names in geomMeanGR (1 -> chr1)
 seqlevels(geomMeanGR) <- paste0("chr", seqlevels(geomMeanGR))
 
@@ -369,17 +381,25 @@ sets <- list(
   mQTLcontrols = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
   HarrisSIV = HarrisSIV_hg38_GR,
 =======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 sets <- list(
   mQTLcontrols = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
   HarrisSIV = HarrisSIV_hg38_GR,
   VanBaakSIV = VanBaakSIV_hg38_GR,
+<<<<<<< HEAD
+=======
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
   VanBaakESS = VanBaakESS_hg38_GR,
   KesslerSIV = KesslerSIV_GRanges_hg38,
   CoRSIV = corSIV_GRanges_hg38,
   hvCpG = DerakhshanhvCpGs_hg38_GR
 )
 
+<<<<<<< HEAD
+# ── ME overlap ────────────────────────────────────────────
+MEsetdt <- make_MEsetdt(sets, geomMeanGR)
+=======
 <<<<<<< HEAD
 # Now do overlap join for each set
 MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
@@ -397,6 +417,7 @@ MEsetdt <- na.omit(MEsetdt) ## 63078
 # ── ME overlap ────────────────────────────────────────────
 MEsetdt <- make_MEsetdt(sets, geomMeanGR)
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
 
 p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha_geomean)) +
@@ -421,6 +442,8 @@ contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust 
 emm
 # ME           emmean      SE    df lower.CL upper.CL
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
 # mQTLcontrols  0.211 0.00635 69709    0.199    0.224
 # CoRSIV        0.315 0.00141 69709    0.312    0.318
 # HarrisSIV     0.361 0.00974 69709    0.342    0.380
@@ -428,6 +451,7 @@ emm
 # KesslerSIV    0.404 0.00684 69709    0.391    0.418
 # VanBaakESS    0.474 0.01070 69709    0.453    0.495
 =======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 # mQTLcontrols  0.211 0.00634 69972    0.199    0.224
 # CoRSIV        0.315 0.00141 69972    0.312    0.318
 # HarrisSIV     0.361 0.00974 69972    0.342    0.380
@@ -435,7 +459,10 @@ emm
 # KesslerSIV    0.404 0.00684 69972    0.391    0.418
 # VanBaakESS    0.474 0.01070 69972    0.453    0.495
 # VanBaakSIV    0.633 0.02110 69972    0.591    0.674
+<<<<<<< HEAD
+=======
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 # 
 # Confidence level used: 0.95 
 
@@ -464,6 +491,9 @@ dev.off()
 
 <<<<<<< HEAD
 =======
+<<<<<<< HEAD
+=======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 ############################################################ 
 ## Now, summarising for the regions, one value per region ##
 ############################################################
@@ -628,7 +658,10 @@ decay_wide[VanBaakSIV > 0.50, max(threshold)]
 
 decay_fine[threshold>=0.71] # and only .7% of controls
 
+<<<<<<< HEAD
+=======
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 ##############################
 ## Save the top alpha > 90% ##
 ##############################
@@ -1000,10 +1033,14 @@ if (retest == TRUE){
 #                              (table3layers$alpha_geomean >= .9), ]$chr_pos
 
 <<<<<<< HEAD
+# Method. ClusterProfiler
+=======
+<<<<<<< HEAD
 # Method 1. ClusterProfiler
 =======
 # Method. ClusterProfiler
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 
 ## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
 ## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
@@ -1082,11 +1119,17 @@ df_sig <- df_sig |>
   ungroup()
 
 <<<<<<< HEAD
+write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
+          quote = F, row.names = F)
+
+=======
+<<<<<<< HEAD
 =======
 write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
           quote = F, row.names = F)
 
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 # Plot
 p <- ggplot(df_sig, aes(x = group, y = Description)) +
   geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
@@ -1104,6 +1147,8 @@ p <- ggplot(df_sig, aes(x = group, y = Description)) +
   )
 
 print(p)
+<<<<<<< HEAD
+=======
 <<<<<<< HEAD
 write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
           quote = F, row.names = F)
@@ -1130,6 +1175,7 @@ saveRDS(res, file = here(paste0("B_MultiTissues/03_exploreResults/rGreatGO_top90
 # and partially orthogonal approach to the length bias problem.
 =======
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 
 #######################
 ## Enrichement in TE ##

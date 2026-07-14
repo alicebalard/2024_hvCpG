@@ -38,10 +38,14 @@ savePrepedAtlasFile <- function(file, p0, p1) {
   # ── Completeness check ────────────────────────────────────────────────────
   parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", file))
 <<<<<<< HEAD
+  pattern <- paste0("^results_.*", p0, "p0_", p1, "p1\\.rds$")
+=======
+<<<<<<< HEAD
   pattern    <- paste0(p0, "p0_", p1, "p1.rds$")
 =======
   pattern <- paste0("^results_.*", p0, "p0_", p1, "p1\\.rds$")
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
   rds_files  <- base::dir(parent_dir,
                           pattern   = pattern,
                           recursive = TRUE,
@@ -95,13 +99,19 @@ savePrepedAtlasFile <- function(file, p0, p1) {
 }
 
 <<<<<<< HEAD
+## Different p0 and p1 tested
+=======
+<<<<<<< HEAD
 =======
 ## Different p0 and p1 tested
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_65")
 }
 
+<<<<<<< HEAD
+=======
 <<<<<<< HEAD
 ## SKIP 18_mesoEndo - no matching files found (run incomplete?).
 
@@ -111,6 +121,7 @@ for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) 
 }
 ## SKIP atlas_general - expected 87 files (from Atlas_batch87) but found 86.
 =======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 for (subdir in list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))) {
   savePrepedAtlasFile(file = subdir, p0 = "0_8", p1 = "0_9")
 } 
@@ -191,11 +202,16 @@ ggplot2::ggsave(
   filename = here::here(paste0("B_MultiTissues/dataOut/figures/script03/plotBeforeAfter.pdf")),
   plot = plotBeforeAfter, width = 6, height = 5
 )
+<<<<<<< HEAD
+=======
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 
 ###########################################
 ## Test different p0 and p1 in raw alpha ##
 ###########################################
+<<<<<<< HEAD
+=======
 <<<<<<< HEAD
 
 Atlas_dt <- readRDS(
@@ -240,6 +256,7 @@ merged_dt[sample(.N, 100000)] |>
 ## Ranking is preserved. The tight linear band confirms both settings agree on which 
 # CpGs are most variable --> hvCpG list is robust to this parameter choice
 =======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 sub_endo_0_8p0_0_9p1 <- readRDS(here("gitignore/resultsAtlasPrepared/testres_0_8p0_0_9p1_12_endo.rds"))
 setkey(sub_endo_0_8p0_0_9p1, name)
 sub_endo_0_55p0_0_65p1 <- readRDS(here("gitignore/resultsAtlasPrepared/testres_0_55p0_0_65p1_12_endo.rds"))
@@ -287,7 +304,10 @@ ggplot2::ggsave(
 ## TBC from here
 
 
+<<<<<<< HEAD
+=======
 >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
 
 #######################
 ## Data in WGBS atlas:
