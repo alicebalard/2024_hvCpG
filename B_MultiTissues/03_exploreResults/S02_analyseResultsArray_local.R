@@ -126,7 +126,7 @@ makeScript2Fig <- function(resArray, p0p1 = "0_8p0_0_65p1"){
     guides(colour = guide_legend(override.aes = list(size = 5, alpha = 1))) +
     labs(x = "Chromosome", y = "Pr(hv)")+
     theme(legend.position = "inside",
-          legend.position.inside      = c(0.9, 1.2),   # above the plot area
+          legend.position.inside      = c(0.9, 1.15),   # above the plot area
           legend.justification.inside = c(1, 1),
           plot.margin = margin(t = 40, r = 5, b = 5, l = 5),  # space for legend above
           legend.title = element_blank(),
@@ -323,14 +323,14 @@ fig2_p080p165 <- makeScript2Fig(a2, p0p1 = "0_8p0_0_65p1")
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/testOnArray_p080p165.png"),
-  plot = fig2_p080p165, width = 16, height = 8,
+  plot = fig2_p080p165, width = 18, height = 10,
   dpi = 300, bg = "white")
 
 fig2_p080p190 <- makeScript2Fig(b2, p0p1 = "0_8p0_0_9p1")
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/testOnArray_p080p190.png"),
-  plot = fig2_p080p190, width = 16, height = 8,
+  plot = fig2_p080p190, width = 18, height = 10,
   dpi = 300, bg = "white")
 
 # rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)
