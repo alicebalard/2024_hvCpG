@@ -19,3 +19,9 @@ B_MultiTissues/resultsDir_gitIgnored/Arrays/tissue
 ## Matt's data
 B_MultiTissues/dataIn/DEGCAGS_intersect_repeats_Alice_withalpha_GITIGNORE.xlsx
 B_MultiTissues/dataOut/figures/
+05_hvCpGalgorithm/figures/
+05_hvCpGalgorithm/resultsDir/
+05_hvCpGalgorithm/runAlgo_myDatasets/
+05_hvCpGalgorithm/dataOut/
+05_hvCpGalgorithm/exploreResults/
+05_hvCpGalgorithm/explorationResults_Rstudio.html
