@@ -10,12 +10,13 @@ B_MultiTissues/resultsDir_gitIgnored/
 .RData
 *.Rhistory
 
-# put only files of more than 100M in .gitignore
-#B_MultiTissues/dataOut/figures/
+# put only files of more than 50M in .gitignore
+# B_MultiTissues/dataOut/figures/
 
 ## Matt's data
 B_MultiTissues/dataIn/DEGCAGS_intersect_repeats_Alice_withalpha_GITIGNORE.xlsx
-B_MultiTissues/dataOut/figures/
+
+## Previous
 05_hvCpGalgorithm/figures/
 05_hvCpGalgorithm/resultsDir/
 05_hvCpGalgorithm/runAlgo_myDatasets/
