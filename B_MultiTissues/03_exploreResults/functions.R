@@ -11,8 +11,6 @@
 ## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
 ## for each quadrant vs the other three combined
 ### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
-<<<<<<< HEAD
-=======
 ## Functions extracted from S06 for reuse in downstream scripts:
 ### make_MEsetdt
 ### make_MEsetdt_regionMean
@@ -20,7 +18,6 @@
 ### plot_decay_curve_layered (by germ layers)
 ### compute_percpg_interlayer_corr: Compute per-CpG interlayer correlation from raw meth
 ### plot_stochastic_test
->>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 
 makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   size = 4
@@ -274,18 +271,6 @@ clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
     pos = as.integer(sub(".*_", "", CpGvec))
   )
   setkey(dt, chr, pos)
-<<<<<<< HEAD
-
-  # gap to previous CpG
-  dt[, gap := pos - data.table::shift(pos), by = chr]
-
-  # run ID increments whenever gap > max_gap OR different chromosome
-  dt[, run_id := cumsum(is.na(gap) | gap > max_gap), by = chr]
-
-  # Count CpGs in each run
-  dt[, run_size := .N, by = .(chr, run_id)]
-
-=======
   
   # gap to previous CpG
   dt[, gap := pos - data.table::shift(pos), by = chr]
@@ -296,38 +281,13 @@ clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
   # Count CpGs in each run
   dt[, run_size := .N, by = .(chr, run_id)]
   
->>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
   # Keep only large runs
   dt[run_size >= min_size, raw]
 }
 
 ## FAST GENE ANNOTATION (OFFLINE)
 annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
-<<<<<<< HEAD
 
-  if (length(CpGs) == 0) return(character(0))
-
-  chr <- sub("_.*", "", CpGs)
-  pos <- as.integer(sub(".*_", "", CpGs))
-  gr  <- GRanges(chr, IRanges(pos, pos))
-
-  # Trim to seqinfo bounds to avoid out-of-bound warnings
-  gr <- GenomicRanges::trim(gr)
-
-  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
-  genes_txdb <- GenomicFeatures::genes(txdb)
-  promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window, downstream = tss_window)
-
-  # overlaps with gene bodies
-  o1 <- findOverlaps(gr, genes_txdb)
-  g1 <- genes_txdb$gene_id[subjectHits(o1)]
-
-  # overlaps with promoters
-  o2 <- findOverlaps(gr, promoters_txdb)
-  g2 <- promoters_txdb$gene_id[subjectHits(o2)]
-
-=======
-  
   if (length(CpGs) == 0) return(character(0))
   
   chr <- sub("_.*", "", CpGs)
@@ -349,7 +309,6 @@ annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
   o2 <- findOverlaps(gr, promoters_txdb)
   g2 <- promoters_txdb$gene_id[subjectHits(o2)]
   
->>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
   return(unique(c(g1, g2)))
 }
 
@@ -547,8 +506,6 @@ plotMyVenn <- function(cutoff, ...) {
   return(p)
 }
 
-<<<<<<< HEAD
-=======
 ## functions_S06.R
 ## Functions extracted from S06 for reuse in downstream scripts
 
@@ -997,5 +954,4 @@ plot_candidate_locus <- function(gene_name_arg,
   return(combined)
 }
 
->>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 functionsLoaded = TRUE

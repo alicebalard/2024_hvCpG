@@ -93,10 +93,7 @@ length(SoCCpGs_hg38) #259
 
 HarrisSIV_hg38_GR <- makeGRfromMyCpGPos(HarrisSIV_hg38, "Harris SIV")  
 VanBaakESS_hg38_GR <- makeGRfromMyCpGPos(VanBaakESS_hg38, "VanBaak ESS")
-<<<<<<< HEAD
-=======
 VanBaakSIV_hg38_GR <- makeGRfromMyCpGPos(VanBaakSIV_hg38, "VanBaak SIV")
->>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
 KesslerSIV_GRanges_hg38$set <- "Kessler SIV"
 corSIV_GRanges_hg38$set <- "Gunasekara corSIV"
 DerakhshanhvCpGs_hg38_GR <- makeGRfromMyCpGPos(DerakhshanhvCpGs_hg38, "Derakhshan hvCpG")
