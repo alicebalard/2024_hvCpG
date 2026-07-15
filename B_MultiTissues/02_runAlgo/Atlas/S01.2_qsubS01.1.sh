@@ -20,7 +20,7 @@ echo "**** Job $JOB_NAME.$SGE_TASK_ID started at $(date) ****"
 P0=0.80
 P1=0.9
 MININD=3
-for ANALYSIS in "12_endo" "13_meso" "14_ecto" "12_2_endo6gp" "13_2_meso6gp"; do
+for ANALYSIS in "12_endo" "13_meso" "14_ecto" "12_2_endo6gp" "13_2_meso6gp" "atlas_general" "02_rmMultSamples"; do
     echo "[INFO] Running analysis: $ANALYSIS"
     Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
 done
