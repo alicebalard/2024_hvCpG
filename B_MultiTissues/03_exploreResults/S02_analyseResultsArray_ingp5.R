@@ -72,7 +72,7 @@ saveRDS(resArrayAll, here("B_MultiTissues/dataOut/resArray.RDS"))
 
 ################################################################################
 ## Compare with previous buggy version (fix 13th July 2026)
-resArrayAll_prev <- readRDS(here("B_MultiTissues/dataOut/resArray_beforep0p1bugcorrection.RDS"))
+resArrayAll_prev <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/resArray_beforep0p1bugcorrection.RDS"))
 resArrayAll_prev <- resArrayAll_prev[c("alpha", "chrpos")]
 names(resArrayAll_prev) <- c("alpha_beforeBugp0p1", "chrpos")
 
@@ -356,7 +356,8 @@ h5file <- "/home/alice/arraysh5/all_matrix_noscale.h5"
 ###############################################################
 
 ## a) buggy code, p0=80%, p1=65%  (what you had before the fix)
-prev <- readRDS(here("B_MultiTissues/dataOut/resArray_beforep0p1bugcorrection.RDS"))[, c("alpha", "chrpos")]
+prev <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/resArray_beforep0p1bugcorrection.RDS"))
+prev <- prev[c("alpha_buggy_65", "chrpos")]
 names(prev) <- c("alpha_buggy_65", "chrpos")
 
 ## b) fixed code, SAME params p0=80%, p1=65% -> isolates the bug-fix effect alone
@@ -372,7 +373,7 @@ fixed90$chrpos <- dico$chrpos_hg38[match(fixed90$cpg, dico$CpG)]
 merged <- prev %>%
   inner_join(fixed65[, c("chrpos", "alpha_fixed_65")], by = "chrpos") %>%
   inner_join(fixed90, by = "chrpos") %>%                 # brings in cpg (cg ID) + alpha_fixed_90
-  filter(chrpos %in% mQTLcontrols_hg38)
+  dplyr::filter(chrpos %in% mQTLcontrols_hg38)
 
 ################################################################
 ## 2. Controls that flipped: low before, high now             ##
@@ -539,3 +540,4 @@ plotCheck <- ggplot(plotDF, aes(x = reorder(cpg, -prop), y = prop, fill = metric
 
 ggsave(here("B_MultiTissues/dataOut/figures/script02/perDatasetVariabilityCheck.png"),
        plotCheck, width = 9, height = 6, dpi = 300, bg = "white")
+
