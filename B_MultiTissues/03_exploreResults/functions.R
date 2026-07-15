@@ -287,11 +287,6 @@ clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
 
 ## FAST GENE ANNOTATION (OFFLINE)
 annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
-<<<<<<< HEAD
-  
-=======
-
->>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
   if (length(CpGs) == 0) return(character(0))
   
   chr <- sub("_.*", "", CpGs)
