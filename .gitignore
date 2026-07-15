@@ -3,13 +3,23 @@ logs
 .git/objects/
 gitignore
 
-## The Atlas results are too big for git
-B_MultiTissues/resultsDir_gitIgnored/Atlas
-
-## The tissue result file is big for array
-B_MultiTissues/resultsDir_gitIgnored/Arrays/tissue
+## The results are too big for git, we keep them in local
+B_MultiTissues/resultsDir_gitIgnored/
 
 *.RData
 .RData
 *.Rhistory
-B_MultiTissues/dataOut/figures/
+
+# put only files of more than 50M in .gitignore
+# B_MultiTissues/dataOut/figures/
+
+## Matt's data
+B_MultiTissues/dataIn/DEGCAGS_intersect_repeats_Alice_withalpha_GITIGNORE.xlsx
+
+## Previous
+05_hvCpGalgorithm/figures/
+05_hvCpGalgorithm/resultsDir/
+05_hvCpGalgorithm/runAlgo_myDatasets/
+05_hvCpGalgorithm/dataOut/
+05_hvCpGalgorithm/exploreResults/
+05_hvCpGalgorithm/explorationResults_Rstudio.html

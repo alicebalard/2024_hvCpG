@@ -121,4 +121,8 @@ vmeQTL_hg38 <- na.omit(dico$chrpos_hg38[match(vmeQTL_hg19probes$vCpG, dico$CpG)]
 vmeQTL_hg38_GR <- makeGRfromMyCpGPos(vmeQTL_hg38, "Zhang vmeQTL")  
 vmeQTL_hg38_GR$genome <- "hg38"
 
+<<<<<<< HEAD
 previousSIVprepared = "prepared"
+=======
+previousSIVprepared = "prepared"
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32

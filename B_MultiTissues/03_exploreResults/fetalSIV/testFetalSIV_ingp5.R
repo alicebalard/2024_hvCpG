@@ -221,7 +221,11 @@ binned_summary_boot <- CpG_summary %>%
   dplyr::select(-boot_res)
 
 # Plot
+<<<<<<< HEAD
 p3 <- ggplot(binned_summary_boot,
+=======
+p3 <- ggplot(binned_sinterlayer_corr_LTR41ummary_boot,
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
              aes(x = bin, y = median_r, color = group, fill = group)) +
   geom_point(position = position_dodge(width = 0.5), size = 3) +
   geom_errorbar(

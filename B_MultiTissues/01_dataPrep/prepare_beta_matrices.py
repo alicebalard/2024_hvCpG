@@ -32,6 +32,7 @@ python prepare_beta_matrices.py \\
   --meta      /data/metadata_with_analysis_group.csv \\
   --minCov    10 \\
   --min_samples 3 \\
+  --min_datasets 46 \\
   --chunk_size 100000
 
 Author: Alice Balard
@@ -168,7 +169,6 @@ else:
 sample_to_path        = build_sample_to_path_map(beta_files, id_pattern=args.id_pattern)
 samples_per_group     = filter_valid_groups(meta, args.group_col, args.sample_col, args.min_samples)
 samples_per_group_short = shorten_sample_ids(samples_per_group, sep=args.id_sep)
-
 
 # Default min_datasets = all groups that pass min_samples
 n_passing_groups = len(samples_per_group)

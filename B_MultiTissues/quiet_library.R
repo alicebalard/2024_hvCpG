@@ -28,7 +28,11 @@ bioc_packages <- c(
   "rtracklayer", "genomation",
   "IlluminaHumanMethylation450kanno.ilmn12.hg19",
   "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
+<<<<<<< HEAD
   "GenomicRanges", "IRanges",
+=======
+  "GenomicRanges", "IRanges", "GenomicFeatures",
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
   "TxDb.Hsapiens.UCSC.hg38.knownGene",
   "GSEABase",
   "methylKit", 
@@ -94,4 +98,8 @@ install_and_load(bioc_packages, source = "bioc")
 # ─────────────────────────────────────────────────────────────────────────────
 
 rm(install_and_load, cran_packages, bioc_packages)
+<<<<<<< HEAD
 libLoaded <- TRUE
+=======
+libLoaded <- TRUE
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32

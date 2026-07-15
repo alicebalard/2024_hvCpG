@@ -20,12 +20,160 @@ if (!exists("previousSIVprepared")) {
 #####################################################################
 
 ## To avoid re-running everything:
+<<<<<<< HEAD
 if (!exists("table3layers")) load(here("gitignore/fullTable3layers.Rda"))
+=======
+<<<<<<< HEAD
+if (!exists("table3layers")) load(here("gitignore/fullTable3layers.Rda"))
+=======
+<<<<<<< HEAD
+load(here("gitignore/fullTable3layers.Rda"))
+=======
+if (!exists("table3layers")) load(here("gitignore/fullTable3layers.Rda"))
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
 top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
                              (table3layers$alpha_geomean >= .9), ]$chr_pos
 
 ############################################
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
+meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
+ecto <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
+Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds"))
+
+## With only 6 groups (to see if power)
+endo6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_2_endo6gp.rds"))
+meso6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_2_meso6gp.rds"))
+
+endoGR <- GRanges(seqnames = endo$chr,
+                  ranges = IRanges(start = endo$pos, end = endo$pos),
+                  alpha_endo = endo$alpha)
+
+ectoGR <- GRanges(seqnames = ecto$chr,
+                  ranges = IRanges(start = ecto$pos, end = ecto$pos),
+                  alpha_ecto = ecto$alpha)
+
+mesoGR <- GRanges(seqnames = meso$chr,
+                  ranges = IRanges(start = meso$pos, end = meso$pos),
+                  alpha_meso = meso$alpha)
+
+allLayersGR <- GRanges(seqnames = Atlas_dt$chr,
+                       ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
+                       alpha_allLayers = Atlas_dt$alpha)
+
+################################
+## Test: are 6 groups enough? ##
+################################
+
+## Endoderm
+if (!file.exists(here::here(
+  "B_MultiTissues/dataOut/figures/correlations/correlation_endoFullvsReduced6gp.pdf"))){
+  ## Use data table to handle large data
+  setDT(endo6gp)
+  setDT(endo)
+  
+  x <- endo6gp[, .(name, alpha_6gp = alpha)]; setkey(x, name)
+  y <- endo[, .(name, alpha_endo = alpha)]; setkey(y, name)
+  
+  m <- x[y, nomatch = 0]   # keeps matched names only
+  mycor <- cor(m$alpha_6gp, m$alpha_endo, use = "complete.obs")
+  set.seed(1234)
+  p <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_endo))+
+    geom_point(pch = 21, alpha = 0.1) +
+    theme_minimal(base_size = 14) +
+    ylim(c(0,1)) +
+    annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
+    labs(title = "Probability of being hypervariable in WGBS atlas endoderm cell types",
+         subtitle = "(100k random CpG plotted)",
+         x = "Pr(hv) calculated on a subset of cell types (N=6)",
+         y = "Pr(hv) calculated on all cell types (N=21)")
+  
+  ggplot2::ggsave(
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_endoFullvsReduced6gp.pdf")),
+    plot = p, width = 8, height = 8
+  )
+}
+
+## Mesoderm
+if (!file.exists(here::here(
+  "B_MultiTissues/dataOut/figures/correlations/correlation_mesoFullvsReduced6gp.pdf"))){
+  setDT(meso6gp)
+  setDT(meso)
+  
+  x <- meso6gp[, .(name, alpha_6gp = alpha)]; setkey(x, name)
+  y <- meso[, .(name, alpha_meso = alpha)]; setkey(y, name)
+  
+  m <- x[y, nomatch = 0]   # keeps matched names only
+  mycor <- cor(m$alpha_6gp, m$alpha_meso, use = "complete.obs")
+  
+  set.seed(1234)
+  p <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_meso))+
+    geom_point(pch = 21, alpha = 0.1) +
+    theme_minimal(base_size = 14) +
+    ylim(c(0,1)) +
+    annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
+    labs(title = "Probability of being hypervariable in WGBS atlas mesoderm cell types",
+         subtitle = "(100k random CpG plotted)",
+         x = "Pr(hv) calculated on a subset of cell types (N=6)", 
+         y = "Pr(hv) calculated on all cell types (N=19)")
+  
+  ggplot2::ggsave(
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_mesoFullvsReduced6gp.pdf")),
+    plot = p, width = 8, height = 8
+  )
+}
+
+####################################################################
+## Create a table with all CpG sites & pr(hv) for each germ layer ##
+####################################################################
+
+## 1. Create union of all unique CpG positions
+table3layers <- union(union(allLayersGR, union(ectoGR, mesoGR)), endoGR)
+
+## 2. Use findOverlaps to map alpha values back
+# we want endoGR[i] -> table3layers[endoHits[[i]]] for each i, etc.
+
+endoHits <- findOverlaps(endoGR, table3layers, select = "first")
+ectoHits <- findOverlaps(ectoGR, table3layers, select = "first")
+mesoHits <- findOverlaps(mesoGR, table3layers, select = "first")
+allLayersHits <- findOverlaps(allLayersGR, table3layers, select = "first")
+
+# initialize columns with NA
+mcols(table3layers)$alpha_endo <- NA_real_
+mcols(table3layers)$alpha_ecto <- NA_real_
+mcols(table3layers)$alpha_meso <- NA_real_
+mcols(table3layers)$alpha_allLayers <- NA_real_
+
+# copy only the hits
+mcols(table3layers)$alpha_endo[endoHits]   <- mcols(endoGR)$alpha_endo
+mcols(table3layers)$alpha_ecto[ectoHits]   <- mcols(ectoGR)$alpha_ecto
+mcols(table3layers)$alpha_meso[mesoHits]   <- mcols(mesoGR)$alpha_meso
+mcols(table3layers)$alpha_allLayers[allLayersHits]   <- mcols(allLayersGR)$alpha_allLayers
+
+## Add chr_pos column to identify positions
+table3layers$chr_pos <- paste0("chr", table3layers@seqnames, "_", table3layers@ranges@start)
+
+## add a geometric mean between the 3 layers
+table3layers$alpha_geomean <- exp(rowMeans(
+  log(cbind(table3layers$alpha_endo, 
+            table3layers$alpha_ecto, 
+            table3layers$alpha_meso)),
+  na.rm = FALSE))
+
+### SAVED ###
+save(table3layers, file = here("gitignore/fullTable3layers.Rda"))
+
+=======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 if (!file.exists(here("gitignore/fullTable3layers.Rda"))){
   endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
   meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
@@ -151,6 +299,13 @@ if (!file.exists(here("gitignore/fullTable3layers.Rda"))){
   save(table3layers, file = here("gitignore/fullTable3layers.Rda"))
 }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 df <- as.data.frame(table3layers)
 
 p <- ggplot(df[sample(nrow(df), 100000),],
@@ -226,18 +381,64 @@ geomMeanGR <- GRanges(seqnames = table3layers@seqnames,
 
 geomMeanGR <- geomMeanGR[!is.na(geomMeanGR$alpha_geomean)]
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+# Fix chromosome names in geomMeanGR (1 -> chr1)
+seqlevels(geomMeanGR) <- paste0("chr", seqlevels(geomMeanGR))
+
+sets <- list(
+  mQTLcontrols = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
+  HarrisSIV = HarrisSIV_hg38_GR,
+=======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 sets <- list(
   mQTLcontrols = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
   HarrisSIV = HarrisSIV_hg38_GR,
   VanBaakSIV = VanBaakSIV_hg38_GR,
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
   VanBaakESS = VanBaakESS_hg38_GR,
   KesslerSIV = KesslerSIV_GRanges_hg38,
   CoRSIV = corSIV_GRanges_hg38,
   hvCpG = DerakhshanhvCpGs_hg38_GR
 )
 
+<<<<<<< HEAD
 # ── ME overlap ────────────────────────────────────────────
 MEsetdt <- make_MEsetdt(sets, geomMeanGR)
+=======
+<<<<<<< HEAD
+# ── ME overlap ────────────────────────────────────────────
+MEsetdt <- make_MEsetdt(sets, geomMeanGR)
+=======
+<<<<<<< HEAD
+# Now do overlap join for each set
+MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
+  hits <- findOverlaps(sets[[nm]], geomMeanGR)
+  data.table(
+    alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+    ME    = nm
+  )
+}))
+
+MEsetdt <- na.omit(MEsetdt) ## 63078
+
+# Set controls as baseline
+=======
+# ── ME overlap ────────────────────────────────────────────
+MEsetdt <- make_MEsetdt(sets, geomMeanGR)
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
 
 p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha_geomean)) +
@@ -261,6 +462,20 @@ contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust 
 
 emm
 # ME           emmean      SE    df lower.CL upper.CL
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+# mQTLcontrols  0.211 0.00635 69709    0.199    0.224
+# CoRSIV        0.315 0.00141 69709    0.312    0.318
+# HarrisSIV     0.361 0.00974 69709    0.342    0.380
+# hvCpG         0.526 0.00656 69709    0.513    0.539
+# KesslerSIV    0.404 0.00684 69709    0.391    0.418
+# VanBaakESS    0.474 0.01070 69709    0.453    0.495
+=======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 # mQTLcontrols  0.211 0.00634 69972    0.199    0.224
 # CoRSIV        0.315 0.00141 69972    0.312    0.318
 # HarrisSIV     0.361 0.00974 69972    0.342    0.380
@@ -268,6 +483,13 @@ emm
 # KesslerSIV    0.404 0.00684 69972    0.391    0.418
 # VanBaakESS    0.474 0.01070 69972    0.453    0.495
 # VanBaakSIV    0.633 0.02110 69972    0.591    0.674
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 # 
 # Confidence level used: 0.95 
 
@@ -294,6 +516,14 @@ pdf(here("B_MultiTissues/dataOut/figures/alphaComparisonBetweenMEtypes.pdf"),
 cowplot::plot_grid(p1,p2, rel_widths = c(1, .8))
 dev.off()
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 ############################################################ 
 ## Now, summarising for the regions, one value per region ##
 ############################################################
@@ -458,6 +688,13 @@ decay_wide[VanBaakSIV > 0.50, max(threshold)]
 
 decay_fine[threshold>=0.71] # and only .7% of controls
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 ##############################
 ## Save the top alpha > 90% ##
 ##############################
@@ -828,7 +1065,19 @@ if (retest == TRUE){
 # top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
 #                              (table3layers$alpha_geomean >= .9), ]$chr_pos
 
+<<<<<<< HEAD
 # Method. ClusterProfiler
+=======
+<<<<<<< HEAD
+# Method. ClusterProfiler
+=======
+<<<<<<< HEAD
+# Method 1. ClusterProfiler
+=======
+# Method. ClusterProfiler
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 
 ## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
 ## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
@@ -906,9 +1155,24 @@ df_sig <- df_sig |>
   mutate(Description = fct_reorder(Description, FoldEnrichment, .desc = TRUE)) |>
   ungroup()
 
+<<<<<<< HEAD
 write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
           quote = F, row.names = F)
 
+=======
+<<<<<<< HEAD
+write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
+          quote = F, row.names = F)
+
+=======
+<<<<<<< HEAD
+=======
+write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
+          quote = F, row.names = F)
+
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 # Plot
 p <- ggplot(df_sig, aes(x = group, y = Description)) +
   geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
@@ -926,6 +1190,38 @@ p <- ggplot(df_sig, aes(x = group, y = Description)) +
   )
 
 print(p)
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
+          quote = F, row.names = F)
+
+# Method 2. rgreat
+# GREAT analysis was conducted using the rGREAT R package (Gu and Hübschmann 2023).
+# GREAT performs hypergeometric tests using a foreground and background set and returns 
+# annotations of gene sets near the foreground CpGs. 
+# The foreground set consists of topIntersect90
+# The background set consists of all the sequenced CpGs 
+# We reported ontologies after an FDR-adjusted hypergeometric p value<0.05 and an unadjusted hypergeometric p value<0.001. 
+## The GREAT settings used were hg38 for the species assembly
+background <- makeGRfromMyCpGPos(totalSiteswGeomMean, "background")
+foreground <- makeGRfromMyCpGPos(top90SNPrm, "top90SNPrm")
+
+system.time(res <- great(gr = foreground, gene_sets = "GO:BP", biomart_dataset = "hg38", 
+                         background = background, cores = 10))
+saveRDS(res, file = here(paste0("B_MultiTissues/03_exploreResults/rGreatGO_top90SNPrm.RDS")))
+
+# Run both and compare. If ephrin/neuron recognition terms survive in GREAT, that tells something important
+# about the source of the signal = results are robust to the methodological choice.
+# I can report clusterProfiler with gene length correction as the primary analysis 
+# (more methodologically rigorous, more transparent) and GREAT as a validation with a different
+# and partially orthogonal approach to the length bias problem.
+=======
+>>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
+>>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
 
 #######################
 ## Enrichement in TE ##

@@ -34,11 +34,19 @@ done
 ##    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
 ##done
 
-##P0=0.55
-##P1=0.65
+##P0=0.80
+##P1=0.9
 ##MININD=3
 ##ANALYSIS="atlas_general"
+##
 ##echo "[INFO] Running analysis: $ANALYSIS"
 ##Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+
+P0=0.55
+P1=0.65
+MININD=3
+ANALYSIS="atlas_general"
+echo "[INFO] Running analysis: $ANALYSIS"
+Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"

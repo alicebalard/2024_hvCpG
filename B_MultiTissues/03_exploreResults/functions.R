@@ -287,7 +287,10 @@ clusterCpGs <- function(CpGvec, max_gap = 50, min_size = 5) {
 
 ## FAST GENE ANNOTATION (OFFLINE)
 annotateCpGs_txdb <- function(CpGs, tss_window = 10000) {
+<<<<<<< HEAD
   
+=======
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
   if (length(CpGs) == 0) return(character(0))
   
   chr <- sub("_.*", "", CpGs)
@@ -906,7 +909,11 @@ plot_candidate_locus <- function(gene_name_arg,
   
   layer_min <- max(3L, min_samples %/% 2L)               # relaxed for single layers
   ld_all  <- make_ld(mdw[, .(sample_id, cpg_site, pos, methylation)],
+<<<<<<< HEAD
                      sprintf("d. LD pairwise r \u2014 %s \u00b1%gkb (all samples)",
+=======
+                     sprintf("d. Co-methylation pairwise r \u2014 %s \u00b1%gkb (all samples)",
+>>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
                              gene_name_arg, flank / 1e3),
                      min_samples)
   ld_endo <- make_ld(mdw[germ_layer == "Endo", .(sample_id, cpg_site, pos, methylation)],
