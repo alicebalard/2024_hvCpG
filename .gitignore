@@ -17,23 +17,9 @@ B_MultiTissues/resultsDir_gitIgnored/
 B_MultiTissues/dataIn/DEGCAGS_intersect_repeats_Alice_withalpha_GITIGNORE.xlsx
 
 ## Previous
-05_hvCpGalgorithm/figures/
-05_hvCpGalgorithm/resultsDir/
-05_hvCpGalgorithm/runAlgo_myDatasets/
-05_hvCpGalgorithm/dataOut/
-05_hvCpGalgorithm/exploreResults/
-05_hvCpGalgorithm/explorationResults_Rstudio.html
-05_hvCpGalgorithm/resultsDir/
-05_hvCpGalgorithm/runAlgo_myDatasets/
-05_hvCpGalgorithm/dataOut/
-05_hvCpGalgorithm/exploreResults/
-05_hvCpGalgorithm/explorationResults_Rstudio.html
+05_hvCpGalgorithm/
 B_MultiTissues/dataOut/figures/BAK/
 B_MultiTissues/dataOut/figures/lociAlice/
-B_MultiTissues/dataOut/figures/script03/
-B_MultiTissues/dataOut/figures/script10/
-B_MultiTissues/dataOut/figures/script12/
-B_MultiTissues/dataOut/figures/script13/
 B_MultiTissues/dataOut/figures/correlations/
 B_MultiTissues/dataOut/figures/Manhattan/
 B_MultiTissues/dataOut/figures/quadrantEnrichment/
@@ -57,6 +43,3 @@ B_MultiTissues/dataOut/figures/tissudiffarrayWGBS_1.png
 B_MultiTissues/dataOut/figures/tissuePlot_arrayAtlas_germLayer.pdf
 B_MultiTissues/dataOut/figures/top90CpGsEnrichME.pdf
 B_MultiTissues/dataOut/figures/topCpGsEnrichME_table.png
-B_MultiTissues/dataOut/resArray.RDS
-B_MultiTissues/dataOut/resArray_beforep0p1bugcorrection.RDS
-B_MultiTissues/dataOut/interlayer_corr_all.RDS
