@@ -68,7 +68,12 @@ prepareChrDataset <- function(res){
 resArrayAll <- prepareChrDataset(resArrayAll)
 
 ## Save for next scripts
-saveRDS(resArrayAll, here("B_MultiTissues/dataOut/resArray.RDS"))
+saveRDS(resArrayAll, here("B_MultiTissues/dataOut/resArray0.65p10.8p0.RDS"))
+
+resArray2 <- prepareChrDataset(
+  as.data.frame(
+  readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds"))))
+saveRDS(resArray2, here("B_MultiTissues/dataOut/resArray0.9p10.8p0.RDS"))
 
 ################################################################################
 ## Compare with previous buggy version (fix 13th July 2026)
