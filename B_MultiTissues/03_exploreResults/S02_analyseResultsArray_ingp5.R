@@ -24,11 +24,6 @@ if (!exists("previousSIVprepared")) {
 ## Load full results on array ##
 ################################
 
-##NB: save ONE at the end!! for later scripts  
-## Save for next scripts
-# saveRDS(resArrayAll_sum, here("B_MultiTissues/dataOut/resArraysum0.65p10.8p0.RDS"))
-#############
-
 ## with sum per dataset:
 pathSum <- "B_MultiTissues/resultsDir_gitIgnored/Arrays/prev_sumInd/"
 
@@ -88,6 +83,11 @@ resArrayAll_mean <- prepareChrDataset(resArrayAll_mean)
 resArrayAll_mean_strict <- as.data.frame(
   readRDS(here(paste0(pathMean, "results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds"))))
 resArrayAll_mean_strict <- prepareChrDataset(resArrayAll_mean_strict)
+
+######################################
+## NB: save the best for later scripts
+## Save for next scripts
+saveRDS(resArrayAll_mean_strict, here("B_MultiTissues/dataOut/resArraymean0.9p10.8p0.RDS"))
 
 ################################################################################
 ## Compare with previous buggy version (fix 13th July 2026)
