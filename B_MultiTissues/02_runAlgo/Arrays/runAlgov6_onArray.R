@@ -5,12 +5,10 @@
 library(hyperVarMeth)
 
 ## Output directory
-result_dir <- "/home/alice/2024_hvCpG/B_MultiTissues/resultsDir_gitIgnored"
-message(paste0("If new, results will be saved in dir: ", result_dir))
+result_dir <- "/home/alice/2024_hvCpG/B_MultiTissues/resultsDir_gitIgnored/Arrays/"
 
-runAll <- function(data_dir, analysis, n = "all", p0, p1){
-
-    if (!exist(data_dir)){
+runAll <- function(data_dir, analysis, n = 0, p0, p1){
+    if (!file.exists(data_dir)){
         print(paste0("No ", data_dir, " found"))
     } else {        
         ## Names of all CpG in the dataset:
@@ -22,7 +20,7 @@ runAll <- function(data_dir, analysis, n = "all", p0, p1){
         } else {
             minind = 3
         }
-        
+        message(paste0("If new, results will be saved in dir: ", result_dir))
         system.time(hyperVarMeth::runAndSave_fast(
                                       analysis = analysis,
                                       cpg_names_vec = cpg_names_all,
@@ -30,24 +28,23 @@ runAll <- function(data_dir, analysis, n = "all", p0, p1){
                                       resultDir = result_dir,
                                       NCORES = 30,
                                       p0 = p0,
-                                      p1 = 01,
+                                      p1 = p1,
                                       batch_size = 10000, minind = minind)
                     )
     }
 }
 
-data_dir = paste0("/home/alice/arraysh5_all")
-runAll(data_dir, n = i, paste0("Arrays_all"), p0=0.8, p1=0.65)
+runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.8, p1=0.65)  
 
 for (i in c(2, 3)){
-    data_dir = paste0("/home/alice/arraysh5_", i, "ind/")
-    runAll(data_dir, n = i, paste0("Arrays_", i, "indperds"), p0=0.8, p1=0.65)
+    runAll(data_dir = paste0("/home/alice/arraysh5_", i, "ind/"),
+           n = i, paste0("Arrays_", i, "ind"), p0=0.8, p1=0.65)
 }
 
 ## Stricter parameters
-data_dir = paste0("/home/alice/arraysh5_all")
-runAll(data_dir, n = i, paste0("Arrays_all"), p0=0.8, p1=0.9)
+runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.8, p1=0.9)
 
-for (i in c(2, 3, 4, 5, 6, 10)){
-    runAll(data_dir, n = i, p0=0.8, p1=0.9)
+for (i in c(2, 3, 4, 5, 6, 10, 15, 20, 25)){
+        runAll(data_dir = paste0("/home/alice/arraysh5_", i, "ind/"),
+           n = i, paste0("Arrays_", i, "ind"), p0=0.8, p1=0.9)
 }

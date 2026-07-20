@@ -24,8 +24,16 @@ if (!exists("previousSIVprepared")) {
 ## Load full results on array ##
 ################################
 
-resArrayAll <- as.data.frame(
-  readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_all_406036CpGs_0_8p0_0_65p1.rds")))
+##NB: save ONE at the end!! for later scripts  
+## Save for next scripts
+# saveRDS(resArrayAll_sum, here("B_MultiTissues/dataOut/resArraysum0.65p10.8p0.RDS"))
+#############
+
+## with sum per dataset:
+pathSum <- "B_MultiTissues/resultsDir_gitIgnored/Arrays/prev_sumInd/"
+
+## with mean per dataset:
+pathMean <- "B_MultiTissues/resultsDir_gitIgnored/Arrays/"
 
 prepareChrDataset <- function(res){
   res$chrpos <- dico$chrpos_hg38[
@@ -65,23 +73,29 @@ prepareChrDataset <- function(res){
   return(res)
 }
 
-resArrayAll <- prepareChrDataset(resArrayAll)
+resArrayAll_sum <- as.data.frame(
+  readRDS(here(paste0(pathSum, "results_Arrays_all_406036CpGs_0_8p0_0_65p1.rds"))))
+resArrayAll_sum <- prepareChrDataset(resArrayAll_sum)
 
-## Save for next scripts
-saveRDS(resArrayAll, here("B_MultiTissues/dataOut/resArray0.65p10.8p0.RDS"))
+resArrayAll_sum_strict <- as.data.frame(
+  readRDS(here(paste0(pathSum, "results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds"))))
+resArrayAll_sum_strict <- prepareChrDataset(resArrayAll_sum_strict)
 
-resArray2 <- prepareChrDataset(
-  as.data.frame(
-  readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds"))))
-saveRDS(resArray2, here("B_MultiTissues/dataOut/resArray0.9p10.8p0.RDS"))
+resArrayAll_mean <- as.data.frame(
+  readRDS(here(paste0(pathMean, "results_Arrays_all_406036CpGs_0_8p0_0_65p1.rds"))))
+resArrayAll_mean <- prepareChrDataset(resArrayAll_mean)
+
+resArrayAll_mean_strict <- as.data.frame(
+  readRDS(here(paste0(pathMean, "results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds"))))
+resArrayAll_mean_strict <- prepareChrDataset(resArrayAll_mean_strict)
 
 ################################################################################
 ## Compare with previous buggy version (fix 13th July 2026)
-resArrayAll_prev <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/resArray_beforep0p1bugcorrection.RDS"))
+resArrayAll_prev <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/prev_sumInd/resArray_beforep0p1bugcorrection.RDS"))
 resArrayAll_prev <- resArrayAll_prev[c("alpha", "chrpos")]
 names(resArrayAll_prev) <- c("alpha_beforeBugp0p1", "chrpos")
 
-compare <- merge(resArrayAll_prev, resArrayAll, all =T)
+compare <- merge(resArrayAll_prev, resArrayAll_sum, all =T)
 ggplot(compare, aes(x = alpha_beforeBugp0p1, y = alpha)) +
   geom_abline(slope = 1) +
   geom_point(alpha=.01)+
@@ -90,27 +104,42 @@ ggplot(compare, aes(x = alpha_beforeBugp0p1, y = alpha)) +
 
 ################################################################################
 ## Compare with different p0 p1
-resArrayAllStrict <- as.data.frame(
-  readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds")))
-resArrayAllStrict <- prepareChrDataset(resArrayAllStrict)
 
 # separate object just for the p0/p1 scatter comparison - keep resArrayAllStrict intact for makeScript2Fig()
-resArrayAllStrict_cmp <- resArrayAllStrict[c("alpha", "chrpos")]
-names(resArrayAllStrict_cmp) <- c("alpha_stricterp0p1", "chrpos")
+resArrayAll_sum_strict_cmp <- resArrayAll_sum_strict[c("alpha", "chrpos")]
+names(resArrayAll_sum_strict_cmp) <- c("alpha_stricterp0p1", "chrpos")
 
-library(data.table)
-setDT(resArrayAllStrict_cmp); setDT(resArrayAll)
-setkey(resArrayAllStrict_cmp, chrpos)
-setkey(resArrayAll, chrpos)
+# library(data.table)
+setDT(resArrayAll_sum_strict_cmp); setDT(resArrayAll_sum)
+setkey(resArrayAll_sum_strict_cmp, chrpos)
+setkey(resArrayAll_sum, chrpos)
 
-compare <- resArrayAllStrict_cmp[resArrayAll, nomatch = 0]
+compare <- resArrayAll_sum_strict_cmp[resArrayAll_sum, nomatch = 0]
 ggplot(compare, aes(x = alpha, y = alpha_stricterp0p1, colour = group)) +
   geom_point(data = compare[is.na(compare$group),], alpha = .1) + 
   geom_point(data = compare[!is.na(compare$group),], alpha = .1) + 
   geom_abline(slope = 1) + theme_bw()
 ################################################################################
 
-makeScript2Fig <- function(resArray, p0p1 = "0_8p0_0_65p1"){
+################################################################################
+## Compare between SUM over individuals or MEAN over individuals  
+a = resArrayAll_sum_strict
+b = resArrayAll_mean_strict
+names(b)[names(b) == "alpha"] <- "alpha_mean"
+
+comp <- dplyr::left_join(a, b[,c("chrpos", "alpha_mean")], by = "chrpos")
+
+ggplot(comp, aes(x = alpha, y = alpha_mean)) +
+  geom_point(size = 3, colour = "black", alpha = .01) +
+  theme_minimal(base_size = 12)
+
+cor(comp$alpha, comp$alpha_mean)
+
+# rm(a,b,comp)
+################################################################################
+
+
+makeScript2Fig <- function(resArray, path, p0p1 = "0_8p0_0_65p1"){
   # Plot
   # Compute midpoints for chromosome labels
   chr_mid <- resArray %>%
@@ -202,7 +231,7 @@ makeScript2Fig <- function(resArray, p0p1 = "0_8p0_0_65p1"){
   }
   
   resArray3ind <- as.data.frame(readRDS(here(paste0(
-    "B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_3ind_406036CpGs_", p0p1, ".rds"))))
+    path, "results_Arrays_3ind_406036CpGs_", p0p1, ".rds"))))
   resArray3ind <- prepareChrDataset(resArray3ind)
   names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_reduce"
   
@@ -216,7 +245,7 @@ makeScript2Fig <- function(resArray, p0p1 = "0_8p0_0_65p1"){
   p3ind <- makePlotNrob(resCompArray_allvs3, 3)
   
   resArray2ind <- as.data.frame(readRDS(here(paste0(
-    "B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_2ind_406036CpGs_", p0p1, ".rds"))))
+    path, "results_Arrays_2ind_406036CpGs_", p0p1, ".rds"))))
   resArray2ind <- prepareChrDataset(resArray2ind)
   names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_reduce"
   
@@ -243,10 +272,8 @@ makeScript2Fig <- function(resArray, p0p1 = "0_8p0_0_65p1"){
   
   plot_venn3 # "Cutoff algorithm"
   
-  ## What cutoff to get the same number of sites than Maria? with Bayesian approach ##
-  table(resCompArray_allvs3$group)
-  # hvCpG_Derakhshan     mQTLcontrols 
-  # 3644             3453
+  message("What cutoff to get the same number of sites than Maria? with Bayesian approach")
+  print(table(resCompArray_allvs3$group))
   
   top3535 <- resCompArray_allvs3 |>
     dplyr::slice_max(order_by = alpha_array_all, n = 3535, with_ties = FALSE)
@@ -316,29 +343,312 @@ makeScript2Fig <- function(resArray, p0p1 = "0_8p0_0_65p1"){
   return(figure2)
 }
 
-a <- as.data.frame(readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_all_406036CpGs_0_8p0_0_65p1.rds")))
-b <- as.data.frame(readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds")))
-
-identical(rownames(a), rownames(b))   # sanity re-check
-
-a2 <- prepareChrDataset(a)
-b2 <- prepareChrDataset(b)
-
-fig2_p080p165 <- makeScript2Fig(a2, p0p1 = "0_8p0_0_65p1")
+fig2_p080p165 <- makeScript2Fig(resArrayAll_sum, pathSum, p0p1 = "0_8p0_0_65p1")
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/testOnArray_p080p165.png"),
   plot = fig2_p080p165, width = 18, height = 10,
   dpi = 300, bg = "white")
 
-fig2_p080p190 <- makeScript2Fig(b2, p0p1 = "0_8p0_0_9p1")
+fig2_p080p190 <- makeScript2Fig(resArrayAll_sum_strict, pathSum, p0p1 = "0_8p0_0_9p1")
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/testOnArray_p080p190.png"),
   plot = fig2_p080p190, width = 18, height = 10,
   dpi = 300, bg = "white")
 
-# rm(x,y, pairs, merged, chr_mid, hv_alpha, data, ctrl_alpha, resArray3ind, resArrayAll)
+################################################################################
+## Evolution of top-3535 CpG recovery as individuals/dataset increases        ##
+## (p0=80%, p1=90%): 2, 3, 4, 5, 6, 10 ind/ds vs full datasets                ##
+################################################################################
+
+Ns <- c(2, 3, 4, 5, 6, 10, 15, 20)
+
+## Baseline: top 3535 CpGs using the full datasets (same cutoff as before)
+top3535_full <- resArrayAll_sum_strict |> dplyr::slice_max(order_by = alpha, n = 3535, with_ties = FALSE)
+cutoff_full  <- min(top3535_full$alpha)
+
+recovery <- lapply(Ns, function(N) {
+  f <- here(paste0(pathSum, "results_Arrays_", N,
+                   "ind_406036CpGs_0_8p0_0_9p1.rds"))
+  if (!file.exists(f)) {
+    message("SKIP N=", N, " - file not found (not computed yet?): ", f)
+    return(NULL)
+  }
+  
+  resN <- as.data.frame(readRDS(f)) |> prepareChrDataset()
+  names(resN)[names(resN) == "alpha"] <- "alpha_reduced"
+  
+  comp <- dplyr::left_join(resN, resArrayAll_sum_strict[, c("chrpos", "alpha")], by = "chrpos")
+  
+  ## Of the top 3535 CpGs under full data, how many are still >= the same
+  ## cutoff when using only N individuals/dataset?
+  recovered <- sum(comp$chrpos %in% top3535_full$chrpos & comp$alpha_reduced >= cutoff_full)
+  
+  data.frame(N = N, n_recovered = recovered, pct_recovered = recovered / nrow(top3535_full))
+}) |> dplyr::bind_rows()
+
+## Add the full-dataset reference point (100% recovery, by definition)
+recovery <- dplyr::bind_rows(recovery, data.frame(N = NA, n_recovered = nrow(top3535_full), pct_recovered = 1))
+recovery$N_label <- ifelse(is.na(recovery$N), "Full", as.character(recovery$N))
+recovery$N_label <- factor(recovery$N_label, levels = c(as.character(sort(Ns)), "Full"))
+
+print(recovery)
+
+plotRecovery <- ggplot(recovery, aes(x = N_label, y = pct_recovered, group = 1)) +
+  geom_line(colour = "grey40") +
+  geom_point(size = 3, colour = "black") +
+  geom_text(aes(label = scales::percent(pct_recovered, accuracy = 1)), vjust = -1, size = 3.5) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1.05)) +
+  theme_minimal(base_size = 13) +
+  labs(x = "Individuals per dataset", y = "% of top 3,535 CpGs (full data) still recovered",
+       title = "Recovery of top hvCpG hits as individuals/dataset increases",
+       subtitle = "p0=80%, p1=90% - cutoff fixed at the full-dataset top-3,535 threshold")
+
+# is the correlation trend smoother?
+corByN <- lapply(Ns, function(N) {
+  f <- here(paste0(pathSum, "results_Arrays_", N,
+                   "ind_406036CpGs_0_8p0_0_9p1.rds"))
+  if (!file.exists(f)) return(NULL)
+  resN <- as.data.frame(readRDS(f)) |> prepareChrDataset()
+  names(resN)[names(resN) == "alpha"] <- "alpha_reduced"
+  comp <- dplyr::left_join(resN, resArrayAll_sum_strict[, c("chrpos", "alpha")], by = "chrpos")
+  data.frame(N = N, r = cor(comp$alpha, comp$alpha_reduced, use = "complete.obs"))
+}) |> dplyr::bind_rows()
+
+print(corByN)
+
+plotCorByN <- ggplot(corByN, aes(x = N, y = r)) +
+  geom_line(colour = "grey40") +
+  geom_point(size = 3, colour = "black") +
+  geom_text(aes(label = scales::percent(r, accuracy = 1)), vjust = -1, size = 3.5) +
+  scale_y_continuous(labels = scales::percent, limits = c(.5, 1.05)) +
+  theme_minimal(base_size = 12) +
+  labs(x = "Individuals per dataset", y = "Correlation (Pearson r) of Pr(hv) with full data",
+       title = "Agreement with full-data Pr(hv) improves with sample size",
+       subtitle = "p0=80%, p1=90%")
+
+plotCorByN
+
+ggsave(here("B_MultiTissues/dataOut/figures/script02/plotcorByN_vs_Nind_p080p190.png"),
+       plotCorByN, width = 8, height = 6, dpi = 300, bg = "white")
+
+
+
+
+
+
+
+sd0 <- 0.015
+sd1 <- 0.05    # ratio = 3.33 - the actual gap the model is choosing between
+
+Ns <- c(10, 20, 50, 100, 150, 200, 300, 400)
+ratios <- c(1.0, 1.5, 2.5, 3.33)   # 3.33 = exactly matches sd1 (genuinely "hv"-level spread)
+nReps <- 200
+
+set.seed(1)
+marginSim <- expand.grid(N = Ns, trueSDratio = ratios, rep = seq_len(nReps)) %>%
+  rowwise() %>%
+  mutate(margin = {
+    x <- rnorm(N, 0, sd0 * trueSDratio)
+    sum(dnorm(x, mean(x), sd1, log = TRUE)) - sum(dnorm(x, mean(x), sd0, log = TRUE))
+  }) %>%
+  ungroup() %>%
+  group_by(N, trueSDratio) %>%
+  summarise(mean_margin = mean(margin), se = sd(margin) / sqrt(n()), .groups = "drop")
+
+ggplot(marginSim, aes(x = N, y = mean_margin, colour = factor(trueSDratio))) +
+  geom_ribbon(aes(ymin = mean_margin - 2*se, ymax = mean_margin + 2*se, fill = factor(trueSDratio)),
+              alpha = .15, colour = NA) +
+  geom_line() + geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  theme_minimal(base_size = 13) +
+  labs(x = "N individuals", y = "Mean log-lik margin (hv - typical) over 200 reps",
+       colour = "True SD\n(× typical)", fill = "True SD\n(× typical)",
+       title = "N amplifies whatever the data actually supports, in either direction",
+       subtitle = paste0("sd0=", sd0, ", sd1=", sd1, " (", round(sd1/sd0, 2),
+                         "x gap) - only elevations near that gap trend positive with N"))
+
+## idea:
+# tissueRes <- readRDS(here("path/to/results_bytissue_Array_tissue0.5_....rds"))  # CpG x dataset matrix
+# 
+# supportRule <- rowMeans(tissueRes > log(0.5), na.rm = TRUE) >= (2/3)  # adjust threshold as appropriate
+
+
+
+
+################################################################################
+## hvCpGs missed by the previous cutoff method but now confidently flagged    ##
+## by the Bayesian method (p0=80%, p1=90%)                                    ##
+################################################################################
+
+alphaThresh <- 0.99   # "close or equal to 1"
+
+## "Previously detected by cutoff" = Derakhshan hvCpG_Derakhshan group
+## "Not detected by cutoff" = background OR matched mQTL controls (both were
+## NOT flagged by the old method) - now newly confident under the Bayesian model
+resArrayAll_sum_strict <- resArrayAll_sum_strict %>%
+  mutate(discoveryGroup = dplyr::case_when(
+    group == "hvCpG_Derakhshan" ~ "known (cutoff-detected)",
+    (is.na(group) | group == "mQTLcontrols") & alpha >= alphaThresh ~ "new discovery (alpha>=0.99)",
+    TRUE ~ "other"
+  ))
+
+table(resArrayAll_sum_strict$discoveryGroup)
+# known (cutoff-detected) new discovery (alpha>=0.99)     other 
+# 3644                       10288                        392084 
+
+newDiscovery <- resArrayAll_sum_strict %>% dplyr::filter(discoveryGroup == "new discovery (alpha>=0.99)")
+knownCutoff  <- resArrayAll_sum_strict %>% dplyr::filter(discoveryGroup == "known (cutoff-detected)")
+
+## prepareChrDataset() drops the original cg IDs - recover them via dico for the h5 lookup
+newDiscovery$cpg <- dico$CpG[match(newDiscovery$chrpos, dico$chrpos_hg38)]
+knownCutoff$cpg  <- dico$CpG[match(knownCutoff$chrpos, dico$chrpos_hg38)]
+
+message(nrow(newDiscovery), " CpGs newly confident (alpha>=", alphaThresh,
+        ") that the previous cutoff method never flagged.")
+# 10288 CpGs newly confident (alpha>=0.99) that the previous cutoff method never flagged.
+
+################################################################################
+## Are they backed by evidence as broad/strong as the known hvCpGs, or        ##
+##    weaker/narrower? Per-dataset sd0-vs-sd1 test generalised                ##
+################################################################################
+
+h5file     <- "/home/alice/arraysh5/all_matrix_noscale.h5"
+metaFile   <- "/home/alice/arraysh5/sample_metadata.tsv"
+lambdaFile <- "/home/alice/arraysh5/all_medsd_lambda.tsv"
+
+metadata  <- read.table(metaFile, header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+ds_params <- read.table(lambdaFile, header = TRUE, sep = "\t", stringsAsFactors = FALSE) %>%
+  mutate(sd0 = pmax(median_sd, 1e-4), sd1 = pmax(lambda * median_sd, 1e-4))
+
+cpg_names_all <- rhdf5::h5read(h5file, "cpg_names")
+samples       <- rhdf5::h5read(h5file, "samples")
+
+computePerDatasetSummary <- function(cpgs) {
+  rowIdx <- match(cpgs, cpg_names_all)
+  keep <- !is.na(rowIdx)
+  if (any(!keep)) message(sum(!keep), " CpGs not found in h5, dropped.")
+  cpgs <- cpgs[keep]; rowIdx <- rowIdx[keep]
+  
+  rawMat <- rhdf5::h5read(h5file, "matrix", index = list(rowIdx, NULL), native = TRUE)
+  rownames(rawMat) <- cpgs
+  colnames(rawMat) <- samples
+  
+  lapply(cpgs, function(cpg) {
+    d <- data.frame(sample = samples, beta = as.numeric(rawMat[cpg, ])) %>%
+      inner_join(metadata, by = "sample") %>%
+      filter(!is.na(beta)) %>%
+      inner_join(ds_params[, c("dataset", "sd0", "sd1")], by = "dataset") %>%
+      group_by(dataset, sd0, sd1) %>%
+      summarise(n = n(), sd_obs = sd(beta),
+                ll0 = sum(dnorm(beta, mean(beta), sd0[1], log = TRUE)),
+                ll1 = sum(dnorm(beta, mean(beta), sd1[1], log = TRUE)),
+                .groups = "drop") %>%
+      mutate(z_hv = ll1 > ll0, margin = ll1 - ll0)
+    
+    data.frame(cpg = cpg,
+               n_datasets = nrow(d),
+               prop_datasets_hv = mean(d$z_hv),
+               prop_individuals_hv = sum(d$n[d$z_hv]) / sum(d$n),
+               total_ll_margin = sum(d$margin))
+  }) %>% bind_rows()
+}
+
+## Known-cutoff set can be large (~3600) - sample for a fair, fast comparison
+set.seed(1)
+knownCutoff_sample <- knownCutoff %>% slice_sample(n = min(300, nrow(knownCutoff)))
+
+newDiscovery_sample <- newDiscovery %>% slice_sample(n = min(300, nrow(newDiscovery)))
+
+message("Computing per-dataset support for ", nrow(newDiscovery_sample), " new-discovery CpGs...")
+newDiscovery_support <- computePerDatasetSummary(newDiscovery_sample$cpg)
+
+message("Computing per-dataset support for ", nrow(knownCutoff_sample), " known cutoff-detected CpGs (sampled)...")
+knownCutoff_support <- computePerDatasetSummary(knownCutoff_sample$cpg)
+
+supportComparison <- bind_rows(
+  newDiscovery_support %>% mutate(discoveryGroup = "new discovery"),
+  knownCutoff_support  %>% mutate(discoveryGroup = "known (cutoff-detected)")
+)
+
+plotSupportCompare <- supportComparison %>%
+  pivot_longer(c(n_datasets, prop_datasets_hv, prop_individuals_hv, total_ll_margin),
+               names_to = "metric", values_to = "value") %>%
+  mutate(metric = recode(metric,
+                         n_datasets = "N datasets contributing",
+                         prop_datasets_hv = "Prop. datasets 'looks hv'",
+                         prop_individuals_hv = "Prop. individuals 'looks hv' (weighted)",
+                         total_ll_margin = "Total log-lik margin (hv vs typical)"))
+
+ggplot(plotSupportCompare, aes(x = discoveryGroup, y = value, fill = discoveryGroup)) +
+  geom_violin()+
+  geom_boxplot(outlier.size = .5, alpha = .7, width = .3) +
+  facet_wrap(~ metric, scales = "free_y") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 20, hjust = 1)) +
+  labs(x = NULL, y = NULL,
+       title = "Do new-discovery CpGs have evidence as strong/broad as known hvCpGs?",
+       subtitle = "p0=80%, p1=90%")
+
+# ggsave(here("B_MultiTissues/dataOut/figures/script02/newDiscovery_vs_known_support.png"),
+#        width = 10, height = 7, dpi = 300, bg = "white")
+
+## Use the known-cutoff group's own 5th percentile as the "normal support" floor
+weakThresh <- quantile(knownCutoff_support$prop_datasets_hv, .05, na.rm = TRUE)
+message("Known hvCpGs' 5th percentile of prop_datasets_hv = ", round(weakThresh, 2))
+
+newDiscovery_support <- newDiscovery_support %>%
+  mutate(supportTier = ifelse(prop_datasets_hv < weakThresh, "narrow support", "broad support"))
+
+table(newDiscovery_support$supportTier)
+prop.table(table(newDiscovery_support$supportTier))
+
+# pull the 10 lowest prop_datasets_hv new discoveries and plot their per-dataset 
+# spread directly, so we can see whether each is a genuine "driven by a few strongly-spread
+# large datasets" case (defensible) or something noisier:
+narrowSupport <- newDiscovery_support %>%
+  dplyr::filter(supportTier == "narrow support") %>%
+  arrange(prop_datasets_hv) %>%
+  slice_head(n = 10) %>%
+  left_join(newDiscovery %>% dplyr::select(cpg, chrpos, alpha), by = "cpg")
+
+print(narrowSupport %>% dplyr::select(cpg, chrpos, alpha, n_datasets, prop_datasets_hv, prop_individuals_hv, total_ll_margin))
+
+rowIdx <- match(narrowSupport$cpg, cpg_names_all)
+rawMat <- rhdf5::h5read(h5file, "matrix", index = list(rowIdx, NULL), native = TRUE)
+rownames(rawMat) <- narrowSupport$cpg
+colnames(rawMat) <- samples
+
+narrowSupport <- narrowSupport %>%
+  mutate(cpg_label = sprintf("%s\nalpha=%.2f | prop_datasets_hv=%.2f", cpg, alpha, prop_datasets_hv))
+
+rawLongNarrow <- as.data.frame(rawMat) %>%
+  tibble::rownames_to_column("cpg") %>%
+  pivot_longer(-cpg, names_to = "sample", values_to = "beta") %>%
+  dplyr::filter(!is.na(beta)) %>%
+  left_join(narrowSupport %>% dplyr::select(cpg, cpg_label, prop_datasets_hv), by = "cpg") %>%
+  mutate(dataset = metadata$dataset[match(sample, metadata$sample)])
+
+plotNarrowSupport <- ggplot(rawLongNarrow, aes(x = dataset, y = beta)) +
+  geom_violin() +
+  geom_boxplot(outlier.size = .4, width = .2) +
+  geom_jitter(width = .15, size = .3, alpha = .4) +
+  facet_wrap(~ reorder(cpg_label, prop_datasets_hv), scales = "free_x", ncol = 2) +
+  theme_minimal(base_size = 8) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  labs(x = "Dataset (source tissue / cell type)", y = "Beta value",
+       title = "Raw data for the 10 weakest-supported new-discovery CpGs",
+       subtitle = "alpha≈1, but only a minority of datasets actually look hypervariable")
+
+ggsave(here("B_MultiTissues/dataOut/figures/script02/narrowSupportNewDiscoveryRaw.png"),
+       plotNarrowSupport, width = 13, height = 14, dpi = 300, bg = "white")
+
+
+
+
+
+
 
 ################################################################################
 ## Which mQTL controls flipped from "not flagged" (buggy code, p0=80%, p1=65%)
