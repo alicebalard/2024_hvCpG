@@ -39,12 +39,12 @@ fetalData_long <- data.frame(fetalData) %>%
 fetalData_long$chrpos_hg38 <- dico$chrpos_hg38[match(fetalData_long$CpG, dico$CpG)]
 
 #########################################################################################
-## Load positions to test for SIV (calculated in B_MultiTissues/03_exploreResults/S06) ##
+## Load positions to test for SIV (calculated in B_MultiTissues/03_exploreResults/S03) ##
 #########################################################################################
 
-top90SNPrm <- readRDS(here("gitignore/top90SNPrm.RDS"))
-fetalData_subset_top90SNPrm <- fetalData_long[
-  fetalData_long$chrpos_hg38 %in% top90SNPrm,]
+top99SNPrm <- readRDS(here("gitignore/top99SNPrm_july26.RDS"))
+fetalData_subset_top99SNPrm <- fetalData_long[
+  fetalData_long$chrpos_hg38 %in% top99SNPrm,]
 
 #######################################
 ## Prepare previously identified SIV ##
@@ -63,7 +63,7 @@ dico_GRanges_hg38 <- GRanges(
 
 ## Find overlap between Kessler & Gunasekara SIV range and the array probes
 KesslerSIV_hg38 <- dico[queryHits(findOverlaps(dico_GRanges_hg38, KesslerSIV_GRanges_hg38)), "chrpos_hg38"]
-length(KesslerSIV_hg38)
+length(KesslerSIV_hg38) #269
 
 corSIV_hg38 <- dico[queryHits(findOverlaps(dico_GRanges_hg38, corSIV_GRanges_hg38)), "chrpos_hg38"]
 
@@ -75,19 +75,19 @@ fetalData_subset_prevSIV <- fetalData_long[fetalData_long$chrpos_hg38 %in% prevD
 ##############################
 fetalData_subset_backgrd <- fetalData_long[
   !fetalData_long$chrpos_hg38 %in% 
-    c(fetalData_subset_top90SNPrm$chrpos_hg38,
+    c(fetalData_subset_top99SNPrm$chrpos_hg38,
       fetalData_subset_prevSIV$chrpos_hg38),]
 
 ## Check overlap on a Venn diagram
 cpgs <- list(backgrd = fetalData_subset_backgrd$CpG, 
-             top90SNPrm = fetalData_subset_top90SNPrm$CpG, 
+             top99SNPrm = fetalData_subset_top99SNPrm$CpG, 
              prevSIV = fetalData_subset_prevSIV$CpG)
 
 ggVennDiagram(cpgs, label_alpha = 0, label = "count") +
   scale_fill_gradient2(low = "white", mid = "yellow", high = "red")+
   theme(legend.position = "none")
 
-## top 90: 123 overlap with prevSIV, 82 extra ones!!
+## top 99: 204 overlap with prevSIV, 315 extra ones, 3790 undetected
 
 #########################
 ## Shape data for plot ##
@@ -126,8 +126,8 @@ interlayer_corr_backgrd <- getinterlayer_corr(fetalData_subset_backgrd, "backgro
 # mean: 0.18
 interlayer_corr_prevSIV <- getinterlayer_corr(fetalData_subset_prevSIV, "prevSIV")
 # mean: 0.39
-interlayer_corr_top90SNPrm <- getinterlayer_corr(fetalData_subset_top90SNPrm, "top90SNPrm")
-# mean: 0.71
+interlayer_corr_top99SNPrm <- getinterlayer_corr(fetalData_subset_top99SNPrm, "top99SNPrm")
+# mean: 0.41
 interlayer_corr_all <- getinterlayer_corr(fetalData_long, "allEPICfetal")
 # mean: 0.19
 
@@ -141,9 +141,9 @@ saveRDS(interlayer_corr_all, "B_MultiTissues/dataOut/interlayer_corr_all.RDS")
 
 interlayer_corr <- interlayer_corr_backgrd |>
   dplyr::full_join(interlayer_corr_prevSIV) |>
-  dplyr::full_join(interlayer_corr_top90SNPrm) |>
+  dplyr::full_join(interlayer_corr_top99SNPrm) |>
   mutate(group = forcats::fct_relevel(group,
-                                      "background", "prevSIV", "top90SNPrm"))
+                                      "background", "prevSIV", "top99SNPrm"))
 
 p1 <- ggplot(interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
   geom_violin(width=1.4) +
@@ -170,7 +170,7 @@ CpG_summary <- interlayer_corr %>%
   left_join(interindividual_var, by = "CpG")
 
 table(CpG_summary$group)
-# background    prevSIV top90SNPrm 
+# background    prevSIV top99SNPrm 
 # 742416       3994        205 
 
 p2 <- ggplot(CpG_summary, aes(x = interindividual_var, color = group)) +
@@ -221,11 +221,7 @@ binned_summary_boot <- CpG_summary %>%
   dplyr::select(-boot_res)
 
 # Plot
-<<<<<<< HEAD
 p3 <- ggplot(binned_summary_boot,
-=======
-p3 <- ggplot(binned_sinterlayer_corr_LTR41ummary_boot,
->>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
              aes(x = bin, y = median_r, color = group, fill = group)) +
   geom_point(position = position_dodge(width = 0.5), size = 3) +
   geom_errorbar(
@@ -285,10 +281,10 @@ interlayer_corr <- interlayer_corr_backgrd |>
   dplyr::full_join(interlayer_corr_HarrisSIV) |>
   dplyr::full_join(interlayer_corr_KesslerSIV) |>
   dplyr::full_join(interlayer_corr_corSIV) |>
-  dplyr::full_join(interlayer_corr_top90SNPrm) |>
+  dplyr::full_join(interlayer_corr_top99SNPrm) |>
   mutate(group = forcats::fct_relevel(
     group, "background", "VanBaakESS", "HarrisSIV", "KesslerSIV", "corSIV", 
-    "top90SNPrm"))
+    "top99SNPrm"))
 
 p1 <- ggplot(interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
   geom_violin(width=1.4) +
@@ -316,7 +312,7 @@ CpG_summary <- interlayer_corr %>%
 
 table(CpG_summary$group)
 
-# background VanBaakESS  HarrisSIV KesslerSIV     corSIV top90SNPrm 
+# background VanBaakESS  HarrisSIV KesslerSIV     corSIV top99SNPrm 
 # 742416       1257       1316        188       1610        205
 
 p2 <- ggplot(CpG_summary, aes(x = interindividual_var, color = group)) +
@@ -393,3 +389,5 @@ pdf(here("B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal_sepSIV.pdf
     width = 16, height = 7)
 final_plot
 dev.off()
+
+save(p1 = p1, p2 = p2, p3 = p3, file = "B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal_sepSIV.RData")
