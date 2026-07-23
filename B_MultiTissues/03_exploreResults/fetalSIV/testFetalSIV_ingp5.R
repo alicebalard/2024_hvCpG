@@ -49,11 +49,6 @@ fetalData_subset_top99SNPrm <- fetalData_long[
 #######################################
 ## Prepare previously identified SIV ##
 #######################################
-# van Baak et al. 2018
-# Harris et al. 2014
-# Kessler et al. 2018
-# Gunasekara et al. 2019
-
 # Create GRanges for probes (1 bp each)
 dico_GRanges_hg38 <- GRanges(
   seqnames = dico$chr_hg38,
@@ -63,11 +58,10 @@ dico_GRanges_hg38 <- GRanges(
 
 ## Find overlap between Kessler & Gunasekara SIV range and the array probes
 KesslerSIV_hg38 <- dico[queryHits(findOverlaps(dico_GRanges_hg38, KesslerSIV_GRanges_hg38)), "chrpos_hg38"]
-length(KesslerSIV_hg38) #269
+GunasekaraCorSIV_hg38 <- dico[queryHits(findOverlaps(dico_GRanges_hg38, corSIV_GRanges_hg38)), "chrpos_hg38"]
 
-corSIV_hg38 <- dico[queryHits(findOverlaps(dico_GRanges_hg38, corSIV_GRanges_hg38)), "chrpos_hg38"]
-
-prevDetSIV <- c(VanBaakESS_hg38, HarrisSIV_hg38, KesslerSIV_hg38, corSIV_hg38)
+prevDetSIV <- c(VanBaakESS_hg38, HarrisSIV_hg38, KesslerSIV_hg38, GunasekaraCorSIV_hg38, 
+                VanBaakSIV_hg38, DerakhshanhvCpGs_hg38)
 fetalData_subset_prevSIV <- fetalData_long[fetalData_long$chrpos_hg38 %in% prevDetSIV,]
 
 ##############################
@@ -87,7 +81,7 @@ ggVennDiagram(cpgs, label_alpha = 0, label = "count") +
   scale_fill_gradient2(low = "white", mid = "yellow", high = "red")+
   theme(legend.position = "none")
 
-## top 99: 204 overlap with prevSIV, 315 extra ones, 3790 undetected
+## top 99: 267 overlap with prevSIV, 252 extra ones, 6227 undetected
 
 #########################
 ## Shape data for plot ##
@@ -263,9 +257,12 @@ dev.off()
 # Gunasekara et al. 2019
 
 fetalData_subset_VanBaakESS_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% VanBaakESS_hg38,]
+fetalData_subset_VanBaakSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% VanBaakSIV_hg38,]
 fetalData_subset_HarrisSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% HarrisSIV_hg38,]
 fetalData_subset_KesslerSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% KesslerSIV_hg38,]
-fetalData_subset_corSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% corSIV_hg38,]
+fetalData_subset_GunasekaraCorSIV_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% GunasekaraCorSIV_hg38,]
+fetalData_subset_DerakhshanhvCpGs_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% DerakhshanhvCpGs_hg38,]
+fetalData_subset_mQTLcontrols_hg38 <- fetalData_long[fetalData_long$chrpos_hg38 %in% mQTLcontrols_hg38,]
 
 interlayer_corr_VanBaakESS <- getinterlayer_corr(fetalData_subset_VanBaakESS_hg38, "VanBaakESS")
 # mean: 0.49
@@ -273,23 +270,47 @@ interlayer_corr_HarrisSIV <- getinterlayer_corr(fetalData_subset_HarrisSIV_hg38,
 # mean: 0.32
 interlayer_corr_KesslerSIV <- getinterlayer_corr(fetalData_subset_KesslerSIV_hg38, "KesslerSIV")
 # mean: 0.41
-interlayer_corr_corSIV <- getinterlayer_corr(fetalData_subset_corSIV_hg38, "corSIV")
+interlayer_corr_GunasekaraCorSIV <- getinterlayer_corr(fetalData_subset_GunasekaraCorSIV_hg38, "GunasekaraCorSIV")
 # mean: 0.43
+interlayer_corr_VanBaakSIV <- getinterlayer_corr(fetalData_subset_VanBaakSIV_hg38, "VanBaakSIV")
+# 0.70
+interlayer_corr_DerakhshanhvCpGs <- getinterlayer_corr(fetalData_subset_DerakhshanhvCpGs_hg38, "DerakhshanhvCpGs")
+# 0.431
+interlayer_corr_mQTLcontrols <- getinterlayer_corr(fetalData_subset_mQTLcontrols_hg38, "mQTLcontrols")
+# 0.21
 
 interlayer_corr <- interlayer_corr_backgrd |>
   dplyr::full_join(interlayer_corr_VanBaakESS) |>
+  dplyr::full_join(interlayer_corr_VanBaakSIV) |>
+  dplyr::full_join(interlayer_corr_DerakhshanhvCpGs) |>
   dplyr::full_join(interlayer_corr_HarrisSIV) |>
   dplyr::full_join(interlayer_corr_KesslerSIV) |>
-  dplyr::full_join(interlayer_corr_corSIV) |>
+  dplyr::full_join(interlayer_corr_GunasekaraCorSIV) |>
+  dplyr::full_join(interlayer_corr_mQTLcontrols) |>
   dplyr::full_join(interlayer_corr_top99SNPrm) |>
   mutate(group = forcats::fct_relevel(
-    group, "background", "VanBaakESS", "HarrisSIV", "KesslerSIV", "corSIV", 
-    "top99SNPrm"))
+    group, "background", "VanBaakESS", "VanBaakSIV", "DerakhshanhvCpGs", "HarrisSIV", 
+    "KesslerSIV", "GunasekaraCorSIV", "mQTLcontrols", "top99SNPrm"))
+
+group_cols <- c(
+  "background"         = "#999999",
+  "mQTLcontrols"       = "#000000",
+  "HarrisSIV"          = RColorBrewer::brewer.pal(8, "Set2")[1],
+  "KesslerSIV"         = RColorBrewer::brewer.pal(8, "Set2")[2],
+  "DerakhshanhvCpGs"   = RColorBrewer::brewer.pal(8, "Set2")[3],
+  "GunasekaraCorSIV"   = RColorBrewer::brewer.pal(8, "Set2")[4],
+  "VanBaakESS"         = RColorBrewer::brewer.pal(8, "Set2")[5],
+  "top99SNPrm"         = RColorBrewer::brewer.pal(8, "Set2")[6],
+  "VanBaakSIV"         = RColorBrewer::brewer.pal(8, "Set2")[7]
+)
+
+interlayer_corr <- interlayer_corr %>%
+  mutate(group = fct_reorder(group, interlayer_r, .fun = mean, .desc = FALSE))
 
 p1 <- ggplot(interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
   geom_violin(width=1.4) +
-  geom_boxplot(width=0.1, color="grey", alpha=0.2) +
-  scale_fill_viridis(discrete = TRUE) +
+  geom_boxplot(width=0.1, color="white", alpha=0.2) +
+  scale_fill_manual(values = group_cols) +
   theme_minimal(base_size = 14) +
   labs(y = "Mean inter-germ layer correlation\n(Pearson's r)")+
   theme(axis.title.x = element_blank(), legend.position = "none") 
@@ -312,12 +333,14 @@ CpG_summary <- interlayer_corr %>%
 
 table(CpG_summary$group)
 
-# background VanBaakESS  HarrisSIV KesslerSIV     corSIV top99SNPrm 
-# 742416       1257       1316        188       1610        205
+# background     mQTLcontrols        HarrisSIV       KesslerSIV DerakhshanhvCpGs GunasekaraCorSIV 
+# 739746             3237             1316              188             3401             1610 
+# VanBaakESS       top99SNPrm       VanBaakSIV 
+# 1257              519              306 
 
 p2 <- ggplot(CpG_summary, aes(x = interindividual_var, color = group)) +
   geom_density(alpha = 0.5)+
-  scale_colour_viridis(discrete = TRUE) +
+  scale_colour_manual(values = group_cols) +
   theme_minimal(base_size = 14) +
   labs(x = "Interindividual variation")
 
@@ -370,8 +393,8 @@ p3 <- ggplot(binned_summary_boot,
     width = 0.2,
     position = position_dodge(width = 0.5)
   ) +
-  scale_color_viridis(discrete = TRUE) +
-  scale_fill_viridis(discrete = TRUE) +
+  scale_color_manual(values = group_cols) +
+  scale_fill_manual(values = group_cols) +
   theme_minimal(base_size = 14) +
   labs(
     x = "Interindividual variation",
@@ -390,4 +413,6 @@ pdf(here("B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal_sepSIV.pdf
 final_plot
 dev.off()
 
-save(p1 = p1, p2 = p2, p3 = p3, file = "B_MultiTissues/dataOut/figures/SIV/intercorrelationSIVfetal_sepSIV.RData")
+saveRDS(list(interlayer_corr = interlayer_corr, CpG_summary = CpG_summary, 
+             binned_summary_boot = binned_summary_boot),
+        file = here("gitignore/intercorrelationSIVfetal_sepSIV.rds"))
