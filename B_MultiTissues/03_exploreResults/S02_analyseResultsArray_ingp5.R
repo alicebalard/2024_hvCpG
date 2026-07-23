@@ -428,5 +428,5 @@ plotCorByN <- ggplot(corByN, aes(x = N, y = r)) +
 
 plotCorByN
 
-ggsave(here("B_MultiTissues/dataOut/figures/script02/improveAccuracyWithMoreNperds.png"),
+ggsave(here("gitignore/improveAccuracyWithMoreNperds.png"),
        plotRecovery / plotCorByN, width = 9, height = 10, dpi = 300, bg = "white")

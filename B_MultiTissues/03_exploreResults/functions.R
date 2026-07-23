@@ -162,79 +162,64 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
 
 # ---- Inner helper for makeCompPlot: build Z_inner ----
 makeZ_inner <- function(X, Y, whichAlphaX = NULL, whichAlphaY = NULL) {
-  setDT(X); setDT(Y)
   
-  # Determine X side
-  is_array_X <- any(grepl("array", names(X)))
-  if (is_array_X) {
-    if (is.null(whichAlphaX)) {
-      stop("X looks like an *array* table (columns contain 'array'). ",
-           "Please provide whichAlphaX, e.g. 'alpha_array_all'.")
+  loadSide <- function(dat, whichAlpha) {
+    if (is.character(dat) && length(dat) == 1 && file.exists(dat)) dat <- readRDS(dat)
+    setDT(dat)
+    
+    if ("chrpos" %in% names(dat)) {
+      ## array-style table: CpG id is "chrpos", must be told which alpha column
+      if (is.null(whichAlpha))
+        stop("Table has 'chrpos' (array-style) - please supply whichAlpha, e.g. 'alpha_array_all'.")
+      stopifnot(whichAlpha %in% names(dat))
+      out <- dat[, .(name = as.character(chrpos), alpha = get(whichAlpha))]
+    } else if ("name" %in% names(dat)) {
+      ## atlas-style table: CpG id is already "name"
+      alphaCol <- if (is.null(whichAlpha)) "alpha" else whichAlpha
+      stopifnot(alphaCol %in% names(dat))
+      out <- dat[, .(name = as.character(name), alpha = get(alphaCol))]
+    } else {
+      stop("Table has neither 'chrpos' nor 'name' - can't identify the CpG id column.")
     }
-    colX <- if (is.character(whichAlphaX)) whichAlphaX else deparse(substitute(whichAlphaX))
-    stopifnot("chrpos" %in% names(X), colX %in% names(X))
-    X <- X[, .(name = chrpos, alpha_X = get(colX))]
-  } else {
-    stopifnot(all(c("name", "alpha") %in% names(X)))
-    X <- X[, .(name, alpha_X = alpha)]
+    out   # dat (the full, possibly huge object) goes out of scope here and can be GC'd
   }
   
-  # Determine Y side
-  is_array_Y <- any(grepl("array", names(Y)))
-  if (is_array_Y) {
-    if (is.null(whichAlphaY)) {
-      stop("Y looks like an *array* table (columns contain 'array'). ",
-           "Please provide whichAlphaY.")
-    }
-    colY <- if (is.character(whichAlphaY)) whichAlphaY else deparse(substitute(whichAlphaY))
-    stopifnot("chrpos" %in% names(Y), colY %in% names(Y))
-    Y <- Y[, .(name = chrpos, alpha_Y = get(colY))]
-  } else {
-    stopifnot(all(c("name", "alpha") %in% names(Y)))
-    Y <- Y[, .(name, alpha_Y = alpha)]
-  }
+  X <- loadSide(X, whichAlphaX); setnames(X, "alpha", "alpha_X")
+  Y <- loadSide(Y, whichAlphaY); setnames(Y, "alpha", "alpha_Y")
   
-  # Ensure same type for join column
-  X[, name := as.character(name)]
-  Y[, name := as.character(name)]
-  
-  # Explicit inner join on 'name'
-  Z_inner <- X[Y, on = "name", nomatch = 0]
-  return(Z_inner)
+  X[Y, on = "name", nomatch = 0]
 }
 
 makeCompPlot <- function(X, Y, title, xlab, ylab,
                          whichAlphaX = NULL, whichAlphaY = NULL,
                          minplot = 100000, drawline = TRUE) {
   
-  # ---- Build Z_inner *and assign it* ----
   Z_inner <- makeZ_inner(X, Y, whichAlphaX = whichAlphaX, whichAlphaY = whichAlphaY)
   
   # ---- Plot & save ----
   c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
+  fit <- lm(alpha_Y ~ alpha_X, data = Z_inner)
+  slope <- coef(fit)[["alpha_X"]]
   
   set.seed(1234)
-  if(nrow(Z_inner) > minplot){
-    Z_inner_plot = Z_inner[sample(nrow(Z_inner), minplot),]  
+  if (nrow(Z_inner) > minplot) {
+    Z_inner_plot <- Z_inner[sample(nrow(Z_inner), minplot), ]
   } else {
-    Z_inner_plot = Z_inner  
+    Z_inner_plot <- Z_inner
   }
   p1 <- ggplot(Z_inner_plot, aes(alpha_X, alpha_Y)) +
     geom_point(pch = 21, alpha = 0.05) +
     geom_abline(slope = 1, linetype = 3) +
     theme_minimal(base_size = 14) +
-    annotate("text", x = .2, y = .8, label = paste0("R : ", round(c$estimate, 2))) +
+    annotate("text", x = .2, y = .8, colour = "red",
+             label = sprintf("R : %.2f\nslope : %.2f", c$estimate, slope)) +
     labs(title = title, x = xlab, y = ylab)
   
-  if (drawline == TRUE){
-    p1 <- p1 +     
+  if (drawline == TRUE) {
+    p1 <- p1 +
       geom_smooth(linetype = 3) +
       geom_smooth(method = "lm", fill = "black")
   }
-  
-  # Make sure the folder exists
-  dir.create(here::here("B_MultiTissues/dataOut/figures/correlations"),
-             recursive = TRUE, showWarnings = FALSE)
   
   invisible(Z_inner)
   return(p1)
