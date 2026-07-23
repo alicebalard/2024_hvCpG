@@ -137,11 +137,13 @@ for (subdir in subdirs) {
 ## Compare algorithm with sum of with mean per dataset of the logliks         ##
 ################################################################################
 
-Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_12_endo.rds"))
-nrow(Atlas_dt) # 22408484
+Atlas_dt <- readRDS(
+  here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds"))
+nrow(Atlas_dt) # 21522541
 
-Atlas_dt_sum <- readRDS(here("gitignore/resultsAtlasPrepared/previousres_sumlog_0_8p0_0_9p1_12_endo.rds"))
-nrow(Atlas_dt_sum) # 22408484
+Atlas_dt_sum <- readRDS(
+  here("gitignore/resultsAtlasPrepared/previousres_sumlog_0_8p0_0_9p1_atlas_general.rds"))
+nrow(Atlas_dt_sum) # 21522541
 
 # Set key if not already set
 setkey(Atlas_dt, name)
@@ -157,11 +159,25 @@ merged_dt[sample(.N, 100000)] |>
   ggplot(aes(x = alpha_mean, y = alpha_sum)) +
   geom_point(alpha = 0.05, size = 0.3) +   # small/transparent for density
   geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
-  labs(x = "Pr(hv) endo mean", y = "Pr(hv) endo sum") +
+  labs(x = "Pr(hv) atlas general - mean", y = "Pr(hv) atlas general - sum") +
   theme_minimal()
 
 ## Ranking is preserved. The tight linear band confirms both settings agree on which
-# CpGs are most variable --> hvCpG list is robust to this parameter choice
+# CpGs are most variable
+
+###################
+## rmMultSamples ## 
+###################
+
+## Some individuals have multiple cells sampled. Does that affect our results? NOPE
+# plotrmtest <- makeCompPlot(
+#   X = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")),
+#   Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_02_rmMultSamples.rds")),
+#   whichAlphaX = "alpha",
+#   whichAlphaY = "alpha",
+#   title = "Atlas_0_vs_2_rmMultSamples",
+#   xlab = "Pr(hv) calculated on WGBS atlas datasets",
+#   ylab = "Pr(hv) calculated on WGBS atlas datasets keeping one sample/individual only")
 
 ################################################################################
 ## Load layer-specific analyses                                               ##
@@ -244,19 +260,18 @@ mesoGR <- GRanges(seqnames = meso$chr,
                   ranges = IRanges(start = meso$pos, end = meso$pos),
                   alpha_meso = meso$alpha)
 
-# Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds"))
+Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds"))
 
-# allLayersGR <- GRanges(seqnames = Atlas_dt$chr,
-#                        ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
-#                        alpha_allLayers = Atlas_dt$alpha)
+allLayersGR <- GRanges(seqnames = Atlas_dt$chr,
+                       ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
+                       alpha_allLayers = Atlas_dt$alpha)
 
 ####################################################################
 ## Create a table with all CpG sites & pr(hv) for each germ layer ##
 ####################################################################
 
 ## 1. Create union of all unique CpG positions
-# table3layers <- union(union(allLayersGR, union(ectoGR, mesoGR)), endoGR)
-table3layers <- union(union(ectoGR, mesoGR), endoGR)
+table3layers <- union(union(allLayersGR, union(ectoGR, mesoGR)), endoGR)
 
 ## 2. Use findOverlaps to map alpha values back
 # we want endoGR[i] -> table3layers[endoHits[[i]]] for each i, etc.
@@ -264,19 +279,19 @@ table3layers <- union(union(ectoGR, mesoGR), endoGR)
 endoHits <- findOverlaps(endoGR, table3layers, select = "first")
 ectoHits <- findOverlaps(ectoGR, table3layers, select = "first")
 mesoHits <- findOverlaps(mesoGR, table3layers, select = "first")
-# allLayersHits <- findOverlaps(allLayersGR, table3layers, select = "first")
+allLayersHits <- findOverlaps(allLayersGR, table3layers, select = "first")
 
 # initialize columns with NA
 mcols(table3layers)$alpha_endo <- NA_real_
 mcols(table3layers)$alpha_ecto <- NA_real_
 mcols(table3layers)$alpha_meso <- NA_real_
-# mcols(table3layers)$alpha_allLayers <- NA_real_
+mcols(table3layers)$alpha_allLayers <- NA_real_
 
 # copy only the hits
 mcols(table3layers)$alpha_endo[endoHits]   <- mcols(endoGR)$alpha_endo
 mcols(table3layers)$alpha_ecto[ectoHits]   <- mcols(ectoGR)$alpha_ecto
 mcols(table3layers)$alpha_meso[mesoHits]   <- mcols(mesoGR)$alpha_meso
-# mcols(table3layers)$alpha_allLayers[allLayersHits]   <- mcols(allLayersGR)$alpha_allLayers
+mcols(table3layers)$alpha_allLayers[allLayersHits]   <- mcols(allLayersGR)$alpha_allLayers
 
 ## Add chr_pos column to identify positions
 table3layers$chr_pos <- paste0("chr", table3layers@seqnames, "_", table3layers@ranges@start)
@@ -289,36 +304,49 @@ table3layers$alpha_geomean <- exp(rowMeans(
   na.rm = FALSE))
 
 ### SAVED ###
-save(table3layers, file = 
-       here(paste0("gitignore/fullTable3layers_", format(Sys.Date(), "%d_%m_%y"), ".Rda")))
+# save(table3layers, file = 
+#        here(paste0("gitignore/fullTable3layers_", format(Sys.Date(), "%d_%m_%y"), ".Rda")))
 
-###### CHECKPOINT ########
-load(here(paste0("gitignore/fullTable3layers_22_07_26.Rda")))
+##############################
+## Save the top alpha > 99% ##
+##############################
 
-# df <- as.data.frame(table3layers)
+totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
 
-# set.seed(1234)
-# p <- ggplot(df[sample(nrow(df), 100000),],
-#             aes(x = alpha_geomean, y = alpha_allLayers)) +
-#   geom_point(pch = 21, alpha = 0.1) +
-#   geom_abline(slope = 1) +
-#   theme_minimal(base_size = 14) +
-#   labs(title = "Pr(hv) using all layers vs geometric mean of each 3 layers",
-#        x = "Geometric mean Pr(hv) on the three layers",
-#        y = "Pr(hv) on all cell types",
-#        subtitle = "(100k random CpG plotted)")
+top99SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
+                             (table3layers$alpha_geomean >= .99), ]$chr_pos
 
-# table(is.na(df$alpha_geomean))
-# FALSE     TRUE 
-# 21522541  3027679 
-# table(is.na(df$alpha_meso))
-# table(is.na(df$alpha_endo))
-# table(is.na(df$alpha_ecto))
-# 
-# ggplot2::ggsave(
-#   filename = here::here("B_MultiTissues/dataOut/figures/script03/geomMean_vs_all.png"),
-#   plot = p, width = 7, height = 7,
-#   dpi = 300, bg = "white")
+message(paste0("Total CpG sites with non NA geometric mean: ", length(totalSiteswGeomMean)))
+message(paste0("Total top99 CpG sites: ", length(top99SNPrm), " (", 
+               round(length(top99SNPrm)/length(totalSiteswGeomMean)*100,2), "% of total)"))
+# Total CpG sites with non NA geometric mean: 21522541
+# Total top90 CpG sites: 385370 (1.79% of total)
+
+saveRDS(top99SNPrm, file = here("gitignore/top99SNPrm_july26.RDS"))
+## To use for testFetalSIV_ingp5.R
+
+################################################################################
+################################## CHECKPOINT ##################################
+################################################################################
+load(here(paste0("gitignore/fullTable3layers_23_07_26.Rda")))
+
+df <- as.data.frame(table3layers)
+
+set.seed(1234)
+p <- ggplot(df[sample(nrow(df), 100000),],
+            aes(x = alpha_geomean, y = alpha_allLayers)) +
+  geom_point(pch = 21, alpha = 0.1) +
+  geom_abline(slope = 1) +
+  theme_minimal(base_size = 14) +
+  labs(title = "Pr(hv) using all layers vs geometric mean of each 3 layers",
+       x = "Geometric mean Pr(hv) on the three layers",
+       y = "Pr(hv) on all cell types",
+       subtitle = "(100k random CpG plotted)")
+
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/script03/geomMean_vs_all.png"),
+  plot = p, width = 7, height = 7,
+  dpi = 300, bg = "white")
 
 ############################################
 ## Plot Manhattan of geometric mean alpha ##
@@ -354,6 +382,7 @@ table(is.na(table3layersdt$alpha))
 
 plotManhattangeomMean <- plotManhattanFromdt(table3layersdt, plotDerakhshan = FALSE, 
                                              centro = centro)
+saveRDS(plotManhattangeomMean, file = here("gitignore/plotManhattangeomMean.RDS"))
 
 ############################################
 ## Compare with Maria's results           ##
@@ -408,47 +437,33 @@ pdiffhv_controls <- ggplot(merged, aes(x="diff", y=diffAlpha))+
 
 plotManhattangeomMean2 <- plotManhattanFromdt(table3layersdt, plotDerakhshan = TRUE, centro = centro)
 
-# makeCompPlot(
-#   X = resArray,
-#   Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")),
-#   whichAlphaX = "alpha_array_all",
-#   whichAlphaY = "alpha",          
-#   title = "Array_vs_Atlas",
-#   xlab = "Pr(hv) calculated on array datasets",
-#   ylab = "Pr(hv) calculated on WGBS atlas datasets")
+compPlotArrayAtlas <- makeCompPlot(
+  X = resArray,
+  Y = here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds"),
+  whichAlphaX = "alpha",
+  whichAlphaY = "alpha",
+  title = "Array_vs_Atlas",
+  xlab = "Pr(hv) calculated on array datasets",
+  ylab = "Pr(hv) calculated on WGBS atlas datasets", minplot = 24000000)
 
-################################################################
-## What are alpha array for different cutoffs of alpha atlas? ##
-################################################################
-# Z_inner <- makeZ_inner(
-#   X = resCompArray_allvs3,
-#   Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")),
-#   whichAlphaX = "alpha_array_all",
-#   whichAlphaY = "alpha")
-# 
-# df_plot <- bind_rows(
-#   Z_inner %>% filter(alpha_Y > 0.8) %>% mutate(threshold = "> 0.8"),
-#   Z_inner %>% filter(alpha_Y > 0.7) %>% mutate(threshold = "> 0.7"),
-#   Z_inner %>% filter(alpha_Y > 0.6) %>% mutate(threshold = "> 0.6")
-# )
-# 
-# pdf(here("B_MultiTissues/dataOut/figures/histCutoff-arrayAtlas.pdf"), width = 8, height = 5)
-# ggplot(df_plot, aes(x = alpha_X, fill=threshold)) +
-#   geom_histogram(bins = 30,color = "white") +
-#   theme_minimal(base_size = 14) +
-#   scale_fill_manual(values = c("yellow", "orange", "red"))+
-#   xlab("p(hv) in array") +
-#   ylab("Count")
-# dev.off()
-# 
-# table(df_plot$threshold)
+compPlotArrayAtlasMESO <- makeCompPlot(
+  X = resArray,
+  Y = here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_13_meso.rds"),
+  whichAlphaX = "alpha",
+  whichAlphaY = "alpha",
+  title = "Array_vs_Atlas",
+  xlab = "Pr(hv) calculated on array datasets",
+  ylab = "Pr(hv) calculated on WGBS atlas datasets MESODERM derived", minplot = 24000000)
 
 ggplot2::ggsave(
   filename = here::here(
     "B_MultiTissues/dataOut/figures/script03/CompareWithResultsDerakhshan.png"),
-  plot = cowplot::plot_grid(plotManhattangeomMean2, pdiffhv_controls,
-                            rel_widths = c(3,1), labels = c("A", "B")), width = 14, height = 4,
-  dpi = 300, bg = "white")
+  plot = cowplot::plot_grid(
+    cowplot::plot_grid(plotManhattangeomMean2, pdiffhv_controls,
+                       rel_widths = c(3,1), labels = c("A", "B")),
+    cowplot::plot_grid(compPlotArrayAtlas, compPlotArrayAtlasMESO, labels = c("C", "D"), ncol = 2),
+    nrow = 2, rel_heights = c(1,2)),
+  width = 15, height = 10, dpi = 300, bg = "white")
 
 ##########################################
 ## What are the gaps in Manhattan plot? ##
@@ -624,21 +639,6 @@ agg[, .(median_frac_hv = median(frac_hv),
 ## Enrichement in TE ##
 #######################
 
-##############################
-## Save the top alpha > 90% ##
-##############################
-
-totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
-
-top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
-                             (table3layers$alpha_geomean >= .9), ]$chr_pos
-
-message(paste0("Total CpG sites with non NA geometric mean: ", length(totalSiteswGeomMean)))
-message(paste0("Total top90 CpG sites: ", length(top90SNPrm), " (", 
-               round(length(top90SNPrm)/length(totalSiteswGeomMean)*100,2), "% of total)"))
-# Total CpG sites with non NA geometric mean: 21522541
-# Total top90 CpG sites: 385370 (1.79% of total)
-
 # UCSC RepeatMasker annotations (Oct2022) for Human (hg38) from AnnotationHub
 ah <- AnnotationHub()
 query(ah, c("UCSC", "RepeatMasker", "Homo sapiens"))
@@ -795,8 +795,20 @@ sets <- list(
   VanBaakSIV = VanBaakSIV_hg38_GR,
   VanBaakESS = VanBaakESS_hg38_GR,
   KesslerSIV = KesslerSIV_GRanges_hg38,
-  CoRSIV = corSIV_GRanges_hg38,
-  hvCpG = DerakhshanhvCpGs_hg38_GR
+  GunasekaraCorSIV = corSIV_GRanges_hg38,
+  DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR
+)
+
+group_cols <- c(
+  "background"         = "#999999",
+  "mQTLcontrols"       = "#000000",
+  "HarrisSIV"          = RColorBrewer::brewer.pal(8, "Set2")[1],
+  "KesslerSIV"         = RColorBrewer::brewer.pal(8, "Set2")[2],
+  "DerakhshanhvCpGs"   = RColorBrewer::brewer.pal(8, "Set2")[3],
+  "GunasekaraCorSIV"   = RColorBrewer::brewer.pal(8, "Set2")[4],
+  "VanBaakESS"         = RColorBrewer::brewer.pal(8, "Set2")[5],
+  "top99SNPrm"         = RColorBrewer::brewer.pal(8, "Set2")[6],
+  "VanBaakSIV"         = RColorBrewer::brewer.pal(8, "Set2")[7]
 )
 
 # ── ME overlap ────────────────────────────────────────────
@@ -808,11 +820,11 @@ MEsetdt <- na.omit(MEsetdt) ## 69979
 MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
 
 ## Shared colour palette, built the same way plot_decay_curve() already does internally
-me_levels    <- levels(factor(MEsetdt$ME))
-other_levels <- setdiff(me_levels, "mQTLcontrols")
-set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
-meColours    <- c(mQTLcontrols = "black",
-                  setNames(set2_cols[seq_along(other_levels)], other_levels))
+# me_levels    <- levels(factor(MEsetdt$ME))
+# other_levels <- setdiff(me_levels, "mQTLcontrols")
+# set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
+# meColours    <- c(mQTLcontrols = "black",
+#                   setNames(set2_cols[seq_along(other_levels)], other_levels))
 
 ## Statistical comparisons of alpha between MEs
 fit <- lm(alpha_geomean ~ ME, data = MEsetdt)
@@ -826,22 +838,20 @@ contrasts <- contrasts %>%
          lower = estimate - 1.96 * SE,
          upper = estimate + 1.96 * SE)
 
-## p1 - no legend
-p1 <- ggplot(MEsetdt, aes(x = ME, y = alpha_geomean)) +
+pMEalpha <- ggplot(MEsetdt, aes(x = ME, y = alpha_geomean)) +
   geom_jitter(aes(colour = ME), size = 3, alpha = .05) +
   geom_violin(aes(colour = ME)) +
   geom_boxplot(aes(colour = ME), width = .1) +
-  scale_colour_manual(values = meColours, name = "CpG set") +
+  scale_colour_manual(values = group_cols, name = "CpG set") +
   theme_minimal(base_size = 14) +
   theme(legend.position = "none", axis.title.x = element_blank()) +
   ylab("Pr(hv) (geometric mean)")
 
-## p2 - no legend
-p2 <- ggplot(contrasts, aes(x = ME, y = estimate, colour = ME_name)) +
+pcontrast <- ggplot(contrasts, aes(x = ME, y = estimate, colour = ME_name)) +
   geom_point(size = 3) +
   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  scale_colour_manual(values = meColours, name = "CpG set") +
+  scale_colour_manual(values = group_cols, name = "CpG set") +
   coord_flip() +
   labs(y = "Difference in Pr(hv) (geometric mean) vs mQTLcontrols", x = "",
        title = "Comparison of previous CPG sets groups to mQTLcontrols",
@@ -849,9 +859,9 @@ p2 <- ggplot(contrasts, aes(x = ME, y = estimate, colour = ME_name)) +
   theme_minimal() +
   theme(legend.position = "none")
 
-## p3 - legend inside the plot, bottom-left corner
-p3 <- plot_decay_curve(MEsetdt, "Decay curve of Pr(HV) per threshold") +
-  scale_colour_manual(values = meColours, name = "CpG set") +
+## pdecay - legend inside the plot, bottom-left corner
+pdecay <- plot_decay_curve(MEsetdt, "Decay curve of Pr(HV) per threshold") +
+  scale_colour_manual(values = group_cols, name = "CpG set") +
   theme(legend.position = "inside",
         legend.position.inside = c(0, 0),
         legend.justification = c(0, 0),
@@ -865,9 +875,9 @@ saveRDS(geomMeanGR,         here("gitignore/geomMeanGR.rds"))
 ## Test enrichement of the most likely germ layer-universal hvCpG in previous MEs ##
 ####################################################################################
 if (!exists("listGR")){
-  listGR <- list(top90 = makeGRfromMyCpGPos(vec = top90SNPrm, setname = "top90CpGs"),
+  listGR <- list(top90 = makeGRfromMyCpGPos(vec = top99SNPrm, setname = "top99SNPrm"),
                  allButTop90 = makeGRfromMyCpGPos(
-                   setdiff(totalSiteswGeomMean, top90SNPrm), "allButTop90"))}
+                   setdiff(totalSiteswGeomMean, top99SNPrm), "allButTop99"))}
 
 # ---- Run it (ME sets in putativeME_GR$set will be tested separately)
 res_quadrants <- test_enrichment_quadrants(listGR, putativeME_GR, me_col = "set")
@@ -882,7 +892,7 @@ res_plot2 <- res_quadrants %>%
   mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
   ungroup()
 
-plot_top90CpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
+plot_top99CpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
   geom_col(width = 0.8) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
   scale_fill_manual(values = c("grey", "black")) +
@@ -901,18 +911,70 @@ plot_top90CpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fi
     strip.text = element_text(face = "bold")
   )
 
-## Put lower... with more plots
-pdf(here("B_MultiTissues/dataOut/figures/script03/CompareWithpreviousMEs.pdf"), width = 15, height = 7)
-plot_grid(
-  plot_grid(
-    p1, p2, 
-    nrow = 2,
-    labels = c("A", "B")
-  ), p3, ncol = 2,
-  labels = c("", "C"))
-dev.off()
-# plot_top90CpGsEnrichME
+################################################################################
+## Load SIV plots calculated in fetalSIV folder script (in ing-p5)            ##
+################################################################################
+plots <- readRDS(here("gitignore/intercorrelationSIVfetal_sepSIV.rds"))
 
+pinterlayer_corr <- ggplot(plots$interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
+  geom_violin(width=1.4) +
+  geom_boxplot(width=0.1, color="grey", alpha=0.2) +
+  scale_fill_manual(values = group_cols) +
+  theme_minimal(base_size = 14) +
+  labs(y = "Mean inter-germ layer correlation\n(Pearson's r)")+
+  theme(axis.title.x = element_blank(), legend.position = "none") 
+
+pinterindividual_var <- ggplot(plots$CpG_summary, aes(x = interindividual_var, color = group)) +
+  geom_density(alpha = 0.5)+
+  scale_colour_manual(values = group_cols) +
+  theme_minimal(base_size = 14) +
+  labs(x = "Interindividual variation")
+
+pbinned <- ggplot(plots$binned_summary_boot,
+                  aes(x = bin, y = median_r, color = group, fill = group)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3) +
+  geom_errorbar(
+    aes(ymin = low, ymax = high),
+    width = 0.2,
+    position = position_dodge(width = 0.5)
+  ) +
+  scale_color_manual(values = group_cols) +
+  scale_fill_manual(values = group_cols) +
+  theme_minimal(base_size = 14) +
+  labs(
+    x = "Interindividual variation",
+    y = "Inter-germ layer correlation \n(median ± bootstrap CI)"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+upperRow <- plot_grid(
+  plot_grid(pMEalpha, pcontrast, nrow = 2, labels = c("A", "B")),
+  pdecay,
+  ncol = 2,
+  rel_widths = c(1, 1),
+  labels = c("", "C")
+)
+
+SIV_plot <- plot_grid(
+  pinterlayer_corr + theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+  plot_grid(pinterindividual_var, pbinned, ncol = 1, align = "v",labels = c("D", "E")),
+  ncol = 2,
+  rel_widths = c(1, 1), labels = c("C", "")
+)
+
+final_plot <- plot_grid(
+  upperRow,
+  SIV_plot,
+  ncol = 1,
+  rel_heights = c(1, 1.2)
+)
+
+pdf(here("B_MultiTissues/dataOut/figures/script03/CompareWithpreviousMEs.pdf"),
+    width = 18, height = 14)
+print(final_plot)
+dev.off()
+
+### TBC here
 
 ############################################################
 ## How many of each putative ME is actually in the top90? ##
@@ -1127,7 +1189,7 @@ getEnrichCentroTelo(0.70)
 ############################################################################
 ## Test in B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
 ############################################################################
-length(top90SNPrm) # 196.333
+length(top90SNPrm) # 385370
 
 ## Map on arrays
 matches <- match(x = top90SNPrm, table = dico$chrpos_hg38)
@@ -1136,93 +1198,87 @@ Pos <- dico[na.omit(matches), ]
 
 table(Pos$array)
 # 450k 450k and EPIC          EPIC 
-# 80          1026           718
-
-# 80+1026 = 1106 on the 450k array
-# 1026+718 = 1744 on the EPIC array
+# 275          3608          2538 
 
 #################################
 ## Test enrichment of features ##
 #################################
 
-retest = TRUE # takes some time to run
+# Import bed file
+bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
 
-if (retest == TRUE){
-  # Import bed file
-  bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
+# Annotate CpGs with features
+topAnno <- genomation::annotateWithGeneParts(
+  target  = listGR$top90,
+  feature = bed_features
+)
+listGR$top90$featureType <- ifelse(topAnno@members[, "prom"] == 1, "promoter",
+                                   ifelse(topAnno@members[, "exon"] == 1, "exon",
+                                          ifelse(topAnno@members[, "intron"] == 1, "intron",
+                                                 "intergenic")))
+allButTop90Anno <- genomation::annotateWithGeneParts(
+  target  = listGR$allButTop90,
+  feature = bed_features
+)
+listGR$allButTop90$featureType <- ifelse(allButTop90Anno@members[, "prom"] == 1, "promoter",
+                                         ifelse(allButTop90Anno@members[, "exon"] == 1, "exon",
+                                                ifelse(allButTop90Anno@members[, "intron"] == 1, "intron",
+                                                       "intergenic")))
+
+## 1. Build counts for subset vs background 
+
+# Feature levels in fixed order
+feat_levels <- c("promoter", "exon", "intron", "intergenic")
+
+# Count CpGs per feature
+bg_counts   <- table(factor(listGR$allButTop90$featureType,   levels = feat_levels))
+sub_counts  <- table(factor(listGR$top90$featureType, levels = feat_levels))
+
+# Combine into a 2x4 contingency table
+cont_tab <- rbind(
+  subset    = as.numeric(sub_counts),
+  background = as.numeric(bg_counts)
+)
+colnames(cont_tab) <- feat_levels
+cont_tab
+
+enrich_list <- lapply(feat_levels, function(f) {
+  # 2x2 table for feature f vs not‑f
+  a <- sub_counts[f]                     # subset in feature f
+  b <- sum(sub_counts)  - a              # subset not in f
+  c <- bg_counts[f] - a                  # background in f but not in subset
+  d <- sum(bg_counts) - bg_counts[f] - b # background not in f and not in subset
   
-  # Annotate CpGs with features
-  topAnno <- genomation::annotateWithGeneParts(
-    target  = listGR$top90,
-    feature = bed_features
+  mat <- matrix(c(a, b, c, d), nrow = 2,
+                dimnames = list(
+                  set      = c("subset", "background"),
+                  inFeat   = c("yes", "no")
+                ))
+  
+  ft <- fisher.test(mat, alternative = "greater")
+  
+  data.frame(
+    feature      = f,
+    subset_n     = as.numeric(a),
+    bg_n         = as.numeric(bg_counts[f]),
+    subset_prop  = as.numeric(a) / sum(sub_counts),
+    bg_prop      = as.numeric(bg_counts[f]) / sum(bg_counts),
+    odds_ratio   = unname(ft$estimate),
+    p_value      = ft$p.value
   )
-  listGR$top90$featureType <- ifelse(topAnno@members[, "prom"] == 1, "promoter",
-                                     ifelse(topAnno@members[, "exon"] == 1, "exon",
-                                            ifelse(topAnno@members[, "intron"] == 1, "intron",
-                                                   "intergenic")))
-  allButTop90Anno <- genomation::annotateWithGeneParts(
-    target  = listGR$allButTop90,
-    feature = bed_features
-  )
-  listGR$allButTop90$featureType <- ifelse(allButTop90Anno@members[, "prom"] == 1, "promoter",
-                                           ifelse(allButTop90Anno@members[, "exon"] == 1, "exon",
-                                                  ifelse(allButTop90Anno@members[, "intron"] == 1, "intron",
-                                                         "intergenic")))
-  
-  ## 1. Build counts for subset vs background 
-  
-  # Feature levels in fixed order
-  feat_levels <- c("promoter", "exon", "intron", "intergenic")
-  
-  # Count CpGs per feature
-  bg_counts   <- table(factor(listGR$allButTop90$featureType,   levels = feat_levels))
-  sub_counts  <- table(factor(listGR$top90$featureType, levels = feat_levels))
-  
-  # Combine into a 2x4 contingency table
-  cont_tab <- rbind(
-    subset    = as.numeric(sub_counts),
-    background = as.numeric(bg_counts)
-  )
-  colnames(cont_tab) <- feat_levels
-  cont_tab
-  
-  enrich_list <- lapply(feat_levels, function(f) {
-    # 2x2 table for feature f vs not‑f
-    a <- sub_counts[f]                     # subset in feature f
-    b <- sum(sub_counts)  - a              # subset not in f
-    c <- bg_counts[f] - a                  # background in f but not in subset
-    d <- sum(bg_counts) - bg_counts[f] - b # background not in f and not in subset
-    
-    mat <- matrix(c(a, b, c, d), nrow = 2,
-                  dimnames = list(
-                    set      = c("subset", "background"),
-                    inFeat   = c("yes", "no")
-                  ))
-    
-    ft <- fisher.test(mat, alternative = "greater")
-    
-    data.frame(
-      feature      = f,
-      subset_n     = as.numeric(a),
-      bg_n         = as.numeric(bg_counts[f]),
-      subset_prop  = as.numeric(a) / sum(sub_counts),
-      bg_prop      = as.numeric(bg_counts[f]) / sum(bg_counts),
-      odds_ratio   = unname(ft$estimate),
-      p_value      = ft$p.value
-    )
-  })
-  
-  enrich_df <- bind_rows(enrich_list) |>
-    mutate(p_adj = p.adjust(p_value, method = "BH")) |>
-    mutate(log2_or = log2(odds_ratio))
-  enrich_df
-  # feature subset_n     bg_n subset_prop    bg_prop odds_ratio       p_value         p_adj    log2_or
-  # 1   promoter    17168  3171023  0.08744327 0.14869137  0.5461601  1.000000e+00  1.000000e+00 -0.8726043
-  # 2       exon     7081  1194839  0.03606628 0.05602679  0.6281852  1.000000e+00  1.000000e+00 -0.6707382
-  # 3     intron   116681 12025864  0.59430152 0.56390072  1.1341610 3.351803e-165 6.703607e-165  0.1816254 ***
-  # 4 intergenic    55403  4934482  0.28218893 0.23138113  1.3093824  0.000000e+00  0.000000e+00  0.3888865 ***
-  
-  ## Enrichment in intron & intergenic regions of the top 90% hvCpGs ***
+})
+
+enrich_df <- bind_rows(enrich_list) |>
+  mutate(p_adj = p.adjust(p_value, method = "BH")) |>
+  mutate(log2_or = log2(odds_ratio))
+enrich_df
+# feature subset_n     bg_n subset_prop    bg_prop odds_ratio       p_value         p_adj    log2_or
+# 1   promoter    17168  3171023  0.08744327 0.14869137  0.5461601  1.000000e+00  1.000000e+00 -0.8726043
+# 2       exon     7081  1194839  0.03606628 0.05602679  0.6281852  1.000000e+00  1.000000e+00 -0.6707382
+# 3     intron   116681 12025864  0.59430152 0.56390072  1.1341610 3.351803e-165 6.703607e-165  0.1816254 ***
+# 4 intergenic    55403  4934482  0.28218893 0.23138113  1.3093824  0.000000e+00  0.000000e+00  0.3888865 ***
+
+## Enrichment in intron & intergenic regions of the top 90% hvCpGs ***
 }
 
 ###############################
@@ -1366,21 +1422,7 @@ print(p)
 write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
           quote = F, row.names = F)
 
-###################
-## rmMultSamples ## 
-###################
-# 
-# ## Some individuals have multiple cells sampled. Does that affect our results? NOPE
-# if (!file.exists(file.path(here::here("B_MultiTissues/dataOut/figures/correlations/correlation_Atlas_0_vs_2_rmMultSamples.pdf")))){
-#   makeCompPlot(
-#     X = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds")),
-#     Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_02_rmMultSamples.rds")),
-#     whichAlphaX = "alpha",
-#     whichAlphaY = "alpha",          
-#     title = "Atlas_0_vs_2_rmMultSamples",
-#     xlab = "Pr(hv) calculated on WGBS atlas datasets",
-#     ylab = "Pr(hv) calculated on WGBS atlas datasets keeping one sample/individual only")
-# }
+
 
 
 
