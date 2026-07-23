@@ -44,8 +44,8 @@ makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
     ggplot2::theme_void()
 }
 
-prepAtlasdt <- function(subdir, p0, p1) {
-  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", subdir))
+prepAtlasdt <- function(subdir, p0, p1, atlas_dir) {
+  parent_dir <- file.path(atlas_dir, subdir)
   rds_files  <- base::dir(parent_dir, pattern = paste0(p0, "p0_", p1, "p1.rds$"),
                           recursive = TRUE, full.names = TRUE)
   
@@ -100,8 +100,20 @@ prepAtlasdt <- function(subdir, p0, p1) {
   return(dt)
 }
 
+# hg38 centromeres; gaps table has type == "centromere"
+# from the UCSC "gap"/"centromeres" track, packaged here:
+cyto <- as.data.table(AnnotationHub::AnnotationHub()[["AH53178"]])  # hg38 cytoband
+centro <- cyto[grepl("acen", gieStain),
+               .(cen_start = min(start), cen_end = max(end)),
+               by = .(chr = sub("^chr", "", seqnames))]
+
 plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
-                                colorBySet = FALSE){
+                                centro = NULL){
+  
+  offsets <- dt[, .(offset = min(pos2, na.rm = TRUE) - min(pos, na.rm = TRUE)), by = chr]
+  centro  <- merge(centro, offsets, by = "chr")
+  centro[, `:=`(x_start = cen_start + offset, x_end = cen_end + offset)]
+  
   # Compute chromosome centers for x-axis labeling
   df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
   df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
@@ -117,42 +129,34 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
   vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
   
   p <- ggplot() +
-    # Add dotted separators
-    geom_vline(data = vlines, aes(xintercept = xintercept),
-               linetype = 3, color = "black", linewidth = 1) +
     theme_classic() + theme(legend.position = "none") +
     scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
     labs(x = "Chromosome", y = "Pr(hv)")+
-    theme_minimal(base_size = 14)
-  
-  if (plotDerakhshan == TRUE){
-    p <- p +  
-      # background cloud
-      geom_point_rast(data = dt[is.na(group)], 
-                      aes(x = pos2, y = alpha),
-                      color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
-      geom_point(data = dt[group == "hvCpG_Derakhshan"],
-                 aes(x = pos2, y = alpha),
-                 color = "#DC3220", size = 1, alpha = 0.7) +
-      # mQTL controls highlights
-      geom_point(data = dt[group == "mQTLcontrols"],
-                 aes(x = pos2, y = alpha),
-                 color = "#005AB5", size = 1, alpha = 0.7)
-  }
-  if (colorBySet == TRUE){
-    p <- p +
-      geom_point(data = dt,
-                 aes(x = pos2, y = alpha, color = set),
-                 alpha = transp, size = 1) +
-      facet_wrap(.~set, nrow = 5)
-  } else {
-    p <- p +
-      # background cloud
-      geom_point_rast(data = dt, 
-                      aes(x = pos2, y = alpha),
-                      color = "black", size = 0.01, alpha = transp, raster.dpi = 72) 
-  }
+    theme_minimal(base_size = 14) +
+    # background cloud
+    geom_point_rast(data = dt, 
+                    aes(x = pos2, y = alpha),
+                    color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
+    { if (!is.null(centro))
+      geom_rect(data = centro,
+                aes(xmin = x_start, xmax = x_end, ymin = -Inf, ymax = Inf),
+                fill = "orange", alpha = .8, inherit.aes = FALSE) } +
+    # Add  separators
+    geom_vline(data = vlines, aes(xintercept = xintercept),
+               linetype = 1, color = "green4", linewidth = .5) +
+    { if (plotDerakhshan)
+      list(
+        geom_point_rast(data = dt[is.na(group)],
+                        aes(x = pos2, y = alpha),
+                        color = "black", size = 0.01, alpha = transp, raster.dpi = 72),
+        geom_point(data = dt[group == "hvCpG_Derakhshan"],
+                   aes(x = pos2, y = alpha),
+                   pch = 21, color = "white", fill = "#DC3220", size = 2, alpha = 0.7),
+        geom_point(data = dt[group == "mQTLcontrols"],
+                   aes(x = pos2, y = alpha),
+                   pch = 21, color = "white", fill = "#005AB5", size = 2, alpha = 0.7))
+    }
   return(p)
 }
 
@@ -232,12 +236,8 @@ makeCompPlot <- function(X, Y, title, xlab, ylab,
   dir.create(here::here("B_MultiTissues/dataOut/figures/correlations"),
              recursive = TRUE, showWarnings = FALSE)
   
-  ggplot2::ggsave(
-    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_", title, ".pdf")),
-    plot = p1, width = 8, height = 8
-  )
-  
   invisible(Z_inner)
+  return(p1)
 }
 
 makeGRfromMyCpGPos <- function(vec, setname){# Parse with regex all the cpg tested
