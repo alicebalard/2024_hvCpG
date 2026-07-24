@@ -44,8 +44,8 @@ makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
     ggplot2::theme_void()
 }
 
-prepAtlasdt <- function(subdir, p0, p1) {
-  parent_dir <- here(paste0("B_MultiTissues/resultsDir_gitIgnored/Atlas/", subdir))
+prepAtlasdt <- function(subdir, p0, p1, atlas_dir) {
+  parent_dir <- file.path(atlas_dir, subdir)
   rds_files  <- base::dir(parent_dir, pattern = paste0(p0, "p0_", p1, "p1.rds$"),
                           recursive = TRUE, full.names = TRUE)
   
@@ -100,8 +100,20 @@ prepAtlasdt <- function(subdir, p0, p1) {
   return(dt)
 }
 
+# hg38 centromeres; gaps table has type == "centromere"
+# from the UCSC "gap"/"centromeres" track, packaged here:
+cyto <- as.data.table(AnnotationHub::AnnotationHub()[["AH53178"]])  # hg38 cytoband
+centro <- cyto[grepl("acen", gieStain),
+               .(cen_start = min(start), cen_end = max(end)),
+               by = .(chr = sub("^chr", "", seqnames))]
+
 plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
-                                colorBySet = FALSE){
+                                centro = NULL){
+  
+  offsets <- dt[, .(offset = min(pos2, na.rm = TRUE) - min(pos, na.rm = TRUE)), by = chr]
+  centro  <- merge(centro, offsets, by = "chr")
+  centro[, `:=`(x_start = cen_start + offset, x_end = cen_end + offset)]
+  
   # Compute chromosome centers for x-axis labeling
   df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
   df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
@@ -117,127 +129,100 @@ plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
   vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
   
   p <- ggplot() +
-    # Add dotted separators
-    geom_vline(data = vlines, aes(xintercept = xintercept),
-               linetype = 3, color = "black", linewidth = 1) +
     theme_classic() + theme(legend.position = "none") +
     scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
     labs(x = "Chromosome", y = "Pr(hv)")+
-    theme_minimal(base_size = 14)
-  
-  if (plotDerakhshan == TRUE){
-    p <- p +  
-      # background cloud
-      geom_point_rast(data = dt[is.na(group)], 
-                      aes(x = pos2, y = alpha),
-                      color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
-      geom_point(data = dt[group == "hvCpG_Derakhshan"],
-                 aes(x = pos2, y = alpha),
-                 color = "#DC3220", size = 1, alpha = 0.7) +
-      # mQTL controls highlights
-      geom_point(data = dt[group == "mQTLcontrols"],
-                 aes(x = pos2, y = alpha),
-                 color = "#005AB5", size = 1, alpha = 0.7)
-  }
-  if (colorBySet == TRUE){
-    p <- p +
-      geom_point(data = dt,
-                 aes(x = pos2, y = alpha, color = set),
-                 alpha = transp, size = 1) +
-      facet_wrap(.~set, nrow = 5)
-  } else {
-    p <- p +
-      # background cloud
-      geom_point_rast(data = dt, 
-                      aes(x = pos2, y = alpha),
-                      color = "black", size = 0.01, alpha = transp, raster.dpi = 72) 
-  }
+    theme_minimal(base_size = 14) +
+    # background cloud
+    geom_point_rast(data = dt, 
+                    aes(x = pos2, y = alpha),
+                    color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
+    { if (!is.null(centro))
+      geom_rect(data = centro,
+                aes(xmin = x_start, xmax = x_end, ymin = -Inf, ymax = Inf),
+                fill = "orange", alpha = .8, inherit.aes = FALSE) } +
+    # Add  separators
+    geom_vline(data = vlines, aes(xintercept = xintercept),
+               linetype = 1, color = "green4", linewidth = .5) +
+    { if (plotDerakhshan)
+      list(
+        geom_point_rast(data = dt[is.na(group)],
+                        aes(x = pos2, y = alpha),
+                        color = "black", size = 0.01, alpha = transp, raster.dpi = 72),
+        geom_point(data = dt[group == "hvCpG_Derakhshan"],
+                   aes(x = pos2, y = alpha),
+                   pch = 21, color = "white", fill = "#DC3220", size = 2, alpha = 0.7),
+        geom_point(data = dt[group == "mQTLcontrols"],
+                   aes(x = pos2, y = alpha),
+                   pch = 21, color = "white", fill = "#005AB5", size = 2, alpha = 0.7))
+    }
   return(p)
 }
 
 # ---- Inner helper for makeCompPlot: build Z_inner ----
 makeZ_inner <- function(X, Y, whichAlphaX = NULL, whichAlphaY = NULL) {
-  setDT(X); setDT(Y)
   
-  # Determine X side
-  is_array_X <- any(grepl("array", names(X)))
-  if (is_array_X) {
-    if (is.null(whichAlphaX)) {
-      stop("X looks like an *array* table (columns contain 'array'). ",
-           "Please provide whichAlphaX, e.g. 'alpha_array_all'.")
+  loadSide <- function(dat, whichAlpha) {
+    if (is.character(dat) && length(dat) == 1 && file.exists(dat)) dat <- readRDS(dat)
+    setDT(dat)
+    
+    if ("chrpos" %in% names(dat)) {
+      ## array-style table: CpG id is "chrpos", must be told which alpha column
+      if (is.null(whichAlpha))
+        stop("Table has 'chrpos' (array-style) - please supply whichAlpha, e.g. 'alpha_array_all'.")
+      stopifnot(whichAlpha %in% names(dat))
+      out <- dat[, .(name = as.character(chrpos), alpha = get(whichAlpha))]
+    } else if ("name" %in% names(dat)) {
+      ## atlas-style table: CpG id is already "name"
+      alphaCol <- if (is.null(whichAlpha)) "alpha" else whichAlpha
+      stopifnot(alphaCol %in% names(dat))
+      out <- dat[, .(name = as.character(name), alpha = get(alphaCol))]
+    } else {
+      stop("Table has neither 'chrpos' nor 'name' - can't identify the CpG id column.")
     }
-    colX <- if (is.character(whichAlphaX)) whichAlphaX else deparse(substitute(whichAlphaX))
-    stopifnot("chrpos" %in% names(X), colX %in% names(X))
-    X <- X[, .(name = chrpos, alpha_X = get(colX))]
-  } else {
-    stopifnot(all(c("name", "alpha") %in% names(X)))
-    X <- X[, .(name, alpha_X = alpha)]
+    out   # dat (the full, possibly huge object) goes out of scope here and can be GC'd
   }
   
-  # Determine Y side
-  is_array_Y <- any(grepl("array", names(Y)))
-  if (is_array_Y) {
-    if (is.null(whichAlphaY)) {
-      stop("Y looks like an *array* table (columns contain 'array'). ",
-           "Please provide whichAlphaY.")
-    }
-    colY <- if (is.character(whichAlphaY)) whichAlphaY else deparse(substitute(whichAlphaY))
-    stopifnot("chrpos" %in% names(Y), colY %in% names(Y))
-    Y <- Y[, .(name = chrpos, alpha_Y = get(colY))]
-  } else {
-    stopifnot(all(c("name", "alpha") %in% names(Y)))
-    Y <- Y[, .(name, alpha_Y = alpha)]
-  }
+  X <- loadSide(X, whichAlphaX); setnames(X, "alpha", "alpha_X")
+  Y <- loadSide(Y, whichAlphaY); setnames(Y, "alpha", "alpha_Y")
   
-  # Ensure same type for join column
-  X[, name := as.character(name)]
-  Y[, name := as.character(name)]
-  
-  # Explicit inner join on 'name'
-  Z_inner <- X[Y, on = "name", nomatch = 0]
-  return(Z_inner)
+  X[Y, on = "name", nomatch = 0]
 }
 
 makeCompPlot <- function(X, Y, title, xlab, ylab,
                          whichAlphaX = NULL, whichAlphaY = NULL,
                          minplot = 100000, drawline = TRUE) {
   
-  # ---- Build Z_inner *and assign it* ----
   Z_inner <- makeZ_inner(X, Y, whichAlphaX = whichAlphaX, whichAlphaY = whichAlphaY)
   
   # ---- Plot & save ----
   c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
+  fit <- lm(alpha_Y ~ alpha_X, data = Z_inner)
+  slope <- coef(fit)[["alpha_X"]]
   
   set.seed(1234)
-  if(nrow(Z_inner) > minplot){
-    Z_inner_plot = Z_inner[sample(nrow(Z_inner), minplot),]  
+  if (nrow(Z_inner) > minplot) {
+    Z_inner_plot <- Z_inner[sample(nrow(Z_inner), minplot), ]
   } else {
-    Z_inner_plot = Z_inner  
+    Z_inner_plot <- Z_inner
   }
   p1 <- ggplot(Z_inner_plot, aes(alpha_X, alpha_Y)) +
     geom_point(pch = 21, alpha = 0.05) +
     geom_abline(slope = 1, linetype = 3) +
     theme_minimal(base_size = 14) +
-    annotate("text", x = .2, y = .8, label = paste0("R : ", round(c$estimate, 2))) +
+    annotate("text", x = .2, y = .8, colour = "red",
+             label = sprintf("R : %.2f\nslope : %.2f", c$estimate, slope)) +
     labs(title = title, x = xlab, y = ylab)
   
-  if (drawline == TRUE){
-    p1 <- p1 +     
+  if (drawline == TRUE) {
+    p1 <- p1 +
       geom_smooth(linetype = 3) +
       geom_smooth(method = "lm", fill = "black")
   }
   
-  # Make sure the folder exists
-  dir.create(here::here("B_MultiTissues/dataOut/figures/correlations"),
-             recursive = TRUE, showWarnings = FALSE)
-  
-  ggplot2::ggsave(
-    filename = here::here(paste0("B_MultiTissues/dataOut/figures/correlations/correlation_", title, ".pdf")),
-    plot = p1, width = 8, height = 8
-  )
-  
   invisible(Z_inner)
+  return(p1)
 }
 
 makeGRfromMyCpGPos <- function(vec, setname){# Parse with regex all the cpg tested

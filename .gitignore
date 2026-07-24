@@ -15,31 +15,3 @@ B_MultiTissues/resultsDir_gitIgnored/
 
 ## Matt's data
 B_MultiTissues/dataIn/DEGCAGS_intersect_repeats_Alice_withalpha_GITIGNORE.xlsx
-
-## Previous
-05_hvCpGalgorithm/
-B_MultiTissues/dataOut/figures/BAK/
-B_MultiTissues/dataOut/figures/lociAlice/
-B_MultiTissues/dataOut/figures/correlations/
-B_MultiTissues/dataOut/figures/Manhattan/
-B_MultiTissues/dataOut/figures/quadrantEnrichment/
-B_MultiTissues/dataOut/figures/vennGermLayers/
-B_MultiTissues/dataOut/figures/SIV/
-B_MultiTissues/dataOut/figures/arrayCutoffLowPower2ind.RDS
-B_MultiTissues/dataOut/figures/arrayCutoffLowPower3ind.RDS
-B_MultiTissues/dataOut/figures/Figure2.png
-B_MultiTissues/dataOut/figures/ACTL8_LTR41.pdf
-B_MultiTissues/dataOut/figures/GOenrichment.pdf
-B_MultiTissues/dataOut/figures/GOenrichment_lengthcontrolled.pdf
-B_MultiTissues/dataOut/figures/LD_heatmaps.pdf
-B_MultiTissues/dataOut/figures/alphaComparisonBetweenMEtypes.pdf
-B_MultiTissues/dataOut/figures/alphaComparisonBetweenMEtypes_meanPerRegion.pdf
-B_MultiTissues/dataOut/figures/barplotFeaturesbyAlpha.png
-B_MultiTissues/dataOut/figures/decayAlpha.pdf
-B_MultiTissues/dataOut/figures/geomMean_vs_all.png
-B_MultiTissues/dataOut/figures/histCutoff-arrayAtlas.pdf
-B_MultiTissues/dataOut/figures/makep0p1vary.pdf
-B_MultiTissues/dataOut/figures/tissudiffarrayWGBS_1.png
-B_MultiTissues/dataOut/figures/tissuePlot_arrayAtlas_germLayer.pdf
-B_MultiTissues/dataOut/figures/top90CpGsEnrichME.pdf
-B_MultiTissues/dataOut/figures/topCpGsEnrichME_table.png

@@ -25,7 +25,7 @@ cran_packages <- c(
 
 bioc_packages <- c(
   # Methylation / genomics
-  "rtracklayer", "genomation",
+  "rtracklayer", "genomation", "annotatr",
   "IlluminaHumanMethylation450kanno.ilmn12.hg19",
   "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
   "GenomicRanges", "IRanges", "GenomicFeatures",
