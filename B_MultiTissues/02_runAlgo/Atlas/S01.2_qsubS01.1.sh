@@ -16,7 +16,8 @@ RSCRIPT="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues/02
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID started at $(date) ****"
 
-## 3 layers individually, with higher thresholds
+## Run after bug fix, with higher thresholds
+## Run again using now mean over all individuals in a dataset, instead of sum
 P0=0.80
 P1=0.9
 MININD=3
@@ -25,6 +26,7 @@ for ANALYSIS in "12_endo" "13_meso" "14_ecto" "12_2_endo6gp" "13_2_meso6gp" "atl
     Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
 done
     
+## Before bug fix we ran:
 ##P0=0.80
 ##P1=0.65
 ##MININD=3
@@ -33,20 +35,5 @@ done
 ##    echo "[INFO] Running analysis: $ANALYSIS"
 ##    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
 ##done
-
-##P0=0.80
-##P1=0.9
-##MININD=3
-##ANALYSIS="atlas_general"
-##
-##echo "[INFO] Running analysis: $ANALYSIS"
-##Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
-
-P0=0.55
-P1=0.65
-MININD=3
-ANALYSIS="atlas_general"
-echo "[INFO] Running analysis: $ANALYSIS"
-Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"
