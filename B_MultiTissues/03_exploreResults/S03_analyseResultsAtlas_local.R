@@ -169,15 +169,19 @@ merged_dt[sample(.N, 100000)] |>
 ## rmMultSamples ## 
 ###################
 
-## Some individuals have multiple cells sampled. Does that affect our results? NOPE
-# plotrmtest <- makeCompPlot(
-#   X = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")),
-#   Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_02_rmMultSamples.rds")),
-#   whichAlphaX = "alpha",
-#   whichAlphaY = "alpha",
-#   title = "Atlas_0_vs_2_rmMultSamples",
-#   xlab = "Pr(hv) calculated on WGBS atlas datasets",
-#   ylab = "Pr(hv) calculated on WGBS atlas datasets keeping one sample/individual only")
+# Some individuals have multiple cells sampled. Does that affect our results? NOPE
+plotrmtest <- makeCompPlot(minplot = 1000000, # plot all
+  X = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")),
+  Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_02_rmMultSamples.rds")),
+  whichAlphaX = "alpha",
+  whichAlphaY = "alpha",
+  title = "Effect of keeping only one cell type per individual (1M CPGs plotted)",
+  xlab = "Pr(hv) calculated on WGBS atlas datasets",
+  ylab = "Pr(hv) calculated on WGBS atlas datasets keeping one sample/individual only")
+
+ggplot2::ggsave(
+  filename = here::here(paste0("B_MultiTissues/dataOut/figures/script03/rmMultipleSamples.pdf")),
+  plot = plotrmtest, width = 10, height = 10)
 
 ################################################################################
 ## Load layer-specific analyses                                               ##
