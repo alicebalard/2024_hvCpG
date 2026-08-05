@@ -27,8 +27,8 @@ if (!exists("previousSIVprepared")) {
 ## with sum per dataset:
 pathSum <- "B_MultiTissues/resultsDir_gitIgnored/Arrays/prev_sumInd/"
 
-## with mean per dataset:
-pathMean <- "B_MultiTissues/resultsDir_gitIgnored/Arrays/"
+## with the new logic:
+pathNew <- "B_MultiTissues/resultsDir_gitIgnored/Arrays/"
 
 prepareChrDataset <- function(res){
   res$chrpos <- dico$chrpos_hg38[
@@ -76,69 +76,140 @@ resArrayAll_sum_strict <- as.data.frame(
   readRDS(here(paste0(pathSum, "results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds"))))
 resArrayAll_sum_strict <- prepareChrDataset(resArrayAll_sum_strict)
 
-resArrayAll_mean <- as.data.frame(
-  readRDS(here(paste0(pathMean, "results_Arrays_all_406036CpGs_0_8p0_0_65p1.rds"))))
-resArrayAll_mean <- prepareChrDataset(resArrayAll_mean)
+resArrayAll_NEW_08065 <- as.data.frame(
+  readRDS(here(paste0(pathNew, "results_Arrays_all_406036CpGs_0_8p0_0_65p1_0_01a0.rds"))))
+resArrayAll_NEW_08065 <- prepareChrDataset(resArrayAll_NEW_08065)
 
-resArrayAll_mean_strict <- as.data.frame(
-  readRDS(here(paste0(pathMean, "results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds"))))
-resArrayAll_mean_strict <- prepareChrDataset(resArrayAll_mean_strict)
+getPlotComp <- function(A, B, column1 = "alpha", column2) {
+  setDT(A); setDT(B)
+  merged <- merge(A, B, all = FALSE)
+  
+  ggplot(merged, aes(x = .data[[column1]], y = .data[[column2]])) +
+    geom_point(alpha = 0.4, size = 0.8) +
+    geom_smooth() +
+    theme_minimal()
+}
 
-######################################
-## NB: save the best for later scripts
-## Save for next scripts
-saveRDS(resArrayAll_mean_strict, here("B_MultiTissues/dataOut/resArraymean0.9p10.8p0.RDS"))
+set.seed(1234)
+pa <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                  column2 = "post_hv")
+
+pb <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                  column2 = "logBF")
+
+pc <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                  column2 = "logBF_per_ds")
+
+pd <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                  column2 = "lambda_hat")
+
+pe <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  column1 = "logBF", column2 = "logBF_per_ds")
+
+pf <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  column1 = "logBF", column2 = "n_hv_ds")
+
+pg <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  column1 = "logBF_per_ds", column2 = "n_hv_ds")
+
+ph <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
+                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                  column2 = "n_hv_ds")
+
+plot <- cowplot::plot_grid(pa, pb, pc, pd, pe, pf, pg, ph)
+
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/script02/plotDifferentScores.png"),
+  plot = plot, width = 18, height = 10,
+  dpi = 300, bg = "white")
 
 ################################################################################
-## Compare with previous buggy version (fix 13th July 2026)
-resArrayAll_prev <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Arrays/prev_sumInd/resArray_beforep0p1bugcorrection.RDS"))
-resArrayAll_prev <- resArrayAll_prev[c("alpha", "chrpos")]
-names(resArrayAll_prev) <- c("alpha_beforeBugp0p1", "chrpos")
-
-compare <- merge(resArrayAll_prev, resArrayAll_sum, all =T)
-ggplot(compare, aes(x = alpha_beforeBugp0p1, y = alpha)) +
-  geom_abline(slope = 1) +
-  geom_point(alpha=.01)+
-  theme_bw()
+## Compare different p0 p1                                                    ##  
 ################################################################################
 
+makePlotCompareP0P1 <- function(path1, path2, score = "logBF"){
+  extract_params <- function(path) {
+    pat <- "_(\\d+_\\d+)p0_(\\d+_\\d+)p1_(\\d+_\\d+)a0"
+    m   <- regexec(pat, path, perl = TRUE)
+    groups <- regmatches(path, m)[[1]]
+    nums <- gsub("_", ".", groups[2:4])
+    vals <- as.numeric(nums)
+    setNames(vals, c("p0", "p1", "a0"))
+  }
+  
+  listA <- extract_params(path1)
+  listB <- extract_params(path2)
+  
+  x <- paste0("logBF_", listA[1], "p0_", listA[2], "p1")
+  A <- as.data.frame(readRDS(here(paste0(pathNew, path1))))
+  A <- prepareChrDataset(A)
+  names(A)[names(A) %in% score] <- x
+  
+  y <- paste0(score, listB[1], "p0_", listB[2], "p1")
+  B <- as.data.frame(readRDS(here(paste0(pathNew, path2))))
+  B <- prepareChrDataset(B)
+  B <- B[c(score, "chrpos")]
+  names(B)[names(B) %in% score] <- y
+  
+  setDT(A); setDT(B)
+  setkey(A, chrpos); setkey(B, chrpos)
+  
+  compare <- A[B, nomatch = 0]
+  ggplot(compare, aes(x = .data[[x]], y = .data[[y]], colour = group)) +
+    geom_point(data = compare[compare$group %in% "mQTLcontrols",], alpha = .1) +
+    geom_point(data = compare[compare$group %in% "hvCpG_Derakhshan",], alpha = .1) +
+    geom_abline(slope = 1) + theme_bw()
+}
+
+p1 <- makePlotCompareP0P1(path1 = "results_Arrays_all_406036CpGs_0_8p0_0_65p1_0_01a0.rds",
+                          path2 = "results_Arrays_all_406036CpGs_0_8p0_0_8p1_0_01a0.rds",
+                          score = "logBF")
+
+p2 <- makePlotCompareP0P1(path1 = "results_Arrays_all_406036CpGs_0_65p0_0_8p1_0_01a0.rds",
+                          path2 = "results_Arrays_all_406036CpGs_0_8p0_0_8p1_0_01a0.rds",
+                          score = "logBF")
+
+p3 <- makePlotCompareP0P1(path1 = "results_Arrays_all_406036CpGs_0_65p0_0_8p1_0_01a0.rds",
+                          path2 = "results_Arrays_all_406036CpGs_0_65p0_0_65p1_0_01a0.rds",
+                          score = "logBF")
+
+p4 <- makePlotCompareP0P1(path1 = "results_Arrays_all_406036CpGs_0_8p0_0_8p1_0_01a0.rds",
+                          path2 = "results_Arrays_all_406036CpGs_0_9p0_0_9p1_0_01a0.rds",
+                          score = "logBF")
+
+legend <- get_legend( p4 + theme(legend.box.margin = margin(0, 0, 0, 12)))
+
+plotp0p1 <- cowplot::plot_grid(p1 + theme(legend.position = "none"),
+                               p2+ theme(legend.position = "none"),
+                               p3+ theme(legend.position = "none"),
+                               p4+ theme(legend.position = "none"),
+                               legend)
+## Ranking is perfectly preserved whatever the p0 and p1
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/script02/plotp0p1.png"),
+  plot = plotp0p1, width = 18, height = 10,
+  dpi = 300, bg = "white")
+
+# ######################################
+# ## NB: save the best for later scripts
+# ## Save for next scripts
+# saveRDS(resArrayAll_mean_strict, here("B_MultiTissues/dataOut/resArraymean0.9p10.8p0.RDS"))
+
 ################################################################################
-## Compare with different p0 p1
-
-# separate object just for the p0/p1 scatter comparison - keep resArrayAllStrict intact for makeScript2Fig()
-resArrayAll_sum_strict_cmp <- resArrayAll_sum_strict[c("alpha", "chrpos")]
-names(resArrayAll_sum_strict_cmp) <- c("alpha_stricterp0p1", "chrpos")
-
-# library(data.table)
-setDT(resArrayAll_sum_strict_cmp); setDT(resArrayAll_sum)
-setkey(resArrayAll_sum_strict_cmp, chrpos)
-setkey(resArrayAll_sum, chrpos)
-
-compare <- resArrayAll_sum_strict_cmp[resArrayAll_sum, nomatch = 0]
-ggplot(compare, aes(x = alpha, y = alpha_stricterp0p1, colour = group)) +
-  geom_point(data = compare[is.na(compare$group),], alpha = .1) + 
-  geom_point(data = compare[!is.na(compare$group),], alpha = .1) + 
-  geom_abline(slope = 1) + theme_bw()
-################################################################################
-
-################################################################################
-## Compare between SUM over individuals or MEAN over individuals  
-a = resArrayAll_sum_strict
-b = resArrayAll_mean_strict
-names(b)[names(b) == "alpha"] <- "alpha_mean"
-
-comp <- dplyr::left_join(a, b[,c("chrpos", "alpha_mean")], by = "chrpos")
-
-ggplot(comp, aes(x = alpha, y = alpha_mean)) +
-  geom_point(size = 3, colour = "black", alpha = .01) +
-  theme_minimal(base_size = 12)
-
-cor(comp$alpha, comp$alpha_mean)
-
-rm(a,b,comp)
-################################################################################
-
-makeScript2Fig <- function(resArray, path, p0p1 = "0_8p0_0_65p1"){
+makeScript2Fig <- function(resArray, path, p0p1, score = "logBF", shift = TRUE){
+  
+  if (shift){
+    message("We shift the score so it starts at zero")
+    resArray[[score]] <- resArray[[score]] + abs(min(resArray[[score]]))
+  }
+  
   # Plot
   # Compute midpoints for chromosome labels
   chr_mid <- resArray %>%
@@ -147,17 +218,18 @@ makeScript2Fig <- function(resArray, path, p0p1 = "0_8p0_0_65p1"){
   ## colorblind friendly
   p1_manhattanArray <- ggplot() +
     geom_point(data = subset(resArray, is.na(group)),
-               aes(x = cum_pos, y = alpha), color = "gray", alpha = .4, size = .8) +
+               aes(x = cum_pos, y = .data[[score]]), color = "gray", alpha = .4, size = .8) +
     geom_point(data = subset(resArray, !is.na(group)),
-               aes(x = cum_pos, y = alpha, col = group), alpha = .6, size = 1) +
+               aes(x = cum_pos, y = .data[[score]], col = group), alpha = .6, size = 1) +
     scale_color_manual(values = c("hvCpG_Derakhshan" = "#DC3220",
                                   "mQTLcontrols" = "#005AB5"),
-                       labels = c("hvCpG_Derakhshan" = "Derakhshan hvCpG", "mQTLcontrols" = "mQTL controls")) +
+                       labels = c("hvCpG_Derakhshan" = "Derakhshan hvCpG",
+                                  "mQTLcontrols" = "mQTL controls")) +
     scale_x_continuous(breaks = chr_mid$mid,
                        labels = gsub("chr", "", chr_mid$chr), expand = c(0, 0)) +
     theme_minimal(base_size = 14) +
     guides(colour = guide_legend(override.aes = list(size = 5, alpha = 1))) +
-    labs(x = "Chromosome", y = "Pr(hv)")+
+    labs(x = "Chromosome", y = score)+
     theme(legend.position = "inside",
           legend.position.inside      = c(0.9, 1.15),   # above the plot area
           legend.justification.inside = c(1, 1),
@@ -165,6 +237,16 @@ makeScript2Fig <- function(resArray, path, p0p1 = "0_8p0_0_65p1"){
           legend.title = element_blank(),
           legend.text = element_text(size = 14),
           legend.background = element_rect(linewidth = 0.5, linetype = "blank", colour = "black"))
+  
+  if (shift){
+    p1_manhattanArray <- 
+      p1_manhattanArray + 
+      ylab(paste0(score, " shifted to start at zero")) 
+  } else {
+    p1_manhattanArray <- 
+      p1_manhattanArray + 
+      ylab(paste0(score))
+  }
   
   ###################################################################
   ## Calculate proba hvCpG minus matching control: is it always +? ##
@@ -180,128 +262,41 @@ makeScript2Fig <- function(resArray, path, p0p1 = "0_8p0_0_65p1"){
     stringsAsFactors = FALSE
   )
   
-  # Merge hvCpG alphas
-  hv_alpha <- resArray[, c("chrpos", "alpha")]
-  colnames(hv_alpha) <- c("hvCpG", "alpha_hvCpG")
+  # Merge hvCpG logBFs
+  hv_score <- resArray[, c("chrpos", score)]
+  colnames(hv_score) <- c("hvCpG", "score_hvCpG")
   
-  # Merge control alphas
-  ctrl_alpha <- resArray[, c("chrpos", "alpha")]
-  colnames(ctrl_alpha) <- c("control", "alpha_control")
+  # Merge control logBFs
+  ctrl_score <- resArray[, c("chrpos", score)]
+  colnames(ctrl_score) <- c("control", "score_control")
   
   # Join everything
   merged <- pairs %>%
-    left_join(hv_alpha, by = "hvCpG") %>%
-    left_join(ctrl_alpha, by = "control") %>%
-    mutate(diffAlpha=alpha_hvCpG-alpha_control)
+    left_join(hv_score, by = "hvCpG") %>%
+    left_join(ctrl_score, by = "control") %>%
+    dplyr::mutate(diffscore = score_hvCpG-score_control)
   
-  p2_DiffProbhvCpG_matchingcontrol_Array <- ggplot(merged, aes(x="diff", y=diffAlpha))+
-    geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.3)+
-    geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
+  p2_DiffProbhvCpG_matchingcontrol_Array <-
+    ggplot(merged, aes(x="", y=diffscore))+
+    geom_jitter(data=merged[merged$diffscore>=0,], col="black", alpha=.3)+
+    geom_jitter(data=merged[merged$diffscore<0,], fill="yellow",col="black",
+                pch=21, alpha=.5)+
     geom_violin(width=.5, fill = "grey", alpha=.8) +
     geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
     theme_minimal(base_size = 11)+
-    theme(axis.title.x = element_blank(), axis.text.x = element_blank())+
-    ylab("Difference of Pr(hv)") +
-    coord_cartesian(ylim = c(-1,1))
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank())
   
-  ################################################################
-  ## Load full results on array with only 2 or 3 individuals/ds ##
-  ################################################################
-  
-  makePlotNrob <- function(resCompArray, N){
-    mycor <- cor(resCompArray$alpha_array_all, resCompArray$alpha_array_reduce, use = "complete.obs")
-    
-    ggplot(resCompArray,
-           aes(x=alpha_array_all, y=alpha_array_reduce)) +
-      geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group),
-                 alpha = 0.01) +
-      geom_point(data = resCompArray[!is.na(resCompArray$group),], aes(col = group),
-                 alpha = 0.4) +
-      geom_smooth(method = "lm", fill = "grey", col = "grey") +
-      scale_color_manual(values = c("#DC3220", "#005AB5", "grey"),
-                         labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
-      theme_minimal(base_size = 14) +
-      theme(legend.title = element_blank()) +
-      annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation:\n r = %.2f\n", mycor)) +
-      labs(title = element_blank(),
-           x = "P(hv) using full datasets",
-           y = paste0("Pr(hv) using reduced (", N, " ind/ds) datasets")) +
-      coord_cartesian(xlim = c(0,1), ylim = c(0,1))
+  if (shift){
+    p2_DiffProbhvCpG_matchingcontrol_Array <- 
+      p2_DiffProbhvCpG_matchingcontrol_Array + 
+      ylab(paste0("Difference of ", score, " shifted to start at zero")) 
+  } else {
+    p2_DiffProbhvCpG_matchingcontrol_Array <- 
+      p2_DiffProbhvCpG_matchingcontrol_Array + 
+      ylab(paste0("Difference of ", score))
   }
   
-  resArray3ind <- as.data.frame(readRDS(here(paste0(
-    path, "results_Arrays_3ind_406036CpGs_", p0p1, ".rds"))))
-  resArray3ind <- prepareChrDataset(resArray3ind)
-  names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_reduce"
-  
-  resCompArray_allvs3 <- dplyr::left_join(
-    resArray3ind,
-    resArray[, c("chrpos", "alpha")],
-    by = "chrpos"
-  )
-  names(resCompArray_allvs3)[names(resCompArray_allvs3) %in% "alpha"] <- "alpha_array_all"
-  
-  p3ind <- makePlotNrob(resCompArray_allvs3, 3)
-  
-  resArray2ind <- as.data.frame(readRDS(here(paste0(
-    path, "results_Arrays_2ind_406036CpGs_", p0p1, ".rds"))))
-  resArray2ind <- prepareChrDataset(resArray2ind)
-  names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_reduce"
-  
-  resCompArray_allvs2 <- dplyr::left_join(
-    resArray2ind,
-    resArray[, c("chrpos", "alpha")],
-    by = "chrpos"
-  )
-  names(resCompArray_allvs2)[names(resCompArray_allvs2) %in% "alpha"] <- "alpha_array_all"
-  
-  p2ind <- makePlotNrob(resCompArray_allvs2, 2)
-  
-  ## From script S01:
-  x <- readRDS(here("B_MultiTissues/dataOut/arrayCutoffLowPower2or3ind.RDS"))
-  
-  plot_venn3 <- ggVennDiagram(x, label = "both", label_alpha = 0,
-                              label_color = "white",
-                              category.names = c("Full \ndatasets",
-                                                 "2 ind per \ndataset",
-                                                 "3 ind per dataset")) +
-    scale_fill_gradient(low = "grey", high = "black") +
-    theme(legend.position = "none") +
-    coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
-  
-  plot_venn3 # "Cutoff algorithm"
-  
-  message("What cutoff to get the same number of sites than Maria? with Bayesian approach")
-  print(table(resCompArray_allvs3$group))
-  
-  top3535 <- resCompArray_allvs3 |>
-    dplyr::slice_max(order_by = alpha_array_all, n = 3535, with_ties = FALSE)
-  
-  top3535_2 <- resCompArray_allvs2 |>
-    dplyr::slice_max(order_by = alpha_array_all, n = 3535, with_ties = FALSE)
-  
-  # sanity check
-  table(top3535$chrpos %in% top3535_2$chrpos)
-  
-  min(top3535$alpha_array_all)
-  
-  pos3ind <- top3535$chrpos[top3535$alpha_array_reduce >= min(top3535$alpha_array_all)]
-  pos2ind <- top3535_2$chrpos[top3535_2$alpha_array_reduce >= min(top3535_2$alpha_array_all)]
-  
-  y <- list(
-    "Full array"     = top3535_2$chrpos,
-    "Array 2 ind/ds" = pos2ind,
-    "Array 3 ind/ds" = pos3ind
-  )
-  
-  plot_venn3_Bayes <- ggVennDiagram(y, label = "both", label_alpha = 0, 
-                                    label_color = "white", category.names = 
-                                      c("Full \ndatasets","2 ind per \ndataset", "3 ind per dataset")) +
-    scale_fill_gradient(low = "grey", high = "black") +
-    theme(legend.position = "none")+
-    coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
-  
-  plot_venn3_Bayes
+  ##
   
   ###############################
   ## Make figure of array test ##
@@ -311,43 +306,162 @@ makeScript2Fig <- function(resArray, path, p0p1 = "0_8p0_0_65p1"){
   mg  <- theme(plot.margin = margin(15, 5, 5, 5))
   
   row1 <- cowplot::plot_grid(
-    p1_manhattanArray + theme(plot.margin = margin(40, 5, 5, 5)), #+
-    # ggtitle("Detection of IIHV with both methods (red = cutoff, Pr(hv) in y = Bayesian)"),
+    p1_manhattanArray + theme(plot.margin = margin(40, 5, 5, 5)), 
     p2_DiffProbhvCpG_matchingcontrol_Array + theme(plot.margin = margin(50, 5, 5, 5)),
     ncol = 2, rel_widths = c(4, 1),
-    labels = c("A. Detection of highly variable CpGs with both methods (red = cutoff, Pr(hv) in y = Bayesian)", 
-               "B. Difference between Pr(hv) of \nDerakhshan hvCpGs and \nPr(hv) of matching controls"),
+    labels = c("A. Detection of highly variable CpGs with both methods",
+               "B. Difference of score between\nDerakhshan hvCpGs and\nmatching controls"),
     label_size = lab$size, label_x = lab$x, label_y = lab$y,
     hjust = lab$hjust, vjust = lab$vjust)
-  
-  row2_1 <- cowplot::plot_grid(
-    plot_venn3      + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
-    plot_venn3_Bayes + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
-    labels = c("C. Detection of highly variable CpGs \nwith reduced datasets (cutoff)", 
-               "D. Detection of highly variable CpGs \nwith reduced datasets (Bayesian)"), nrow = 1,
-    label_size = lab$size, label_x = lab$x, label_y = lab$y,
-    hjust = lab$hjust, vjust = lab$vjust)
-  
-  row2_2 <- cowplot::plot_grid(
-    p2ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
-    p3ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
-    labels = c("E. Bayesian: full vs 2 ind/ds", "F. Bayesian: full vs 3 ind/ds"), nrow = 1,
-    label_size = lab$size, label_x = lab$x, label_y = lab$y,
-    hjust = lab$hjust, vjust = lab$vjust)
-  
-  row2 <- cowplot::plot_grid(row2_1, row2_2)
-  
-  figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
-  
-  return(figure2)
+  row1
 }
 
-fig2 <- makeScript2Fig(resArrayAll_mean_strict, pathMean, p0p1 = "0_8p0_0_9p1")
+fig2 <- makeScript2Fig(resArrayAll_NEW_06508, path = pathNew)
 
 ggplot2::ggsave(
-  filename = here::here("B_MultiTissues/dataOut/figures/script02/Fig2_p080p1090_meanperds.png"),
-  plot = fig2, width = 18, height = 10,
+  filename = here::here("B_MultiTissues/dataOut/figures/script02/Fig2_newAug26.png"),
+  plot = fig2, width = 18, height = 5,
   dpi = 300, bg = "white")
+
+
+## TBC when sod is not down
+
+
+
+################################################################################
+makeScript2Fig <- function(resArray, path, p0p1){
+  
+  ################################################################
+  ## Load full results on array with only 2 or 3 individuals/ds ##
+  ################################################################
+  
+  # makePlotNrob <- function(resCompArray, N){
+  #   mycor <- cor(resCompArray$alpha_array_all, 
+  # resCompArray$alpha_array_reduce, use = "complete.obs")
+  #   
+  #   ggplot(resCompArray,
+  #          aes(x=alpha_array_all, y=alpha_array_reduce)) +
+  #     geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group),
+  #                alpha = 0.01) +
+  #     geom_point(data = resCompArray[!is.na(resCompArray$group),], aes(col = group),
+  #                alpha = 0.4) +
+  #     geom_smooth(method = "lm", fill = "grey", col = "grey") +
+  #     scale_color_manual(values = c("#DC3220", "#005AB5", "grey"),
+  #                        labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+  #     theme_minimal(base_size = 14) +
+  #     theme(legend.title = element_blank()) +
+  #     annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation:\n r = %.2f\n", mycor)) +
+  #     labs(title = element_blank(),
+  #          x = "P(hv) using full datasets",
+  #          y = paste0("Pr(hv) using reduced (", N, " ind/ds) datasets")) +
+  #     coord_cartesian(xlim = c(0,1), ylim = c(0,1))
+  # }
+  # 
+  # resArray3ind <- as.data.frame(readRDS(here(paste0(
+  #   path, "results_Arrays_3ind_406036CpGs_", p0p1, ".rds"))))
+  # resArray3ind <- prepareChrDataset(resArray3ind)
+  # names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_reduce"
+  # 
+  # resCompArray_allvs3 <- dplyr::left_join(
+  #   resArray3ind,
+  #   resArray[, c("chrpos", "alpha")],
+  #   by = "chrpos"
+  # )
+  # names(resCompArray_allvs3)[names(resCompArray_allvs3) %in% "alpha"] <- "alpha_array_all"
+  # 
+  # p3ind <- makePlotNrob(resCompArray_allvs3, 3)
+  # 
+  # resArray2ind <- as.data.frame(readRDS(here(paste0(
+  #   path, "results_Arrays_2ind_406036CpGs_", p0p1, ".rds"))))
+  # resArray2ind <- prepareChrDataset(resArray2ind)
+  # names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_reduce"
+  # 
+  # resCompArray_allvs2 <- dplyr::left_join(
+  #   resArray2ind,
+  #   resArray[, c("chrpos", "alpha")],
+  #   by = "chrpos"
+  # )
+  # names(resCompArray_allvs2)[names(resCompArray_allvs2) %in% "alpha"] <- "alpha_array_all"
+  # 
+  # p2ind <- makePlotNrob(resCompArray_allvs2, 2)
+  # 
+  # ## From script S01:
+  # x <- readRDS(here("B_MultiTissues/dataOut/arrayCutoffLowPower2or3ind.RDS"))
+  # 
+  # plot_venn3 <- ggVennDiagram(x, label = "both", label_alpha = 0,
+  #                             label_color = "white",
+  #                             category.names = c("Full \ndatasets",
+  #                                                "2 ind per \ndataset",
+  #                                                "3 ind per dataset")) +
+  #   scale_fill_gradient(low = "grey", high = "black") +
+  #   theme(legend.position = "none") +
+  #   coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
+  # 
+  # plot_venn3 # "Cutoff algorithm"
+  # 
+  # message("What cutoff to get the same number of sites than Maria? with Bayesian approach")
+  # print(table(resCompArray_allvs3$group))
+  # 
+  # top3535 <- resCompArray_allvs3 |>
+  #   dplyr::slice_max(order_by = alpha_array_all, n = 3535, with_ties = FALSE)
+  # 
+  # top3535_2 <- resCompArray_allvs2 |>
+  #   dplyr::slice_max(order_by = alpha_array_all, n = 3535, with_ties = FALSE)
+  # 
+  # # sanity check
+  # table(top3535$chrpos %in% top3535_2$chrpos)
+  # 
+  # min(top3535$alpha_array_all)
+  # 
+  # pos3ind <- top3535$chrpos[top3535$alpha_array_reduce >= min(top3535$alpha_array_all)]
+  # pos2ind <- top3535_2$chrpos[top3535_2$alpha_array_reduce >= min(top3535_2$alpha_array_all)]
+  # 
+  # y <- list(
+  #   "Full array"     = top3535_2$chrpos,
+  #   "Array 2 ind/ds" = pos2ind,
+  #   "Array 3 ind/ds" = pos3ind
+  # )
+  # 
+  # plot_venn3_Bayes <- ggVennDiagram(y, label = "both", label_alpha = 0, 
+  #                                   label_color = "white", category.names = 
+  #                                     c("Full \ndatasets","2 ind per \ndataset", "3 ind per dataset")) +
+  #   scale_fill_gradient(low = "grey", high = "black") +
+  #   theme(legend.position = "none")+
+  #   coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
+  # 
+  # plot_venn3_Bayes
+  # 
+  # ###############################
+  # ## Make figure of array test ##
+  # ###############################
+  # 
+  # lab <- list(size = 14, x = 0.01, y = 0.99, hjust = 0, vjust = 1)
+  # mg  <- theme(plot.margin = margin(15, 5, 5, 5))
+  # 
+
+  # 
+  # row2_1 <- cowplot::plot_grid(
+  #   plot_venn3      + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
+  #   plot_venn3_Bayes + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
+  #   labels = c("C. Detection of highly variable CpGs \nwith reduced datasets (cutoff)", 
+  #              "D. Detection of highly variable CpGs \nwith reduced datasets (Bayesian)"), nrow = 1,
+  #   label_size = lab$size, label_x = lab$x, label_y = lab$y,
+  #   hjust = lab$hjust, vjust = lab$vjust)
+  # 
+  # row2_2 <- cowplot::plot_grid(
+  #   p2ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
+  #   p3ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
+  #   labels = c("E. Bayesian: full vs 2 ind/ds", "F. Bayesian: full vs 3 ind/ds"), nrow = 1,
+  #   label_size = lab$size, label_x = lab$x, label_y = lab$y,
+  #   hjust = lab$hjust, vjust = lab$vjust)
+  # 
+  # row2 <- cowplot::plot_grid(row2_1, row2_2)
+  # 
+  # figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
+  # 
+  # return(figure2)
+  return(p1_manhattanArray)
+}
 
 ################################################################################
 ## Evolution of top-3535 CpG recovery as individuals/dataset increases        ##
