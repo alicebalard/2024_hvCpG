@@ -68,6 +68,8 @@ prepareChrDataset <- function(res){
   return(res)
 }
 
+################################################################################
+## old
 resArrayAll_sum <- as.data.frame(
   readRDS(here(paste0(pathSum, "results_Arrays_all_406036CpGs_0_8p0_0_65p1.rds"))))
 resArrayAll_sum <- prepareChrDataset(resArrayAll_sum)
@@ -76,9 +78,29 @@ resArrayAll_sum_strict <- as.data.frame(
   readRDS(here(paste0(pathSum, "results_Arrays_all_406036CpGs_0_8p0_0_9p1.rds"))))
 resArrayAll_sum_strict <- prepareChrDataset(resArrayAll_sum_strict)
 
-resArrayAll_NEW_08065 <- as.data.frame(
+################################################################################
+## New
+resArray_0_8p0_0_8p1 <- as.data.frame(
+  readRDS(here(paste0(pathNew, "results_Arrays_all_406036CpGs_0_8p0_0_8p1_0_01a0.rds"))))
+resArray_0_8p0_0_8p1 <- prepareChrDataset(resArray_0_8p0_0_8p1)
+
+resArray_0_8p0_0_65p1 <- as.data.frame(
   readRDS(here(paste0(pathNew, "results_Arrays_all_406036CpGs_0_8p0_0_65p1_0_01a0.rds"))))
-resArrayAll_NEW_08065 <- prepareChrDataset(resArrayAll_NEW_08065)
+resArray_0_8p0_0_65p1 <- prepareChrDataset(resArray_0_8p0_0_65p1)
+
+resArray_0_9p0_0_9p1 <- as.data.frame(
+  readRDS(here(paste0(pathNew, "results_Arrays_all_406036CpGs_0_9p0_0_9p1_0_01a0.rds"))))
+resArray_0_9p0_0_9p1 <- prepareChrDataset(resArray_0_9p0_0_9p1)
+
+resArray_0_65p0_0_8p1 <- as.data.frame(
+  readRDS(here(paste0(pathNew, "results_Arrays_all_406036CpGs_0_65p0_0_8p1_0_01a0.rds"))))
+resArray_0_65p0_0_8p1 <- prepareChrDataset(resArray_0_65p0_0_8p1)
+
+resArray_0_65p0_0_65p1 <- as.data.frame(
+  readRDS(here(paste0(pathNew, "results_Arrays_all_406036CpGs_0_65p0_0_65p1_0_01a0.rds"))))
+resArray_0_65p0_0_65p1 <- prepareChrDataset(resArray_0_65p0_0_65p1)
+
+################################################################################
 
 getPlotComp <- function(A, B, column1 = "alpha", column2) {
   setDT(A); setDT(B)
@@ -90,44 +112,52 @@ getPlotComp <- function(A, B, column1 = "alpha", column2) {
     theme_minimal()
 }
 
-set.seed(1234)
-pa <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
-                  column2 = "post_hv")
+getPlotScores <- function(resArray){
+  
+  set.seed(1234)
+  pa <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
+                    resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                    column2 = "post_hv")
+  
+  pb <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
+                    resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                    column2 = "logBF")
+  
+  pc <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
+                    resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                    column2 = "logBF_per_ds")
+  
+  pd <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
+                    resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                    column2 = "lambda_hat")
+  
+  pe <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
+                    resArray[sample(1:nrow(resArray),100000),], 
+                    column1 = "logBF", column2 = "logBF_per_ds")
+  
+  pf <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
+                    resArray[sample(1:nrow(resArray),100000),], 
+                    column1 = "logBF", column2 = "n_hv_ds")
+  
+  pg <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
+                    resArray[sample(1:nrow(resArray),100000),], 
+                    column1 = "logBF_per_ds", column2 = "n_hv_ds")
+  
+  ph <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
+                    resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
+                    column2 = "n_hv_ds")
+  
+  plot <- cowplot::plot_grid(pa, pb, pc, pd, pe, pf, pg, ph)
+  return(plot)
+}
 
-pb <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
-                  column2 = "logBF")
-
-pc <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
-                  column2 = "logBF_per_ds")
-
-pd <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
-                  column2 = "lambda_hat")
-
-pe <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  column1 = "logBF", column2 = "logBF_per_ds")
-
-pf <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  column1 = "logBF", column2 = "n_hv_ds")
-
-pg <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  column1 = "logBF_per_ds", column2 = "n_hv_ds")
-
-ph <- getPlotComp(resArrayAll_NEW_08065[sample(1:nrow(resArrayAll_NEW_08065),100000),], 
-                  resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
-                  column2 = "n_hv_ds")
-
-plot <- cowplot::plot_grid(pa, pb, pc, pd, pe, pf, pg, ph)
+getPlotScores(resArray = resArray_0_65p0_0_65p1)
+getPlotScores(resArray = resArray_0_9p0_0_9p1)
+getPlotScores(resArray = resArray_0_8p0_0_65p1)
 
 ggplot2::ggsave(
-  filename = here::here("B_MultiTissues/dataOut/figures/script02/plotDifferentScores.png"),
-  plot = plot, width = 18, height = 10,
+  filename = here::here("B_MultiTissues/dataOut/figures/script02/plotDifferentScores_0_8p0_0_65p1.png"),
+  plot = getPlotScores(resArray = resArray_0_8p0_0_65p1), width = 18, height = 10,
   dpi = 300, bg = "white")
 
 ################################################################################
@@ -197,10 +227,10 @@ ggplot2::ggsave(
   plot = plotp0p1, width = 18, height = 10,
   dpi = 300, bg = "white")
 
-# ######################################
-# ## NB: save the best for later scripts
-# ## Save for next scripts
-# saveRDS(resArrayAll_mean_strict, here("B_MultiTissues/dataOut/resArraymean0.9p10.8p0.RDS"))
+######################################
+## NB: save the best for later scripts
+## Save for next scripts
+saveRDS(resArray_0_8p0_0_65p1, here("B_MultiTissues/dataOut/resArray_0_8p0_0_65p1.RDS"))
 
 ################################################################################
 makeScript2Fig <- function(resArray, path, p0p1, score = "logBF", shift = TRUE){
@@ -316,10 +346,10 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF", shift = TRUE){
   row1
 }
 
-fig2 <- makeScript2Fig(resArrayAll_NEW_06508, path = pathNew)
+fig2 <- makeScript2Fig(resArray_0_8p0_0_65p1, path = pathNew)
 
 ggplot2::ggsave(
-  filename = here::here("B_MultiTissues/dataOut/figures/script02/Fig2_newAug26.png"),
+  filename = here::here("B_MultiTissues/dataOut/figures/script02/Fig2_newAug26_resArray_0_8p0_0_65p1.png"),
   plot = fig2, width = 18, height = 5,
   dpi = 300, bg = "white")
 
@@ -438,7 +468,7 @@ makeScript2Fig <- function(resArray, path, p0p1){
   # lab <- list(size = 14, x = 0.01, y = 0.99, hjust = 0, vjust = 1)
   # mg  <- theme(plot.margin = margin(15, 5, 5, 5))
   # 
-
+  
   # 
   # row2_1 <- cowplot::plot_grid(
   #   plot_venn3      + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
