@@ -15,22 +15,119 @@ if (!exists("functionsLoaded")) {
 
 ## Atlas
 parent_dir_atlas <- here("B_MultiTissues/resultsDir_gitIgnored/Atlas/Atlas10X_tissueAnalysis/")
-rds_files_atlas <- list.files(parent_dir_atlas, pattern = "\\.rds$", recursive = TRUE, full.names = TRUE)
+rds_files_atlas <- list.files(parent_dir_atlas, pattern = "\\p1.rds$", recursive = TRUE, full.names = TRUE)
 all_medsd_lambda_atlas <- read.table(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/Atlas10X_tissueAnalysis/all_medsd_lambda.tsv"), sep = "\t", header = T)
 all_medsd_lambda_atlas$assay <- "WGBS Loyfer"
 
 ## Array
 parent_dir_array <- here("B_MultiTissues/resultsDir_gitIgnored/Arrays/tissue/")
-rds_files_array <- list.files(parent_dir_array, pattern = "\\.rds$", recursive = TRUE, full.names = TRUE)
+rds_files_array <- list.files(parent_dir_array, pattern = "\\p1.rds$", recursive = TRUE, full.names = TRUE)
 all_medsd_lambda_array <- read.table(here("B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/all_medsd_lambda.tsv"), sep = "\t", header = T)
 all_medsd_lambda_array$assay <- "array Derakhshan"
 
 ## Both
 WGBS_Array_datasets <- rbind(all_medsd_lambda_atlas, all_medsd_lambda_array)
 
-#################
-## Violin plot ##
-#################
+################################################################################
+## Add files with component separated for Array                               ##
+################################################################################
+rds_files_array_comp <- list.files(parent_dir_array, pattern = "\\components.rds$",
+                                   recursive = TRUE, full.names = TRUE)
+
+## Files containing Nind/ds
+meta_array1 <- readxl::read_xlsx(here("B_MultiTissues/dataIn/Derakhshan2022_4143hvCpGs_450k.xlsx"), 
+                                 sheet = 2, skip = 2)
+meta_array2 <- readxl::read_xlsx(here("B_MultiTissues/dataIn/Derakhshan2022_4143hvCpGs_450k.xlsx"), 
+                                 sheet = 3, skip = 2)
+meta_array2 <- meta_array2[1:10,]
+names(meta_array2)[names(meta_array2) %in% "Dataset ID/ Tissue"] <- "Dataset ID"
+meta_array3 <- readxl::read_xlsx(here("B_MultiTissues/dataIn/Derakhshan2022_4143hvCpGs_450k.xlsx"), 
+                                 sheet = 4, skip = 2)
+meta_array3 <- meta_array3[1:3,]
+
+meta_array <- rbind(meta_array1[c("Dataset ID", "N")], 
+                    meta_array2[c("Dataset ID", "N")],
+                    meta_array3[c("Dataset ID", "N")])
+names(meta_array) <- c("dataset", "N")
+rm(meta_array1, meta_array2, meta_array3)
+
+## clean difference with colnames RDS file
+meta_array$dataset <- gsub("\\*", "", meta_array$dataset)
+meta_array$dataset <- gsub(" ", "", meta_array$dataset)
+meta_array$dataset[meta_array$dataset %in% "Head+neck"] <- "head and neck"
+meta_array$dataset[meta_array$dataset %in% "Buccal_Cauc"] <- "Buccals_Cauc"
+meta_array$dataset[meta_array$dataset %in% "Buccals_Sing"] <- "Buccals_Sing_9mo"
+
+meta_atlas <- read.csv(here("B_MultiTissues/dataIn/SupTab1_Loyfer2023.csv"))
+meta_atlas$dataset <- paste0(meta_atlas$Source.Tissue, " - ", meta_atlas$Cell.type)
+meta_atlas <- meta_atlas %>% dplyr::group_by(dataset) %>%
+  dplyr::summarise(N = n())
+
+## ── First plot: N individuals per dataset vs mean Pr(hv) ─────────────────────
+makeNvsProb <- function(rds_files, rds_files_comp, mytitle, meta, all_medsd_lambda){
+  if (length(rds_files) == 0) stop("No .rds files for '", mytitle, "'.")
+  
+  cpgn <- function(f) as.integer(regmatches(f, regexpr("(?<=_)\\d+(?=CpGs)", f, perl = TRUE)))
+  
+  ## posterior probability
+  dat <- rbindlist(lapply(rds_files, function(f){
+    m <- readRDS(f)
+    data.table(dataset = colnames(m),
+               mean_prob = exp(colMeans(m, na.rm = TRUE)),
+               cpg_n = cpgn(f))
+  }), fill = TRUE)[, .(mean_prob = weighted.mean(mean_prob, cpg_n, na.rm = TRUE),
+                       cpg_n = sum(cpg_n, na.rm = TRUE)), by = dataset]
+  
+  ## numerator & denominator (already aggregated; average directly, NO log())
+  comp <- rbindlist(lapply(rds_files_comp, function(f){
+    R <- readRDS(f)
+    data.table(dataset   = colnames(R$numerator),
+               numerator = colMeans(R$numerator,   na.rm = TRUE),
+               denominator = colMeans(R$denominator, na.rm = TRUE),
+               cpg_n = cpgn(f))
+  }), fill = TRUE)[, .(numerator   = weighted.mean(numerator,   cpg_n, na.rm = TRUE),
+                       denominator = weighted.mean(denominator, cpg_n, na.rm = TRUE)),
+                   by = dataset]
+  
+  dat <- merge(dat, comp, by = "dataset", all.x = TRUE)
+  dat$n_ind  <- meta$N[match(tolower(dat$dataset), tolower(meta$dataset))]
+  dat$lambda <- all_medsd_lambda$lambda[match(tolower(dat$dataset),
+                                              tolower(all_medsd_lambda$dataset))]
+  
+  long <- melt(dat, id.vars = c("dataset","n_ind","lambda"),
+               measure.vars = c("mean_prob","numerator","denominator"),
+               variable.name = "quantity", value.name = "y")
+  long[, quantity := factor(quantity,
+                            levels = c("mean_prob","numerator","denominator"),
+                            labels = c("Posterior Pr(hv)", "Numerator", "Denominator"))]
+  
+  base <- function(xvar, xlab, colvar)
+    ggplot(long, aes(.data[[xvar]], y, colour = .data[[colvar]])) +
+    geom_point(size = 2.3, alpha = 0.8) +
+    ggrepel::geom_text_repel(aes(label = dataset), size = 2.2, max.overlaps = 15) +
+    geom_smooth(method = "loess", se = TRUE, colour = "grey40", linewidth = 0.5) +
+    facet_grid(quantity ~ ., scales = "free_y", switch = "y") +
+    scale_color_viridis_c() +
+    labs(x = xlab, y = NULL, colour = colvar, title = mytitle) +
+    theme_minimal(base_size = 13) +
+    theme(strip.placement = "outside", strip.text.y.left = element_text(angle = 90))
+  
+  cowplot::plot_grid(
+    base("n_ind",  "Number of individuals in dataset", "lambda"),
+    base("lambda", "Lambda per dataset",               "n_ind"),
+    nrow = 1)
+}
+
+p0_array <- makeNvsProb(rds_files_array, rds_files_array_comp,
+                        "arrays (Derakhshan)", meta_array, all_medsd_lambda_array)
+
+ggplot2::ggsave(
+  here("B_MultiTissues/dataOut/figures/script05/NindVsProb_array.png"),
+  p0_array, width = 14, height = 10, dpi = 300, bg = "white")
+
+################################################################################
+## Violin plot of x = dataset and y = pr(hv) and y2 = lambda                  ##
+################################################################################
 
 makeViolin <- function(size = 10, rds_files, fill = "nothing", all_medsd_lambda, mytitle){
   set.seed(1234)
@@ -120,10 +217,10 @@ p1 <- makeViolin(
 
 ## Array
 p2 <- makeViolin(
-  rds_files = rds_files_array, size = 10,
+  rds_files = rds_files_array, size = 10, 
   all_medsd_lambda = all_medsd_lambda_array, mytitle = "arrays")
 
-pdf(here("B_MultiTissues/dataOut/figures/tissuePlot_arrayAtlas_germLayer.pdf"), width = 15, height = 12)
+pdf(here("B_MultiTissues/dataOut/figures/script05/tissuePlot_arrayAtlas_germLayer.pdf"), width = 15, height = 12)
 cowplot::plot_grid(p1$p, p2$p, nrow = 2)
 dev.off()
 

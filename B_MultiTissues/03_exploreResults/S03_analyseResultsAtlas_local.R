@@ -21,8 +21,10 @@ if (!exists("previousSIVprepared")) {
 
 ## Load array results
 if (!exists("resArray")) {
-  resArray <- readRDS(here("B_MultiTissues/dataOut/resArraymean0.9p10.8p0.RDS"))
+  resArray <- readRDS(here("B_MultiTissues/dataOut/resArray_0_8p0_0_65p1.RDS"))
 }
+
+## --> Jump top "checkpoint" if table3layers_coveredIn3 has been saved in gitignore
 
 #######################
 ## Data in WGBS atlas:
@@ -53,150 +55,101 @@ table(table(SupTab1_Loyfer2023$group)[table(SupTab1_Loyfer2023$group) >=3])
 ##################################
 ## Save all data in RDS objects ##
 ##################################
+
 savePrepedAtlasFile <- function(
     file, p0, p1,
     res       = "fullres_",
     atlas_dir = here("B_MultiTissues/resultsDir_gitIgnored/Atlas"),
-    out_dir   = here("gitignore/resultsAtlasPrepared")) {
-  
-  # `file` is the bare subdir name, e.g. "12_endo"
-  search_dir <- file.path(atlas_dir, file)                      # where the batches live
+    out_dir   = here("gitignore/resultsAtlasPrepared"),
+    a0ornot   = TRUE
+) {
+  search_dir <- file.path(atlas_dir, file)
   out_path   <- file.path(out_dir,
                           paste0(res, p0, "p0_", p1, "p1_", file, ".rds"))
   
-  # ── Completeness check ────────────────────────────────────────────────────
-  pattern   <- paste0("^results_.*", p0, "p0_", p1, "p1\\.rds$")
-  rds_files <- base::dir(search_dir, pattern = pattern,
-                         recursive = TRUE, full.names = TRUE)
-  n_files   <- length(rds_files)
+  pattern <- if (a0ornot)
+    paste0("^results_.*", p0, "p0_", p1, "p1_.*a0\\.rds$")
+  else
+    paste0("^results_.*", p0, "p0_", p1, "p1\\.rds$")
   
-  if (n_files == 0) {
-    message("SKIP ", file, " [", p0, "/", p1, "] - no matching files.")
-    return(invisible(NULL))
+  rds_files <- base::dir(search_dir, pattern = pattern, recursive = TRUE, full.names = TRUE)
+  if (length(rds_files) == 0) {
+    message("SKIP ", file, " [", p0, "/", p1, "] - no matching files."); return(invisible(NULL))
   }
   
-  # Check 1: file count matches highest Atlas_batch number
-  batch_dirs <- unique(dirname(rds_files))
-  batch_nums <- as.integer(regmatches(batch_dirs,
-                                      regexpr("(?<=Atlas_batch)\\d+", batch_dirs, perl = TRUE)))
+  # completeness: one file per batch, up to the highest batch number, no gaps
+  batch_nums <- as.integer(regmatches(dirname(rds_files),
+                                      regexpr("(?<=Atlas_batch)\\d+", dirname(rds_files), perl = TRUE)))
   expected_n <- max(batch_nums, na.rm = TRUE)
-  
-  if (n_files != expected_n) {
-    message("SKIP ", file, " - expected ", expected_n,
-            " files but found ", n_files, ".")
+  if (length(rds_files) != expected_n || !all(sort(batch_nums) == seq_len(expected_n))) {
+    message("SKIP ", file, " - found ", length(rds_files), " files, batches run 1..",
+            expected_n, " (missing: ",
+            paste(setdiff(seq_len(expected_n), batch_nums), collapse = ","), ")")
     return(invisible(NULL))
   }
   
-  # Check 2: last batch must not be exactly 250000 CpGs (truncation sentinel)
-  last_file   <- sort(rds_files) |> tail(1)                     # <- fixed sort
-  cpg_in_name <- as.integer(regmatches(last_file,
-                                       regexpr("(?<=_)\\d+(?=CpGs)", last_file, perl = TRUE)))
-  
-  if (!is.na(cpg_in_name) && cpg_in_name == 250000) {
-    message("SKIP ", file, " - last batch has 250000 CpGs (truncated?): ",
-            basename(last_file))
+  # last batch should be the short remainder, not a full 250000 (truncation check)
+  cpgs <- as.integer(regmatches(rds_files,
+                                regexpr("(?<=_)\\d+(?=CpGs)", rds_files, perl = TRUE)))
+  ord  <- order(batch_nums)
+  if (!is.na(tail(cpgs[ord], 1)) && tail(cpgs[ord], 1) == 250000) {
+    message("SKIP ", file, " - last batch has 250000 CpGs (truncated?).")
     return(invisible(NULL))
   }
   
-  message("OK   ", file, " - ", n_files, "/", expected_n,
-          " files, last batch has ", cpg_in_name, " CpGs.")
-  
-  if (file.exists(out_path)) {
-    message("     already prepared - skipping."); return(invisible(NULL))
-  }
+  message("OK   ", file, " - ", length(rds_files), " batches.")
+  if (file.exists(out_path)) { message("     already prepared - skipping."); return(invisible(NULL)) }
   
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
-  system.time(Atlas_dt <- prepAtlasdt(file, p0, p1, atlas_dir = atlas_dir))
-  saveRDS(Atlas_dt, file = out_path)
+  Atlas_dt <- prepAtlasdt(file, p0, p1, atlas_dir = atlas_dir, mypattern = pattern)
+  saveRDS(Atlas_dt, out_path)
   message("     saved: ", out_path)
 }
 
 subdirs <- list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))
-subdirs <- subdirs[!grepl("^PREVIOUS", subdirs)]      # bare names only
-
+subdirs <- subdirs[!grepl("^PREVIOUS", subdirs)]
 for (subdir in subdirs) {
-  savePrepedAtlasFile(subdir, p0 = "0_8",  p1 = "0_65")
-  savePrepedAtlasFile(subdir, p0 = "0_8",  p1 = "0_9")
-  savePrepedAtlasFile(subdir, p0 = "0_55", p1 = "0_65")
+  savePrepedAtlasFile(subdir, p0 = "0_8", p1 = "0_65")
 }
 
-prevDir <- here("B_MultiTissues/resultsDir_gitIgnored/Atlas/PREVIOUSalgosumloglikoverinds")
-subdirs <- list.files(prevDir)
-subdirs <- subdirs[!grepl("^Atlas10X_tissueAnalysis", subdirs)]
-
-for (subdir in subdirs) {
-  savePrepedAtlasFile(subdir, p0 = "0_8",  p1 = "0_65", res = "previousres_sumlog_", atlas_dir = prevDir)
-  savePrepedAtlasFile(subdir, p0 = "0_8",  p1 = "0_9",  res = "previousres_sumlog_", atlas_dir = prevDir)
-  savePrepedAtlasFile(subdir, p0 = "0_55", p1 = "0_65", res = "previousres_sumlog_", atlas_dir = prevDir)
-}
-
-## New July 2026 (post bug, post sum --> mean)
+## New August 2026
 # Saved: /home/alice/Documents/Research/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/
-
-################################################################################
-## Compare algorithm with sum of with mean per dataset of the logliks         ##
-################################################################################
-
-Atlas_dt <- readRDS(
-  here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds"))
-nrow(Atlas_dt) # 21522541
-
-Atlas_dt_sum <- readRDS(
-  here("gitignore/resultsAtlasPrepared/previousres_sumlog_0_8p0_0_9p1_atlas_general.rds"))
-nrow(Atlas_dt_sum) # 21522541
-
-# Set key if not already set
-setkey(Atlas_dt, name)
-setkey(Atlas_dt_sum, name)
-
-# Merge all three
-merged_dt <- Atlas_dt[Atlas_dt_sum,
-                      .(name, alpha_mean = alpha, alpha_sum = i.alpha),
-                      on = "name", nomatch = NULL]
-
-set.seed(1234)
-merged_dt[sample(.N, 100000)] |>
-  ggplot(aes(x = alpha_mean, y = alpha_sum)) +
-  geom_point(alpha = 0.05, size = 0.3) +   # small/transparent for density
-  geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
-  labs(x = "Pr(hv) atlas general - mean", y = "Pr(hv) atlas general - sum") +
-  theme_minimal()
-
-## Ranking is preserved. The tight linear band confirms both settings agree on which
-# CpGs are most variable
 
 ###################
 ## rmMultSamples ## 
 ###################
 
-# Some individuals have multiple cells sampled. Does that affect our results? NOPE
-plotrmtest <- makeCompPlot(minplot = 1000000, # plot all
-  X = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds")),
-  Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_02_rmMultSamples.rds")),
-  whichAlphaX = "alpha",
-  whichAlphaY = "alpha",
-  title = "Effect of keeping only one cell type per individual (1M CPGs plotted)",
-  xlab = "Pr(hv) calculated on WGBS atlas datasets",
-  ylab = "Pr(hv) calculated on WGBS atlas datasets keeping one sample/individual only")
-
-ggplot2::ggsave(
-  filename = here::here(paste0("B_MultiTissues/dataOut/figures/script03/rmMultipleSamples.pdf")),
-  plot = plotrmtest, width = 10, height = 10)
+if (!file.exists(here(paste0("B_MultiTissues/dataOut/figures/script03/rmMultipleSamples.pdf")))){
+  # Some individuals have multiple cells sampled. Does that affect our results? NOPE
+  plotrmtest <- makeCompPlot(
+    minplot = 1000000, # plot all
+    X = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_02_atlas_general.rds")),
+    Y = readRDS(here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_rmMultSamples.rds")),
+    whichAlphaX = "logBF_per_ds",
+    whichAlphaY = "logBF_per_ds",
+    title = "Effect of keeping only one cell type per individual (1M CPGs plotted)",
+    xlab = "logBF_per_ds calculated on WGBS atlas datasets",
+    ylab = "logBF_per_ds calculated on WGBS atlas datasets keeping one sample/individual only")
+  
+  ggplot2::ggsave(
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/script03/rmMultipleSamples.pdf")),
+    plot = plotrmtest, width = 10, height = 10)
+}
 
 ################################################################################
 ## Load layer-specific analyses                                               ##
 ################################################################################
 
-endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_12_endo.rds"))
-meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_13_meso.rds"))
-ecto <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_14_ecto.rds"))
+endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
+meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
+ecto <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
 
 ################################
 ## Test: are 6 groups enough? ##
 ################################
 
-endo6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_12_2_endo6gp.rds"))
-meso6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_13_2_meso6gp.rds"))
+endo6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_2_endo6gp.rds"))
+meso6gp <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_2_meso6gp.rds"))
 
 if (!file.exists(here::here(
   "B_MultiTissues/dataOut/figures/script03/correlation_endomesoFullvsReduced6gp.pdf"))){
@@ -204,42 +157,44 @@ if (!file.exists(here::here(
   setDT(endo6gp)
   setDT(endo)
   
-  x <- endo6gp[, .(name, alpha_6gp = alpha)]; setkey(x, name)
-  y <- endo[, .(name, alpha_endo = alpha)]; setkey(y, name)
+  x <- endo6gp[, .(name, logBF_per_ds_6gp = logBF_per_ds)]; setkey(x, name)
+  y <- endo[, .(name, logBF_per_ds_endo = logBF_per_ds)]; setkey(y, name)
   
   m <- x[y, nomatch = 0]   # keeps matched names only
-  mycor <- cor(m$alpha_6gp, m$alpha_endo, use = "complete.obs")
+  mycor <- cor(m$logBF_per_ds_6gp, m$logBF_per_ds_endo, use = "complete.obs")
   set.seed(1234)
-  p1 <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_endo))+
+  p1 <- ggplot(m[sample(nrow(m), 100000),], aes(x = logBF_per_ds_6gp, y = logBF_per_ds_endo))+
     geom_point(pch = 21, alpha = 0.1) +
+    geom_smooth() +
     geom_smooth(method = "lm") +
     theme_minimal(base_size = 14) +
     ylim(c(0,1)) +
     annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
-    labs(title = "Probability of being hypervariable in WGBS atlas endoderm cell types",
+    labs(title = "Score of hypervariability in WGBS atlas endoderm cell types",
          subtitle = "(100k random CpG plotted)",
-         x = "Pr(hv) calculated on a subset of cell types (N=6)",
-         y = "Pr(hv) calculated on all cell types (N=21)")
+         x = "logBF per dataset calculated on a subset of cell types (N=6)",
+         y = "logBF per dataset calculated on all cell types (N=21)")
   
   setDT(meso6gp)
   setDT(meso)
   
-  x <- meso6gp[, .(name, alpha_6gp = alpha)]; setkey(x, name)
-  y <- meso[, .(name, alpha_meso = alpha)]; setkey(y, name)
+  x <- meso6gp[, .(name, logBF_per_ds_6gp = logBF_per_ds)]; setkey(x, name)
+  y <- meso[, .(name, logBF_per_ds_meso = logBF_per_ds)]; setkey(y, name)
   
   m <- x[y, nomatch = 0]   # keeps matched names only
-  mycor <- cor(m$alpha_6gp, m$alpha_meso, use = "complete.obs")
+  mycor <- cor(m$logBF_per_ds_6gp, m$logBF_per_ds_meso, use = "complete.obs")
   
-  p2 <- ggplot(m[sample(nrow(m), 100000),], aes(x = alpha_6gp, y = alpha_meso))+
+  p2 <- ggplot(m[sample(nrow(m), 100000),], aes(x = logBF_per_ds_6gp, y = logBF_per_ds_meso))+
     geom_point(pch = 21, alpha = 0.1) +
+    geom_smooth() +
     geom_smooth(method = "lm") +
     theme_minimal(base_size = 14) +
     ylim(c(0,1)) +
     annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
-    labs(title = "Probability of being hypervariable in WGBS atlas mesoderm cell types",
+    labs(title = "Score of hypervariability in WGBS atlas mesoderm cell types",
          subtitle = "(100k random CpG plotted)",
-         x = "Pr(hv) calculated on a subset of cell types (N=6)", 
-         y = "Pr(hv) calculated on all cell types (N=19)")
+         x = "logBF per dataset calculated on a subset of cell types (N=6)",
+         y = "logBF per dataset calculated on all cell types (N=19)")
   
   ggplot2::ggsave(
     filename = here::here(paste0("B_MultiTissues/dataOut/figures/script03/correlation_endomesoFullvsReduced6gp.pdf")),
@@ -254,228 +209,273 @@ if (!file.exists(here::here(
 
 endoGR <- GRanges(seqnames = endo$chr,
                   ranges = IRanges(start = endo$pos, end = endo$pos),
-                  alpha_endo = endo$alpha)
+                  logBF_per_ds_endo = endo$logBF_per_ds)
 
 ectoGR <- GRanges(seqnames = ecto$chr,
                   ranges = IRanges(start = ecto$pos, end = ecto$pos),
-                  alpha_ecto = ecto$alpha)
+                  logBF_per_ds_ecto = ecto$logBF_per_ds)
 
 mesoGR <- GRanges(seqnames = meso$chr,
                   ranges = IRanges(start = meso$pos, end = meso$pos),
-                  alpha_meso = meso$alpha)
+                  logBF_per_ds_meso = meso$logBF_per_ds)
 
-Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds"))
+Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds"))
 
 allLayersGR <- GRanges(seqnames = Atlas_dt$chr,
                        ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
-                       alpha_allLayers = Atlas_dt$alpha)
+                       logBF_per_ds_allLayers = Atlas_dt$logBF_per_ds)
 
 ####################################################################
 ## Create a table with all CpG sites & pr(hv) for each germ layer ##
 ####################################################################
 
 ## 1. Create union of all unique CpG positions
-table3layers <- union(union(allLayersGR, union(ectoGR, mesoGR)), endoGR)
+table3layers_coveredIn3 <- union(union(allLayersGR, union(ectoGR, mesoGR)), endoGR)
 
-## 2. Use findOverlaps to map alpha values back
-# we want endoGR[i] -> table3layers[endoHits[[i]]] for each i, etc.
+## 2. Use findOverlaps to map logBF_per_ds values back
+# we want endoGR[i] -> table3layers_coveredIn3[endoHits[[i]]] for each i, etc.
 
-endoHits <- findOverlaps(endoGR, table3layers, select = "first")
-ectoHits <- findOverlaps(ectoGR, table3layers, select = "first")
-mesoHits <- findOverlaps(mesoGR, table3layers, select = "first")
-allLayersHits <- findOverlaps(allLayersGR, table3layers, select = "first")
+endoHits <- findOverlaps(endoGR, table3layers_coveredIn3, select = "first")
+ectoHits <- findOverlaps(ectoGR, table3layers_coveredIn3, select = "first")
+mesoHits <- findOverlaps(mesoGR, table3layers_coveredIn3, select = "first")
+allLayersHits <- findOverlaps(allLayersGR, table3layers_coveredIn3, select = "first")
 
 # initialize columns with NA
-mcols(table3layers)$alpha_endo <- NA_real_
-mcols(table3layers)$alpha_ecto <- NA_real_
-mcols(table3layers)$alpha_meso <- NA_real_
-mcols(table3layers)$alpha_allLayers <- NA_real_
+mcols(table3layers_coveredIn3)$logBF_per_ds_endo <- NA_real_
+mcols(table3layers_coveredIn3)$logBF_per_ds_ecto <- NA_real_
+mcols(table3layers_coveredIn3)$logBF_per_ds_meso <- NA_real_
+mcols(table3layers_coveredIn3)$logBF_per_ds_allLayers <- NA_real_
 
 # copy only the hits
-mcols(table3layers)$alpha_endo[endoHits]   <- mcols(endoGR)$alpha_endo
-mcols(table3layers)$alpha_ecto[ectoHits]   <- mcols(ectoGR)$alpha_ecto
-mcols(table3layers)$alpha_meso[mesoHits]   <- mcols(mesoGR)$alpha_meso
-mcols(table3layers)$alpha_allLayers[allLayersHits]   <- mcols(allLayersGR)$alpha_allLayers
+mcols(table3layers_coveredIn3)$logBF_per_ds_endo[endoHits]   <- mcols(endoGR)$logBF_per_ds_endo
+mcols(table3layers_coveredIn3)$logBF_per_ds_ecto[ectoHits]   <- mcols(ectoGR)$logBF_per_ds_ecto
+mcols(table3layers_coveredIn3)$logBF_per_ds_meso[mesoHits]   <- mcols(mesoGR)$logBF_per_ds_meso
+mcols(table3layers_coveredIn3)$logBF_per_ds_allLayers[allLayersHits]   <- mcols(allLayersGR)$logBF_per_ds_allLayers
 
 ## Add chr_pos column to identify positions
-table3layers$chr_pos <- paste0("chr", table3layers@seqnames, "_", table3layers@ranges@start)
+table3layers_coveredIn3$chr_pos <- paste0("chr", table3layers_coveredIn3@seqnames, "_", table3layers_coveredIn3@ranges@start)
 
-## add a geometric mean between the 3 layers
-table3layers$alpha_geomean <- exp(rowMeans(
-  log(cbind(table3layers$alpha_endo, 
-            table3layers$alpha_ecto, 
-            table3layers$alpha_meso)),
-  na.rm = FALSE))
+################################################################################
+### SAVED ###
+# save(table3layers_coveredIn3, file = 
+#        here(paste0("gitignore/fulltable3layers_coveredIn3PreGeomMean_", format(Sys.Date(), "%d_%m_%y"), ".Rda")))
+
+# load("../../gitignore/fulltable3layers_coveredIn3PreGeomMean_10_08_26.Rda")
+
+################################################################################
+## Arithmetic sum to stay in interpretable log-BF units
+m <- as.matrix(mcols(table3layers_coveredIn3)[, c("logBF_per_ds_endo",
+                                                  "logBF_per_ds_ecto",
+                                                  "logBF_per_ds_meso")])
+
+table3layers_coveredIn3$logBF_per_ds_mean3layers <- rowMeans(m, na.rm = FALSE)
 
 ### SAVED ###
-# save(table3layers, file = 
-#        here(paste0("gitignore/fullTable3layers_", format(Sys.Date(), "%d_%m_%y"), ".Rda")))
+save(table3layers_coveredIn3, file =
+       here(paste0("gitignore/fulltable3layers_coveredIn3_", format(Sys.Date(), "%d_%m_%y"), ".Rda")))
 
 ##############################
 ## Save the top alpha > 99% ##
 ##############################
+# 
+# totalSiteswGeomMean <- table3layers_coveredIn3[!is.na(table3layers_coveredIn3$logBF_per_ds_mean3layers), ]$chr_pos
+# 
+# top99SNPrm <- table3layers_coveredIn3[!is.na(table3layers_coveredIn3$alpha_geomean) &
+#                              (table3layers_coveredIn3$alpha_geomean >= .99), ]$chr_pos
+# 
+# message(paste0("Total CpG sites with non NA geometric mean: ", length(totalSiteswGeomMean)))
+# message(paste0("Total top99 CpG sites: ", length(top99SNPrm), " (",
+#                round(length(top99SNPrm)/length(totalSiteswGeomMean)*100,2), "% of total)"))
+# # Total CpG sites with non NA geometric mean: 21522541
+# # Total top90 CpG sites: 385370 (1.79% of total)
+# 
+# saveRDS(top99SNPrm, file = here("gitignore/top99SNPrm_july26.RDS"))
+# ## To use for testFetalSIV_ingp5.R
 
-totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
+load(here(paste0("gitignore/fulltable3layers_10_08_26.Rda")))
 
-top99SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
-                             (table3layers$alpha_geomean >= .99), ]$chr_pos
+################################################################################
+## Plot the difference between the mean between layers and the logBF per ds 
+## calculated on all datasets together
+################################################################################
 
-message(paste0("Total CpG sites with non NA geometric mean: ", length(totalSiteswGeomMean)))
-message(paste0("Total top99 CpG sites: ", length(top99SNPrm), " (", 
-               round(length(top99SNPrm)/length(totalSiteswGeomMean)*100,2), "% of total)"))
-# Total CpG sites with non NA geometric mean: 21522541
-# Total top90 CpG sites: 385370 (1.79% of total)
+if (!file.exists(here("B_MultiTissues/dataOut/figures/script03/mean3layers_vs_all.png"))){
+  df <- as.data.frame(table3layers)
+  
+  set.seed(1234)
+  p <- ggplot(df[sample(nrow(df), 100000),],
+              aes(x = logBF_per_ds_mean3layers, y = logBF_per_ds_allLayers)) +
+    geom_point(pch = 21, alpha = 0.1) +
+    geom_abline(slope = 1) +
+    theme_minimal(base_size = 14) +
+    labs(title = "Hypervariability score using either all layers jointly or separately",
+         x = "Average of the three layers LogBF per dataset",
+         y = "LogBF per dataset calculated on all cell types",
+         subtitle = "(100k random CpG plotted)")
+  
+  ggplot2::ggsave(
+    filename = here::here("B_MultiTissues/dataOut/figures/script03/mean3layers_vs_all.png"),
+    plot = p, width = 8, height = 8,
+    dpi = 300, bg = "white")
+  
+  rm(df, p)
+}
 
-saveRDS(top99SNPrm, file = here("gitignore/top99SNPrm_july26.RDS"))
-## To use for testFetalSIV_ingp5.R
+## We select only the sites covered in the 3 germ layer analyses and will use logBF_per_ds
+m <- as.matrix(mcols(table3layers)[, c("logBF_per_ds_endo",
+                                       "logBF_per_ds_ecto",
+                                       "logBF_per_ds_meso")])
+
+table3layers$n_layers <- rowSums(!is.na(m))
+table(table3layers$n_layers)
+#     1        2        3 
+# 916.558  2.111.121 21.522.541 
+
+### SAVED ###
+table3layers_coveredIn3 <- table3layers[table3layers$n_layers %in% 3,]
+save(table3layers_coveredIn3, file =
+       here(paste0("gitignore/table3layers_coveredIn3_", format(Sys.Date(), "%d_%m_%y"), ".Rda")))
 
 ################################################################################
 ################################## CHECKPOINT ##################################
 ################################################################################
-load(here(paste0("gitignore/fullTable3layers_23_07_26.Rda")))
+load(here(paste0("gitignore/table3layers_coveredIn3_10_08_26.Rda")))
 
-df <- as.data.frame(table3layers)
-
-set.seed(1234)
-p <- ggplot(df[sample(nrow(df), 100000),],
-            aes(x = alpha_geomean, y = alpha_allLayers)) +
-  geom_point(pch = 21, alpha = 0.1) +
-  geom_abline(slope = 1) +
-  theme_minimal(base_size = 14) +
-  labs(title = "Pr(hv) using all layers vs geometric mean of each 3 layers",
-       x = "Geometric mean Pr(hv) on the three layers",
-       y = "Pr(hv) on all cell types",
-       subtitle = "(100k random CpG plotted)")
-
-ggplot2::ggsave(
-  filename = here::here("B_MultiTissues/dataOut/figures/script03/geomMean_vs_all.png"),
-  plot = p, width = 7, height = 7,
-  dpi = 300, bg = "white")
-
-############################################
-## Plot Manhattan of geometric mean alpha ##
-############################################
-
-table3layersdt <- as.data.table(table3layers)
-names(table3layersdt)[names(table3layersdt) %in% "alpha_geomean"] <- "alpha"
-names(table3layersdt)[names(table3layersdt) %in% "seqnames"] <- "chr"
-names(table3layersdt)[names(table3layersdt) %in% "start"] <- "pos"
+####################################
+## Plot Manhattan of logBF_per_ds ##
+####################################
+table3layers_coveredIn3dt <- as.data.table(table3layers_coveredIn3)
+names(table3layers_coveredIn3dt)[names(table3layers_coveredIn3dt) %in% "seqnames"] <- "chr"
+names(table3layers_coveredIn3dt)[names(table3layers_coveredIn3dt) %in% "start"] <- "pos"
 
 # Compute cumulative position offsets for Manhattan plot
-setorder(table3layersdt, chr, pos)
+setorder(table3layers_coveredIn3dt, chr, pos)
 
-offsets <- table3layersdt[, .(max_pos = max(pos, na.rm = TRUE)), by = chr]
+offsets <- table3layers_coveredIn3dt[, .(max_pos = max(pos, na.rm = TRUE)), by = chr]
 offsets[, cum_offset := c(0, head(cumsum(as.numeric(max_pos)), -1))]
 
-table3layersdt <- merge(table3layersdt,
-                        offsets[, .(chr, cum_offset)], 
-                        by = "chr", all.x = TRUE, sort = FALSE)
+table3layers_coveredIn3dt <- merge(table3layers_coveredIn3dt,
+                                   offsets[, .(chr, cum_offset)], 
+                                   by = "chr", all.x = TRUE, sort = FALSE)
 
 ## Mark group membership in dt
-table3layersdt[, group := NA_character_]
-table3layersdt[chr_pos %in% DerakhshanhvCpGs_hg38, group := "hvCpG_Derakhshan"]
-table3layersdt[chr_pos %in% mQTLcontrols_hg38, group := "mQTLcontrols"]
+table3layers_coveredIn3dt[, group := NA_character_]
+table3layers_coveredIn3dt[chr_pos %in% DerakhshanhvCpGs_hg38, group := "hvCpG_Derakhshan"]
+table3layers_coveredIn3dt[chr_pos %in% mQTLcontrols_hg38, group := "mQTLcontrols"]
 
 # Convert to integer/numeric if not already
-table3layersdt[, cum_offset := as.numeric(cum_offset)]
-table3layersdt[, pos2 := pos + cum_offset]
+table3layers_coveredIn3dt[, cum_offset := as.numeric(cum_offset)]
+table3layers_coveredIn3dt[, pos2 := pos + cum_offset]
 
-table(is.na(table3layersdt$alpha))
-# FALSE     TRUE 
-# 21522541  3027679 
-
-plotManhattangeomMean <- plotManhattanFromdt(table3layersdt, plotDerakhshan = FALSE, 
-                                             centro = centro)
-saveRDS(plotManhattangeomMean, file = here("gitignore/plotManhattangeomMean.RDS"))
+if (!file.exists(here(paste0("gitignore/plotManhattan_noDerakh.Rda")))){
+  plotManhattan_Derakh <- plotManhattanFromdt( 
+    table3layers_coveredIn3dt, plotDerakhshan = FALSE, 
+    centro = centro)
+  saveRDS(plotManhattan_noDerakh, here(paste0("gitignore/plotManhattan_noDerakh.RDS")))
+}
 
 ############################################
 ## Compare with Maria's results           ##
 ############################################
 
-###################################################################
-## Calculate proba hvCpG minus matching control: is it always +? ##
+if (!file.exists(here("B_MultiTissues/dataOut/figures/script03/CompareWithResultsDerakhshan.png"))){
+  
+  ###################################################################
+  ## Calculate proba hvCpG minus matching control: is it always +? ##
+  data <- read.table(
+    here("B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
+  
+  x = dico$chrpos_hg38[match(data$hvCpG_name, dico$CpG)]
+  y = dico$chrpos_hg38[match(data$controlCpG_name, dico$CpG)]
+  
+  # Build mapping from hvCpG -> control
+  pairs <- data.frame(
+    hvCpG = x,
+    control = y,
+    stringsAsFactors = FALSE
+  )
+  
+  # Merge hvCpG logBF_per_ds
+  res <- table3layers_coveredIn3dt[!is.na(group)]
+  
+  message("We shift the score so it starts at zero")
+  res[["logBF_per_ds"]] <- res[["logBF_per_ds_allLayers"]] + abs(min(res[["logBF_per_ds_allLayers"]]))
+  
+  hv_logBF_per_ds <- res[, c("chr_pos", "logBF_per_ds")]
+  colnames(hv_logBF_per_ds) <- c("hvCpG", "logBF_per_ds_hvCpG")
+  
+  # Merge control logBF_per_ds
+  ctrl_logBF_per_ds <- res[, c("chr_pos", "logBF_per_ds")]
+  colnames(ctrl_logBF_per_ds) <- c("control", "logBF_per_ds_control")
+  
+  # Join everything
+  merged <- pairs %>%
+    left_join(hv_logBF_per_ds, by = "hvCpG") %>%
+    left_join(ctrl_logBF_per_ds, by = "control") %>%
+    mutate(difflogBF_per_ds=logBF_per_ds_hvCpG-logBF_per_ds_control)
+  
+  merged <- merged %>%
+    mutate(chr = str_extract(hvCpG, "^chr[0-9XYM]+"))%>%
+    filter(!is.na(difflogBF_per_ds))
+  
+  # DifferenceOfProbabilityForhvCpG-matching_controlInAtlas
+  pdiffhv_controls <- ggplot(merged, aes(x="", y=difflogBF_per_ds))+
+    geom_jitter(data=merged[merged$difflogBF_per_ds>=0,], col="black", alpha=.5)+
+    geom_jitter(data=merged[merged$difflogBF_per_ds<0,], fill="yellow",col="black",pch=21, alpha=.5)+
+    geom_violin(width=.5, fill = "grey", alpha=.8) +
+    geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
+    theme_minimal(base_size = 14)+
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
+    ggtitle("Difference of score between\nDerakhshan hvCpGs and\nmatching controls")+
+    ylab("Difference of logBF per ds shifted to start at zero")
+  
+  plotManhattan_Derakh <- plotManhattanFromdt( 
+    table3layers_coveredIn3dt, plotDerakhshan = TRUE, 
+    centro = centro)
+  
+  compPlotArrayAtlas <- makeCompPlot(
+    X = resArray,
+    Y = here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds"),
+    whichX = "logBF_per_ds", whichY = "logBF_per_ds",
+    title = "Array vs Atlas",
+    xlab = "logBF per ds (array datasets)",
+    ylab = "logBF per ds (WGBS atlas datasets)",
+    minplot = 1e5)
+  
+  compPlotArrayAtlasMESO <- makeCompPlot(
+    X = resArray,
+    Y = here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"),
+    whichX = "logBF_per_ds", whichY = "logBF_per_ds",
+    title = "Array vs Atlas (mesoderm)",
+    xlab = "logBF per ds (array datasets)",
+    ylab = "logBF per ds (WGBS atlas datasets, mesoderm-derived)",
+    minplot = 1e5)
+  
+  row2 <- cowplot::plot_grid(pdiffhv_controls, compPlotArrayAtlas, compPlotArrayAtlasMESO, 
+                             labels = c("B", "C","D"), ncol = 3)
+  
+  ggsave(here("B_MultiTissues/dataOut/figures/script03/CompareWithResultsDerakhshan.png"),
+         plot = cowplot::plot_grid(plotManhattan_Derakh, row2,
+                                   nrow = 2, rel_heights = c(1,1.5), labels = c("A", "")),
+         width = 18, height = 10, dpi = 300, bg = "white")
+}
 
-data <- read.table(
-  here("B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/cistrans_GoDMC_hvCpG_matched_control.txt"), header = T)
+##### HERE TBC
 
-x = dico$chrpos_hg38[match(data$hvCpG_name, dico$CpG)]
-y = dico$chrpos_hg38[match(data$controlCpG_name, dico$CpG)]
 
-# Build mapping from hvCpG -> control
-pairs <- data.frame(
-  hvCpG = x,
-  control = y,
-  stringsAsFactors = FALSE
-)
 
-# Merge hvCpG alphas
-res <- table3layersdt[!is.na(group)]
 
-hv_alpha <- res[, c("chr_pos", "alpha")]
-colnames(hv_alpha) <- c("hvCpG", "alpha_hvCpG")
 
-# Merge control alphas
-ctrl_alpha <- res[, c("chr_pos", "alpha")]
-colnames(ctrl_alpha) <- c("control", "alpha_control")
 
-# Join everything
-merged <- pairs %>%
-  left_join(hv_alpha, by = "hvCpG") %>%
-  left_join(ctrl_alpha, by = "control") %>%
-  mutate(diffAlpha=alpha_hvCpG-alpha_control)
 
-merged <- merged %>%
-  mutate(chr = str_extract(hvCpG, "^chr[0-9XYM]+"))%>%
-  filter(!is.na(diffAlpha))
-
-# DifferenceOfProbabilityForhvCpG-matching_controlInAtlas
-pdiffhv_controls <- ggplot(merged, aes(x="diff", y=diffAlpha))+
-  geom_jitter(data=merged[merged$diffAlpha>=0,], col="black", alpha=.5)+
-  geom_jitter(data=merged[merged$diffAlpha<0,], fill="yellow",col="black",pch=21, alpha=.5)+
-  geom_violin(width=.5, fill = "grey", alpha=.8) +
-  geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
-  theme_minimal(base_size = 14)+
-  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), title = element_text(size=10))+
-  ggtitle("Pr(hvCpG) minus Pr(matching control) in atlas")+
-  ylab("Difference of probability")
-
-plotManhattangeomMean2 <- plotManhattanFromdt(table3layersdt, plotDerakhshan = TRUE, centro = centro)
-
-compPlotArrayAtlas <- makeCompPlot(
-  X = resArray,
-  Y = here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_atlas_general.rds"),
-  whichAlphaX = "alpha",
-  whichAlphaY = "alpha",
-  title = "Array_vs_Atlas",
-  xlab = "Pr(hv) calculated on array datasets",
-  ylab = "Pr(hv) calculated on WGBS atlas datasets", minplot = 24000000)
-
-compPlotArrayAtlasMESO <- makeCompPlot(
-  X = resArray,
-  Y = here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_13_meso.rds"),
-  whichAlphaX = "alpha",
-  whichAlphaY = "alpha",
-  title = "Array_vs_Atlas",
-  xlab = "Pr(hv) calculated on array datasets",
-  ylab = "Pr(hv) calculated on WGBS atlas datasets MESODERM derived", minplot = 24000000)
-
-ggplot2::ggsave(
-  filename = here::here(
-    "B_MultiTissues/dataOut/figures/script03/CompareWithResultsDerakhshan.png"),
-  plot = cowplot::plot_grid(
-    cowplot::plot_grid(plotManhattangeomMean2, pdiffhv_controls,
-                       rel_widths = c(3,1), labels = c("A", "B")),
-    cowplot::plot_grid(compPlotArrayAtlas, compPlotArrayAtlasMESO, labels = c("C", "D"), ncol = 2),
-    nrow = 2, rel_heights = c(1,2)),
-  width = 15, height = 10, dpi = 300, bg = "white")
 
 ##########################################
 ## What are the gaps in Manhattan plot? ##
 # Compute the gap between consecutive CpGs on the same chromosome
-table3layersdt[, gap := pos - data.table::shift(pos), by = chr]
+table3layers_coveredIn3dt[, gap := pos - data.table::shift(pos), by = chr]
 
 # Identify large gaps (>= 500k bp)
-gaps_dt <- table3layersdt[gap >= 500000, .(
+gaps_dt <- table3layers_coveredIn3dt[gap >= 500000, .(
   chr,
   gap_start = data.table::shift(pos),
   gap_end = pos,
@@ -519,8 +519,8 @@ gaps_dt[!is.na(gap_size)]
 ## Near absence of 5mC, so expected
 
 ggplot() +
-  geom_point(data = table3layersdt[table3layersdt$chr == "M",], 
-             aes(x = pos2, y = alpha),
+  geom_point(data = table3layers_coveredIn3dt[table3layers_coveredIn3dt$chr == "M",], 
+             aes(x = pos2, y = logBF_per_ds),
              color = "black", size = 1, alpha = .5)+
   theme_classic() + theme(legend.position = "none") +
   scale_y_continuous(expand = c(0, 0), limits = c(0,.1)) +
@@ -531,8 +531,8 @@ ggplot() +
 ## Y chromosome DNAm variability ##
 ###################################
 ggplot() +
-  geom_point(data = table3layersdt[table3layersdt$chr == "Y",], 
-             aes(x = pos2, y = alpha),
+  geom_point(data = table3layers_coveredIn3dt[table3layers_coveredIn3dt$chr == "Y",], 
+             aes(x = pos2, y = logBF_per_ds),
              color = "black", size = 1, alpha = .5)+
   theme_classic() + theme(legend.position = "none") +
   geom_hline(yintercept = .7, linetype = 3)+
@@ -540,17 +540,17 @@ ggplot() +
   labs(x = "Chromosome", y = "Probability of being a hvCpG")+
   theme_minimal(base_size = 14)
 
-# High alpha in 3 regions
+# High logBF_per_ds in 3 regions
 
 #####################################################
-## Test enrichment of features for high alpha      ##
+## Test enrichment of features for high logBF_per_ds      ##
 #####################################################
 
 # Create GRanges of 23036026 CpGs
 gr_cpg <- GRanges(
-  seqnames = paste0("chr", table3layersdt$chr),
-  ranges = IRanges(start = table3layersdt$pos, end = table3layersdt$pos),
-  alpha = table3layersdt$alpha
+  seqnames = paste0("chr", table3layers_coveredIn3dt$chr),
+  ranges = IRanges(start = table3layers_coveredIn3dt$pos, end = table3layers_coveredIn3dt$pos),
+  logBF_per_ds = table3layers_coveredIn3dt$logBF_per_ds
 )
 
 # Import bed file
@@ -559,7 +559,7 @@ bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_
 # restrict to autosomes and chr X
 gr_cpg <- gr_cpg[gr_cpg@seqnames %in% c(paste0("chr", 1:22), "chrX"),]
 
-# Annotate CpGs and see which regions have higher alpha (takes long)
+# Annotate CpGs and see which regions have higher logBF_per_ds (takes long)
 anno_result <- genomation::annotateWithGeneParts(
   target = gr_cpg, feature = bed_features)
 
@@ -574,18 +574,18 @@ gr_cpg$featureType <- ifelse(anno_result@members[, "prom"] == 1, "promoter",
 
 mcols(gr_cpg) %>% as.data.frame() %>%
   dplyr::group_by(featureType) %>%
-  dplyr::summarise(meanAlpha = mean(alpha, na.rm=T),
-                   medianAlpha = median(alpha, na.rm=T))
+  dplyr::summarise(meanlogBF_per_ds = mean(logBF_per_ds, na.rm=T),
+                   medianlogBF_per_ds = median(logBF_per_ds, na.rm=T))
 # # A tibble: 4 × 3
-# featureType meanAlpha medianAlpha
+# featureType meanlogBF_per_ds medianlogBF_per_ds
 # <chr>           <dbl>       <dbl>
 # 1 exon           0.0979 0.00000134 
 # 2 intergenic     0.152  0.00000231 ********* The higghest
 # 3 intron         0.106  0.00000137 
 # 4 promoter       0.105  0.000000902
 
-dt <- as.data.table(mcols(gr_cpg))[!is.na(alpha)]
-dt[, band := cut(alpha, c(-Inf, 0.1, 0.5, 0.7, 0.9, Inf),
+dt <- as.data.table(mcols(gr_cpg))[!is.na(logBF_per_ds)]
+dt[, band := cut(logBF_per_ds, c(-Inf, 0.1, 0.5, 0.7, 0.9, Inf),
                  labels = c("~0","0.1–0.5","0.5–0.7","0.7–0.9", "≥0.9"))]
 
 frac <- dt[, .N, by = .(featureType, band)][, pct := 100*N/sum(N), by = featureType]
@@ -600,24 +600,24 @@ pfeatures
 # ## ── Statistical testing ──────────────────────────────────────────────────────
 # intergenic and intronic blocks have the highest hvCpG rates
 
-## Work from `dt` (which carries featureType + alpha), NOT table3layersdt,
+## Work from `dt` (which carries featureType + logBF_per_ds), NOT table3layers_coveredIn3dt,
 ## and add the genomic coordinates so we can build independence blocks.
 dt <- as.data.table(mcols(gr_cpg))
 dt[, `:=`(chr = as.character(seqnames(gr_cpg)),
           pos = start(gr_cpg))]
-dt <- dt[!is.na(alpha)]
+dt <- dt[!is.na(logBF_per_ds)]
 
 ## Define hypervariable by a threshold, then aggregate to ~independent units.
 ## 24M CpGs are NOT independent (adjacent CpGs co-methylate); testing per-CpG
 ## gives meaningless p-values. Collapse to 100 kb blocks so observations are
 ## roughly independent, and summarise the QUANTITY OF INTEREST — the fraction of
-## hvCpGs per block — rather than mean(alpha), which buries the signal under the
+## hvCpGs per block — rather than mean(logBF_per_ds), which buries the signal under the
 ## 60% near-zero pile.
-dt[, hv := alpha >= 0.9]
+dt[, hv := logBF_per_ds >= 0.9]
 dt[, block := paste0(chr, "_", pos %/% 1e5)]
 
 agg <- dt[, .(frac_hv    = mean(hv),      # fraction of hvCpGs in this block
-              mean_alpha = mean(alpha),   # kept for comparison
+              mean_logBF_per_ds = mean(logBF_per_ds),   # kept for comparison
               n          = .N),
           by = .(featureType, block)][n >= 20]   # drop sparse blocks (unstable rates)
 
@@ -783,10 +783,10 @@ ggplot2::ggsave(
 ###########################################
 
 # Build GRanges from geometric mean
-geomMeanGR <- GRanges(seqnames = table3layers@seqnames,
-                      ranges = IRanges(start = table3layers@ranges@start, 
-                                       end = table3layers@ranges@start),
-                      alpha_geomean = table3layers$alpha_geomean)
+geomMeanGR <- GRanges(seqnames = table3layers_coveredIn3@seqnames,
+                      ranges = IRanges(start = table3layers_coveredIn3@ranges@start, 
+                                       end = table3layers_coveredIn3@ranges@start),
+                      logBF_per_ds_geomean = table3layers_coveredIn3$alpha_geomean)
 
 geomMeanGR <- geomMeanGR[!is.na(geomMeanGR$alpha_geomean)]
 
@@ -1070,8 +1070,8 @@ parse_cpg_names <- function(names_vec) {
 }
 
 getEnrichCentroTelo <- function(threshold = 0.90){
-  top <- table3layers[!is.na(table3layers$alpha_geomean) & 
-                        (table3layers$alpha_geomean >= threshold), ]$chr_pos
+  top <- table3layers_coveredIn3[!is.na(table3layers_coveredIn3$alpha_geomean) & 
+                                   (table3layers_coveredIn3$alpha_geomean >= threshold), ]$chr_pos
   hv_dt <- parse_cpg_names(top)
   total_dt <- parse_cpg_names(totalSiteswGeomMean)  # all background sites
   
@@ -1289,9 +1289,9 @@ enrich_df
 ## Test GO of top candidates ##
 ###############################
 
-# totalSiteswGeomMean <- table3layers[!is.na(table3layers$alpha_geomean), ]$chr_pos
-# top90SNPrm <- table3layers[!is.na(table3layers$alpha_geomean) & 
-#                              (table3layers$alpha_geomean >= .9), ]$chr_pos
+# totalSiteswGeomMean <- table3layers_coveredIn3[!is.na(table3layers_coveredIn3$alpha_geomean), ]$chr_pos
+# top90SNPrm <- table3layers_coveredIn3[!is.na(table3layers_coveredIn3$alpha_geomean) & 
+#                              (table3layers_coveredIn3$alpha_geomean >= .9), ]$chr_pos
 
 <<<<<<< HEAD
 # Method. ClusterProfiler
