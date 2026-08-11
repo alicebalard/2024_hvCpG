@@ -570,11 +570,11 @@ plotCorByN <- ggplot(corByN, aes(x = N, y = r)) +
   scale_y_continuous(labels = scales::percent, limits = c(.5, 1.05)) +
   scale_x_continuous(breaks = c(2,3,4,5,10,15,20), labels = c(2,3,4,5,10,15,20)) +
   theme_minimal(base_size = 12) +
-  labs(x = "Individuals per dataset", y = "Correlation (Pearson r) of hypervariability score (logBF per ds) with full data",
+  labs(x = "Individuals per dataset", y = "Correlation (Pearson r) of logBF per ds with full data",
        title = "Agreement with full-data hypervariability score improves with sample size",
        subtitle = "p0=80%, p1=65%")
 
 plotCorByN
 
-ggsave(here("B_MultiTissues/dataOut/figures/script02//improveAccuracyWithMoreNperds.png"),
-       plotRecovery / plotCorByN, width = 9, height = 10, dpi = 300, bg = "white")
+ggsave(here("B_MultiTissues/dataOut/figures/script02/improveAccuracyWithMoreNperds.png"),
+       plotRecovery / plotCorByN, width = 9, height = 12, dpi = 300, bg = "white")
