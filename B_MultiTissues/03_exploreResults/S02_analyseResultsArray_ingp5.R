@@ -44,8 +44,8 @@ prepareChrDataset <- function(res){
   # Parse chromosome and position
   res <- res %>%
     mutate(
-      chr = str_extract(chrpos, "^chr[0-9XY]+"),
-      pos = as.numeric(str_extract(chrpos, "(?<=_)[0-9]+"))
+      chr = stringr::str_extract(chrpos, "^chr[0-9XY]+"),
+      pos = as.numeric(stringr::str_extract(chrpos, "(?<=_)[0-9]+"))
     )
   
   # Order chromosomes
@@ -60,7 +60,7 @@ prepareChrDataset <- function(res){
   
   res <- res %>%
     left_join(chr_sizes, by = "chr") %>%
-    mutate(cum_pos = pos + cum_start)
+    dplyr::mutate(cum_pos = pos + cum_start)
   
   # Remove values with no position
   res <- res[!is.na(res$chrpos),]
@@ -100,6 +100,11 @@ resArray_0_65p0_0_65p1 <- as.data.frame(
   readRDS(here(paste0(pathNew, "results_Arrays_all_406036CpGs_0_65p0_0_65p1_0_01a0.rds"))))
 resArray_0_65p0_0_65p1 <- prepareChrDataset(resArray_0_65p0_0_65p1)
 
+######################################
+## NB: save one for later scripts
+## Save for next scripts
+saveRDS(resArray_0_8p0_0_65p1, here("B_MultiTissues/dataOut/resArray_0_8p0_0_65p1.RDS"))
+
 ################################################################################
 
 getPlotComp <- function(A, B, column1 = "alpha", column2) {
@@ -113,6 +118,8 @@ getPlotComp <- function(A, B, column1 = "alpha", column2) {
 }
 
 getPlotScores <- function(resArray){
+  
+  resArray$prophv <- resArray$n_hv_ds / resArray$n_ds
   
   set.seed(1234)
   pa <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
@@ -137,23 +144,19 @@ getPlotScores <- function(resArray){
   
   pf <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
                     resArray[sample(1:nrow(resArray),100000),], 
-                    column1 = "logBF", column2 = "n_hv_ds")
+                    column1 = "logBF", column2 = "prophv")
   
   pg <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
                     resArray[sample(1:nrow(resArray),100000),], 
-                    column1 = "logBF_per_ds", column2 = "n_hv_ds")
+                    column1 = "logBF_per_ds", column2 = "prophv")
   
   ph <- getPlotComp(resArray[sample(1:nrow(resArray),100000),], 
                     resArrayAll_sum[sample(1:nrow(resArrayAll_sum),100000),], 
-                    column2 = "n_hv_ds")
+                    column2 = "prophv")
   
   plot <- cowplot::plot_grid(pa, pb, pc, pd, pe, pf, pg, ph)
   return(plot)
 }
-
-getPlotScores(resArray = resArray_0_65p0_0_65p1)
-getPlotScores(resArray = resArray_0_9p0_0_9p1)
-getPlotScores(resArray = resArray_0_8p0_0_65p1)
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/plotDifferentScores_0_8p0_0_65p1.png"),
@@ -161,79 +164,67 @@ ggplot2::ggsave(
   dpi = 300, bg = "white")
 
 ################################################################################
-## Compare different p0 p1                                                    ##  
+## Compare p0/p1 settings — one metric decides: sensitivity at fixed specificity
 ################################################################################
 
-makePlotCompareP0P1 <- function(path1, path2, score = "logBF"){
-  extract_params <- function(path) {
-    pat <- "_(\\d+_\\d+)p0_(\\d+_\\d+)p1_(\\d+_\\d+)a0"
-    m   <- regexec(pat, path, perl = TRUE)
-    groups <- regmatches(path, m)[[1]]
-    nums <- gsub("_", ".", groups[2:4])
-    vals <- as.numeric(nums)
-    setNames(vals, c("p0", "p1", "a0"))
-  }
-  
-  listA <- extract_params(path1)
-  listB <- extract_params(path2)
-  
-  x <- paste0("logBF_", listA[1], "p0_", listA[2], "p1")
-  A <- as.data.frame(readRDS(here(paste0(pathNew, path1))))
-  A <- prepareChrDataset(A)
-  names(A)[names(A) %in% score] <- x
-  
-  y <- paste0(score, listB[1], "p0_", listB[2], "p1")
-  B <- as.data.frame(readRDS(here(paste0(pathNew, path2))))
-  B <- prepareChrDataset(B)
-  B <- B[c(score, "chrpos")]
-  names(B)[names(B) %in% score] <- y
-  
-  setDT(A); setDT(B)
-  setkey(A, chrpos); setkey(B, chrpos)
-  
-  compare <- A[B, nomatch = 0]
-  ggplot(compare, aes(x = .data[[x]], y = .data[[y]], colour = group)) +
-    geom_point(data = compare[compare$group %in% "mQTLcontrols",], alpha = .1) +
-    geom_point(data = compare[compare$group %in% "hvCpG_Derakhshan",], alpha = .1) +
-    geom_abline(slope = 1) + theme_bw()
+# ── load one settings file, label the two control groups, return scored data ──
+load_scored <- function(file, base, score = "logBF_per_ds") {
+  dat <- prepareChrDataset(as.data.frame(readRDS(file.path(base, file))))
+  dat$group <- data.table::fifelse(dat$chrpos %in% DerakhshanhvCpGs_hg38, "pos",
+                                   data.table::fifelse(dat$chrpos %in% mQTLcontrols_hg38,     "neg", NA))
+  dat <- dat[!is.na(dat$group) & is.finite(dat[[score]]), ]
+  data.table::data.table(group = dat$group, score = dat[[score]])
 }
 
-p1 <- makePlotCompareP0P1(path1 = "results_Arrays_all_406036CpGs_0_8p0_0_65p1_0_01a0.rds",
-                          path2 = "results_Arrays_all_406036CpGs_0_8p0_0_8p1_0_01a0.rds",
-                          score = "logBF")
+# ── everything about one setting: AUC, pAUC(FPR<0.1), sensitivity@spec ─────────
+eval_setting <- function(d, spec = 0.95) {
+  r <- pROC::roc(d$group == "pos", d$score, direction = "<", quiet = TRUE)
+  data.table::data.table(
+    auc      = as.numeric(pROC::auc(r)),
+    pauc_lowFPR = as.numeric(pROC::auc(r, partial.auc = c(0.9, 1),
+                                       partial.auc.focus = "specificity", partial.auc.correct = TRUE)),
+    sens_at_spec = as.numeric(pROC::coords(r, x = spec, input = "specificity",
+                                           ret = "sensitivity")),
+    n_pos = sum(d$group == "pos"), n_neg = sum(d$group == "neg"),
+    roc = list(r))                              # keep for optional DeLong test
+}
 
-p2 <- makePlotCompareP0P1(path1 = "results_Arrays_all_406036CpGs_0_65p0_0_8p1_0_01a0.rds",
-                          path2 = "results_Arrays_all_406036CpGs_0_8p0_0_8p1_0_01a0.rds",
-                          score = "logBF")
+# ── settings to compare ───────────────────────────────────────────────────────
+base <- here("B_MultiTissues/resultsDir_gitIgnored/Arrays")
+settings <- c(
+  "p0=0.65,p1=0.8" = "results_Arrays_all_406036CpGs_0_65p0_0_8p1_0_01a0.rds",
+  "p0=0.8,p1=0.65" = "results_Arrays_all_406036CpGs_0_8p0_0_65p1_0_01a0.rds",
+  "p0=0.8,p1=0.8"  = "results_Arrays_all_406036CpGs_0_8p0_0_8p1_0_01a0.rds",
+  "p0=0.9,p1=0.9"  = "results_Arrays_all_406036CpGs_0_9p0_0_9p1_0_01a0.rds")
 
-p3 <- makePlotCompareP0P1(path1 = "results_Arrays_all_406036CpGs_0_65p0_0_8p1_0_01a0.rds",
-                          path2 = "results_Arrays_all_406036CpGs_0_65p0_0_65p1_0_01a0.rds",
-                          score = "logBF")
+SCORE <- "logBF_per_ds"; SPEC <- 0.95     # operating point: 5% mQTL false positives
 
-p4 <- makePlotCompareP0P1(path1 = "results_Arrays_all_406036CpGs_0_8p0_0_8p1_0_01a0.rds",
-                          path2 = "results_Arrays_all_406036CpGs_0_9p0_0_9p1_0_01a0.rds",
-                          score = "logBF")
+# ── the whole comparison in one table ─────────────────────────────────────────
+data_list <- lapply(settings, load_scored, base = base, score = SCORE)
+res <- data.table::rbindlist(lapply(data_list, eval_setting, spec = SPEC),
+                             idcol = "setting")
+res_show <- res[order(-sens_at_spec), .(setting, auc, pauc_lowFPR, sens_at_spec, n_pos, n_neg)]
+print(res_show)
 
-legend <- get_legend( p4 + theme(legend.box.margin = margin(0, 0, 0, 12)))
+cat(sprintf("\n>> Choose: %s  (sensitivity %.1f%% at %d%% specificity)\n",
+            res_show$setting[1], 100*res_show$sens_at_spec[1], round(100*SPEC)))
+# >> Choose: p0=0.8,p1=0.65  (sensitivity 51.3% at 95% specificity)
 
-plotp0p1 <- cowplot::plot_grid(p1 + theme(legend.position = "none"),
-                               p2+ theme(legend.position = "none"),
-                               p3+ theme(legend.position = "none"),
-                               p4+ theme(legend.position = "none"),
-                               legend)
-## Ranking is perfectly preserved whatever the p0 and p1
+# the density panels (visual sanity check only — not needed to decide)
+plot_density <- function(d, title) ggplot(d, aes(score, colour = group, fill = group)) +
+  geom_density(alpha = .25, linewidth = .9) + geom_vline(xintercept = 0, linetype = 2) +
+  scale_colour_manual(values = c(pos="#D55E00", neg="#0072B2")) +
+  scale_fill_manual(values   = c(pos="#D55E00", neg="#0072B2")) +
+  labs(x = SCORE, title = title) + theme_bw(12) + theme(legend.position = "none")
+
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/plotp0p1.png"),
-  plot = plotp0p1, width = 18, height = 10,
+  plot = cowplot::plot_grid(plotlist = Map(plot_density, data_list, names(settings))),
+  width = 18, height = 10,
   dpi = 300, bg = "white")
 
-######################################
-## NB: save the best for later scripts
-## Save for next scripts
-saveRDS(resArray_0_8p0_0_65p1, here("B_MultiTissues/dataOut/resArray_0_8p0_0_65p1.RDS"))
-
 ################################################################################
-makeScript2Fig <- function(resArray, path, p0p1, score = "logBF", shift = TRUE){
+makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds", shift = TRUE){
   
   if (shift){
     message("We shift the score so it starts at zero")
@@ -353,10 +344,22 @@ ggplot2::ggsave(
   plot = fig2, width = 18, height = 5,
   dpi = 300, bg = "white")
 
+top5pc <- quantile(resArray_0_8p0_0_65p1$logBF_per_ds, prob=1-5/100)
+top <- resArray_0_8p0_0_65p1[
+  resArray_0_8p0_0_65p1$logBF_per_ds >= top5pc,]
+
+topNeg <- top[top$group %in% "mQTLcontrols",]
+min(topNeg$n_hv_ds / topNeg$n_ds)
+nrow(topNeg) # 383
+
+topPos <- top[top$group %in% "hvCpG_Derakhshan",]
+min(topPos$n_hv_ds / topPos$n_ds)
+nrow(topPos)  # 3027
+
+## --> 10 times more hvCpGs than mQTLcontrols in the top 5% logBF_per_ds
+## both detected in more than 92% of the datasets
 
 ## TBC when sod is not down
-
-
 
 ################################################################################
 makeScript2Fig <- function(resArray, path, p0p1){
@@ -492,6 +495,9 @@ makeScript2Fig <- function(resArray, path, p0p1){
   # return(figure2)
   return(p1_manhattanArray)
 }
+
+
+
 
 ################################################################################
 ## Evolution of top-3535 CpG recovery as individuals/dataset increases        ##
