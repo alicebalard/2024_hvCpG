@@ -97,58 +97,63 @@ centro <- cyto[grepl("acen", gieStain),
                .(cen_start = min(start), cen_end = max(end)),
                by = .(chr = sub("^chr", "", seqnames))]
 
-plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
-                                centro = NULL, score = "logBF_per_ds_allLayers"){
+plotManhattanFromdt <- function(dt, transp = 0.1, plotDerakhshan = TRUE,
+                                centro = NULL, score = "logBF_per_ds_allLayers",
+                                band_cols = c("0" = "grey20", "1" = "grey55")) {
   
+  dt <- data.table::copy(dt)
   dt$score <- dt[[score]]
   
-  offsets <- dt[, .(offset = min(pos2, na.rm = TRUE) - min(pos, na.rm = TRUE)), by = chr]
-  centro  <- merge(centro, offsets, by = "chr")
-  centro[, `:=`(x_start = cen_start + offset, x_end = cen_end + offset)]
+  # canonical chromosome order; keep ONLY chromosomes that actually have plottable points
+  chr_levels <- as.character(c(1:22, "X", "Y", "M"))
+  present    <- dt[!is.na(pos2), unique(as.character(chr))]
+  chr_order  <- chr_levels[chr_levels %in% present]     # ordered, no gaps, data-backed
+  if (length(present[!present %in% chr_levels]))
+    warning("chr values not in canonical set (check naming, e.g. 'chrM' vs 'M'): ",
+            paste(setdiff(present, chr_levels), collapse = ", "))
   
-  # Compute chromosome centers for x-axis labeling
-  df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-  df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), 
-                                       levels=as.character(c(1:22, "X", "Y", "M")))),
-               df2, by = "chr", all.x = TRUE, sort = TRUE)
-  df2 <- na.omit(df2)
+  # single source of truth: order, axis centre, and parity per chromosome
+  chr_tab <- dt[chr %in% chr_order,
+                .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
+  chr_tab[, chr := factor(as.character(chr), levels = chr_order)]
+  data.table::setorder(chr_tab, chr)
+  chr_tab[, parity := factor(seq_len(.N) %% 2)]         # rank in the ORDERED, gap-free table
   
-  # Compute chromosome boundaries
-  df_bounds <- dt[, .(min_pos = min(pos2, na.rm = TRUE), 
-                      max_pos = max(pos2, na.rm = TRUE)), by = chr]
+  dt <- merge(dt, chr_tab[, .(chr, parity)], by = "chr", all.x = TRUE, sort = FALSE)
   
-  # Midpoints between chromosomes = where to draw dotted lines
-  df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
-  vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
+  # centromere spans -> single midpoint line
+  if (!is.null(centro)) {
+    centro  <- data.table::as.data.table(centro)
+    offsets <- dt[, .(offset = min(pos2, na.rm = TRUE) - min(pos, na.rm = TRUE)), by = chr]
+    centro  <- merge(centro, offsets, by = "chr")
+    centro[, x_mid := (cen_start + cen_end) / 2 + offset]
+  }
   
-  ## for thin bg
   set.seed(1234)
-  bg <- dt[sample(.N, min(.N, 3e5))]
+  bg <- dt[!is.na(parity)][sample(.N, min(.N, 3e5))]    # never sample NA-parity points
   
   p <- ggplot() +
-    theme_classic() + theme(legend.position = "none") +
-    scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
-    scale_y_continuous(expand = c(0, 0)) +
-    labs(x = "Chromosome", y = "Hypervariability score (logBF per ds)")+
     theme_minimal(base_size = 14) +
-    # background cloud thinned
-    geom_point_rast(data = bg, aes(pos2, score), size = 0.01, alpha = transp, raster.dpi = 72) +
+    theme(legend.position = "none") +
+    scale_x_continuous(breaks = chr_tab$center, labels = as.character(chr_tab$chr),
+                       expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(x = "Chromosome", y = "Hypervariability score (logBF per ds)") +
+    geom_point_rast(data = bg, aes(pos2, score, colour = parity),
+                    size = 0.01, alpha = transp, raster.dpi = 72) +
+    scale_colour_manual(values = band_cols, na.translate = FALSE) +
     { if (!is.null(centro))
-      geom_rect(data = centro,
-                aes(xmin = x_start, xmax = x_end, ymin = -Inf, ymax = Inf),
-                fill = "orange", alpha = .8, inherit.aes = FALSE) } +
-    # Add  separators
-    geom_vline(data = vlines, aes(xintercept = xintercept),
-               linetype = 1, color = "green4", linewidth = .5) +
+      geom_vline(data = centro, aes(xintercept = x_mid),
+                 linetype = 1, colour = "black", linewidth = 0.3) } +
     { if (plotDerakhshan)
       list(
         geom_point(data = dt[group == "hvCpG_Derakhshan"],
-                   aes(x = pos2, y = score),
-                   pch = 21, color = "white", fill = "#DC3220", size = 2, alpha = 0.7),
+                   aes(pos2, score), pch = 21, colour = "white",
+                   fill = "#DC3220", size = 2, alpha = 0.7),
         geom_point(data = dt[group == "mQTLcontrols"],
-                   aes(x = pos2, y = score),
-                   pch = 21, color = "white", fill = "#005AB5", size = 2, alpha = 0.7))
-    }
+                   aes(pos2, score), pch = 21, colour = "white",
+                   fill = "#005AB5", size = 2, alpha = 0.7)) }
+  
   return(p)
 }
 
