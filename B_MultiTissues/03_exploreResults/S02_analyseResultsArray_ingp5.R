@@ -224,7 +224,8 @@ ggplot2::ggsave(
   dpi = 300, bg = "white")
 
 ################################################################################
-makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds", shift = TRUE){
+makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
+                           label = "logBF per ds", shift = TRUE){
   
   if (shift){
     message("We shift the score so it starts at zero")
@@ -232,41 +233,56 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds", shift =
   }
   
   # Plot
-  # Compute midpoints for chromosome labels
-  chr_mid <- resArray %>%
-    group_by(chr) %>%
-    summarise(mid = (min(cum_pos) + max(cum_pos)) / 2)
+  band_cols <- c("0" = "grey20", "1" = "grey55")
+  
+  # --- chromosome order (by genomic position), midpoints, and parity: one source of truth ---
+  setDT(resArray)
+  
+  chr_tab <- resArray[!is.na(cum_pos),
+                      .(minp = min(cum_pos), maxp = max(cum_pos)), by = chr]
+  setorder(chr_tab, minp)                         # genomic order, gap-free
+  chr_tab[, `:=`(mid    = (minp + maxp) / 2,
+                 parity = factor(seq_len(.N) %% 2))]
+  
+  # attach parity to the points
+  resArray <- merge(resArray, chr_tab[, .(chr, parity)], by = "chr", all.x = TRUE, sort = FALSE)
+  
   ## colorblind friendly
   p1_manhattanArray <- ggplot() +
-    geom_point(data = subset(resArray, is.na(group)),
-               aes(x = cum_pos, y = .data[[score]]), color = "gray", alpha = .4, size = .8) +
-    geom_point(data = subset(resArray, !is.na(group)),
-               aes(x = cum_pos, y = .data[[score]], col = group), alpha = .6, size = 1) +
-    scale_color_manual(values = c("hvCpG_Derakhshan" = "#DC3220",
-                                  "mQTLcontrols" = "#005AB5"),
-                       labels = c("hvCpG_Derakhshan" = "Derakhshan hvCpG",
-                                  "mQTLcontrols" = "mQTL controls")) +
-    scale_x_continuous(breaks = chr_mid$mid,
-                       labels = gsub("chr", "", chr_mid$chr), expand = c(0, 0)) +
+    # background cloud: alternating grey per chromosome
+    geom_point(data = resArray[is.na(group)],
+               aes(x = cum_pos, y = .data[[score]], colour = parity),
+               alpha = .4, size = .8) +
+    scale_colour_manual(values = band_cols, na.translate = FALSE, guide = "none") +
+    # highlighted sets keep their own colour scale
+    ggnewscale::new_scale_colour() +
+    geom_point(data = resArray[!is.na(group)],
+               aes(x = cum_pos, y = .data[[score]], colour = group), alpha = .6, size = 1) +
+    scale_colour_manual(values = c("hvCpG_Derakhshan" = "#DC3220",
+                                   "mQTLcontrols"     = "#005AB5"),
+                        labels = c("hvCpG_Derakhshan" = "Derakhshan hvCpG",
+                                   "mQTLcontrols"     = "mQTL controls")) +
+    scale_x_continuous(breaks = chr_tab$mid,
+                       labels = gsub("chr", "", chr_tab$chr), expand = c(0, 0)) +
     theme_minimal(base_size = 14) +
     guides(colour = guide_legend(override.aes = list(size = 5, alpha = 1))) +
-    labs(x = "Chromosome", y = score)+
-    theme(legend.position = "inside",
-          legend.position.inside      = c(0.9, 1.15),   # above the plot area
+    labs(x = "Chromosome", y = score) +
+    theme(legend.position            = "inside",
+          legend.position.inside      = c(0.9, 1.15),
           legend.justification.inside = c(1, 1),
-          plot.margin = margin(t = 40, r = 5, b = 5, l = 5),  # space for legend above
+          plot.margin  = margin(t = 40, r = 5, b = 5, l = 5),
           legend.title = element_blank(),
-          legend.text = element_text(size = 14),
+          legend.text  = element_text(size = 14),
           legend.background = element_rect(linewidth = 0.5, linetype = "blank", colour = "black"))
   
   if (shift){
-    p1_manhattanArray <- 
-      p1_manhattanArray + 
-      ylab(paste0(score, " shifted to start at zero")) 
+    p1_manhattanArray <-
+      p1_manhattanArray +
+      ylab(paste0(label, " shifted to start at zero"))
   } else {
-    p1_manhattanArray <- 
-      p1_manhattanArray + 
-      ylab(paste0(score))
+    p1_manhattanArray <-
+      p1_manhattanArray +
+      ylab(paste0(label))
   }
   
   ###################################################################
@@ -284,12 +300,10 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds", shift =
   )
   
   # Merge hvCpG logBFs
-  hv_score <- resArray[, c("chrpos", score)]
-  colnames(hv_score) <- c("hvCpG", "score_hvCpG")
+  hv_score <- resArray[, .(hvCpG = chrpos, score_hvCpG = get(score))]
   
   # Merge control logBFs
-  ctrl_score <- resArray[, c("chrpos", score)]
-  colnames(ctrl_score) <- c("control", "score_control")
+  ctrl_score <- resArray[, .(control = chrpos, score_control = get(score))]
   
   # Join everything
   merged <- pairs %>%
@@ -308,16 +322,14 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds", shift =
     theme(axis.title.x = element_blank(), axis.text.x = element_blank())
   
   if (shift){
-    p2_DiffProbhvCpG_matchingcontrol_Array <- 
-      p2_DiffProbhvCpG_matchingcontrol_Array + 
-      ylab(paste0("Difference of ", score, " shifted to start at zero")) 
+    p2_DiffProbhvCpG_matchingcontrol_Array <-
+      p2_DiffProbhvCpG_matchingcontrol_Array +
+      ylab(paste0("Difference of ", label, " shifted to start at zero"))
   } else {
-    p2_DiffProbhvCpG_matchingcontrol_Array <- 
-      p2_DiffProbhvCpG_matchingcontrol_Array + 
-      ylab(paste0("Difference of ", score))
+    p2_DiffProbhvCpG_matchingcontrol_Array <-
+      p2_DiffProbhvCpG_matchingcontrol_Array +
+      ylab(paste0("Difference of ", label))
   }
-  
-  ##
   
   ###############################
   ## Make figure of array test ##
@@ -327,7 +339,7 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds", shift =
   mg  <- theme(plot.margin = margin(15, 5, 5, 5))
   
   row1 <- cowplot::plot_grid(
-    p1_manhattanArray + theme(plot.margin = margin(40, 5, 5, 5)), 
+    p1_manhattanArray + theme(plot.margin = margin(40, 5, 5, 5)),
     p2_DiffProbhvCpG_matchingcontrol_Array + theme(plot.margin = margin(50, 5, 5, 5)),
     ncol = 2, rel_widths = c(4, 1),
     labels = c("A. Detection of highly variable CpGs with both methods",
@@ -335,13 +347,140 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds", shift =
     label_size = lab$size, label_x = lab$x, label_y = lab$y,
     hjust = lab$hjust, vjust = lab$vjust)
   row1
+  
+  ################################################################
+  ## Load full results on array with only 2 or 3 individuals/ds ##
+  ################################################################
+  
+  makePlotNrob <- function(resCompArray, N){
+    mycor <- cor(resCompArray$logBF_per_ds_array_all,
+                 resCompArray$logBF_per_ds_array_reduce, use = "complete.obs")
+    
+    ggplot(resCompArray,
+           aes(x=logBF_per_ds_array_all, y=logBF_per_ds_array_reduce)) +
+      geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group),
+                 alpha = 0.01) +
+      geom_point(data = resCompArray[!is.na(resCompArray$group),], aes(col = group),
+                 alpha = 0.4) +
+      geom_smooth(method = "lm", fill = "grey", col = "grey") +
+      scale_color_manual(values = c("#DC3220", "#005AB5", "grey"),
+                         labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+      theme_minimal(base_size = 14) +
+      theme(legend.title = element_blank()) +
+      annotate("text", x = .5, y = .9, label = sprintf("Pearson correlation:\n r = %.2f\n", mycor)) +
+      labs(title = element_blank(),
+           x = "Hypervariability score using full datasets",
+           y = paste0("Hypervariability score using reduced (", N, " ind/ds) datasets")) 
+  }
+  
+  resArray3ind <- as.data.frame(readRDS(here(paste0(
+    path, "results_Arrays_3ind_406036CpGs_", p0p1, "_0_01a0.rds"))))
+  resArray3ind <- prepareChrDataset(resArray3ind)
+  names(resArray3ind)[names(resArray3ind) %in% "logBF_per_ds"] <- "logBF_per_ds_array_reduce"
+  
+  resCompArray_allvs3 <- dplyr::left_join(
+    resArray3ind,
+    resArray[, c("chrpos", "logBF_per_ds")],
+    by = "chrpos"
+  )
+  names(resCompArray_allvs3)[names(resCompArray_allvs3) %in% "logBF_per_ds"] <- "logBF_per_ds_array_all"
+  
+  p3ind <- makePlotNrob(resCompArray_allvs3, 3)
+  
+  resArray2ind <- as.data.frame(readRDS(here(paste0(
+    path, "results_Arrays_2ind_406036CpGs_", p0p1, "_0_01a0.rds"))))
+  resArray2ind <- prepareChrDataset(resArray2ind)
+  names(resArray2ind)[names(resArray2ind) %in% "logBF_per_ds"] <- "logBF_per_ds_array_reduce"
+  
+  resCompArray_allvs2 <- dplyr::left_join(
+    resArray2ind,
+    resArray[, c("chrpos", "logBF_per_ds")],
+    by = "chrpos"
+  )
+  names(resCompArray_allvs2)[names(resCompArray_allvs2) %in% "logBF_per_ds"] <- "logBF_per_ds_array_all"
+  
+  p2ind <- makePlotNrob(resCompArray_allvs2, 2)
+  
+  ###############################################
+  ## Compare top-K in full vs reduced analyses ##
+  ###############################################
+  
+  ### Cutoff method from script S01:
+  x <- readRDS(here("B_MultiTissues/dataOut/arrayCutoffLowPower2or3ind.RDS"))
+  
+  plot_venn3 <- ggVennDiagram(x, label = "both", label_alpha = 0,
+                              label_color = "white",
+                              category.names = c("Full \ndatasets",
+                                                 "2 ind per \ndataset",
+                                                 "3 ind per dataset")) +
+    scale_fill_gradient(low = "grey", high = "black") +
+    theme(legend.position = "none") +
+    coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
+  
+  plot_venn3 # "Cutoff algorithm"
+  
+  ## How many CpGs detected by the cutoff method on full data?
+  K <- length(x$`Full array`) ## 4377
+  
+  ### Bayesian method
+  ## Rank within each analysis, take each analysis's own top-K
+  
+  topK <- function(dt, score_col, k = K) {
+    dt  <- as.data.frame(dt)
+    ok  <- !is.na(dt[[score_col]])
+    ord <- order(dt[[score_col]][ok], decreasing = TRUE)
+    dt$chrpos[ok][ord][seq_len(min(k, sum(ok)))]
+  }
+  
+  full_top <- topK(resCompArray_allvs3, "logBF_per_ds_array_all")     # full-datasets ranking
+  red3_top <- topK(resCompArray_allvs3, "logBF_per_ds_array_reduce")  # 3-ind ranking
+  red2_top <- topK(resCompArray_allvs2, "logBF_per_ds_array_reduce")  # 2-ind ranking
+  
+  y <- list(
+    "Full \ndatasets"     = full_top,
+    "2 ind per \ndataset"  = red2_top,
+    "3 ind per dataset"   = red3_top
+  )
+  
+  plot_venn3_Bayes <- ggVennDiagram(y, label = "both", label_alpha = 0,
+                                    label_color = "white", category.names =
+                                      c("Full \ndatasets","2 ind per \ndataset", "3 ind per dataset")) +
+    scale_fill_gradient(low = "grey", high = "black") +
+    theme(legend.position = "none")+
+    coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
+  
+  plot_venn3_Bayes
+  
+  lab <- list(size = 14, x = 0.01, y = 0.99, hjust = 0, vjust = 1)
+  mg  <- theme(plot.margin = margin(15, 5, 5, 5))
+  
+  row2_1 <- cowplot::plot_grid(
+    plot_venn3      + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
+    plot_venn3_Bayes + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
+    labels = c("C. Detection of highly variable CpGs \nwith reduced datasets (cutoff)",
+               "D. Detection of highly variable CpGs \nwith reduced datasets (Bayesian)"), nrow = 1,
+    label_size = lab$size, label_x = lab$x, label_y = lab$y,
+    hjust = lab$hjust, vjust = lab$vjust)
+  
+  row2_2 <- cowplot::plot_grid(
+    p2ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
+    p3ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
+    labels = c("E. Bayesian: full vs 2 ind/ds", "F. Bayesian: full vs 3 ind/ds"), nrow = 1,
+    label_size = lab$size, label_x = lab$x, label_y = lab$y,
+    hjust = lab$hjust, vjust = lab$vjust)
+  
+  row2 <- cowplot::plot_grid(row2_1, row2_2)
+  
+  figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
+  
+  return(figure2)
 }
 
-fig2 <- makeScript2Fig(resArray_0_8p0_0_65p1, path = pathNew)
+fig2 <- makeScript2Fig(resArray_0_8p0_0_65p1, path = pathNew, p0p1 = "0_8p0_0_65p1")
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/Fig2_newAug26_resArray_0_8p0_0_65p1.png"),
-  plot = fig2, width = 18, height = 5,
+  plot = fig2, width = 18, height = 10,
   dpi = 300, bg = "white")
 
 top5pc <- quantile(resArray_0_8p0_0_65p1$logBF_per_ds, prob=1-5/100)
@@ -359,179 +498,38 @@ nrow(topPos)  # 3027
 ## --> 10 times more hvCpGs than mQTLcontrols in the top 5% logBF_per_ds
 ## both detected in more than 92% of the datasets
 
-## TBC when sod is not down
-
 ################################################################################
-makeScript2Fig <- function(resArray, path, p0p1){
-  
-  ################################################################
-  ## Load full results on array with only 2 or 3 individuals/ds ##
-  ################################################################
-  
-  # makePlotNrob <- function(resCompArray, N){
-  #   mycor <- cor(resCompArray$alpha_array_all, 
-  # resCompArray$alpha_array_reduce, use = "complete.obs")
-  #   
-  #   ggplot(resCompArray,
-  #          aes(x=alpha_array_all, y=alpha_array_reduce)) +
-  #     geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group),
-  #                alpha = 0.01) +
-  #     geom_point(data = resCompArray[!is.na(resCompArray$group),], aes(col = group),
-  #                alpha = 0.4) +
-  #     geom_smooth(method = "lm", fill = "grey", col = "grey") +
-  #     scale_color_manual(values = c("#DC3220", "#005AB5", "grey"),
-  #                        labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
-  #     theme_minimal(base_size = 14) +
-  #     theme(legend.title = element_blank()) +
-  #     annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation:\n r = %.2f\n", mycor)) +
-  #     labs(title = element_blank(),
-  #          x = "P(hv) using full datasets",
-  #          y = paste0("Pr(hv) using reduced (", N, " ind/ds) datasets")) +
-  #     coord_cartesian(xlim = c(0,1), ylim = c(0,1))
-  # }
-  # 
-  # resArray3ind <- as.data.frame(readRDS(here(paste0(
-  #   path, "results_Arrays_3ind_406036CpGs_", p0p1, ".rds"))))
-  # resArray3ind <- prepareChrDataset(resArray3ind)
-  # names(resArray3ind)[names(resArray3ind) %in% "alpha"] <- "alpha_array_reduce"
-  # 
-  # resCompArray_allvs3 <- dplyr::left_join(
-  #   resArray3ind,
-  #   resArray[, c("chrpos", "alpha")],
-  #   by = "chrpos"
-  # )
-  # names(resCompArray_allvs3)[names(resCompArray_allvs3) %in% "alpha"] <- "alpha_array_all"
-  # 
-  # p3ind <- makePlotNrob(resCompArray_allvs3, 3)
-  # 
-  # resArray2ind <- as.data.frame(readRDS(here(paste0(
-  #   path, "results_Arrays_2ind_406036CpGs_", p0p1, ".rds"))))
-  # resArray2ind <- prepareChrDataset(resArray2ind)
-  # names(resArray2ind)[names(resArray2ind) %in% "alpha"] <- "alpha_array_reduce"
-  # 
-  # resCompArray_allvs2 <- dplyr::left_join(
-  #   resArray2ind,
-  #   resArray[, c("chrpos", "alpha")],
-  #   by = "chrpos"
-  # )
-  # names(resCompArray_allvs2)[names(resCompArray_allvs2) %in% "alpha"] <- "alpha_array_all"
-  # 
-  # p2ind <- makePlotNrob(resCompArray_allvs2, 2)
-  # 
-  # ## From script S01:
-  # x <- readRDS(here("B_MultiTissues/dataOut/arrayCutoffLowPower2or3ind.RDS"))
-  # 
-  # plot_venn3 <- ggVennDiagram(x, label = "both", label_alpha = 0,
-  #                             label_color = "white",
-  #                             category.names = c("Full \ndatasets",
-  #                                                "2 ind per \ndataset",
-  #                                                "3 ind per dataset")) +
-  #   scale_fill_gradient(low = "grey", high = "black") +
-  #   theme(legend.position = "none") +
-  #   coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
-  # 
-  # plot_venn3 # "Cutoff algorithm"
-  # 
-  # message("What cutoff to get the same number of sites than Maria? with Bayesian approach")
-  # print(table(resCompArray_allvs3$group))
-  # 
-  # top3535 <- resCompArray_allvs3 |>
-  #   dplyr::slice_max(order_by = alpha_array_all, n = 3535, with_ties = FALSE)
-  # 
-  # top3535_2 <- resCompArray_allvs2 |>
-  #   dplyr::slice_max(order_by = alpha_array_all, n = 3535, with_ties = FALSE)
-  # 
-  # # sanity check
-  # table(top3535$chrpos %in% top3535_2$chrpos)
-  # 
-  # min(top3535$alpha_array_all)
-  # 
-  # pos3ind <- top3535$chrpos[top3535$alpha_array_reduce >= min(top3535$alpha_array_all)]
-  # pos2ind <- top3535_2$chrpos[top3535_2$alpha_array_reduce >= min(top3535_2$alpha_array_all)]
-  # 
-  # y <- list(
-  #   "Full array"     = top3535_2$chrpos,
-  #   "Array 2 ind/ds" = pos2ind,
-  #   "Array 3 ind/ds" = pos3ind
-  # )
-  # 
-  # plot_venn3_Bayes <- ggVennDiagram(y, label = "both", label_alpha = 0, 
-  #                                   label_color = "white", category.names = 
-  #                                     c("Full \ndatasets","2 ind per \ndataset", "3 ind per dataset")) +
-  #   scale_fill_gradient(low = "grey", high = "black") +
-  #   theme(legend.position = "none")+
-  #   coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
-  # 
-  # plot_venn3_Bayes
-  # 
-  # ###############################
-  # ## Make figure of array test ##
-  # ###############################
-  # 
-  # lab <- list(size = 14, x = 0.01, y = 0.99, hjust = 0, vjust = 1)
-  # mg  <- theme(plot.margin = margin(15, 5, 5, 5))
-  # 
-  
-  # 
-  # row2_1 <- cowplot::plot_grid(
-  #   plot_venn3      + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
-  #   plot_venn3_Bayes + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
-  #   labels = c("C. Detection of highly variable CpGs \nwith reduced datasets (cutoff)", 
-  #              "D. Detection of highly variable CpGs \nwith reduced datasets (Bayesian)"), nrow = 1,
-  #   label_size = lab$size, label_x = lab$x, label_y = lab$y,
-  #   hjust = lab$hjust, vjust = lab$vjust)
-  # 
-  # row2_2 <- cowplot::plot_grid(
-  #   p2ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
-  #   p3ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
-  #   labels = c("E. Bayesian: full vs 2 ind/ds", "F. Bayesian: full vs 3 ind/ds"), nrow = 1,
-  #   label_size = lab$size, label_x = lab$x, label_y = lab$y,
-  #   hjust = lab$hjust, vjust = lab$vjust)
-  # 
-  # row2 <- cowplot::plot_grid(row2_1, row2_2)
-  # 
-  # figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
-  # 
-  # return(figure2)
-  return(p1_manhattanArray)
-}
-
-
-
-
-################################################################################
-## Evolution of top-3535 CpG recovery as individuals/dataset increases        ##
+## Evolution of top-4377 CpG recovery as individuals/dataset increases        ##
 ## (p0=80%, p1=90%): 2, 3, 4, 5, 6, 10 ind/ds vs full datasets                ##
 ################################################################################
 
-Ns <- c(2, 3, 4, 5, 6, 10, 15, 20)
+Ns <- c(2, 3, 4, 5, 10, 15, 20)
+K  <- 4377
 
-## Baseline: top 3535 CpGs using the full datasets (same cutoff as before)
-top3535_full <- resArrayAll_mean_strict |> dplyr::slice_max(order_by = alpha, n = 3535, with_ties = FALSE)
-cutoff_full  <- min(top3535_full$alpha)
+## Baseline: top-K CpGs under the full datasets
+top_full <- resArray_0_8p0_0_65p1 |>
+  dplyr::slice_max(order_by = logBF_per_ds, n = K, with_ties = FALSE)
+full_hits <- top_full$chrpos
 
 recovery <- lapply(Ns, function(N) {
-  f <- here(paste0(pathMean, "results_Arrays_", N,
-                   "ind_406036CpGs_0_8p0_0_9p1.rds"))
-  if (!file.exists(f)) {
-    message("SKIP N=", N, " - file not found (not computed yet?): ", f)
-    return(NULL)
-  }
+  f <- here(paste0(pathNew, "results_Arrays_", N,
+                   "ind_406036CpGs_0_8p0_0_65p1_0_01a0.rds"))
+  if (!file.exists(f)) { message("SKIP N=", N, " - file not found: ", f); return(NULL) }
   
   resN <- as.data.frame(readRDS(f)) |> prepareChrDataset()
-  names(resN)[names(resN) == "alpha"] <- "alpha_reduced"
   
-  comp <- dplyr::left_join(resN, resArrayAll_mean_strict[, c("chrpos", "alpha")], by = "chrpos")
+  ## top-K by the REDUCED run's OWN score (rank, not full-data threshold)
+  topN_reduced <- resN |>
+    dplyr::filter(!is.na(logBF_per_ds)) |>
+    dplyr::slice_max(order_by = logBF_per_ds, n = K, with_ties = FALSE)
   
-  ## Of the top top CpGs under full data, how many are still >= the same
-  ## cutoff when using only N individuals/dataset?
-  recovered <- sum(comp$chrpos %in% top3535_full$chrpos & comp$alpha_reduced >= cutoff_full)
-  
-  data.frame(N = N, n_recovered = recovered, pct_recovered = recovered / nrow(top3535_full))
+  recovered <- sum(full_hits %in% topN_reduced$chrpos)   # overlap of the two top-K sets
+  data.frame(N = N, n_recovered = recovered, pct_recovered = recovered / K)
 }) |> dplyr::bind_rows()
 
 ## Add the full-dataset reference point (100% recovery, by definition)
-recovery <- dplyr::bind_rows(recovery, data.frame(N = NA, n_recovered = nrow(top3535_full), pct_recovered = 1))
+recovery <- dplyr::bind_rows(recovery, data.frame(N = NA, n_recovered = nrow(top4377_full),
+                                                  pct_recovered = 1))
 recovery$N_label <- ifelse(is.na(recovery$N), "Full", as.character(recovery$N))
 recovery$N_label <- factor(recovery$N_label, levels = c(as.character(sort(Ns)), "Full"))
 
@@ -546,21 +544,21 @@ plotRecovery <- ggplot(recovery, aes(x = N, y = pct_recovered, group = 1)) +
   scale_y_continuous(labels = scales::percent, limits = c(0, 1.05)) +
   scale_x_continuous(breaks = c(2,3,4,5,10,15,20), labels = c(2,3,4,5,10,15,20)) +
   theme_minimal(base_size = 13) +
-  labs(x = "Individuals per dataset", y = "% of top 3,535 CpGs (full data) still recovered",
+  labs(x = "Individuals per dataset", y = "% of top 4377 CpGs (full data) still recovered",
        title = "Recovery of top hvCpG hits as individuals/dataset increases",
-       subtitle = "p0=80%, p1=90% - cutoff fixed at the full-dataset top-3,535 threshold")
+       subtitle = "p0=80%, p1=65% - cutoff fixed at the full-dataset top-4377 threshold")
 
 plotRecovery
 
 # is the correlation trend smoother?
 corByN <- lapply(Ns, function(N) {
-  f <- here(paste0(pathMean, "results_Arrays_", N,
-                   "ind_406036CpGs_0_8p0_0_9p1.rds"))
+  f <- here(paste0(pathNew, "results_Arrays_", N,
+                   "ind_406036CpGs_0_8p0_0_65p1_0_01a0.rds"))
   if (!file.exists(f)) return(NULL)
   resN <- as.data.frame(readRDS(f)) |> prepareChrDataset()
-  names(resN)[names(resN) == "alpha"] <- "alpha_reduced"
-  comp <- dplyr::left_join(resN, resArrayAll_mean_strict[, c("chrpos", "alpha")], by = "chrpos")
-  data.frame(N = N, r = cor(comp$alpha, comp$alpha_reduced, use = "complete.obs"))
+  names(resN)[names(resN) == "logBF_per_ds"] <- "logBF_per_ds_reduced"
+  comp <- dplyr::left_join(resN, resArray_0_8p0_0_65p1[, c("chrpos", "logBF_per_ds")], by = "chrpos")
+  data.frame(N = N, r = cor(comp$logBF_per_ds, comp$logBF_per_ds_reduced, use = "complete.obs"))
 }) |> dplyr::bind_rows()
 
 print(corByN)
@@ -572,11 +570,11 @@ plotCorByN <- ggplot(corByN, aes(x = N, y = r)) +
   scale_y_continuous(labels = scales::percent, limits = c(.5, 1.05)) +
   scale_x_continuous(breaks = c(2,3,4,5,10,15,20), labels = c(2,3,4,5,10,15,20)) +
   theme_minimal(base_size = 12) +
-  labs(x = "Individuals per dataset", y = "Correlation (Pearson r) of Pr(hv) with full data",
-       title = "Agreement with full-data Pr(hv) improves with sample size",
-       subtitle = "p0=80%, p1=90%")
+  labs(x = "Individuals per dataset", y = "Correlation (Pearson r) of hypervariability score (logBF per ds) with full data",
+       title = "Agreement with full-data hypervariability score improves with sample size",
+       subtitle = "p0=80%, p1=65%")
 
 plotCorByN
 
-ggsave(here("gitignore/improveAccuracyWithMoreNperds.png"),
+ggsave(here("B_MultiTissues/dataOut/figures/script02//improveAccuracyWithMoreNperds.png"),
        plotRecovery / plotCorByN, width = 9, height = 10, dpi = 300, bg = "white")

@@ -35,13 +35,13 @@ runAll <- function(data_dir, analysis, n = 0, p0, p1){
     }
 }
 
-runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.8, p1=0.65)  
-runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.65, p1=0.8)
-runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.8, p1=0.8)
-runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.65, p1=0.65)
-runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.9, p1=0.9)
+#runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.8, p1=0.65)  
+#runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.65, p1=0.8)
+#runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.8, p1=0.8)
+#runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.65, p1=0.65)
+#runAll(data_dir = "/home/alice/arraysh5/", "Arrays_all", p0=0.9, p1=0.9)
 
-for (i in c(2, 3)){
+for (i in c(2, 3, 4, 5, 10, 15, 20)){
     runAll(data_dir = paste0("/home/alice/arraysh5_", i, "ind/"),
            n = i, paste0("Arrays_", i, "ind"), p0=0.8, p1=0.65)
 }
