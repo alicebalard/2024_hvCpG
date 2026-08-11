@@ -451,18 +451,19 @@ compute_cross_layer_r <- function(meth_sub, layer1, layer2) {
 
 extract_layer_specific_cpgs <- function(meth_sub,
                                         own_layer, other_layer,
-                                        r_high = NULL,      # "high" bar for own layer
-                                        r_low  = NULL,      # "low"  bar 
-                                        min_same_obs  = 3, # pooled tissue-pair points
-                                        min_cross_obs = 3) # cross-layer patients
+                                        r_high = NULL,
+                                        r_low  = NULL,
+                                        r_low_cross = NULL,   # <- add this
+                                        min_same_obs  = 3,
+                                        min_cross_obs = 3)
 {
   if (is.null(r_high)) r_high <- thr[layer == own_layer,   r_high]
   if (is.null(r_low))  r_low  <- thr[layer == other_layer, r_low]
-  if (is.null(r_low_cross)) r_low_cross <- thr_cross$r_low           # <- NEW
+  if (is.null(r_low_cross)) r_low_cross <- thr_cross$r_low
   
-  r_own   <- compute_same_layer_r_fetalstyle(meth_sub, own_layer)                 # high in own
-  r_other <- compute_same_layer_r_fetalstyle(meth_sub, other_layer)              # low in other
-  r_cross <- compute_cross_layer_r(meth_sub, other_layer, own_layer)  # low cross-layer
+  r_own   <- compute_same_layer_r_fetalstyle(meth_sub, own_layer)
+  r_other <- compute_same_layer_r_fetalstyle(meth_sub, other_layer)
+  r_cross <- compute_cross_layer_r(meth_sub, other_layer, own_layer)
   if (is.null(r_own) || is.null(r_other) || is.null(r_cross)) return(NULL)
   
   setnames(r_own,   c("r", "n_obs"), c("r_own",   "n_own"))
@@ -470,15 +471,15 @@ extract_layer_specific_cpgs <- function(meth_sub,
   setnames(r_cross, c("r", "n_obs"), c("r_cross", "n_cross"))
   
   m <- Reduce(function(a, b) merge(a, b, by = "cpg_site"),
-              list(r_own, r_other, r_cross))               # inner: need all three
+              list(r_own, r_other, r_cross))
   
   hits <- m[!is.na(r_own) & !is.na(r_other) & !is.na(r_cross) &
               n_own   >= min_same_obs &
               n_other >= min_same_obs &
               n_cross >= min_cross_obs &
-              r_own   >= r_high &     # criterion 1: high in Meso
-              r_other <  r_low  &     # criterion 2: low in Endo
-              r_cross <  r_low_cross]       # criterion 3: low Endo<->Meso
+              r_own   >= r_high &
+              r_other <  r_low  &
+              r_cross <  r_low_cross]
   hits[order(-r_own)]
 }
 
@@ -818,6 +819,26 @@ tri_steps <- function(tab) {
     n_tested = N)
 }
 
+# ── Empirical null for the CROSS-layer r (Endo x Meso, n = 4 patients) ────────
+null_cross <- compute_cross_layer_r(
+  meth_control_multi[category == "constitutive"], "Endo", "Meso")[!is.na(r), r]
+
+thr_cross <- data.table(
+  comparison = "Endo_x_Meso",
+  n_pat      = length(unique(meth_control_multi[germ_layer %in% c("Endo","Meso"), patient_id])),
+  # "high" (ME-like systemic concordance): beyond 95th pct of noise
+  r_high     = quantile(null_cross, 0.95),
+  # "low" (layer-specific): below the MEDIAN of noise, i.e. no more concordant
+  #  than a constitutive CpG. Tighten to 0.25 quantile for a stricter set.
+  r_low      = median(null_cross),
+  r_low_strict = quantile(null_cross, 0.25),
+  mu         = mean(null_cross),
+  sd         = sd(null_cross))
+print(thr_cross)
+# comparison n_pat    r_high     r_low r_low_strict        mu        sd
+# <char> <int>     <num>     <num>        <num>     <num>     <num>
+# 1: Endo_x_Meso    26 0.9563602 0.5200925    0.2659833 0.5164641 0.2909058
+
 tri_tabs <- rbindlist(list(
   # Meso pipeline (own = Meso, other = Endo)
   tri_steps(tri_rs(meth_meso_specific,                       "Meso","Endo","Meso_specific")),
@@ -852,8 +873,11 @@ p <- ggplot(tri_tabs, aes(category_f, pct, fill = step)) +
         strip.text  = element_text(face = "bold"),
         legend.position = "right") +
   ggtitle("Layer-specific selection: cumulative pass rate over 3 criteria",
-          subtitle = sprintf("high own r (\u2265%.1f)  \u2192  + low other r (<%.1f)  \u2192  + low cross-layer r (<%.1f)",
-                             r_high, r_low, r_low))
+          subtitle = sprintf(
+            "high own r (Meso \u2265%.2f, Endo \u2265%.2f)  \u2192  + low other r (Meso <%.2f, Endo <%.2f)  \u2192  + low cross-layer r (<%.2f)",
+            thr[layer == "Meso", r_high], thr[layer == "Endo", r_high],
+            thr[layer == "Meso", r_low],  thr[layer == "Endo", r_low],
+            thr_cross$r_low))
 
 ## Higherbackground concordance for endo than meso
 ggplot2::ggsave(
@@ -898,27 +922,6 @@ extract_ME_cpgs <- function(meth_sub,
 ME_hits <- extract_ME_cpgs(meth_ME)
 message(sprintf("Putative systemic-ME CpGs: %d", if (is.null(ME_hits)) 0L else nrow(ME_hits)))
 # Putative systemic-ME CpGs: 4136
-
-
-# ── Empirical null for the CROSS-layer r (Endo x Meso, n = 4 patients) ────────
-null_cross <- compute_cross_layer_r(
-  meth_control_multi[category == "constitutive"], "Endo", "Meso")[!is.na(r), r]
-
-thr_cross <- data.table(
-  comparison = "Endo_x_Meso",
-  n_pat      = length(unique(meth_control_multi[germ_layer %in% c("Endo","Meso"), patient_id])),
-  # "high" (ME-like systemic concordance): beyond 95th pct of noise
-  r_high     = quantile(null_cross, 0.95),
-  # "low" (layer-specific): below the MEDIAN of noise, i.e. no more concordant
-  #  than a constitutive CpG. Tighten to 0.25 quantile for a stricter set.
-  r_low      = median(null_cross),
-  r_low_strict = quantile(null_cross, 0.25),
-  mu         = mean(null_cross),
-  sd         = sd(null_cross))
-print(thr_cross)
-# comparison n_pat    r_high     r_low r_low_strict        mu        sd
-# <char> <int>     <num>     <num>        <num>     <num>     <num>
-# 1: Endo_x_Meso    26 0.9563602 0.5200925    0.2659833 0.5164641 0.2909058
 
 #################################
 ## Save the interesting targets##
@@ -1024,19 +1027,6 @@ meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr, gap = 
 endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr, gap = 100)
 ME_res   <- annotate_layer_hits(ME_hits,   "ME",   genes_gr, uni, uni_gr, gap = 100)
 
-meso_res$clusters
-endo_res$clusters
-ME_res$clusters
-
-# save all CpGs in top genes ± flank, is_meso_hit column
-fwrite(meso_res$gene_cpgs,
-       here("B_MultiTissues/dataOut/meso_hits_genesClusters.csv"))
-
-fwrite(endo_res$gene_cpgs,
-       here("B_MultiTissues/dataOut/endo_hits_genesClusters.csv"))
-
-fwrite(ME_res$gene_cpgs, here("B_MultiTissues/dataOut/ME_hits_genesClusters.csv"))
-
 #################################
 ## Manhattan plot of candidates##
 #################################
@@ -1085,35 +1075,27 @@ axis_dt <- cand[, .(centre = mean(range(pos_cum))), by = chr][order(chr)]
 
 ## ── Plot ─────────────────────────────────────────────────────────────────────
 make_manhattan <- function(dt, yvar = "alpha_own", ylab = "Pr(HV) own layer",
-                           hline = HVt, label_top = 8) {
+                           hline = HVt, label_top = 40) {
   d <- copy(dt)[!is.na(get(yvar))]
   d[, y := get(yvar)]
   d[, category := factor(category, levels = c("ME","Endo_specific","Meso_specific"))]
   
-  ## label the strongest hits (needs meso_res/endo_res $ann for gene names)
-  
-## ── Plot ─────────────────────────────────────────────────────────────────────
-make_manhattan <- function(dt, yvar = "alpha_own", ylab = "Pr(HV) own layer",
-                           hline = HVt, label_top = 8) {
-  d <- copy(dt)[!is.na(get(yvar))]
-  d[, y := get(yvar)]
-  d[, category := factor(category, levels = c("ME","Endo_specific","Meso_specific"))]
-  
-  ## label the strongest hits (needs meso_res/endo_res $ann for gene names)
   gene_map <- unique(rbindlist(list(
     meso_res$ann[, .(cpg_site, gene)],
     endo_res$ann[, .(cpg_site, gene)],
     ME_res$ann[,   .(cpg_site, gene)]), fill = TRUE))[!is.na(gene)]
   
-  d <- merge(d, gene_map, by = "cpg_site", all.x = TRUE)   # <── ADD THIS LINE
+  d <- merge(d, gene_map, by = "cpg_site", all.x = TRUE)
   
-  # for layer-specific: strength of the specificity signature, not alpha
   d[, score := fifelse(
     category == "ME",
-    pmin(r_own, r_cross),                       # ME: strong in both = systemic
-    r_own - pmax(r_other, r_cross, na.rm = TRUE) # layer-specific: margin over confounders
+    pmin(r_own, r_cross),
+    r_own - pmax(r_other, r_cross, na.rm = TRUE)
   )]
-  top <- d[order(-score)][!is.na(gene)][, .SD[1], by = gene][seq_len(min(label_top, .N))]
+  
+  ## per-category top N (one row per gene, then top `label_top` per category)
+  top <- d[!is.na(gene)][order(-score), .SD[1], by = .(gene, category)][
+    , head(.SD, label_top), by = category]
   
   ggplot(d, aes(pos_cum, y)) +
     ## alternating chromosome shading
@@ -1143,3 +1125,55 @@ p_manh_facet <- make_manhattan(cand) +
 ggplot2::ggsave(
   here("B_MultiTissues/dataOut/figures/script04/manhattan_candidates_byLayer.pdf"),
   p_manh_facet, width = 12, height = 8)
+
+
+## ── Save final results only ──────────────────────────────────────────────────
+## Keep: the candidate CpG lists, their gene annotations, and the thresholds
+## used to derive them. Drop: all intermediate methylation tables, wide matrices,
+## per-CpG correlation scratch objects — these are large and recomputable.
+
+results_S04 <- list(
+  
+  ## Candidate CpGs passing all three concordance criteria, per category.
+  ## Columns: cpg_site, r_own (own-layer intra-individual |r|),
+  ## r_other (other-layer |r|), r_cross (cross-layer Endo×Meso |r|), n_* counts.
+  meso_hits = meso_hits,     # Meso-specific: high in Meso, low in Endo + low cross
+  endo_hits = endo_hits,     # Endo-specific: high in Endo, low in Meso + low cross
+  ME_hits   = ME_hits,       # systemic ME: high in BOTH layers AND high cross-layer
+  
+  ## Gene-level annotation of the above (from annotate_layer_hits): one row per
+  ## hit CpG with nearest gene, distance, and cluster membership (CpGs within
+  ## `gap` bp). $clusters = genes with >=2 clustered hits, ranked by density.
+  meso_clusters = meso_res$clusters,
+  endo_clusters = endo_res$clusters,
+  ME_clusters   = ME_res$clusters,
+  
+  ## Empirical thresholds used for selection (from the constitutive-CpG null):
+  ## thr = per-layer same-layer |r| cutoffs (r_high = 95th pct of noise,
+  ## r_low = median of noise); thr_cross = cross-layer (Endo×Meso, n=4) cutoffs.
+  thr       = thr,
+  thr_cross = thr_cross,
+  
+  ## Provenance so the file is interpretable on its own.
+  meta = list(
+    script      = "S04_...R",
+    date        = Sys.Date(),
+    HVt         = HVt,        # Pr(HV) "high" cutoff (own layer)
+    notHVt      = notHVt,     # Pr(HV) "low" cutoff (other layers)
+    n_meso      = nrow(meso_hits),
+    n_endo      = nrow(endo_hits),
+    n_ME        = nrow(ME_hits),
+    description = paste(
+      "Layer-specific and systemic-ME candidate CpGs from the 3-germ-layer atlas.",
+      "Selection: Pr(HV) category (>=HVt own, <notHVt other) then within-individual",
+      "concordance criteria using empirical noise thresholds. See thr/thr_cross."
+    )
+  )
+)
+
+saveRDS(results_S04, here("gitignore/resultsAtlasPrepared/S04_candidates.rds"))
+message("Saved S04 candidates: ",
+        results_S04$meta$n_meso, " meso | ",
+        results_S04$meta$n_endo, " endo | ",
+        results_S04$meta$n_ME,   " ME")
+# Saved S04 candidates: 1112 meso | 290 endo | 4136 ME

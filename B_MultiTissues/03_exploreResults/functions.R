@@ -44,60 +44,50 @@ makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
     ggplot2::theme_void()
 }
 
-prepAtlasdt <- function(subdir, p0, p1, atlas_dir) {
+prepAtlasdt <- function(subdir, p0, p1, atlas_dir, mypattern,
+                        score = "logBF") {
   parent_dir <- file.path(atlas_dir, subdir)
-  rds_files  <- base::dir(parent_dir, pattern = paste0(p0, "p0_", p1, "p1.rds$"),
+  rds_files  <- base::dir(parent_dir, pattern = mypattern,
                           recursive = TRUE, full.names = TRUE)
+  if (length(rds_files) == 0) stop("No files matched in: ", parent_dir)
   
-  if (length(rds_files) == 0)
-    stop("No files matched in: ", parent_dir)
+  pb <- progress_bar$new(total = length(rds_files),
+                         format = "\U0001F4E6 :current/:total [:bar] :percent")
   
-  all_cpg_values <- numeric()
-  pb <- progress_bar$new(total = length(rds_files), 
-                         format = "📦 :current/:total [:bar] :percent")
+  # read every batch matrix, keep rownames + all score columns
+  mats <- lapply(rds_files, function(f) {
+    m <- readRDS(f); pb$tick()
+    if (!is.matrix(m)) stop("Expected a matrix in ", basename(f))
+    data.table(name = rownames(m), as.data.table(m))
+  })
+  dt <- rbindlist(mats, use.names = TRUE, fill = TRUE)
   
-  for (file in rds_files) {
-    obj <- readRDS(file)
-    if (is.matrix(obj)) obj <- setNames(obj[, 1], rownames(obj))  # fix order
-    all_cpg_values <- c(all_cpg_values, obj)
-    pb$tick()
-  }
+  # keep the CpG position (strip a "-N" suffix if present)
+  dt[, name := sub("-[0-9]+$", "", name)]
   
-  # Create data.table from named vector
-  dt <- data.table(
-    name =   sub("-[0-9]+$", "", names(all_cpg_values)), # just keep the C position instead of C + 1
-    alpha = as.numeric(all_cpg_values)
-  )
+  # the score you'll plot, kept under a stable column name for downstream code
+  stopifnot(score %in% names(dt))
+  dt[, value := as.numeric(get(score))]
   
-  #######################################################################
-  # Parse "chr_pos" in name into chr, start_pos, end_pos. NB: takes a couple of minutes
+  # ── parse chr / pos ────────────────────────────────────────────────────────
   dt[, c("chr", "pos") := tstrsplit(name, "_", fixed = TRUE)]
-  
-  # Convert to integer/numeric if not already
   dt[, pos := as.integer(pos)]
-  
-  # Convert chr from "chrN" to  factor
   dt[, chr := sub("chr", "", chr)]
   dt[, chr := factor(chr, levels = as.character(c(1:22, "X", "Y", "M")))]
   
-  ## Mark group membership in dt
+  # ── group membership ───────────────────────────────────────────────────────
   dt[, group := NA_character_]
   dt[name %in% DerakhshanhvCpGs_hg38, group := "hvCpG_Derakhshan"]
-  dt[name %in% mQTLcontrols_hg38, group := "mQTLcontrols"]
+  dt[name %in% mQTLcontrols_hg38,     group := "mQTLcontrols"]
   
-  # Compute cumulative position offsets for Manhattan plot
+  # ── cumulative position for Manhattan ──────────────────────────────────────
   setorder(dt, chr, pos)
-  
   offsets <- dt[, .(max_pos = max(pos, na.rm = TRUE)), by = chr]
   offsets[, cum_offset := c(0, head(cumsum(as.numeric(max_pos)), -1))]
-  
   dt <- merge(dt, offsets[, .(chr, cum_offset)], by = "chr", all.x = TRUE, sort = FALSE)
+  dt[, pos2 := pos + as.numeric(cum_offset)]
   
-  # Convert to integer/numeric if not already
-  dt[, cum_offset := as.numeric(cum_offset)]
-  dt[, pos2 := pos + cum_offset]
-  
-  return(dt)
+  dt[]
 }
 
 # hg38 centromeres; gaps table has type == "centromere"
@@ -107,122 +97,129 @@ centro <- cyto[grepl("acen", gieStain),
                .(cen_start = min(start), cen_end = max(end)),
                by = .(chr = sub("^chr", "", seqnames))]
 
-plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
-                                centro = NULL){
+plotManhattanFromdt <- function(dt, transp = 0.1, plotDerakhshan = TRUE,
+                                centro = NULL, score = "logBF_per_ds_allLayers",
+                                band_cols = c("0" = "grey20", "1" = "grey55")) {
   
-  offsets <- dt[, .(offset = min(pos2, na.rm = TRUE) - min(pos, na.rm = TRUE)), by = chr]
-  centro  <- merge(centro, offsets, by = "chr")
-  centro[, `:=`(x_start = cen_start + offset, x_end = cen_end + offset)]
+  dt <- data.table::copy(dt)
+  dt$score <- dt[[score]]
   
-  # Compute chromosome centers for x-axis labeling
-  df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-  df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
-               df2, by = "chr", all.x = TRUE, sort = TRUE)
-  df2 <- na.omit(df2)
+  # canonical chromosome order; keep ONLY chromosomes that actually have plottable points
+  chr_levels <- as.character(c(1:22, "X", "Y", "M"))
+  present    <- dt[!is.na(pos2), unique(as.character(chr))]
+  chr_order  <- chr_levels[chr_levels %in% present]     # ordered, no gaps, data-backed
+  if (length(present[!present %in% chr_levels]))
+    warning("chr values not in canonical set (check naming, e.g. 'chrM' vs 'M'): ",
+            paste(setdiff(present, chr_levels), collapse = ", "))
   
-  # Compute chromosome boundaries
-  df_bounds <- dt[, .(min_pos = min(pos2, na.rm = TRUE), 
-                      max_pos = max(pos2, na.rm = TRUE)), by = chr]
+  # single source of truth: order, axis centre, and parity per chromosome
+  chr_tab <- dt[chr %in% chr_order,
+                .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
+  chr_tab[, chr := factor(as.character(chr), levels = chr_order)]
+  data.table::setorder(chr_tab, chr)
+  chr_tab[, parity := factor(seq_len(.N) %% 2)]         # rank in the ORDERED, gap-free table
   
-  # Midpoints between chromosomes = where to draw dotted lines
-  df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
-  vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
+  dt <- merge(dt, chr_tab[, .(chr, parity)], by = "chr", all.x = TRUE, sort = FALSE)
+  
+  # centromere spans -> single midpoint line
+  if (!is.null(centro)) {
+    centro  <- data.table::as.data.table(centro)
+    offsets <- dt[, .(offset = min(pos2, na.rm = TRUE) - min(pos, na.rm = TRUE)), by = chr]
+    centro  <- merge(centro, offsets, by = "chr")
+    centro[, x_mid := (cen_start + cen_end) / 2 + offset]
+  }
+  
+  set.seed(1234)
+  bg <- dt[!is.na(parity)][sample(.N, min(.N, 3e5))]    # never sample NA-parity points
   
   p <- ggplot() +
-    theme_classic() + theme(legend.position = "none") +
-    scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
-    scale_y_continuous(expand = c(0, 0)) +
-    labs(x = "Chromosome", y = "Pr(hv)")+
     theme_minimal(base_size = 14) +
-    # background cloud
-    geom_point_rast(data = dt, 
-                    aes(x = pos2, y = alpha),
-                    color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
+    theme(legend.position = "none") +
+    scale_x_continuous(breaks = chr_tab$center, labels = as.character(chr_tab$chr),
+                       expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(x = "Chromosome", y = "Hypervariability score (logBF per ds)") +
+    geom_point_rast(data = bg, aes(pos2, score, colour = parity),
+                    size = 0.01, alpha = transp, raster.dpi = 72) +
+    scale_colour_manual(values = band_cols, na.translate = FALSE) +
     { if (!is.null(centro))
-      geom_rect(data = centro,
-                aes(xmin = x_start, xmax = x_end, ymin = -Inf, ymax = Inf),
-                fill = "orange", alpha = .8, inherit.aes = FALSE) } +
-    # Add  separators
-    geom_vline(data = vlines, aes(xintercept = xintercept),
-               linetype = 1, color = "green4", linewidth = .5) +
+      geom_vline(data = centro, aes(xintercept = x_mid),
+                 linetype = 1, colour = "black", linewidth = 0.3) } +
     { if (plotDerakhshan)
       list(
-        geom_point_rast(data = dt[is.na(group)],
-                        aes(x = pos2, y = alpha),
-                        color = "black", size = 0.01, alpha = transp, raster.dpi = 72),
         geom_point(data = dt[group == "hvCpG_Derakhshan"],
-                   aes(x = pos2, y = alpha),
-                   pch = 21, color = "white", fill = "#DC3220", size = 2, alpha = 0.7),
+                   aes(pos2, score), pch = 21, colour = "white",
+                   fill = "#DC3220", size = 2, alpha = 0.7),
         geom_point(data = dt[group == "mQTLcontrols"],
-                   aes(x = pos2, y = alpha),
-                   pch = 21, color = "white", fill = "#005AB5", size = 2, alpha = 0.7))
-    }
+                   aes(pos2, score), pch = 21, colour = "white",
+                   fill = "#005AB5", size = 2, alpha = 0.7)) }
+  
   return(p)
 }
 
-# ---- Inner helper for makeCompPlot: build Z_inner ----
-makeZ_inner <- function(X, Y, whichAlphaX = NULL, whichAlphaY = NULL) {
+# ---- load one side, standardise to (name, logBF_per_ds) ----
+loadSide <- function(dat, which = NULL) {
+  if (is.character(dat) && length(dat) == 1L && file.exists(dat)) dat <- readRDS(dat)
+  setDT(dat)
   
-  loadSide <- function(dat, whichAlpha) {
-    if (is.character(dat) && length(dat) == 1 && file.exists(dat)) dat <- readRDS(dat)
-    setDT(dat)
-    
-    if ("chrpos" %in% names(dat)) {
-      ## array-style table: CpG id is "chrpos", must be told which alpha column
-      if (is.null(whichAlpha))
-        stop("Table has 'chrpos' (array-style) - please supply whichAlpha, e.g. 'alpha_array_all'.")
-      stopifnot(whichAlpha %in% names(dat))
-      out <- dat[, .(name = as.character(chrpos), alpha = get(whichAlpha))]
-    } else if ("name" %in% names(dat)) {
-      ## atlas-style table: CpG id is already "name"
-      alphaCol <- if (is.null(whichAlpha)) "alpha" else whichAlpha
-      stopifnot(alphaCol %in% names(dat))
-      out <- dat[, .(name = as.character(name), alpha = get(alphaCol))]
-    } else {
-      stop("Table has neither 'chrpos' nor 'name' - can't identify the CpG id column.")
-    }
-    out   # dat (the full, possibly huge object) goes out of scope here and can be GC'd
+  if ("chrpos" %in% names(dat)) {                 # array-style: id is chrpos
+    if (is.null(which))
+      stop("Array-style table (has 'chrpos'): supply `which`, e.g. 'logBF_per_ds'.")
+    id_col <- "chrpos"
+  } else if ("name" %in% names(dat)) {            # atlas-style: id is name
+    id_col <- "name"
+    if (is.null(which)) which <- "logBF_per_ds"
+  } else {
+    stop("Table has neither 'chrpos' nor 'name' - can't find the CpG id column.")
   }
-  
-  X <- loadSide(X, whichAlphaX); setnames(X, "alpha", "alpha_X")
-  Y <- loadSide(Y, whichAlphaY); setnames(Y, "alpha", "alpha_Y")
-  
-  X[Y, on = "name", nomatch = 0]
+  stopifnot(which %in% names(dat))
+  dat[, .(name = as.character(get(id_col)), logBF_per_ds = get(which))]
+}
+
+# ---- matched X/Y table (inner join on CpG id, finite only) ----
+makeZ_inner <- function(X, Y, whichX = NULL, whichY = NULL) {
+  X <- loadSide(X, whichX); setnames(X, "logBF_per_ds", "logBF_per_ds_X")
+  Y <- loadSide(Y, whichY); setnames(Y, "logBF_per_ds", "logBF_per_ds_Y")
+  Z <- X[Y, on = "name", nomatch = 0L]
+  Z[is.finite(logBF_per_ds_X) & is.finite(logBF_per_ds_Y)]
 }
 
 makeCompPlot <- function(X, Y, title, xlab, ylab,
-                         whichAlphaX = NULL, whichAlphaY = NULL,
-                         minplot = 100000, drawline = TRUE) {
+                         whichX = NULL, whichY = NULL,
+                         minplot = 1e5, drawline = TRUE, seed = 1234) {
   
-  Z_inner <- makeZ_inner(X, Y, whichAlphaX = whichAlphaX, whichAlphaY = whichAlphaY)
+  Z <- makeZ_inner(X, Y, whichX, whichY)
+  if (nrow(Z) < 3L) stop("Fewer than 3 matched CpGs - nothing to correlate.")
   
-  # ---- Plot & save ----
-  c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
-  fit <- lm(alpha_Y ~ alpha_X, data = Z_inner)
-  slope <- coef(fit)[["alpha_X"]]
+  ct    <- cor.test(Z$logBF_per_ds_X, Z$logBF_per_ds_Y)
+  fit   <- lm(logBF_per_ds_Y ~ logBF_per_ds_X, data = Z)
+  slope <- coef(fit)[["logBF_per_ds_X"]]
   
-  set.seed(1234)
-  if (nrow(Z_inner) > minplot) {
-    Z_inner_plot <- Z_inner[sample(nrow(Z_inner), minplot), ]
-  } else {
-    Z_inner_plot <- Z_inner
-  }
-  p1 <- ggplot(Z_inner_plot, aes(alpha_X, alpha_Y)) +
-    geom_point(pch = 21, alpha = 0.05) +
+  # downsample for plotting only, without disturbing the global RNG
+  if (nrow(Z) > minplot) {
+    old <- get0(".Random.seed", .GlobalEnv)
+    set.seed(seed)
+    Zp <- Z[sample(.N, minplot)]
+    if (is.null(old)) suppressWarnings(rm(".Random.seed", envir = .GlobalEnv))
+    else assign(".Random.seed", old, .GlobalEnv)
+  } else Zp <- Z
+  
+  xr <- range(Zp$logBF_per_ds_X); yr <- range(Zp$logBF_per_ds_Y)
+  
+  p <- ggplot(Zp, aes(logBF_per_ds_X, logBF_per_ds_Y)) +
+    geom_point(shape = 16, alpha = 0.05) +
     geom_abline(slope = 1, linetype = 3) +
+    annotate("text", hjust = 0, colour = "red",
+             x = xr[1] + 0.2 * diff(xr), y = yr[1] + 0.9 * diff(yr),
+             label = sprintf("R = %.2f\nslope = %.2f", ct$estimate, slope)) +
     theme_minimal(base_size = 14) +
-    annotate("text", x = .2, y = .8, colour = "red",
-             label = sprintf("R : %.2f\nslope : %.2f", c$estimate, slope)) +
     labs(title = title, x = xlab, y = ylab)
   
-  if (drawline == TRUE) {
-    p1 <- p1 +
-      geom_smooth(linetype = 3) +
-      geom_smooth(method = "lm", fill = "black")
-  }
+  if (isTRUE(drawline))
+    p <- p + geom_smooth(linetype = 3) + geom_smooth(method = "lm", fill = "black")
   
-  invisible(Z_inner)
-  return(p1)
+  attr(p, "Z_inner") <- Z   # full matched table, if you want it back
+  p
 }
 
 makeGRfromMyCpGPos <- function(vec, setname){# Parse with regex all the cpg tested
