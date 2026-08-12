@@ -490,11 +490,11 @@ plotMyVenn <- function(cutoff, ...) {
 ## functions_S06.R
 ## Functions extracted from S06 for reuse in downstream scripts
 
-make_MEsetdt <- function(sets, geomMeanGR) {
+make_MEsetdt <- function(sets, GR) {
   MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
-    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    hits <- findOverlaps(sets[[nm]], GR)
     data.table(
-      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      logBF_per_ds = GR$logBF_per_ds_allLayers[subjectHits(hits)],
       ME = nm
     )
   }))
@@ -515,12 +515,12 @@ make_MEsetdt_regionMean <- function(sets, geomMeanGR) {
   na.omit(MEsetdt)
 }
 
-plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
+plot_decay_curve <- function(MEsetdt) {
   thresholds <- seq(10, 90, by = 10) / 100
   prop_table <- rbindlist(lapply(thresholds, function(thr) {
     MEsetdt[, .(
-      proportion = mean(alpha_geomean > thr, na.rm = TRUE),
-      n_above    = sum(alpha_geomean > thr, na.rm = TRUE),
+      proportion = mean(logBF_per_ds > thr, na.rm = TRUE),
+      n_above    = sum(logBF_per_ds > thr, na.rm = TRUE),
       n_total    = .N
     ), by = ME][, threshold := thr]
   }))
@@ -533,13 +533,12 @@ plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
                setNames(set2_cols[seq_along(other_levels)], other_levels))
   
   ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
-    geom_line() +
-    geom_point() +
-    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    geom_line(linewidth = 3) +
+    geom_point(size = 5) +
+    scale_x_continuous("Hypervariability score (logBF per ds) threshold", breaks = thresholds) +
     scale_y_continuous("Proportion above threshold", labels = scales::percent) +
     scale_colour_manual(values = my_cols) +
-    theme_bw() +
-    ggtitle(title)
+    theme_bw()
 }
 
 plot_decay_curve_layered <- function(MEsetdt, title = "Decay curve by layer") {
