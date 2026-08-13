@@ -295,6 +295,8 @@ message(sprintf("Written: layer_specific_and_ME.txt (%d CpGs total)",
 # --output    /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/methylation_layerspecific_and_ME.tsv \
 # --minCov    10
 
+## !! Transfert to local gitignore/methylation_layerspecific_and_ME.tsv
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Step 2. Intra-individual correlation for layer-specific CpGs
 # ══════════════════════════════════════════════════════════════════════════════
@@ -356,16 +358,17 @@ unique(meth[
   c("source_tissue_celltype", "patient_id", "germ_layer")]) 
 
 # source_tissue_celltype patient_id germ_layer
-# 1:               Colon - Endocrine        169       Endo
+# <char>     <char>     <char>
+#   1:               Colon - Endocrine        169       Endo
 # 2:             Colon - Macrophages        169       Meso
 # 3: Kidney glomerular - Endothelium        176       Meso
-# 10:    Kidney tubular - Epithelium        176       Endo
-# 7:    Kidney glomerular - Podocyte        176       Endo
 # 4: Kidney glomerular - Endothelium        130       Meso
 # 5:  Kidney glomerular - Epithelium        130       Endo
-# 9:     Kidney tubular - Epithelium        130       Endo
 # 6:    Kidney glomerular - Podocyte        199       Endo
+# 7:    Kidney glomerular - Podocyte        176       Endo
 # 8:    Kidney tubular - Endothelium        199       Meso
+# 9:     Kidney tubular - Epithelium        130       Endo
+# 10:     Kidney tubular - Epithelium        176       Endo
 
 ### How many patients have multiple SAME-layer tissues (different tissues)
 
@@ -558,7 +561,7 @@ writeLines(c(constitutive_sample, ambiguous_sample),
            here("B_MultiTissues/dataOut/control_sample20k.txt"))
 message("Written: control_sample20k.txt (20000 CpGs: 10k constitutive + 10k ambiguous)")
 
-## In pchuckle:
+## In pchuckle (after git pull):
 # source /share/apps/source_files/python/python-3.13.0a6.source
 # cd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues/03_exploreResults
 # python3 S00_extractRawMethylationForTargetCpG.py \
