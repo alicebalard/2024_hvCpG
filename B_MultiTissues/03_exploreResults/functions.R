@@ -7,7 +7,10 @@
 ## makeZ_inner
 ## makeCompPlot
 ## makeGRfromMyCpGPos
-## GO old functions (commented out)
+## GO functions:
+### CpG_GO_pipeline_lengthControlled
+### cpg_cluster_count_per_gene
+### match_universe_by_covariate
 ## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
 ## for each quadrant vs the other three combined
 ### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
@@ -44,60 +47,50 @@ makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
     ggplot2::theme_void()
 }
 
-prepAtlasdt <- function(subdir, p0, p1, atlas_dir) {
+prepAtlasdt <- function(subdir, p0, p1, atlas_dir, mypattern,
+                        score = "logBF") {
   parent_dir <- file.path(atlas_dir, subdir)
-  rds_files  <- base::dir(parent_dir, pattern = paste0(p0, "p0_", p1, "p1.rds$"),
+  rds_files  <- base::dir(parent_dir, pattern = mypattern,
                           recursive = TRUE, full.names = TRUE)
+  if (length(rds_files) == 0) stop("No files matched in: ", parent_dir)
   
-  if (length(rds_files) == 0)
-    stop("No files matched in: ", parent_dir)
+  pb <- progress_bar$new(total = length(rds_files),
+                         format = "\U0001F4E6 :current/:total [:bar] :percent")
   
-  all_cpg_values <- numeric()
-  pb <- progress_bar$new(total = length(rds_files), 
-                         format = "📦 :current/:total [:bar] :percent")
+  # read every batch matrix, keep rownames + all score columns
+  mats <- lapply(rds_files, function(f) {
+    m <- readRDS(f); pb$tick()
+    if (!is.matrix(m)) stop("Expected a matrix in ", basename(f))
+    data.table(name = rownames(m), as.data.table(m))
+  })
+  dt <- rbindlist(mats, use.names = TRUE, fill = TRUE)
   
-  for (file in rds_files) {
-    obj <- readRDS(file)
-    if (is.matrix(obj)) obj <- setNames(obj[, 1], rownames(obj))  # fix order
-    all_cpg_values <- c(all_cpg_values, obj)
-    pb$tick()
-  }
+  # keep the CpG position (strip a "-N" suffix if present)
+  dt[, name := sub("-[0-9]+$", "", name)]
   
-  # Create data.table from named vector
-  dt <- data.table(
-    name =   sub("-[0-9]+$", "", names(all_cpg_values)), # just keep the C position instead of C + 1
-    alpha = as.numeric(all_cpg_values)
-  )
+  # the score you'll plot, kept under a stable column name for downstream code
+  stopifnot(score %in% names(dt))
+  dt[, value := as.numeric(get(score))]
   
-  #######################################################################
-  # Parse "chr_pos" in name into chr, start_pos, end_pos. NB: takes a couple of minutes
+  # ── parse chr / pos ────────────────────────────────────────────────────────
   dt[, c("chr", "pos") := tstrsplit(name, "_", fixed = TRUE)]
-  
-  # Convert to integer/numeric if not already
   dt[, pos := as.integer(pos)]
-  
-  # Convert chr from "chrN" to  factor
   dt[, chr := sub("chr", "", chr)]
   dt[, chr := factor(chr, levels = as.character(c(1:22, "X", "Y", "M")))]
   
-  ## Mark group membership in dt
+  # ── group membership ───────────────────────────────────────────────────────
   dt[, group := NA_character_]
   dt[name %in% DerakhshanhvCpGs_hg38, group := "hvCpG_Derakhshan"]
-  dt[name %in% mQTLcontrols_hg38, group := "mQTLcontrols"]
+  dt[name %in% mQTLcontrols_hg38,     group := "mQTLcontrols"]
   
-  # Compute cumulative position offsets for Manhattan plot
+  # ── cumulative position for Manhattan ──────────────────────────────────────
   setorder(dt, chr, pos)
-  
   offsets <- dt[, .(max_pos = max(pos, na.rm = TRUE)), by = chr]
   offsets[, cum_offset := c(0, head(cumsum(as.numeric(max_pos)), -1))]
-  
   dt <- merge(dt, offsets[, .(chr, cum_offset)], by = "chr", all.x = TRUE, sort = FALSE)
+  dt[, pos2 := pos + as.numeric(cum_offset)]
   
-  # Convert to integer/numeric if not already
-  dt[, cum_offset := as.numeric(cum_offset)]
-  dt[, pos2 := pos + cum_offset]
-  
-  return(dt)
+  dt[]
 }
 
 # hg38 centromeres; gaps table has type == "centromere"
@@ -107,122 +100,129 @@ centro <- cyto[grepl("acen", gieStain),
                .(cen_start = min(start), cen_end = max(end)),
                by = .(chr = sub("^chr", "", seqnames))]
 
-plotManhattanFromdt <- function(dt, transp = 0.01, plotDerakhshan = TRUE,
-                                centro = NULL){
+plotManhattanFromdt <- function(dt, transp = 0.1, plotDerakhshan = TRUE,
+                                centro = NULL, score = "logBF_per_ds_allLayers",
+                                band_cols = c("0" = "grey20", "1" = "grey55")) {
   
-  offsets <- dt[, .(offset = min(pos2, na.rm = TRUE) - min(pos, na.rm = TRUE)), by = chr]
-  centro  <- merge(centro, offsets, by = "chr")
-  centro[, `:=`(x_start = cen_start + offset, x_end = cen_end + offset)]
+  dt <- data.table::copy(dt)
+  dt$score <- dt[[score]]
   
-  # Compute chromosome centers for x-axis labeling
-  df2 <- dt[, .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
-  df2 <- merge(data.frame(chr = factor(c(1:22, "X", "Y", "M"), levels=as.character(c(1:22, "X", "Y", "M")))),
-               df2, by = "chr", all.x = TRUE, sort = TRUE)
-  df2 <- na.omit(df2)
+  # canonical chromosome order; keep ONLY chromosomes that actually have plottable points
+  chr_levels <- as.character(c(1:22, "X", "Y", "M"))
+  present    <- dt[!is.na(pos2), unique(as.character(chr))]
+  chr_order  <- chr_levels[chr_levels %in% present]     # ordered, no gaps, data-backed
+  if (length(present[!present %in% chr_levels]))
+    warning("chr values not in canonical set (check naming, e.g. 'chrM' vs 'M'): ",
+            paste(setdiff(present, chr_levels), collapse = ", "))
   
-  # Compute chromosome boundaries
-  df_bounds <- dt[, .(min_pos = min(pos2, na.rm = TRUE), 
-                      max_pos = max(pos2, na.rm = TRUE)), by = chr]
+  # single source of truth: order, axis centre, and parity per chromosome
+  chr_tab <- dt[chr %in% chr_order,
+                .(center = mean(range(pos2, na.rm = TRUE))), by = chr]
+  chr_tab[, chr := factor(as.character(chr), levels = chr_order)]
+  data.table::setorder(chr_tab, chr)
+  chr_tab[, parity := factor(seq_len(.N) %% 2)]         # rank in the ORDERED, gap-free table
   
-  # Midpoints between chromosomes = where to draw dotted lines
-  df_bounds[, next_start := data.table::shift(min_pos, n = 1, type = "lead")]
-  vlines <- df_bounds[!is.na(next_start), .(xintercept = (max_pos + next_start)/2)]
+  dt <- merge(dt, chr_tab[, .(chr, parity)], by = "chr", all.x = TRUE, sort = FALSE)
+  
+  # centromere spans -> single midpoint line
+  if (!is.null(centro)) {
+    centro  <- data.table::as.data.table(centro)
+    offsets <- dt[, .(offset = min(pos2, na.rm = TRUE) - min(pos, na.rm = TRUE)), by = chr]
+    centro  <- merge(centro, offsets, by = "chr")
+    centro[, x_mid := (cen_start + cen_end) / 2 + offset]
+  }
+  
+  set.seed(1234)
+  bg <- dt[!is.na(parity)][sample(.N, min(.N, 3e5))]    # never sample NA-parity points
   
   p <- ggplot() +
-    theme_classic() + theme(legend.position = "none") +
-    scale_x_continuous(breaks = df2$center, labels = as.character(df2$chr), expand = c(0, 0)) +
-    scale_y_continuous(expand = c(0, 0)) +
-    labs(x = "Chromosome", y = "Pr(hv)")+
     theme_minimal(base_size = 14) +
-    # background cloud
-    geom_point_rast(data = dt, 
-                    aes(x = pos2, y = alpha),
-                    color = "black", size = 0.01, alpha = transp, raster.dpi = 72) +
+    theme(legend.position = "none") +
+    scale_x_continuous(breaks = chr_tab$center, labels = as.character(chr_tab$chr),
+                       expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    labs(x = "Chromosome", y = "Hypervariability score (logBF per ds)") +
+    geom_point_rast(data = bg, aes(pos2, score, colour = parity),
+                    size = 0.01, alpha = transp, raster.dpi = 72) +
+    scale_colour_manual(values = band_cols, na.translate = FALSE) +
     { if (!is.null(centro))
-      geom_rect(data = centro,
-                aes(xmin = x_start, xmax = x_end, ymin = -Inf, ymax = Inf),
-                fill = "orange", alpha = .8, inherit.aes = FALSE) } +
-    # Add  separators
-    geom_vline(data = vlines, aes(xintercept = xintercept),
-               linetype = 1, color = "green4", linewidth = .5) +
+      geom_vline(data = centro, aes(xintercept = x_mid),
+                 linetype = 1, colour = "black", linewidth = 0.3) } +
     { if (plotDerakhshan)
       list(
-        geom_point_rast(data = dt[is.na(group)],
-                        aes(x = pos2, y = alpha),
-                        color = "black", size = 0.01, alpha = transp, raster.dpi = 72),
         geom_point(data = dt[group == "hvCpG_Derakhshan"],
-                   aes(x = pos2, y = alpha),
-                   pch = 21, color = "white", fill = "#DC3220", size = 2, alpha = 0.7),
+                   aes(pos2, score), pch = 21, colour = "white",
+                   fill = "#DC3220", size = 2, alpha = 0.7),
         geom_point(data = dt[group == "mQTLcontrols"],
-                   aes(x = pos2, y = alpha),
-                   pch = 21, color = "white", fill = "#005AB5", size = 2, alpha = 0.7))
-    }
+                   aes(pos2, score), pch = 21, colour = "white",
+                   fill = "#005AB5", size = 2, alpha = 0.7)) }
+  
   return(p)
 }
 
-# ---- Inner helper for makeCompPlot: build Z_inner ----
-makeZ_inner <- function(X, Y, whichAlphaX = NULL, whichAlphaY = NULL) {
+# ---- load one side, standardise to (name, logBF_per_ds) ----
+loadSide <- function(dat, which = NULL) {
+  if (is.character(dat) && length(dat) == 1L && file.exists(dat)) dat <- readRDS(dat)
+  setDT(dat)
   
-  loadSide <- function(dat, whichAlpha) {
-    if (is.character(dat) && length(dat) == 1 && file.exists(dat)) dat <- readRDS(dat)
-    setDT(dat)
-    
-    if ("chrpos" %in% names(dat)) {
-      ## array-style table: CpG id is "chrpos", must be told which alpha column
-      if (is.null(whichAlpha))
-        stop("Table has 'chrpos' (array-style) - please supply whichAlpha, e.g. 'alpha_array_all'.")
-      stopifnot(whichAlpha %in% names(dat))
-      out <- dat[, .(name = as.character(chrpos), alpha = get(whichAlpha))]
-    } else if ("name" %in% names(dat)) {
-      ## atlas-style table: CpG id is already "name"
-      alphaCol <- if (is.null(whichAlpha)) "alpha" else whichAlpha
-      stopifnot(alphaCol %in% names(dat))
-      out <- dat[, .(name = as.character(name), alpha = get(alphaCol))]
-    } else {
-      stop("Table has neither 'chrpos' nor 'name' - can't identify the CpG id column.")
-    }
-    out   # dat (the full, possibly huge object) goes out of scope here and can be GC'd
+  if ("chrpos" %in% names(dat)) {                 # array-style: id is chrpos
+    if (is.null(which))
+      stop("Array-style table (has 'chrpos'): supply `which`, e.g. 'logBF_per_ds'.")
+    id_col <- "chrpos"
+  } else if ("name" %in% names(dat)) {            # atlas-style: id is name
+    id_col <- "name"
+    if (is.null(which)) which <- "logBF_per_ds"
+  } else {
+    stop("Table has neither 'chrpos' nor 'name' - can't find the CpG id column.")
   }
-  
-  X <- loadSide(X, whichAlphaX); setnames(X, "alpha", "alpha_X")
-  Y <- loadSide(Y, whichAlphaY); setnames(Y, "alpha", "alpha_Y")
-  
-  X[Y, on = "name", nomatch = 0]
+  stopifnot(which %in% names(dat))
+  dat[, .(name = as.character(get(id_col)), logBF_per_ds = get(which))]
+}
+
+# ---- matched X/Y table (inner join on CpG id, finite only) ----
+makeZ_inner <- function(X, Y, whichX = NULL, whichY = NULL) {
+  X <- loadSide(X, whichX); setnames(X, "logBF_per_ds", "logBF_per_ds_X")
+  Y <- loadSide(Y, whichY); setnames(Y, "logBF_per_ds", "logBF_per_ds_Y")
+  Z <- X[Y, on = "name", nomatch = 0L]
+  Z[is.finite(logBF_per_ds_X) & is.finite(logBF_per_ds_Y)]
 }
 
 makeCompPlot <- function(X, Y, title, xlab, ylab,
-                         whichAlphaX = NULL, whichAlphaY = NULL,
-                         minplot = 100000, drawline = TRUE) {
+                         whichX = NULL, whichY = NULL,
+                         minplot = 1e5, drawline = TRUE, seed = 1234) {
   
-  Z_inner <- makeZ_inner(X, Y, whichAlphaX = whichAlphaX, whichAlphaY = whichAlphaY)
+  Z <- makeZ_inner(X, Y, whichX, whichY)
+  if (nrow(Z) < 3L) stop("Fewer than 3 matched CpGs - nothing to correlate.")
   
-  # ---- Plot & save ----
-  c <- cor.test(Z_inner$alpha_X, Z_inner$alpha_Y)
-  fit <- lm(alpha_Y ~ alpha_X, data = Z_inner)
-  slope <- coef(fit)[["alpha_X"]]
+  ct    <- cor.test(Z$logBF_per_ds_X, Z$logBF_per_ds_Y)
+  fit   <- lm(logBF_per_ds_Y ~ logBF_per_ds_X, data = Z)
+  slope <- coef(fit)[["logBF_per_ds_X"]]
   
-  set.seed(1234)
-  if (nrow(Z_inner) > minplot) {
-    Z_inner_plot <- Z_inner[sample(nrow(Z_inner), minplot), ]
-  } else {
-    Z_inner_plot <- Z_inner
-  }
-  p1 <- ggplot(Z_inner_plot, aes(alpha_X, alpha_Y)) +
-    geom_point(pch = 21, alpha = 0.05) +
+  # downsample for plotting only, without disturbing the global RNG
+  if (nrow(Z) > minplot) {
+    old <- get0(".Random.seed", .GlobalEnv)
+    set.seed(seed)
+    Zp <- Z[sample(.N, minplot)]
+    if (is.null(old)) suppressWarnings(rm(".Random.seed", envir = .GlobalEnv))
+    else assign(".Random.seed", old, .GlobalEnv)
+  } else Zp <- Z
+  
+  xr <- range(Zp$logBF_per_ds_X); yr <- range(Zp$logBF_per_ds_Y)
+  
+  p <- ggplot(Zp, aes(logBF_per_ds_X, logBF_per_ds_Y)) +
+    geom_point(shape = 16, alpha = 0.05) +
     geom_abline(slope = 1, linetype = 3) +
+    annotate("text", hjust = 0, colour = "red",
+             x = xr[1] + 0.2 * diff(xr), y = yr[1] + 0.9 * diff(yr),
+             label = sprintf("R = %.2f\nslope = %.2f", ct$estimate, slope)) +
     theme_minimal(base_size = 14) +
-    annotate("text", x = .2, y = .8, colour = "red",
-             label = sprintf("R : %.2f\nslope : %.2f", c$estimate, slope)) +
     labs(title = title, x = xlab, y = ylab)
   
-  if (drawline == TRUE) {
-    p1 <- p1 +
-      geom_smooth(linetype = 3) +
-      geom_smooth(method = "lm", fill = "black")
-  }
+  if (isTRUE(drawline))
+    p <- p + geom_smooth(linetype = 3) + geom_smooth(method = "lm", fill = "black")
   
-  invisible(Z_inner)
-  return(p1)
+  attr(p, "Z_inner") <- Z   # full matched table, if you want it back
+  p
 }
 
 makeGRfromMyCpGPos <- function(vec, setname){# Parse with regex all the cpg tested
@@ -350,51 +350,148 @@ runGO <- function(entrez_ids, universe = NULL, myont) {
   )
 }
 
+################################################################################
 ## 🚀 FULL PIPELINE FUNCTIONS
-# ── Updated CpG_GO_pipeline with length control ──────────────────────────────
+# ── CpG_GO_pipeline with CpG-density control (WGBS-appropriate) ───────────────
+#
+# control_method:
+#   "cpg_count" : match universe on number of clustered CpGs per gene  (RECOMMENDED for WGBS)
+#   "length"    : match universe on gene length (bp)                    (weaker proxy)
+#   "none"      : use the full universe, no matching
+#
+# For "cpg_count" you must pass all_sites = the full set of covered CpGs
+# (i.e. totalSites), so per-gene CpG exposure can be computed the same way
+# the foreground was built.
 CpG_GO_pipeline_lengthControlled <- function(CpGvec,
-                                             max_gap    = 50,
-                                             min_size   = minimum_CpG_per_cluster,
-                                             tss_window = 10000,
-                                             universe   = NULL,
-                                             control_length = TRUE) {
+                                             max_gap        = 50,
+                                             min_size       = minimum_CpG_per_cluster,
+                                             tss_window     = 10000,
+                                             universe       = NULL,
+                                             control_method = c("cpg_count", "length", "none"),
+                                             all_sites      = NULL,
+                                             n_bins         = 20,
+                                             controls_per_fg = 5) {
+  
+  control_method <- match.arg(control_method)
+  
   message("Clustering CpGs...")
   CpGclustered <- clusterCpGs(CpGvec, max_gap, min_size)
   message(sprintf("Reduced from %d to %d clustered CpGs",
                   length(CpGvec), length(CpGclustered)))
-  
   if (length(CpGclustered) == 0) { warning("No CpG clusters found."); return(NULL) }
   
   message("Annotating genes...")
   ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
   message(sprintf("Found %d Entrez genes", length(ensg)))
   
-  if (control_length) {
-    message("Controlling for gene length...")
-    gene_lengths_dt <- get_gene_lengths()
+  if (is.null(universe)) stop("Please supply a `universe` (background gene set).")
+  
+  # ── Build the covariate-matched universe ────────────────────────────────────
+  if (control_method == "none") {
+    universe_matched <- universe
     
-    # Check: are foreground genes longer than universe?
-    fg_len  <- gene_lengths_dt[entrez_id %in% ensg, median(gene_length, na.rm = TRUE)]
+  } else if (control_method == "length") {
+    message("Controlling for gene length (bp)...")
+    gene_lengths_dt <- get_gene_lengths()
+    fg_len  <- gene_lengths_dt[entrez_id %in% ensg,     median(gene_length, na.rm = TRUE)]
     uni_len <- gene_lengths_dt[entrez_id %in% universe, median(gene_length, na.rm = TRUE)]
     message(sprintf("  Median gene length — foreground: %s bp, universe: %s bp, ratio: %.2f",
-                    format(fg_len, big.mark = ","),
-                    format(uni_len, big.mark = ","),
+                    format(fg_len, big.mark = ","), format(uni_len, big.mark = ","),
                     fg_len / uni_len))
+    universe_matched <- match_universe_by_covariate(
+      fg_genes = ensg, universe = universe,
+      cov_dt   = gene_lengths_dt, cov_col = "gene_length",
+      n_bins   = n_bins, controls_per_fg = controls_per_fg)
     
-    universe_matched <- length_match_universe(ensg, universe, gene_lengths_dt)
-    message(sprintf("  Length-matched universe: %d genes (was %d)",
-                    length(universe_matched), length(universe)))
-  } else {
-    universe_matched <- universe
+  } else {  # "cpg_count" — WGBS-appropriate
+    message("Controlling for CpG-cluster count per gene (WGBS)...")
+    if (is.null(all_sites))
+      stop("control_method='cpg_count' requires `all_sites` (e.g. totalSites).")
+    
+    cpg_count_dt <- cpg_cluster_count_per_gene(all_sites, max_gap, min_size, tss_window)
+    
+    fg_n  <- cpg_count_dt[entrez_id %in% ensg,     median(n_cpg, na.rm = TRUE)]
+    uni_n <- cpg_count_dt[entrez_id %in% universe, median(n_cpg, na.rm = TRUE)]
+    message(sprintf("  Median clustered CpGs/gene — foreground: %.1f, universe: %.1f, ratio: %.2f",
+                    fg_n, uni_n, fg_n / uni_n))
+    universe_matched <- match_universe_by_covariate(
+      fg_genes = ensg, universe = universe,
+      cov_dt   = cpg_count_dt, cov_col = "n_cpg",
+      n_bins   = n_bins, controls_per_fg = controls_per_fg)
+  }
+  
+  message(sprintf("  Matched universe: %d genes (was %d)",
+                  length(universe_matched), length(universe)))
+  
+  # ── VERIFY foreground survived the matching ─────────────────────────────────
+  n_fg      <- length(ensg)
+  n_fg_kept <- sum(ensg %in% universe_matched)
+  message(sprintf("  Foreground genes in matched universe: %d / %d (%.1f%%)",
+                  n_fg_kept, n_fg, 100 * n_fg_kept / n_fg))
+  if (n_fg_kept < n_fg) {
+    warning(sprintf("%d foreground genes dropped from universe — re-adding (a valid background must contain the whole foreground).",
+                    n_fg - n_fg_kept))
+    universe_matched <- union(universe_matched, ensg)
+    message(sprintf("  Universe now %d genes.", length(universe_matched)))
   }
   
   message("Running GO enrichment...")
-  result <- lapply(c("BP", "MF", "CC"), function(x) {
-    runGO(ensg, universe_matched, x)
-  })
+  result <- lapply(c("BP", "MF", "CC"), function(x) runGO(ensg, universe_matched, x))
   names(result) <- c("BP", "MF", "CC")
-  return(result)
+  result
 }
+
+# Per-gene count of clustered CpGs, using the SAME clustering rule as the foreground.
+# Requires annotateCpGs_txdb to return a CpG->gene mapping (one row per CpG-gene
+# assignment), not just the unique gene vector. If yours only returns unique genes,
+# add a return_mapping = TRUE path, or count before de-duplicating.
+cpg_cluster_count_per_gene <- function(all_sites, max_gap = 50, min_size = 2,
+                                       tss_window = 10000) {
+  suppressPackageStartupMessages({ library(GenomicFeatures); library(data.table) })
+  
+  clustered <- clusterCpGs(all_sites, max_gap, min_size)     # SAME rule as foreground
+  chr <- sub("_.*", "", clustered)
+  pos <- as.integer(sub(".*_", "", clustered))
+  gr  <- GenomicRanges::trim(GRanges(chr, IRanges(pos, pos)))
+  
+  txdb           <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  genes_txdb     <- GenomicFeatures::genes(txdb)
+  promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window,
+                                               downstream = tss_window)
+  
+  # one row per (CpG, gene) assignment — body OR promoter, matching the wrapper
+  o1 <- findOverlaps(gr, genes_txdb)
+  o2 <- findOverlaps(gr, promoters_txdb)
+  map <- data.table(
+    cpg_idx   = c(queryHits(o1), queryHits(o2)),
+    entrez_id = c(genes_txdb$gene_id[subjectHits(o1)],
+                  promoters_txdb$gene_id[subjectHits(o2)])
+  )
+  # a CpG in both body AND promoter of the same gene must count once (wrapper unions)
+  map <- unique(map)                                    # dedup per (CpG, gene)
+  map[, .(n_cpg = uniqueN(cpg_idx)), by = entrez_id]    # clustered CpGs per gene
+}
+
+# Bin the universe on a covariate and sample non-foreground genes to match the
+# foreground's covariate profile. Foreground genes are ALWAYS retained.
+match_universe_by_covariate <- function(fg_genes, universe, cov_dt,
+                                        cov_col = "n_cpg", n_bins = 20,
+                                        controls_per_fg = 5, seed = 1) {
+  set.seed(seed)
+  d <- data.table::as.data.table(cov_dt)[entrez_id %in% universe & !is.na(get(cov_col))]
+  # rank-based bins so heavy-tailed covariates (CpG count, length) split sensibly
+  d[, bin := cut(rank(get(cov_col), ties.method = "first"),
+                 breaks = n_bins, labels = FALSE)]
+  fg_bins <- d[entrez_id %in% fg_genes, table(bin)]
+  
+  keep <- unlist(lapply(names(fg_bins), function(b) {
+    pool <- d[bin == as.integer(b) & !entrez_id %in% fg_genes, entrez_id]
+    take <- min(length(pool), fg_bins[[b]] * controls_per_fg)
+    if (take > 0) sample(pool, take) else character(0)
+  }))
+  union(fg_genes, keep)   # foreground guaranteed present
+}
+################################################################################
 
 # test enrichment of ME for each quadrant vs the other three combined
 
@@ -493,11 +590,11 @@ plotMyVenn <- function(cutoff, ...) {
 ## functions_S06.R
 ## Functions extracted from S06 for reuse in downstream scripts
 
-make_MEsetdt <- function(sets, geomMeanGR) {
+make_MEsetdt <- function(sets, GR) {
   MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
-    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    hits <- findOverlaps(sets[[nm]], GR)
     data.table(
-      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      logBF_per_ds = GR$logBF_per_ds_allLayers[subjectHits(hits)],
       ME = nm
     )
   }))
@@ -518,12 +615,12 @@ make_MEsetdt_regionMean <- function(sets, geomMeanGR) {
   na.omit(MEsetdt)
 }
 
-plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
+plot_decay_curve <- function(MEsetdt) {
   thresholds <- seq(10, 90, by = 10) / 100
   prop_table <- rbindlist(lapply(thresholds, function(thr) {
     MEsetdt[, .(
-      proportion = mean(alpha_geomean > thr, na.rm = TRUE),
-      n_above    = sum(alpha_geomean > thr, na.rm = TRUE),
+      proportion = mean(logBF_per_ds > thr, na.rm = TRUE),
+      n_above    = sum(logBF_per_ds > thr, na.rm = TRUE),
       n_total    = .N
     ), by = ME][, threshold := thr]
   }))
@@ -536,13 +633,12 @@ plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
                setNames(set2_cols[seq_along(other_levels)], other_levels))
   
   ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
-    geom_line() +
-    geom_point() +
-    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    geom_line(linewidth = 3) +
+    geom_point(size = 5) +
+    scale_x_continuous("Hypervariability score (logBF per ds) threshold", breaks = thresholds) +
     scale_y_continuous("Proportion above threshold", labels = scales::percent) +
     scale_colour_manual(values = my_cols) +
-    theme_bw() +
-    ggtitle(title)
+    theme_bw()
 }
 
 plot_decay_curve_layered <- function(MEsetdt, title = "Decay curve by layer") {

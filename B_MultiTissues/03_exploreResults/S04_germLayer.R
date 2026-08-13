@@ -11,34 +11,56 @@ if (!exists("functionsLoaded"))
 if (!exists("previousSIVprepared")) {
   source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
 
-# # ── Load ───────────────────────────────────────────────────────────────────
-# endo     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_12_endo.rds"))
-# meso     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_13_meso.rds"))
-# ecto     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_14_ecto.rds"))
-# analyses <- list(endo = endo, meso = meso, ecto = ecto)
-# # ── Wide table ─────────────────────────────────────────────────────────────
-# wide <- Reduce(
-#   function(a, b) merge(a, b, by = "name"),
-#   Map(function(dt, nm) setnames(copy(dt), "alpha", nm), analyses, names(analyses))
-# )
-# saveRDS(wide, here("gitignore/wide_script04_3layers_full.RDS"))
-# rm(endo, meso, ecto, analyses, wide)
-# 
-# # Same with 6 groups in each category (power test)
-# endo     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_12_2_endo6gp.rds"))
-# meso     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_13_2_meso6gp.rds"))
-# ecto     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_9p1_14_ecto.rds"))
-# analyses <- list(endo = endo, meso = meso, ecto = ecto)
-# # ── 2. Wide table ─────────────────────────────────────────────────────────────
-# wide <- Reduce(
-#   function(a, b) merge(a, b, by = "name"),
-#   Map(function(dt, nm) setnames(copy(dt), "alpha", nm), analyses, names(analyses))
-# )
-# saveRDS(wide, here("gitignore/wide_script04_3layers_6gpall.RDS"))
-# rm(endo, meso, ecto, analyses, wide)
+if (!file.exists(here("gitignore/wide_script04_3layers_noNA.RDS"))){
+  # ── Load ───────────────────────────────────────────────────────────────────
+  endo     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
+  meso     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
+  ecto     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
+  analyses <- list(endo = endo, meso = meso, ecto = ecto)
+  
+  # ── Make wide table ─────────────────────────────────────────────────────────────
+  # keep only name + the score, renamed per layer, from each table
+  slim <- Map(function(dt, nm) {
+    dt <- as.data.table(dt)
+    setNames(dt[, .(name, logBF_per_ds)], c("name", nm))
+  }, analyses, names(analyses))
+  
+  # key once, then join — much cheaper than merging full tables
+  wide <- Reduce(function(a, b) a[b, on = "name"], slim)
+  
+  ## Keep only CpGs tested in all 3 layers
+  wide <- wide[rowSums(is.na(wide)) == 0]
+  nrow(wide) # 21.522.541
+  saveRDS(wide, here("gitignore/wide_script04_3layers_noNA.RDS"))
+  rm(endo, meso, ecto, analyses, wide)
+}
 
-if (!exists("wideFull")){wideFull   <- readRDS(here("gitignore/wide_script04_3layers_full.RDS"))}
-if (!exists("wide6gpall")){wide6gpall <- readRDS(here("gitignore/wide_script04_3layers_6gpall.RDS"))}
+if (!file.exists(here("gitignore/wide_script04_3layers_noNA_6GP.RDS"))){
+  # ── Load ───────────────────────────────────────────────────────────────────
+  endo     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_2_endo6gp.rds"))
+  meso     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_2_meso6gp.rds"))
+  ecto     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
+  analyses <- list(endo = endo, meso = meso, ecto = ecto)
+  
+  # ── Make wide table ─────────────────────────────────────────────────────────────
+  # keep only name + the score, renamed per layer, from each table
+  slim <- Map(function(dt, nm) {
+    dt <- as.data.table(dt)
+    setNames(dt[, .(name, logBF_per_ds)], c("name", nm))
+  }, analyses, names(analyses))
+  
+  # key once, then join — much cheaper than merging full tables
+  wide <- Reduce(function(a, b) a[b, on = "name"], slim)
+  
+  ## Keep only CpGs tested in all 3 layers
+  wide <- wide[rowSums(is.na(wide)) == 0]
+  nrow(wide) # 21.522.541
+  saveRDS(wide, here("gitignore/wide_script04_3layers_noNA_6GP.RDS"))
+  rm(endo, meso, ecto, analyses, wide)
+}
+
+if (!exists("wideFull")){wideFull   <- readRDS(here("gitignore/wide_script04_3layers_noNA.RDS"))}
+if (!exists("wide6gpall")){wide6gpall <- readRDS(here("gitignore/wide_script04_3layers_noNA_6GP.RDS"))}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Step 1. Identify candidate sites
@@ -86,35 +108,66 @@ table(uni$n_catalogs)
 
 # Step 2 — Attach metrics to the truth set
 
-## Define a cutoff (based on decay curve)
-HVt    <- 0.9
-notHVt <- 0.1
+# Take the top 10% per layer: convert each layer's threshold to that layer's 90th
+# percentile (and the "not HV" threshold to its 10th percentile). 
+# Compute the cutoffs once per column, then classify against them
 
-# ── Classify CpGs into categories ────────────────────────────────────────────
-classify_wide <- function(wide, HV = HVt, notHV = notHVt) {
+classify_wide <- function(wide, hv_q = 0.90, nothv_q = 0.10) {
+  q <- lapply(c("endo", "meso", "ecto"), function(layer) {
+    c(hv    = unname(quantile(wide[[layer]], hv_q,    na.rm = TRUE)),
+      notHV = unname(quantile(wide[[layer]], nothv_q, na.rm = TRUE)))
+  })
+  names(q) <- c("endo", "meso", "ecto")
+  
   wide[, `:=`(
-    HV_meso    = meso > HV,    HV_endo    = endo > HV,    HV_ecto    = ecto > HV,
-    notHV_meso = meso < notHV, notHV_endo = endo < notHV, notHV_ecto = ecto < notHV
+    HV_endo = endo > q$endo["hv"], HV_meso = meso > q$meso["hv"], HV_ecto = ecto > q$ecto["hv"],
+    notHV_endo = endo < q$endo["notHV"], notHV_meso = meso < q$meso["notHV"], notHV_ecto = ecto < q$ecto["notHV"]
   )]
+  
   wide[, category := fcase(
-    HV_meso & HV_endo & HV_ecto,                          "ME",
-    HV_meso & notHV_endo & notHV_ecto,                    "Meso_specific",
-    HV_endo & notHV_meso & notHV_ecto,                    "Endo_specific",
-    HV_ecto & notHV_meso & notHV_endo,                    "Ecto_specific",
-    notHV_meso & notHV_endo & notHV_ecto,                 "constitutive",
-    default =                                              "ambiguous"
+    HV_meso & HV_endo & HV_ecto,           "ME",
+    HV_meso & notHV_endo & notHV_ecto,     "Meso_specific",
+    HV_endo & notHV_meso & notHV_ecto,     "Endo_specific",
+    HV_ecto & notHV_meso & notHV_endo,     "Ecto_specific",
+    notHV_meso & notHV_endo & notHV_ecto,  "constitutive",
+    default =                              "ambiguous"
   )]
+  attr(wide, "thresholds") <- q
   wide
 }
 
 wideFull   <- classify_wide(wideFull);   print(table(wideFull$category))
+attr(wideFull, "thresholds")        # should show 6 finite numbers, not NA
+wideFull[, mean(HV_endo, na.rm = TRUE)]   # should be ≈ 0.10 (top 10% by construction)
+print(table(wideFull$category))
 # ambiguous  constitutive Ecto_specific Endo_specific            ME Meso_specific 
-# 10484346      10702806         35391          4208        277135         18655 
+# 20450363        402815           144            34        669018           167 
 
 wide6gpall <- classify_wide(wide6gpall); print(table(wide6gpall$category))
 # ambiguous  constitutive Ecto_specific Endo_specific            ME Meso_specific 
-# 11264196      10585005         53132         66708        291698         66722 
- 
+# 21488395        302166           298           275        535640           687 
+
+# Overlap of each layer-specific set, reduced to 6 groups
+# strict layer-specific sets, full vs 6-group
+spec_full <- split(wideFull[category %like% "_specific", name],
+                   wideFull[category %like% "_specific", category])
+spec_6gp  <- split(wide6gpall[category %like% "_specific", name],
+                   wide6gpall[category %like% "_specific", category])
+
+# per-layer recovery
+for (cat in c("Endo_specific", "Meso_specific", "Ecto_specific")) {
+  f <- spec_full[[cat]]; g <- spec_6gp[[cat]]
+  cat_line <- sprintf("%s: full=%d, 6gp=%d, shared=%d (%.0f%% of full)",
+                      cat, length(f), length(g),
+                      length(intersect(f, g)),
+                      100 * length(intersect(f, g)) / max(length(f), 1))
+  message(cat_line)
+}
+
+# Endo_specific: full=34, 6gp=275, shared=9 (26% of full)
+# Meso_specific: full=167, 6gp=687, shared=49 (29% of full)
+# Ecto_specific: full=144, 6gp=298, shared=34 (24% of full)
+
 category_colours <- c(
   ME            = "#E69F00",
   Meso_specific = "#56B4E9",
@@ -124,24 +177,38 @@ category_colours <- c(
   constitutive  = "black"
 )
 
+# helper: pull this layer's HV (90th pct) and notHV (10th pct) cutoffs
+.layer_cut <- function(wide, layer) {
+  thr <- attr(wide, "thresholds")
+  if (is.null(thr)) stop("wide has no 'thresholds' attribute — run classify_wide() first.")
+  c(hv = unname(thr[[layer]]["hv"]), notHV = unname(thr[[layer]]["notHV"]))
+}
+
 # ── Scatter plot: layer vs layer coloured by category ────────────────────────
-plot_quadrant_layer <- function(wide, HV = HVt, notHV = notHVt, subsampling = 100000) {
+plot_quadrant_layer <- function(wide, subsampling = 100000) {
+  
+  # shared axis range across all panels, from the data (small pad)
+  rng <- range(unlist(wide[, .(endo, meso, ecto)]), na.rm = TRUE)
+  rng <- rng + c(-0.02, 0.02) * diff(rng)
+  
   make_plot <- function(x_col, y_col, x_lab, y_lab, title) {
-    subwide = wide[sample(.N, subsampling)]
-    ggplot(wide, aes(x = .data[[x_col]], y = .data[[y_col]],
-                     colour = category, shape = category)) +
+    subwide <- wide[sample(.N, min(.N, subsampling))]
+    xc <- .layer_cut(wide, x_col)   # per-layer cutoffs for THIS panel's axes
+    yc <- .layer_cut(wide, y_col)
+    
+    ggplot(subwide, aes(x = .data[[x_col]], y = .data[[y_col]],
+                        colour = category, shape = category)) +
       geom_point(data = subwide[category == "constitutive"], alpha = 0.3, size = 0.3) +
       geom_point(data = subwide[category == "ambiguous"],    alpha = 0.4, size = 0.5) +
       geom_point(data = subwide[!category %in% c("constitutive","ambiguous")],
                  alpha = 0.4, size = 1) +
-      geom_hline(yintercept = c(HV, notHV),
-                 linetype = c("dashed","dotted"), colour = c("grey40","grey60"),
-                 linewidth = c(0.4, 0.3)) +
-      geom_vline(xintercept = c(HV, notHV),
-                 linetype = c("dashed","dotted"), colour = c("grey40","grey60"),
-                 linewidth = c(0.4, 0.3)) +
-      scale_x_continuous(limits = c(0,1), name = x_lab) +
-      scale_y_continuous(limits = c(0,1), name = y_lab) +
+      # HV cutoff (top 10%, dashed) and notHV cutoff (bottom 10%, dotted), per layer
+      geom_hline(yintercept = yc["hv"],    linetype = "dashed", colour = "grey40", linewidth = 0.4) +
+      geom_hline(yintercept = yc["notHV"], linetype = "dotted", colour = "grey60", linewidth = 0.3) +
+      geom_vline(xintercept = xc["hv"],    linetype = "dashed", colour = "grey40", linewidth = 0.4) +
+      geom_vline(xintercept = xc["notHV"], linetype = "dotted", colour = "grey60", linewidth = 0.3) +
+      scale_x_continuous(limits = rng, name = x_lab) +
+      scale_y_continuous(limits = rng, name = y_lab) +
       scale_colour_manual(values = category_colours, drop = FALSE) +
       scale_shape_manual(values  = c(ME=16, Meso_specific=16, Endo_specific=16,
                                      Ecto_specific=16, ambiguous=1, constitutive=4),
@@ -149,33 +216,31 @@ plot_quadrant_layer <- function(wide, HV = HVt, notHV = notHVt, subsampling = 10
       ggtitle(title) + theme_bw(base_size = 11) +
       theme(legend.position = "none")
   }
-  legend_p <- ggplot(wide[sample(.N, 100000)], aes(x=meso, y=endo, colour=category)) +
+  
+  legend_p <- ggplot(wide[sample(.N, min(.N, 100000))],
+                     aes(x = meso, y = endo, colour = category)) +
     geom_point(size = 3) +
     scale_colour_manual(values = category_colours, drop = FALSE, name = NULL) +
-    guides(colour = guide_legend(override.aes = list(size=3, alpha=1))) +
+    guides(colour = guide_legend(override.aes = list(size = 3, alpha = 1))) +
     theme_void() + theme(legend.position = "right")
   
-  ((make_plot("meso","endo","Pr(HV) meso","Pr(HV) endo","Meso vs Endo") |
-      make_plot("meso","ecto","Pr(HV) meso","Pr(HV) ecto","Meso vs Ecto")) /
-      (make_plot("endo","ecto","Pr(HV) endo","Pr(HV) ecto","Endo vs Ecto") |
+  ((make_plot("meso","endo","logBF per ds (meso)","logBF per ds (endo)","Meso vs Endo") |
+      make_plot("meso","ecto","logBF per ds (meso)","logBF per ds (ecto)","Meso vs Ecto")) /
+      (make_plot("endo","ecto","logBF per ds (endo)","logBF per ds (ecto)","Endo vs Ecto") |
          cowplot::get_legend(legend_p))) +
     plot_layout(widths = c(1,1,1,0.35))
 }
 
 set.seed(1234)
 
-## Higherbackground concordance for endo than meso
+## Higher background concordance for endo than meso
 ggplot2::ggsave(
   filename = here("B_MultiTissues/dataOut/figures/script04/plot_quadrant_layer_wideFull.pdf"),
-  plot     = plot_quadrant_layer(wideFull), width    = 7, height = 7)
-
-ggplot2::ggsave(
-  filename = here("B_MultiTissues/dataOut/figures/script04/plot_quadrant_layer_wide6gpall.pdf"),
-  plot     = plot_quadrant_layer(wide6gpall), width    = 7, height = 7)
+  plot     = plot_quadrant_layer(wideFull), width = 7, height = 7)
 
 # ── Overlap full vs 6gp ───────────────────────────────────────────────────────
-setkey(wideFull,    name)
-setkey(wide6gpall,  name)
+setkey(wideFull,   name)
+setkey(wide6gpall, name)
 
 overlap_summary <- rbindlist(lapply(
   c("ME","Ecto_specific","Endo_specific","Meso_specific","constitutive","ambiguous"),
@@ -185,21 +250,24 @@ overlap_summary <- rbindlist(lapply(
     o <- length(intersect(f, g))
     data.table(category = cat, n_full = length(f), n_6gp = length(g),
                n_overlap = o,
-               pct_of_full = round(100*o/length(f), 1),
-               pct_of_6gp  = round(100*o/length(g), 1))
+               pct_of_full = round(100 * o / length(f), 1),
+               pct_of_6gp  = round(100 * o / length(g), 1))
   }))
 print(overlap_summary)
 #         category   n_full    n_6gp n_overlap pct_of_full pct_of_6gp
-# 1:            ME   277135   291698    220832        79.7       75.7
-# 2: Ecto_specific    35391    53132     22552        63.7       42.4
-# 3: Endo_specific     4208    66708      2239        53.2        3.4
-# 4: Meso_specific    18655    66722      6791        36.4       10.2
-# 5:  constitutive 10702806 10585005   9498063        88.7       89.7
-# 6:     ambiguous 10484346 11264196   9519562        90.8       84.5
+# 1:            ME   669018   535640    401175        60.0       74.9
+# 2: Ecto_specific      144      298        34        23.6       11.4
+# 3: Endo_specific       34      275         9        26.5        3.3
+# 4: Meso_specific      167      687        49        29.3        7.1
+# 5:  constitutive   402815   302166    183476        45.5       60.7
+# 6:     ambiguous 20450363 21488395  20257105        99.1       94.3
 
 ## Ccl:
-## MEs don't suffer much from size reduction (as shown before), but the layer-specific
-## markers do! So Ecto is less reliable in particular
+## MEs are robust to dataset-size reduction, but the layer-specific markers are
+## not — Ecto in particular. NB the layer-specific categories are tiny and defined
+## by a SECOND (bottom-10%) threshold, so their overlap is sensitive to the per-
+## layer quantile cutoffs shifting between the full and 6gp analyses; treat the
+## low pct_of_6gp values as instability of the strict definition, not biology.
 
 # ── Write CpG lists for python extraction ─────────────────────────────────────
 
@@ -214,9 +282,9 @@ writeLines(all_cpgs_to_extract,
            here("B_MultiTissues/dataOut/layer_specific_and_ME.txt"))
 message(sprintf("Written: layer_specific_and_ME.txt (%d CpGs total)",
                 length(all_cpgs_to_extract)))
-# Written: layer_specific_and_ME.txt (63254 CpGs total)
+# Written: layer_specific_and_ME.txt (5345 CpGs total)
 
-## In pchuckle:
+## In pchuckle (after git pull):
 # source /share/apps/source_files/python/python-3.13.0a6.source
 # cd /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues/03_exploreResults
 # python3 S00_extractRawMethylationForTargetCpG.py \
@@ -451,17 +519,19 @@ compute_cross_layer_r <- function(meth_sub, layer1, layer2) {
 
 extract_layer_specific_cpgs <- function(meth_sub,
                                         own_layer, other_layer,
-                                        r_high = NULL,      # "high" bar for own layer
-                                        r_low  = NULL,      # "low"  bar 
-                                        min_same_obs  = 3, # pooled tissue-pair points
-                                        min_cross_obs = 3) # cross-layer patients
+                                        r_high = NULL,
+                                        r_low  = NULL,
+                                        r_low_cross = NULL,   # <- add this
+                                        min_same_obs  = 3,
+                                        min_cross_obs = 3)
 {
   if (is.null(r_high)) r_high <- thr[layer == own_layer,   r_high]
   if (is.null(r_low))  r_low  <- thr[layer == other_layer, r_low]
+  if (is.null(r_low_cross)) r_low_cross <- thr_cross$r_low
   
-  r_own   <- compute_same_layer_r_fetalstyle(meth_sub, own_layer)                 # high in own
-  r_other <- compute_same_layer_r_fetalstyle(meth_sub, other_layer)              # low in other
-  r_cross <- compute_cross_layer_r(meth_sub, other_layer, own_layer)  # low cross-layer
+  r_own   <- compute_same_layer_r_fetalstyle(meth_sub, own_layer)
+  r_other <- compute_same_layer_r_fetalstyle(meth_sub, other_layer)
+  r_cross <- compute_cross_layer_r(meth_sub, other_layer, own_layer)
   if (is.null(r_own) || is.null(r_other) || is.null(r_cross)) return(NULL)
   
   setnames(r_own,   c("r", "n_obs"), c("r_own",   "n_own"))
@@ -469,15 +539,15 @@ extract_layer_specific_cpgs <- function(meth_sub,
   setnames(r_cross, c("r", "n_obs"), c("r_cross", "n_cross"))
   
   m <- Reduce(function(a, b) merge(a, b, by = "cpg_site"),
-              list(r_own, r_other, r_cross))               # inner: need all three
+              list(r_own, r_other, r_cross))
   
   hits <- m[!is.na(r_own) & !is.na(r_other) & !is.na(r_cross) &
               n_own   >= min_same_obs &
               n_other >= min_same_obs &
               n_cross >= min_cross_obs &
-              r_own   >= r_high &     # criterion 1: high in Meso
-              r_other <  r_low  &     # criterion 2: low in Endo
-              r_cross <  r_low]       # criterion 3: low Endo<->Meso
+              r_own   >= r_high &
+              r_other <  r_low  &
+              r_cross <  r_low_cross]
   hits[order(-r_own)]
 }
 
@@ -574,10 +644,10 @@ thr <- data.table(
   n_pat  = c(9, 15),
   r_crit = c(r_crit(9), r_crit(15)))
 print(thr)
-# layer    r_high     r_low        mu        sd n_pat    r_crit
-# <char>     <num>     <num>     <num>     <num> <num>     <num>
-# 1:   Meso 0.8769124 0.4251129 0.4391302 0.2676604     9 0.6663836
-# 2:   Endo 0.7916578 0.2486462 0.3038724 0.2344271    15 0.5139775
+# layer   r_high     r_low        mu        sd n_pat    r_crit
+# <char>    <num>     <num>     <num>     <num> <num>     <num>
+#   1:   Meso 0.871830 0.4230834 0.4355550 0.2642223     9 0.6663836
+# 2:   Endo 0.807881 0.2515141 0.3080883 0.2381601    15 0.5139775
 
 # ── Summary function ──────────────────────────────────────────────────────────
 make_summary_samelayer <- function(r_same, layer_tested, category_name,
@@ -607,15 +677,16 @@ results_summary <- rbindlist(list(
 ))
 
 print(results_summary)
-#         category same_layer_tested r_high_used n_cpgs_tested pct_high_same    mean_r  median_r
-# 1: Meso_specific              Meso   0.8769124          9111      38.78828 0.7658194 0.8330520
-# 2: Meso_specific              Endo   0.7916578          9111      14.29042 0.4119946 0.3628903
-# 3: Endo_specific              Endo   0.7916578          3109      38.27597 0.6608828 0.7179769
-# 4: Endo_specific              Meso   0.8769124          3109      14.82792 0.5396292 0.5690628
-# 5:  constitutive              Meso   0.8769124         10000       5.00000 0.4391302 0.4251129
-# 6:  constitutive              Endo   0.7916578         10000       5.00000 0.3038724 0.2486462
-# 7:     ambiguous              Meso   0.8769124         10000      18.26000 0.6411749 0.7116882
-# 8:     ambiguous              Endo   0.7916578         10000      22.12000 0.5006650 0.5002996
+# category same_layer_tested r_high_used n_cpgs_tested pct_high_same    mean_r  median_r
+# <char>            <char>       <num>         <int>         <num>     <num>     <num>
+#   1: Meso_specific              Meso    0.871830         18655      33.69606 0.7451634 0.8096028
+# 2: Meso_specific              Endo    0.807881         18655      14.07666 0.4192403 0.3724780
+# 3: Endo_specific              Endo    0.807881          4208      35.93156 0.6573657 0.7180795
+# 4: Endo_specific              Meso    0.871830          4208      17.20532 0.5426829 0.5693192
+# 5:  constitutive              Meso    0.871830         10000       5.00000 0.4355550 0.4230834
+# 6:  constitutive              Endo    0.807881         10000       5.00000 0.3080883 0.2515141
+# 7:     ambiguous              Meso    0.871830         10000      20.17000 0.6390037 0.7117579
+# 8:     ambiguous              Endo    0.807881         10000      20.18000 0.4986843 0.4971093
 
 # ── Annotate and plot ─────────────────────────────────────────────────────────
 results_summary[, expected := fcase(
@@ -763,16 +834,8 @@ p3 <- ggplot(plot_dt, aes(x = r, colour = category_f, fill = category_f)) +
             15, thr[layer == "Endo", mu], thr[layer == "Endo", r_high]))
 
 ggplot2::ggsave(
-  here("B_MultiTissues/dataOut/figures/script10/sameLayercR_concordance.pdf"),
-  p1, width = 8, height = 7)
-
-ggplot2::ggsave(
-  here("B_MultiTissues/dataOut/figures/script10/sameLayercR_density_ME.pdf"),
-  p2, width = 8, height = 7)
-
-ggplot2::ggsave(
-  here("B_MultiTissues/dataOut/figures/script10/sameLayercR_density_layersOnly.pdf"),
-  p3, width = 8, height = 7)
+  here("B_MultiTissues/dataOut/figures/script04/sameLayercR_concordance.pdf"),
+  plot_grid(p1, p2, p3, labels = c("A", "B", "C"), nrow = 3), width = 10, height = 15)
 
 # Meso_specific CpGs are highly variable between individuals (by selection)
 # Within each individual, their methylation level is highly consistent across all blood cell types (r≈1, Plot 1)
@@ -781,29 +844,6 @@ ggplot2::ggsave(
 
 ###### Add now the 3rd criteria, low r between both layers
 
-# ── Empirical null for the CROSS-layer r (Endo x Meso, n = 4 patients) ────────
-null_cross <- compute_cross_layer_r(
-  meth_control_multi[category == "constitutive"], "Endo", "Meso")[!is.na(r), r]
-
-thr_cross <- data.table(
-  comparison = "Endo_x_Meso",
-  n_pat      = length(unique(meth_control_multi[germ_layer %in% c("Endo","Meso"), patient_id])),
-  # "high" (ME-like systemic concordance): beyond 95th pct of noise
-  r_high     = quantile(null_cross, 0.95),
-  # "low" (layer-specific): below the MEDIAN of noise, i.e. no more concordant
-  #  than a constitutive CpG. Tighten to 0.25 quantile for a stricter set.
-  r_low      = median(null_cross),
-  r_low_strict = quantile(null_cross, 0.25),
-  mu         = mean(null_cross),
-  sd         = sd(null_cross))
-print(thr_cross)
-# comparison n_pat    r_high     r_low r_low_strict        mu        sd
-# <char> <int>     <num>     <num>        <num>     <num>     <num>
-#   1: Endo_x_Meso    26 0.9555429 0.5216615    0.2640379 0.5133214 0.2901568
-
-
-r_high        <- 0.5    # own-layer "high"
-r_low         <- 0.2    # other/cross "low"
 min_same_obs  <- 3
 min_cross_obs <- 3
 
@@ -827,11 +867,16 @@ tri_rs <- function(meth_sub, own_layer, other_layer, category_name) {
 # cumulative pass counts over the 3 criteria ------------------------------------
 tri_steps <- function(tab) {
   if (is.null(tab)) return(NULL)
+  own <- tab$own_layer[1]
+  oth <- setdiff(c("Meso","Endo"), own)
+  rh  <- thr[layer == own, r_high]
+  rlo <- thr[layer == oth, r_low]
+  rlc <- thr_cross$r_low
   tested <- tab[!is.na(r_own) & n_own >= min_same_obs]
   N  <- nrow(tested)
-  p1 <- tested[r_own >= r_high]
-  p2 <- p1[!is.na(r_other) & n_other >= min_same_obs & r_other < r_low]
-  p3 <- p2[!is.na(r_cross) & n_cross >= min_cross_obs & r_cross < r_low]
+  p1 <- tested[r_own >= rh]
+  p2 <- p1[!is.na(r_other) & n_other >= min_same_obs & r_other < rlo]
+  p3 <- p2[!is.na(r_cross) & n_cross >= min_cross_obs & r_cross < rlc]
   data.table(
     category  = tab$category[1],
     own_layer = tab$own_layer[1],
@@ -841,6 +886,26 @@ tri_steps <- function(tab) {
     pct = 100 * c(nrow(p1), nrow(p2), nrow(p3)) / N,
     n_tested = N)
 }
+
+# ── Empirical null for the CROSS-layer r (Endo x Meso, n = 4 patients) ────────
+null_cross <- compute_cross_layer_r(
+  meth_control_multi[category == "constitutive"], "Endo", "Meso")[!is.na(r), r]
+
+thr_cross <- data.table(
+  comparison = "Endo_x_Meso",
+  n_pat      = length(unique(meth_control_multi[germ_layer %in% c("Endo","Meso"), patient_id])),
+  # "high" (ME-like systemic concordance): beyond 95th pct of noise
+  r_high     = quantile(null_cross, 0.95),
+  # "low" (layer-specific): below the MEDIAN of noise, i.e. no more concordant
+  #  than a constitutive CpG. Tighten to 0.25 quantile for a stricter set.
+  r_low      = median(null_cross),
+  r_low_strict = quantile(null_cross, 0.25),
+  mu         = mean(null_cross),
+  sd         = sd(null_cross))
+print(thr_cross)
+# comparison n_pat    r_high     r_low r_low_strict        mu        sd
+# <char> <int>     <num>     <num>        <num>     <num>     <num>
+# 1: Endo_x_Meso    26 0.9563602 0.5200925    0.2659833 0.5164641 0.2909058
 
 tri_tabs <- rbindlist(list(
   # Meso pipeline (own = Meso, other = Endo)
@@ -876,22 +941,16 @@ p <- ggplot(tri_tabs, aes(category_f, pct, fill = step)) +
         strip.text  = element_text(face = "bold"),
         legend.position = "right") +
   ggtitle("Layer-specific selection: cumulative pass rate over 3 criteria",
-          subtitle = sprintf("high own r (\u2265%.1f)  \u2192  + low other r (<%.1f)  \u2192  + low cross-layer r (<%.1f)",
-                             r_high, r_low, r_low))
+          subtitle = sprintf(
+            "high own r (Meso \u2265%.2f, Endo \u2265%.2f)  \u2192  + low other r (Meso <%.2f, Endo <%.2f)  \u2192  + low cross-layer r (<%.2f)",
+            thr[layer == "Meso", r_high], thr[layer == "Endo", r_high],
+            thr[layer == "Meso", r_low],  thr[layer == "Endo", r_low],
+            thr_cross$r_low))
 
 ## Higherbackground concordance for endo than meso
 ggplot2::ggsave(
-  filename = here("B_MultiTissues/dataOut/figures/script10/layerCandidatesSelection.pdf"),
+  filename = here("B_MultiTissues/dataOut/figures/script04/layerCandidatesSelection.pdf"),
   plot     = p, width    = 8, height = 5)
-
-
-
-
-## TBC
-
-
-
-
 
 #################################
 ## Putative MEs (systemic)     ##
@@ -930,12 +989,12 @@ extract_ME_cpgs <- function(meth_sub,
 
 ME_hits <- extract_ME_cpgs(meth_ME)
 message(sprintf("Putative systemic-ME CpGs: %d", if (is.null(ME_hits)) 0L else nrow(ME_hits)))
-# Putative systemic-ME CpGs: 3531
+# Putative systemic-ME CpGs: 4136
 
 #################################
 ## Save the interesting targets##
 #################################
-meso_hits <- extract_layer_specific_cpgs(meth_meso_specific,
+meso_hits <- extract_layer_specific_cpgs(meth_meso_specific, 
                                          own_layer = "Meso", other_layer = "Endo")
 endo_hits <- extract_layer_specific_cpgs(meth_endo_specific,
                                          own_layer = "Endo", other_layer = "Meso")
@@ -1028,24 +1087,13 @@ annotate_layer_hits <- function(hits,                       # data.table with cp
 for (g in c(50, 500, 1000, 2000)) {
   cl <- annotate_layer_hits(endo_hits, "endo_tmp", genes_gr, uni, uni_gr,
                             gap = g, out_dir = tempdir())$clusters
-  message(sprintf("gap=%4d bp: %d clusters (>=2 hits), %d genes, max n_hits=%d",
+  message(sprintf("gap=%4d bp: %d clusters (>=2 hits), %f genes, max n_hits=%f",
                   g, nrow(cl), uniqueN(cl$gene), max(cl$n_hits)))
 }
 
 meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr, gap = 100)
 endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr, gap = 100)
 ME_res   <- annotate_layer_hits(ME_hits,   "ME",   genes_gr, uni, uni_gr, gap = 100)
-
-meso_res$clusters; endo_res$clusters; ME_res$clusters
-
-# save all CpGs in top genes ± flank, is_meso_hit column
-fwrite(meso_res$gene_cpgs,
-       here("B_MultiTissues/dataOut/meso_hits_genesClusters.csv"))
-
-fwrite(endo_res$gene_cpgs,
-       here("B_MultiTissues/dataOut/endo_hits_genesClusters.csv"))
-
-fwrite(ME_res$gene_cpgs, here("B_MultiTissues/dataOut/ME_hits_genesClusters.csv"))
 
 #################################
 ## Manhattan plot of candidates##
@@ -1056,11 +1104,17 @@ library(GenomeInfoDb)
 ## `hits` tables carry cpg_site (+ r_own/r_cross); Pr(HV) comes from wideFull.
 cand <- rbindlist(list(
   data.table(cpg_site = meso_hits$cpg_site, category = "Meso_specific",
-             r_own = meso_hits$r_own),
+             r_own   = meso_hits$r_own,
+             r_other = meso_hits$r_other,
+             r_cross = meso_hits$r_cross),
   data.table(cpg_site = endo_hits$cpg_site, category = "Endo_specific",
-             r_own = endo_hits$r_own),
+             r_own   = endo_hits$r_own,
+             r_other = endo_hits$r_other,
+             r_cross = endo_hits$r_cross),
   data.table(cpg_site = ME_hits$cpg_site,   category = "ME",
-             r_own = pmin(ME_hits$r_endo, ME_hits$r_meso))   # weakest of the two
+             r_own   = pmin(ME_hits$r_endo, ME_hits$r_meso),  # weakest of the two
+             r_other = pmax(ME_hits$r_endo, ME_hits$r_meso),  # ME has no "wrong" layer
+             r_cross = ME_hits$r_cross)
 ), fill = TRUE)
 
 cand <- merge(cand, wideFull[, .(cpg_site = name, endo, meso, ecto)],
@@ -1089,18 +1143,27 @@ axis_dt <- cand[, .(centre = mean(range(pos_cum))), by = chr][order(chr)]
 
 ## ── Plot ─────────────────────────────────────────────────────────────────────
 make_manhattan <- function(dt, yvar = "alpha_own", ylab = "Pr(HV) own layer",
-                           hline = HVt, label_top = 8) {
+                           hline = HVt, label_top = 40) {
   d <- copy(dt)[!is.na(get(yvar))]
   d[, y := get(yvar)]
   d[, category := factor(category, levels = c("ME","Endo_specific","Meso_specific"))]
   
-  ## label the strongest hits (needs meso_res/endo_res $ann for gene names)
   gene_map <- unique(rbindlist(list(
     meso_res$ann[, .(cpg_site, gene)],
     endo_res$ann[, .(cpg_site, gene)],
     ME_res$ann[,   .(cpg_site, gene)]), fill = TRUE))[!is.na(gene)]
+  
   d <- merge(d, gene_map, by = "cpg_site", all.x = TRUE)
-  top <- d[order(-y)][!is.na(gene)][, .SD[1], by = gene][seq_len(label_top)]
+  
+  d[, score := fifelse(
+    category == "ME",
+    pmin(r_own, r_cross),
+    r_own - pmax(r_other, r_cross, na.rm = TRUE)
+  )]
+  
+  ## per-category top N (one row per gene, then top `label_top` per category)
+  top <- d[!is.na(gene)][order(-score), .SD[1], by = .(gene, category)][
+    , head(.SD, label_top), by = category]
   
   ggplot(d, aes(pos_cum, y)) +
     ## alternating chromosome shading
@@ -1111,7 +1174,7 @@ make_manhattan <- function(dt, yvar = "alpha_own", ylab = "Pr(HV) own layer",
                              segment.size = 0.2, colour = "grey20") +
     scale_x_continuous("Chromosome", breaks = axis_dt$centre,
                        labels = sub("chr", "", axis_dt$chr), expand = c(0.01, 0)) +
-    scale_y_continuous(ylab, limits = c(0, 1)) +
+    scale_y_continuous(ylab, limits = c(.9, 1)) +
     scale_colour_manual(values = category_colours, drop = FALSE, name = NULL) +
     theme_bw(base_size = 11) +
     theme(panel.grid.minor = element_blank(),
@@ -1122,19 +1185,63 @@ make_manhattan <- function(dt, yvar = "alpha_own", ylab = "Pr(HV) own layer",
                                nrow(meso_hits), nrow(endo_hits), nrow(ME_hits)))
 }
 
-p_manh <- make_manhattan(cand)
-p_manh
-
-ggplot2::ggsave(
-  here("B_MultiTissues/dataOut/figures/script10/manhattan_candidates.pdf"),
-  p_manh, width = 12, height = 5)
-
 ## Facetted version — one row per category, easier to see each layer's spread
 p_manh_facet <- make_manhattan(cand) +
   facet_wrap(~ category, ncol = 1, scales = "free_y") +
   theme(legend.position = "none")
 
 ggplot2::ggsave(
-  here("B_MultiTissues/dataOut/figures/script10/manhattan_candidates_byLayer.pdf"),
+  here("B_MultiTissues/dataOut/figures/script04/manhattan_candidates_byLayer.pdf"),
   p_manh_facet, width = 12, height = 8)
 
+
+## ── Save final results only ──────────────────────────────────────────────────
+## Keep: the candidate CpG lists, their gene annotations, and the thresholds
+## used to derive them. Drop: all intermediate methylation tables, wide matrices,
+## per-CpG correlation scratch objects — these are large and recomputable.
+
+results_S04 <- list(
+  
+  ## Candidate CpGs passing all three concordance criteria, per category.
+  ## Columns: cpg_site, r_own (own-layer intra-individual |r|),
+  ## r_other (other-layer |r|), r_cross (cross-layer Endo×Meso |r|), n_* counts.
+  meso_hits = meso_hits,     # Meso-specific: high in Meso, low in Endo + low cross
+  endo_hits = endo_hits,     # Endo-specific: high in Endo, low in Meso + low cross
+  ME_hits   = ME_hits,       # systemic ME: high in BOTH layers AND high cross-layer
+  
+  ## Gene-level annotation of the above (from annotate_layer_hits): one row per
+  ## hit CpG with nearest gene, distance, and cluster membership (CpGs within
+  ## `gap` bp). $clusters = genes with >=2 clustered hits, ranked by density.
+  meso_clusters = meso_res$clusters,
+  endo_clusters = endo_res$clusters,
+  ME_clusters   = ME_res$clusters,
+  
+  ## Empirical thresholds used for selection (from the constitutive-CpG null):
+  ## thr = per-layer same-layer |r| cutoffs (r_high = 95th pct of noise,
+  ## r_low = median of noise); thr_cross = cross-layer (Endo×Meso, n=4) cutoffs.
+  thr       = thr,
+  thr_cross = thr_cross,
+  
+  ## Provenance so the file is interpretable on its own.
+  meta = list(
+    script      = "S04_...R",
+    date        = Sys.Date(),
+    HVt         = HVt,        # Pr(HV) "high" cutoff (own layer)
+    notHVt      = notHVt,     # Pr(HV) "low" cutoff (other layers)
+    n_meso      = nrow(meso_hits),
+    n_endo      = nrow(endo_hits),
+    n_ME        = nrow(ME_hits),
+    description = paste(
+      "Layer-specific and systemic-ME candidate CpGs from the 3-germ-layer atlas.",
+      "Selection: Pr(HV) category (>=HVt own, <notHVt other) then within-individual",
+      "concordance criteria using empirical noise thresholds. See thr/thr_cross."
+    )
+  )
+)
+
+saveRDS(results_S04, here("gitignore/resultsAtlasPrepared/S04_candidates.rds"))
+message("Saved S04 candidates: ",
+        results_S04$meta$n_meso, " meso | ",
+        results_S04$meta$n_endo, " endo | ",
+        results_S04$meta$n_ME,   " ME")
+# Saved S04 candidates: 1112 meso | 290 endo | 4136 ME
