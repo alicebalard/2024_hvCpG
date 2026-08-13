@@ -1199,7 +1199,10 @@ getEnrichCentroTelo()
 #######################
 
 totalSites <- table3layers_coveredIn3$chr_pos
-top99q_CpGs
+if (!exists("top99q_CpGs")){
+  top99q <- quantile(table3layers_coveredIn3$logBF_per_ds_allLayers, probs = 0.99, na.rm = FALSE)
+  top99q_CpGs <- table3layers_coveredIn3[table3layers_coveredIn3$logBF_per_ds_allLayers >= top99q, ]$chr_pos
+}
 
 # Method. ClusterProfiler
 ## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
@@ -1216,70 +1219,117 @@ universe <- annotateCpGs_txdb(
 print(paste0("Gene universe contains ", length(universe), " genes"))
 ## "Gene universe contains 32717 genes"
 
-## Annotate
-# Length-controlled
-resAnnot_top99q_lenCtrl <- CpG_GO_pipeline_lengthControlled(
+fg_bypass  <- unique(cpg_cluster_count_per_gene(top99q_CpGs)$entrez_id)
+fg_wrapper <- annotateCpGs_txdb(clusterCpGs(top99q_CpGs, 50, 2), 10000)
+length(intersect(fg_bypass, fg_wrapper)) / length(union(fg_bypass, fg_wrapper))  # want ≈ 1
+# 1 
+## The Jaccard is 1.0 --> the cpg_cluster_count_per_gene counts genes under exactly 
+# the same body∪promoter rule as the annotation wrapper. The CpG-count covariate is valid.
+
+# WGBS-correct control
+res_cpg <- CpG_GO_pipeline_lengthControlled(
   top99q_CpGs, universe = universe,
-  max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000,
-  control_length = TRUE)
-# Found 1641 Entrez genes
-# Controlling for gene length...
-# Median gene length — foreground: 5,514 bp, universe: 3,100 bp, ratio: 1.78
-# Length-matched universe: 16779 genes (was 32717)
+  control_method = "cpg_count", all_sites = totalSites)
+# Median clustered CpGs/gene — foreground: 1191.0, universe: 343.0, ratio: 3.47
+# Matched universe: 12086 genes (was 32717)
+# Foreground genes in matched universe: 2335 / 2335 (100.0%)
 # Running GO enrichment...
 
-# Which terms survive
-terms_lenCtrl <- resAnnot_top99q_lenCtrl$BP@result %>% filter(p.adjust < 0.05) %>% pull(ID)
+# for the sensitivity table, also run the other two
+res_len  <- CpG_GO_pipeline_lengthControlled(top99q_CpGs, universe = universe,
+                                             control_method = "length")
+# Found 2335 Entrez genes
+# Controlling for gene length (bp)...
+# Median gene length — foreground: 5,214 bp, universe: 3,100 bp, ratio: 1.68
+# Matched universe: 13864 genes (was 32717)
+# Foreground genes in matched universe: 2335 / 2335 (100.0%)
+# Running GO enrichment...
 
-cat("BP terms after  length control:", length(terms_lenCtrl),  "\n")
-# BP terms after length control: 15 
+# NB. The density bias is severe. Foreground genes have a median of 1,191 clustered CpGs
+# vs 343 in the universe = a 3.47× ratio. That's much larger than the length bias (1.68×),
+# which confirms that for WGBS, CpG density, not bp length, is the dominant confound. 
+# --> The top99q genes aren't just longer, they're vastly more CpG-dense.
 
-df_all <- purrr::imap_dfr(resAnnot_top99q_lenCtrl, function(er, ont_name) {
-  if (is.null(er) || nrow(er@result) == 0) return(tibble())
-  as_tibble(er@result) |>
-    mutate(group_raw = "top90SNPrm", ontology = ont_name)
-}) |> bind_rows()
+res_none <- CpG_GO_pipeline_lengthControlled(top99q_CpGs, universe = universe,
+                                             control_method = "none")
+# Found 2335 Entrez genes
+# Matched universe: 32717 genes (was 32717)
+# Foreground genes in matched universe: 2335 / 2335 (100.0%)
+# Running GO enrichment...
 
-df_all <- df_all |>
-  mutate(
-    group = "top99q",
-    group = factor(group),
-    ontology = factor(ontology, levels = c("BP", "MF", "CC"))
-  )
+sapply(list(none = res_none, length = res_len, cpg = res_cpg),
+       function(r) sum(r$BP@result$p.adjust < 0.05, na.rm = TRUE))
+# none length    cpg 
+# 17      5      1 
 
-# Filter significant terms
-df_sig <- df_all |>
-  filter(!is.na(p.adjust) & p.adjust < 0.05) |>
-  filter(Count > 10 & FoldEnrichment > 2)
+lapply(list(none = res_none, length = res_len, cpg = res_cpg),
+       function(r) r$BP@result %>% filter(p.adjust < 0.05) %>% pull(Description) %>% head(20))
+# $none
+# [1] "homophilic cell-cell adhesion"                        
+# [2] "synapse assembly"                                     
+# [3] "cell morphogenesis involved in neuron differentiation"
+# [4] "axonogenesis"                                         
+# [5] "cell junction assembly"                               
+# [6] "axon development"                                     
+# [7] "neuron recognition"                                   
+# [8] "axon guidance"                                        
+# [9] "neuron projection guidance"                           
+# [10] "negative chemotaxis"                                  
+# [11] "negative regulation of cAMP/PKA signal transduction"  
+# [12] "regulation of synapse assembly"                       
+# [13] "positive regulation of synapse assembly"              
+# [14] "regulation of neuron projection development"          
+# [15] "dendrite development"                                 
+# [16] "regulation of postsynaptic membrane potential"        
+# [17] "regulation of axonogenesis"                           
+# 
+# $length
+# [1] "homophilic cell-cell adhesion" "cell junction organization"   
+# [3] "synapse assembly"              "synapse organization"         
+# [5] "neuron recognition"           
+# 
+# $cpg
+# [1] "homophilic cell-cell adhesion"
 
-# Reorder by enrichment strength
-df_sig <- df_sig |>
-  group_by(ontology) |>
-  mutate(Description = fct_reorder(Description, FoldEnrichment, .desc = TRUE)) |>
-  ungroup()
+## --> Likely, the broad neurodevelopmental signature is largely a CpG-density artefact, not an ME signal.
 
-write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop99q.csv"),
-          quote = F, row.names = F)
+## cpg_count matching can under-power the protocadherin signal specifically,
+# because the PCDH clusters are so CpG-dense that few comparable genes exist to match them
+# so if adhesion terms weaken here, that's not proof they're artefactual.
 
-# Plot
-p <- ggplot(df_sig, aes(x = group, y = Description)) +
-  geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
-  scale_size_continuous(name = "Fold Enrichment",
-                        range = c(1.5, 8), breaks = c(2, 2.5, 3, 3.5)) +
-  scale_color_viridis_c(name = "FDR", option = "plasma", direction = -1) +
-  facet_wrap(ontology ~ ., scales = "free", space = "free_x") +
-  theme_bw(base_size = 11) +
-  labs(x = NULL, y = NULL,
-       title = "GO Enrichment: top99q (FDR < 0.05)") +
-  theme(
-    legend.position = "top",
-    axis.text.y = element_text(size = 9),
-    strip.text = element_text(face = "bold")
-  )
+## Direct test of prothocadherin
 
-p
+pcdh <- GRanges("chr5", IRanges(140710000, 141510000))     # hg38 PCDH clusters
+top_gr <- makeGRfromMyCpGPos(top99q_CpGs, "top99q")
+bg_gr  <- makeGRfromMyCpGPos(totalSites,  "bg")
+obs <- sum(overlapsAny(top_gr, pcdh))
+exp <- length(top_gr) * mean(overlapsAny(bg_gr, pcdh))
+c(observed = obs, expected = exp, fold = obs / exp)
+# observed   expected       fold 
+# 146.000000 108.720298   1.342896
 
-ggplot2::ggsave(
-  filename = here::here(
-    "B_MultiTissues/dataOut/figures/script03/GOplottop99q.png"),
-  plot = p, width = 10, height = 5,  dpi = 300, bg = "white")
+in_top <- sum(overlapsAny(top_gr, pcdh))
+in_bg  <- sum(overlapsAny(bg_gr,  pcdh))
+mat <- matrix(c(in_top, length(top_gr) - in_top,
+                in_bg,  length(bg_gr)  - in_bg), nrow = 2, byrow = TRUE)
+fisher.test(mat, alternative = "greater")   # p-value + CI for the 1.34x
+# Fisher's Exact Test for Count Data
+# 
+# data:  mat
+# p-value = 0.0004053
+# alternative hypothesis: true odds ratio is greater than 1
+# 95 percent confidence interval:
+#  1.164533      Inf
+# sample estimates:
+# odds ratio 
+#   1.343126 
+
+## --> top99q CpGs are 1.34× enriched at the PCDH clusters (146 observed vs 109 expected)
+## one term survives the most conservative control, and it's the biologically expected one.
+
+# # a naive GO enrichment shows a broad neurodevelopmental signature (17 BP terms),
+# but this is largely attributable to the higher CpG density of the foreground genes
+# (3.5× the universe); after matching the background on per-gene CpG count,
+# only homophilic cell-cell adhesion remains, driven by enrichment at the clustered
+# protocadherin locus on chr5 (Fisher's exact test OR = 1.34, p = 0.0004), a
+# a known systemically-variable ME region.
