@@ -105,6 +105,11 @@ resArray_0_65p0_0_65p1 <- prepareChrDataset(resArray_0_65p0_0_65p1)
 ## Save for next scripts
 saveRDS(resArray_0_8p0_0_65p1, here("B_MultiTissues/dataOut/resArray_0_8p0_0_65p1.RDS"))
 
+resArray3ind_0_8p0_0_65p1 <- as.data.frame(
+  readRDS(here(paste0(pathNew, "results_Arrays_3ind_406036CpGs_0_8p0_0_65p1_0_01a0.rds"))))
+resArray3ind_0_8p0_0_65p1 <- prepareChrDataset(resArray3ind_0_8p0_0_65p1)
+saveRDS(resArray3ind_0_8p0_0_65p1, here("B_MultiTissues/dataOut/resArray3ind_0_8p0_0_65p1.RDS"))
+
 ################################################################################
 
 getPlotComp <- function(A, B, column1 = "alpha", column2) {
