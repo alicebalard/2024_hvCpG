@@ -7,7 +7,10 @@
 ## makeZ_inner
 ## makeCompPlot
 ## makeGRfromMyCpGPos
-## GO old functions (commented out)
+## GO functions:
+### CpG_GO_pipeline_lengthControlled
+### cpg_cluster_count_per_gene
+### match_universe_by_covariate
 ## .safe_fisher & test_enrichment_quadrants --> test enrichment of target CpGs 
 ## for each quadrant vs the other three combined
 ### plotMyVenn: Compute overlap across any number of groups and plot a Venn diagram
@@ -347,51 +350,148 @@ runGO <- function(entrez_ids, universe = NULL, myont) {
   )
 }
 
+################################################################################
 ## 🚀 FULL PIPELINE FUNCTIONS
-# ── Updated CpG_GO_pipeline with length control ──────────────────────────────
+# ── CpG_GO_pipeline with CpG-density control (WGBS-appropriate) ───────────────
+#
+# control_method:
+#   "cpg_count" : match universe on number of clustered CpGs per gene  (RECOMMENDED for WGBS)
+#   "length"    : match universe on gene length (bp)                    (weaker proxy)
+#   "none"      : use the full universe, no matching
+#
+# For "cpg_count" you must pass all_sites = the full set of covered CpGs
+# (i.e. totalSites), so per-gene CpG exposure can be computed the same way
+# the foreground was built.
 CpG_GO_pipeline_lengthControlled <- function(CpGvec,
-                                             max_gap    = 50,
-                                             min_size   = minimum_CpG_per_cluster,
-                                             tss_window = 10000,
-                                             universe   = NULL,
-                                             control_length = TRUE) {
+                                             max_gap        = 50,
+                                             min_size       = minimum_CpG_per_cluster,
+                                             tss_window     = 10000,
+                                             universe       = NULL,
+                                             control_method = c("cpg_count", "length", "none"),
+                                             all_sites      = NULL,
+                                             n_bins         = 20,
+                                             controls_per_fg = 5) {
+  
+  control_method <- match.arg(control_method)
+  
   message("Clustering CpGs...")
   CpGclustered <- clusterCpGs(CpGvec, max_gap, min_size)
   message(sprintf("Reduced from %d to %d clustered CpGs",
                   length(CpGvec), length(CpGclustered)))
-  
   if (length(CpGclustered) == 0) { warning("No CpG clusters found."); return(NULL) }
   
   message("Annotating genes...")
   ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
   message(sprintf("Found %d Entrez genes", length(ensg)))
   
-  if (control_length) {
-    message("Controlling for gene length...")
-    gene_lengths_dt <- get_gene_lengths()
+  if (is.null(universe)) stop("Please supply a `universe` (background gene set).")
+  
+  # ── Build the covariate-matched universe ────────────────────────────────────
+  if (control_method == "none") {
+    universe_matched <- universe
     
-    # Check: are foreground genes longer than universe?
-    fg_len  <- gene_lengths_dt[entrez_id %in% ensg, median(gene_length, na.rm = TRUE)]
+  } else if (control_method == "length") {
+    message("Controlling for gene length (bp)...")
+    gene_lengths_dt <- get_gene_lengths()
+    fg_len  <- gene_lengths_dt[entrez_id %in% ensg,     median(gene_length, na.rm = TRUE)]
     uni_len <- gene_lengths_dt[entrez_id %in% universe, median(gene_length, na.rm = TRUE)]
     message(sprintf("  Median gene length — foreground: %s bp, universe: %s bp, ratio: %.2f",
-                    format(fg_len, big.mark = ","),
-                    format(uni_len, big.mark = ","),
+                    format(fg_len, big.mark = ","), format(uni_len, big.mark = ","),
                     fg_len / uni_len))
+    universe_matched <- match_universe_by_covariate(
+      fg_genes = ensg, universe = universe,
+      cov_dt   = gene_lengths_dt, cov_col = "gene_length",
+      n_bins   = n_bins, controls_per_fg = controls_per_fg)
     
-    universe_matched <- length_match_universe(ensg, universe, gene_lengths_dt)
-    message(sprintf("  Length-matched universe: %d genes (was %d)",
-                    length(universe_matched), length(universe)))
-  } else {
-    universe_matched <- universe
+  } else {  # "cpg_count" — WGBS-appropriate
+    message("Controlling for CpG-cluster count per gene (WGBS)...")
+    if (is.null(all_sites))
+      stop("control_method='cpg_count' requires `all_sites` (e.g. totalSites).")
+    
+    cpg_count_dt <- cpg_cluster_count_per_gene(all_sites, max_gap, min_size, tss_window)
+    
+    fg_n  <- cpg_count_dt[entrez_id %in% ensg,     median(n_cpg, na.rm = TRUE)]
+    uni_n <- cpg_count_dt[entrez_id %in% universe, median(n_cpg, na.rm = TRUE)]
+    message(sprintf("  Median clustered CpGs/gene — foreground: %.1f, universe: %.1f, ratio: %.2f",
+                    fg_n, uni_n, fg_n / uni_n))
+    universe_matched <- match_universe_by_covariate(
+      fg_genes = ensg, universe = universe,
+      cov_dt   = cpg_count_dt, cov_col = "n_cpg",
+      n_bins   = n_bins, controls_per_fg = controls_per_fg)
+  }
+  
+  message(sprintf("  Matched universe: %d genes (was %d)",
+                  length(universe_matched), length(universe)))
+  
+  # ── VERIFY foreground survived the matching ─────────────────────────────────
+  n_fg      <- length(ensg)
+  n_fg_kept <- sum(ensg %in% universe_matched)
+  message(sprintf("  Foreground genes in matched universe: %d / %d (%.1f%%)",
+                  n_fg_kept, n_fg, 100 * n_fg_kept / n_fg))
+  if (n_fg_kept < n_fg) {
+    warning(sprintf("%d foreground genes dropped from universe — re-adding (a valid background must contain the whole foreground).",
+                    n_fg - n_fg_kept))
+    universe_matched <- union(universe_matched, ensg)
+    message(sprintf("  Universe now %d genes.", length(universe_matched)))
   }
   
   message("Running GO enrichment...")
-  result <- lapply(c("BP", "MF", "CC"), function(x) {
-    runGO(ensg, universe_matched, x)
-  })
+  result <- lapply(c("BP", "MF", "CC"), function(x) runGO(ensg, universe_matched, x))
   names(result) <- c("BP", "MF", "CC")
-  return(result)
+  result
 }
+
+# Per-gene count of clustered CpGs, using the SAME clustering rule as the foreground.
+# Requires annotateCpGs_txdb to return a CpG->gene mapping (one row per CpG-gene
+# assignment), not just the unique gene vector. If yours only returns unique genes,
+# add a return_mapping = TRUE path, or count before de-duplicating.
+cpg_cluster_count_per_gene <- function(all_sites, max_gap = 50, min_size = 2,
+                                       tss_window = 10000) {
+  suppressPackageStartupMessages({ library(GenomicFeatures); library(data.table) })
+  
+  clustered <- clusterCpGs(all_sites, max_gap, min_size)     # SAME rule as foreground
+  chr <- sub("_.*", "", clustered)
+  pos <- as.integer(sub(".*_", "", clustered))
+  gr  <- GenomicRanges::trim(GRanges(chr, IRanges(pos, pos)))
+  
+  txdb           <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  genes_txdb     <- GenomicFeatures::genes(txdb)
+  promoters_txdb <- GenomicFeatures::promoters(txdb, upstream = tss_window,
+                                               downstream = tss_window)
+  
+  # one row per (CpG, gene) assignment — body OR promoter, matching the wrapper
+  o1 <- findOverlaps(gr, genes_txdb)
+  o2 <- findOverlaps(gr, promoters_txdb)
+  map <- data.table(
+    cpg_idx   = c(queryHits(o1), queryHits(o2)),
+    entrez_id = c(genes_txdb$gene_id[subjectHits(o1)],
+                  promoters_txdb$gene_id[subjectHits(o2)])
+  )
+  # a CpG in both body AND promoter of the same gene must count once (wrapper unions)
+  map <- unique(map)                                    # dedup per (CpG, gene)
+  map[, .(n_cpg = uniqueN(cpg_idx)), by = entrez_id]    # clustered CpGs per gene
+}
+
+# Bin the universe on a covariate and sample non-foreground genes to match the
+# foreground's covariate profile. Foreground genes are ALWAYS retained.
+match_universe_by_covariate <- function(fg_genes, universe, cov_dt,
+                                        cov_col = "n_cpg", n_bins = 20,
+                                        controls_per_fg = 5, seed = 1) {
+  set.seed(seed)
+  d <- data.table::as.data.table(cov_dt)[entrez_id %in% universe & !is.na(get(cov_col))]
+  # rank-based bins so heavy-tailed covariates (CpG count, length) split sensibly
+  d[, bin := cut(rank(get(cov_col), ties.method = "first"),
+                 breaks = n_bins, labels = FALSE)]
+  fg_bins <- d[entrez_id %in% fg_genes, table(bin)]
+  
+  keep <- unlist(lapply(names(fg_bins), function(b) {
+    pool <- d[bin == as.integer(b) & !entrez_id %in% fg_genes, entrez_id]
+    take <- min(length(pool), fg_bins[[b]] * controls_per_fg)
+    if (take > 0) sample(pool, take) else character(0)
+  }))
+  union(fg_genes, keep)   # foreground guaranteed present
+}
+################################################################################
 
 # test enrichment of ME for each quadrant vs the other three combined
 
@@ -490,11 +590,11 @@ plotMyVenn <- function(cutoff, ...) {
 ## functions_S06.R
 ## Functions extracted from S06 for reuse in downstream scripts
 
-make_MEsetdt <- function(sets, geomMeanGR) {
+make_MEsetdt <- function(sets, GR) {
   MEsetdt <- rbindlist(lapply(names(sets), function(nm) {
-    hits <- findOverlaps(sets[[nm]], geomMeanGR)
+    hits <- findOverlaps(sets[[nm]], GR)
     data.table(
-      alpha_geomean = geomMeanGR$alpha_geomean[subjectHits(hits)],
+      logBF_per_ds = GR$logBF_per_ds_allLayers[subjectHits(hits)],
       ME = nm
     )
   }))
@@ -515,12 +615,12 @@ make_MEsetdt_regionMean <- function(sets, geomMeanGR) {
   na.omit(MEsetdt)
 }
 
-plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
+plot_decay_curve <- function(MEsetdt) {
   thresholds <- seq(10, 90, by = 10) / 100
   prop_table <- rbindlist(lapply(thresholds, function(thr) {
     MEsetdt[, .(
-      proportion = mean(alpha_geomean > thr, na.rm = TRUE),
-      n_above    = sum(alpha_geomean > thr, na.rm = TRUE),
+      proportion = mean(logBF_per_ds > thr, na.rm = TRUE),
+      n_above    = sum(logBF_per_ds > thr, na.rm = TRUE),
       n_total    = .N
     ), by = ME][, threshold := thr]
   }))
@@ -533,13 +633,12 @@ plot_decay_curve <- function(MEsetdt, title = "Decay curve") {
                setNames(set2_cols[seq_along(other_levels)], other_levels))
   
   ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
-    geom_line() +
-    geom_point() +
-    scale_x_continuous("Pr(HV) threshold", breaks = thresholds) +
+    geom_line(linewidth = 3) +
+    geom_point(size = 5) +
+    scale_x_continuous("Hypervariability score (logBF per ds) threshold", breaks = thresholds) +
     scale_y_continuous("Proportion above threshold", labels = scales::percent) +
     scale_colour_manual(values = my_cols) +
-    theme_bw() +
-    ggtitle(title)
+    theme_bw()
 }
 
 plot_decay_curve_layered <- function(MEsetdt, title = "Decay curve by layer") {

@@ -813,714 +813,523 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script03/MappingVariabilit
     dpi = 300, bg = "white")
 }
 
+###########################################
+## Compare our results with previous MEs ##
+###########################################
 
+if (!file.exists(here("B_MultiTissues/dataOut/figures/script03/CompareWithpreviousMEs.png"))){
+  
+  ## Use the GR object with analyses in the 3 layers
+  
+  # Fix chromosome names in geomMeanGR (1 -> chr1)
+  seqlevels(table3layers_coveredIn3) <- paste0("chr", seqlevels(table3layers_coveredIn3))
+  
+  sets <- list(
+    mQTLcontrols = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
+    HarrisSIV = HarrisSIV_hg38_GR,
+    VanBaakSIV = VanBaakSIV_hg38_GR,
+    VanBaakESS = VanBaakESS_hg38_GR,
+    KesslerSIV = KesslerSIV_GRanges_hg38,
+    GunasekaraCorSIV = corSIV_GRanges_hg38,
+    DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR
+  )
+  
+  ## Associate a colour to a group
+  group_cols <- c(
+    "background"         = "#999999",
+    "mQTLcontrols"       = "#000000",
+    "HarrisSIV"          = RColorBrewer::brewer.pal(8, "Set2")[1],
+    "KesslerSIV"         = RColorBrewer::brewer.pal(8, "Set2")[2],
+    "DerakhshanhvCpGs"   = RColorBrewer::brewer.pal(8, "Set2")[3],
+    "GunasekaraCorSIV"   = RColorBrewer::brewer.pal(8, "Set2")[4],
+    "VanBaakESS"         = RColorBrewer::brewer.pal(8, "Set2")[5],
+    "top99q"         = RColorBrewer::brewer.pal(8, "Set2")[6],
+    "VanBaakSIV"         = RColorBrewer::brewer.pal(8, "Set2")[7]
+  )
+  
+  # ── ME overlap ────────────────────────────────────────────
+  MEsetdt <- make_MEsetdt(sets, GR = table3layers_coveredIn3)
+  
+  MEsetdt <- na.omit(MEsetdt) ## 69979
+  
+  # Set controls as baseline
+  MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
+  
+  ## Statistical comparisons of alpha between MEs
+  fit <- lm(logBF_per_ds ~ ME, data = MEsetdt)
+  emm <- emmeans(fit, ~ ME)
+  contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
+    as.data.frame()
+  
+  contrasts <- contrasts %>%
+    mutate(ME = contrast,
+           ME_name = sub(" - mQTLcontrols$", "", contrast),   # match colour to the ME group being compared
+           lower = estimate - 1.96 * SE,
+           upper = estimate + 1.96 * SE)
+  
+  pMElogBF_per_ds <- ggplot(MEsetdt, aes(x = ME, y = logBF_per_ds)) +
+    geom_jitter(aes(colour = ME), size = 3, alpha = .2) +
+    geom_violin(aes(colour = ME)) +
+    geom_boxplot(aes(colour = ME), width = .1) +
+    scale_colour_manual(values = group_cols, name = "CpG set") +
+    theme_minimal(base_size = 14) +
+    theme(legend.position = "none", axis.title.x = element_blank()) +
+    ylab("Hypervariability score (logBF per ds)")
+  
+  pcontrast <- ggplot(contrasts, aes(x = ME, y = estimate, colour = ME_name)) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    scale_colour_manual(values = group_cols, name = "CpG set") +
+    coord_flip() +
+    labs(y = "Difference in hypervariability score (logBF per ds) vs mQTLcontrols", x = "") +
+    theme_minimal() +
+    theme(legend.position = "none")
+  
+  ## pdecay - legend inside the plot, bottom-left corner
+  pdecay <- plot_decay_curve(MEsetdt) +
+    scale_colour_manual(values = group_cols, name = "CpG set")
+  
+  # ── Save key objects for S07 ──────────────────────────────────────────────────
+  saveRDS(MEsetdt,            here("gitignore/MEsetdt.rds"))
+  
+  ####################################################################################
+  ## Test enrichement of the most likely germ layer-universal hvCpG in previous MEs ##
+  ####################################################################################
+  if (!exists("listGR")){
+    listGR <- list(top99q = makeGRfromMyCpGPos(vec = top99q_CpGs, setname = "top99q"),
+                   allButTop99q = makeGRfromMyCpGPos(
+                     setdiff(table3layers_coveredIn3$chr_pos, top99q_CpGs), "allButTop99q"))
+  }
+  
+  # ---- Run it (ME sets in putativeME_GR$set will be tested separately)
+  res_quadrants <- test_enrichment_quadrants(listGR, putativeME_GR, me_col = "set")
+  
+  # Order quadrants within each facet by log2OR
+  res_plot2 <- res_quadrants %>%
+    mutate(
+      log2OR = log2(odds_ratio),
+      signif  = p_adj_BH < 0.05
+    ) %>%
+    dplyr::group_by(CpG_set) %>%
+    mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
+    ungroup()
+  
+  plot_top99qCpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
+    geom_col(width = 0.8) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    scale_fill_manual(values = c("black", "grey")) +
+    labs(
+      x = NULL,
+      y = expression(log[2]~"(odds ratio)"),
+      title = "ME enrichment by group (vs other group)",
+      subtitle = "2x2 Fisher's exact test "
+    ) +
+    facet_wrap(~ CpG_set, scales = "free_x", nrow = 1) +
+    theme_classic(base_size = 10) +
+    theme(
+      axis.text.x = element_text(angle = 30, hjust = 1),
+      legend.position = "none" , ## if all significant
+      strip.background = element_rect(fill = "white"),
+      strip.text = element_text(face = "bold")
+    )
+  
+  ################################################################################
+  ## Load SIV plots calculated in fetalSIV folder script (in ing-p5)            ##
+  ################################################################################
+  
+  ## Saved earlier:
+  # saveRDS(top99q_CpGs, file = here("gitignore/top99q_CpGs_august26.RDS"))
+  ## Then run on ingp5: testFetalSIV_ingp5.R
+  
+  plots <- readRDS(here("gitignore/intercorrelationSIVfetal_sepSIV.rds"))
+  
+  pinterlayer_corr <- ggplot(plots$interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
+    geom_violin(width=1.4) +
+    geom_boxplot(width=0.3, fill="white") +
+    scale_fill_manual(values = group_cols) +
+    theme_minimal(base_size = 14) +
+    labs(y = "Mean inter-germ layer correlation\n(Pearson's r)")
+  
+  pinterindividual_var <- ggplot(plots$CpG_summary, aes(x = interindividual_var, fill = group)) +
+    geom_density(alpha = .8)+
+    scale_fill_manual(values = group_cols) +
+    theme_minimal(base_size = 14) +
+    labs(x = "Interindividual variation")
+  
+  pbinned <- ggplot(plots$binned_summary_boot,
+                    aes(x = bin, y = median_r, color = group, fill = group)) +
+    geom_point(position = position_dodge(width = 0.5), size = 3) +
+    geom_errorbar(
+      aes(ymin = low, ymax = high),
+      width = 0.2,
+      position = position_dodge(width = 0.5)
+    ) +
+    scale_color_manual(values = group_cols) +
+    scale_fill_manual(values = group_cols) +
+    theme_minimal(base_size = 14) +
+    labs(
+      x = "Interindividual variation",
+      y = "Inter-germ layer correlation \n(median ± bootstrap CI)"
+    )
+  
+  upperRow <- plot_grid(
+    plot_grid(
+      pMElogBF_per_ds, 
+      pcontrast + theme_minimal(base_size = 17) + 
+        theme(plot.title = element_text(size=16), legend.position = "none"),
+      nrow = 2, 
+      labels = c("A. Distribution of the hypervariability score for each CpG set", 
+                 "B. Comparison of previous CPG sets groups to mQTLcontrols"),
+      label_size = 18, label_x = 0, hjust = 0),
+    pdecay + theme_minimal(base_size = 20) + 
+      theme(legend.position = "inside",
+            legend.position.inside = c(.7, .6),
+            legend.justification = c(0, 0),
+            legend.background = element_rect(fill = "white", colour = "black", linewidth = 0.3)),
+    ncol = 2,
+    rel_widths = c(1, 1),
+    labels = c("", "C. Decay curve of hypervariability score (logBF per ds) per threshold"), 
+    label_size = 18, label_x = 0, hjust = 0
+  )
+  
+  SIV_plot <- plot_grid(
+    pinterlayer_corr + theme_minimal(base_size = 20) +
+      theme(axis.text.x = element_text(angle = 20, hjust = 1),
+            axis.title.x = element_blank(), legend.position = "none"),
+    plot_grid(pinterindividual_var +
+                labs(fill = "CpG set"), 
+              pbinned + theme_minimal(base_size = 16) +
+                theme(axis.text.x = element_text(angle = 20, hjust = 1))+
+                labs(colour = "CpG set", fill = "CpG set"), 
+              ncol = 1, align = "v",
+              labels = c("E. Densities of interindividual variation per CpG within the fetal data, by set", 
+                         "F. Inter-germ-layer correlation per interindividual variation, binned"),
+              label_size = 18, label_x = 0, hjust = 0),
+    ncol = 2,
+    rel_widths = c(1, 1),
+    labels = c("D. Mean inter-germ-layer correlation for each CpG set", ""),
+    label_size = 18, label_x = 0, hjust = 0
+  )
+  
+  final_plot <- plot_grid(
+    upperRow,
+    SIV_plot,
+    ncol = 1,
+    rel_heights = c(1, 1)
+  )
+  
+  ggplot2::ggsave(
+    filename = here::here(
+      "B_MultiTissues/dataOut/figures/script03/CompareWithpreviousMEs.png"),
+    plot = final_plot, width = 22, height = 20,  dpi = 300, bg = "white")
+}
 
+############################################################
+## How many of each putative ME is actually in the top90? ##
+############################################################
 
+# Overlaps of ME ranges with CpG sites (top99q and allButTop99q)
+hits_top <- findOverlaps(putativeME_GR, listGR$top99q, ignore.strand = TRUE)
+hits_all <- findOverlaps(putativeME_GR, listGR$allButTop99q, ignore.strand = TRUE)
 
+# Logical flags per ME range (query index)
+overlap_top <- logical(length(putativeME_GR))
+overlap_top[unique(queryHits(hits_top))] <- TRUE
 
+overlap_all <- logical(length(putativeME_GR))
+overlap_all[unique(queryHits(hits_all))] <- TRUE
 
-# 
-# # **************************************************************************** #
-# ###########################################
-# ## Compare our results with previous MEs ##
-# ###########################################
-# 
-# # Build GRanges from geometric mean
-# geomMeanGR <- GRanges(seqnames = table3layers_coveredIn3@seqnames,
-#                       ranges = IRanges(start = table3layers_coveredIn3@ranges@start, 
-#                                        end = table3layers_coveredIn3@ranges@start),
-#                       logBF_per_ds_geomean = table3layers_coveredIn3$alpha_geomean)
-# 
-# geomMeanGR <- geomMeanGR[!is.na(geomMeanGR$alpha_geomean)]
-# 
-# # Fix chromosome names in geomMeanGR (1 -> chr1)
-# seqlevels(geomMeanGR) <- paste0("chr", seqlevels(geomMeanGR))
-# 
-# sets <- list(
-#   mQTLcontrols = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
-#   HarrisSIV = HarrisSIV_hg38_GR,
-#   VanBaakSIV = VanBaakSIV_hg38_GR,
-#   VanBaakESS = VanBaakESS_hg38_GR,
-#   KesslerSIV = KesslerSIV_GRanges_hg38,
-#   GunasekaraCorSIV = corSIV_GRanges_hg38,
-#   DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR
-# )
-# 
-# group_cols <- c(
-#   "background"         = "#999999",
-#   "mQTLcontrols"       = "#000000",
-#   "HarrisSIV"          = RColorBrewer::brewer.pal(8, "Set2")[1],
-#   "KesslerSIV"         = RColorBrewer::brewer.pal(8, "Set2")[2],
-#   "DerakhshanhvCpGs"   = RColorBrewer::brewer.pal(8, "Set2")[3],
-#   "GunasekaraCorSIV"   = RColorBrewer::brewer.pal(8, "Set2")[4],
-#   "VanBaakESS"         = RColorBrewer::brewer.pal(8, "Set2")[5],
-#   "top99SNPrm"         = RColorBrewer::brewer.pal(8, "Set2")[6],
-#   "VanBaakSIV"         = RColorBrewer::brewer.pal(8, "Set2")[7]
-# )
-# 
-# # ── ME overlap ────────────────────────────────────────────
-# MEsetdt <- make_MEsetdt(sets, geomMeanGR)
-# 
-# MEsetdt <- na.omit(MEsetdt) ## 69979
-# 
-# # Set controls as baseline
-# MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
-# 
-# ## Shared colour palette, built the same way plot_decay_curve() already does internally
-# # me_levels    <- levels(factor(MEsetdt$ME))
-# # other_levels <- setdiff(me_levels, "mQTLcontrols")
-# # set2_cols    <- RColorBrewer::brewer.pal(max(length(other_levels), 3), "Set2")
-# # meColours    <- c(mQTLcontrols = "black",
-# #                   setNames(set2_cols[seq_along(other_levels)], other_levels))
-# 
-# ## Statistical comparisons of alpha between MEs
-# fit <- lm(alpha_geomean ~ ME, data = MEsetdt)
-# emm <- emmeans(fit, ~ ME)
-# contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
-#   as.data.frame()
-# 
-# contrasts <- contrasts %>%
-#   mutate(ME = contrast,
-#          ME_name = sub(" - mQTLcontrols$", "", contrast),   # match colour to the ME group being compared
-#          lower = estimate - 1.96 * SE,
-#          upper = estimate + 1.96 * SE)
-# 
-# pMEalpha <- ggplot(MEsetdt, aes(x = ME, y = alpha_geomean)) +
-#   geom_jitter(aes(colour = ME), size = 3, alpha = .05) +
-#   geom_violin(aes(colour = ME)) +
-#   geom_boxplot(aes(colour = ME), width = .1) +
-#   scale_colour_manual(values = group_cols, name = "CpG set") +
-#   theme_minimal(base_size = 14) +
-#   theme(legend.position = "none", axis.title.x = element_blank()) +
-#   ylab("Pr(hv) (geometric mean)")
-# 
-# pcontrast <- ggplot(contrasts, aes(x = ME, y = estimate, colour = ME_name)) +
-#   geom_point(size = 3) +
-#   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-#   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-#   scale_colour_manual(values = group_cols, name = "CpG set") +
-#   coord_flip() +
-#   labs(y = "Difference in Pr(hv) (geometric mean) vs mQTLcontrols", x = "",
-#        title = "Comparison of previous CPG sets groups to mQTLcontrols",
-#        subtitle = "lm with multiple comparison correction (Sidak)") +
-#   theme_minimal() +
-#   theme(legend.position = "none")
-# 
-# ## pdecay - legend inside the plot, bottom-left corner
-# pdecay <- plot_decay_curve(MEsetdt, "Decay curve of Pr(HV) per threshold") +
-#   scale_colour_manual(values = group_cols, name = "CpG set") +
-#   theme(legend.position = "inside",
-#         legend.position.inside = c(0, 0),
-#         legend.justification = c(0, 0),
-#         legend.background = element_rect(fill = "white", colour = "black", linewidth = 0.3))
-# 
-# # ── Save key objects for S07 ──────────────────────────────────────────────────
-# saveRDS(MEsetdt,            here("gitignore/MEsetdt.rds"))
-# saveRDS(geomMeanGR,         here("gitignore/geomMeanGR.rds"))
-# 
-# ####################################################################################
-# ## Test enrichement of the most likely germ layer-universal hvCpG in previous MEs ##
-# ####################################################################################
-# if (!exists("listGR")){
-#   listGR <- list(top90 = makeGRfromMyCpGPos(vec = top99SNPrm, setname = "top99SNPrm"),
-#                  allButTop90 = makeGRfromMyCpGPos(
-#                    setdiff(totalSiteswGeomMean, top99SNPrm), "allButTop99"))}
-# 
-# # ---- Run it (ME sets in putativeME_GR$set will be tested separately)
-# res_quadrants <- test_enrichment_quadrants(listGR, putativeME_GR, me_col = "set")
-# 
-# # Order quadrants within each facet by log2OR
-# res_plot2 <- res_quadrants %>%
-#   mutate(
-#     log2OR = log2(odds_ratio),
-#     signif  = p_adj_BH < 0.05
-#   ) %>%
-#   dplyr::group_by(CpG_set) %>%
-#   mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
-#   ungroup()
-# 
-# plot_top99CpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
-#   geom_col(width = 0.8) +
-#   geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
-#   scale_fill_manual(values = c("grey", "black")) +
-#   labs(
-#     x = NULL,
-#     y = expression(log[2]~"(odds ratio)"),
-#     title = "ME enrichment by group (vs other group)",
-#     subtitle = "2x2 Fisher's exact test "
-#   ) +
-#   facet_wrap(~ CpG_set, scales = "free_x", nrow = 1) +
-#   theme_classic(base_size = 10) +
-#   theme(
-#     axis.text.x = element_text(angle = 30, hjust = 1),
-#     legend.position = "none" , ## if all significant
-#     strip.background = element_rect(fill = "white"),
-#     strip.text = element_text(face = "bold")
-#   )
-# 
-# ################################################################################
-# ## Load SIV plots calculated in fetalSIV folder script (in ing-p5)            ##
-# ################################################################################
-# plots <- readRDS(here("gitignore/intercorrelationSIVfetal_sepSIV.rds"))
-# 
-# pinterlayer_corr <- ggplot(plots$interlayer_corr, aes(x=group, y=interlayer_r, group = group, fill = group))+
-#   geom_violin(width=1.4) +
-#   geom_boxplot(width=0.1, color="grey", alpha=0.2) +
-#   scale_fill_manual(values = group_cols) +
-#   theme_minimal(base_size = 14) +
-#   labs(y = "Mean inter-germ layer correlation\n(Pearson's r)")+
-#   theme(axis.title.x = element_blank(), legend.position = "none") 
-# 
-# pinterindividual_var <- ggplot(plots$CpG_summary, aes(x = interindividual_var, color = group)) +
-#   geom_density(alpha = 0.5)+
-#   scale_colour_manual(values = group_cols) +
-#   theme_minimal(base_size = 14) +
-#   labs(x = "Interindividual variation")
-# 
-# pbinned <- ggplot(plots$binned_summary_boot,
-#                   aes(x = bin, y = median_r, color = group, fill = group)) +
-#   geom_point(position = position_dodge(width = 0.5), size = 3) +
-#   geom_errorbar(
-#     aes(ymin = low, ymax = high),
-#     width = 0.2,
-#     position = position_dodge(width = 0.5)
-#   ) +
-#   scale_color_manual(values = group_cols) +
-#   scale_fill_manual(values = group_cols) +
-#   theme_minimal(base_size = 14) +
-#   labs(
-#     x = "Interindividual variation",
-#     y = "Inter-germ layer correlation \n(median ± bootstrap CI)"
-#   ) +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-# 
-# upperRow <- plot_grid(
-#   plot_grid(pMEalpha, pcontrast, nrow = 2, labels = c("A", "B")),
-#   pdecay,
-#   ncol = 2,
-#   rel_widths = c(1, 1),
-#   labels = c("", "C")
-# )
-# 
-# SIV_plot <- plot_grid(
-#   pinterlayer_corr + theme(axis.text.x = element_text(angle = 45, hjust = 1)),
-#   plot_grid(pinterindividual_var, pbinned, ncol = 1, align = "v",labels = c("D", "E")),
-#   ncol = 2,
-#   rel_widths = c(1, 1), labels = c("C", "")
-# )
-# 
-# final_plot <- plot_grid(
-#   upperRow,
-#   SIV_plot,
-#   ncol = 1,
-#   rel_heights = c(1, 1.2)
-# )
-# 
-# pdf(here("B_MultiTissues/dataOut/figures/script03/CompareWithpreviousMEs.pdf"),
-#     width = 18, height = 14)
-# print(final_plot)
-# dev.off()
-# 
-# ### TBC here
-# 
-# ############################################################
-# ## How many of each putative ME is actually in the top90? ##
-# ############################################################
-# 
-# # Overlaps of ME ranges with CpG sites (top90 and allButTop90)
-# hits_top <- findOverlaps(putativeME_GR, listGR$top90, ignore.strand = TRUE)
-# hits_all <- findOverlaps(putativeME_GR, listGR$allButTop90, ignore.strand = TRUE)
-# 
-# # Logical flags per ME range (query index)
-# overlap_top <- logical(length(putativeME_GR))
-# overlap_top[unique(queryHits(hits_top))] <- TRUE
-# 
-# overlap_all <- logical(length(putativeME_GR))
-# overlap_all[unique(queryHits(hits_all))] <- TRUE
-# 
-# # Build a small data.frame with one row per ME range
-# df_me <- as.data.frame(mcols(putativeME_GR)) |>
-#   mutate(
-#     in_top90       = overlap_top,
-#     in_allButTop90 = overlap_all
-#   )
-# 
-# # Summaries per set
-# summary_df <- df_me |>
-#   group_by(set) |>
-#   summarise(
-#     n_total = n(),
-#     n_in_top90 = sum(in_top90),
-#     pc_in_top90 = n_in_top90/n_total*100,
-#     n_in_allButTop90 = sum(in_allButTop90),
-#     pc_in_allButTop90 = n_in_allButTop90/n_total*100,
-#     n_in_both = sum(in_top90 & in_allButTop90),   # non 0 if region rather than CpG
-#     pc_in_both = n_in_both/n_total*100,
-#     n_in_neither = n_total - n_in_top90 - n_in_allButTop90 + n_in_both,
-#     pc_in_neither = n_in_neither/n_total*100)
-# 
-# ## Format pretty
-# summary_df %>%
-#   mutate(across(starts_with("pc_"), ~ scales::percent(.x / 100, accuracy = 0.1))) %>%
-#   gt() %>%
-#   fmt_number(columns = starts_with("n_"), decimals = 0) %>%
-#   cols_label(
-#     set = "Putative ME set",
-#     n_total = "Total CpG sites or regions",
-#     n_in_top90 = "N in top 90% CpGs",
-#     pc_in_top90 = "%",
-#     n_in_allButTop90 = "N in all but top 90% CpGs",
-#     pc_in_allButTop90 = "%",
-#     n_in_both = "N in both groups",
-#     pc_in_both = "%",
-#     n_in_neither = "N CpGs not covered",
-#     pc_in_neither = "%"
-#   ) %>% 
-#   tab_style(
-#     style = cell_fill(color = "lightblue"),
-#     locations = cells_column_labels()
-#   ) %>%
-#   tab_options(
-#     table.font.size = 13,
-#     data_row.padding = px(3)
-#   )
-# 
-# # Convert gt to a patchwork-compatible element
-# table_element <- patchwork::wrap_elements(
-#   full = grid::grid.draw(gt::gt_as_gtable(summary_table_gt))
-# )
-# 
-# ### TBC
-# 
-# 
-# ## Screenshot saved in figures/topCpGsEnrichME_table.png
-# 
-# ######################################################################
-# ## Check enrichement of telomeres and centromeres for high geomMean ##
-# ######################################################################
-# 
-# # Centromeres (from cytoBand - acen bands)
-# # wget -qO- https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz \
-# # | zcat | awk '$5=="acen"' > centromeres_hg38.bed
-# 
-# # 1. Parse coordinates from name vectors 
-# parse_cpg_names <- function(names_vec) {
-#   dt <- data.table(name = names_vec)
-#   dt[, chr := sub("^(chr[^_]+)_.*", "\\1", name)]        # "chr1"
-#   dt[, pos := as.integer(sub("^chr[^_]+_(\\d+)$", "\\1", name))]
-#   dt[, pos_end := pos]
-#   dt
-# }
-# 
-# getEnrichCentroTelo <- function(threshold = 0.90){
-#   top <- table3layers_coveredIn3[!is.na(table3layers_coveredIn3$alpha_geomean) & 
-#                                    (table3layers_coveredIn3$alpha_geomean >= threshold), ]$chr_pos
-#   hv_dt <- parse_cpg_names(top)
-#   total_dt <- parse_cpg_names(totalSiteswGeomMean)  # all background sites
-#   
-#   # 2. Load regions
-#   centro <- fread(here("gitignore/centromeres_hg38.bed"),
-#                   col.names = c("chr", "start", "end", "band", "stain"))
-#   centro[, region := "centromere"]
-#   
-#   # Add 1Mb subtelomeric buffer using chrom sizes
-#   chrom_sizes <- fread("https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/chromInfo.txt.gz",
-#                        col.names = c("chr", "size", "file"))
-#   chrom_sizes  <- chrom_sizes[chr %in% paste0("chr", c(1:22, "X", "Y"))]
-#   SUBTELO_DIST <- 1e6
-#   
-#   subtelo <- rbind(
-#     chrom_sizes[, .(chr, start = 0L, end = as.integer(SUBTELO_DIST), region = "subtelomere")],
-#     chrom_sizes[, .(chr, start = as.integer(size - SUBTELO_DIST), end = size, region = "subtelomere")]
-#   )
-#   
-#   regions <- rbind(
-#     centro[, .(chr, start, end, region)],
-#     subtelo[, .(chr, start, end, region)]
-#   )
-#   setkey(regions, chr, start, end)
-#   
-#   # 3. Overlap function 
-#   get_region_hits <- function(dt, regions) {
-#     setkey(dt, chr, pos, pos_end)
-#     hits <- foverlaps(dt, regions,
-#                       by.x = c("chr", "pos", "pos_end"),
-#                       by.y = c("chr", "start", "end"),
-#                       type = "within", nomatch = NULL)
-#     unique(hits$name)  # CpG names overlapping any region
-#   }
-#   
-#   hv_in_centro    <- get_region_hits(copy(hv_dt),    regions[region == "centromere"])
-#   hv_in_subtelo   <- get_region_hits(copy(hv_dt),    regions[region == "subtelomere"])
-#   bg_in_centro    <- get_region_hits(copy(total_dt), regions[region == "centromere"])
-#   bg_in_subtelo   <- get_region_hits(copy(total_dt), regions[region == "subtelomere"])
-#   
-#   # 4. Contingency tables + Fisher test 
-#   enrich_test <- function(hv_in, bg_in, hv_all, bg_all, label) {
-#     a <- length(hv_in)                        # hvCpG in region
-#     b <- length(hv_all) - a                   # hvCpG outside
-#     c <- length(bg_in)                        # background in region
-#     d <- length(bg_all) - c                   # background outside
-#     
-#     mat <- matrix(c(a, b, c, d), nrow = 2,
-#                   dimnames = list(c("in_region", "outside"),
-#                                   c("hvCpG", "background")))
-#     
-#     ft  <- fisher.test(mat, alternative = "greater")
-#     pct_hv <- round(100 * a / length(hv_all), 2)
-#     pct_bg <- round(100 * c / length(bg_all), 2)
-#     fold   <- round(pct_hv / pct_bg, 2)
-#     
-#     cat("\n──", label, "──\n")
-#     cat("  hvCpGs in region:     ", a, "/", length(hv_all),
-#         paste0("(", pct_hv, "%)"), "\n")
-#     cat("  Background in region: ", c, "/", length(bg_all),
-#         paste0("(", pct_bg, "%)"), "\n")
-#     cat("  Fold enrichment:      ", fold, "\n")
-#     cat("  Fisher p (one-sided): ", ft$p.value, "\n")
-#     cat("  Odds ratio:           ", round(ft$estimate, 2), "\n")
-#   }
-#   
-#   enrich_test(hv_in_centro,  bg_in_centro,  top, totalSiteswGeomMean, "Centromere")
-#   enrich_test(hv_in_subtelo, bg_in_subtelo, top, totalSiteswGeomMean, "Subtelomere (1Mb)")
-# }
-# 
-# getEnrichCentroTelo(0.9)
-# ## For 90%, no enrichment
-# # ── Centromere ──
-# # hvCpGs in region:      1871 / 196333 (0.95%) 
-# # Background in region:  190918 / 21522541 (0.89%) 
-# # Fold enrichment:       1.07 
-# # Fisher p (one-sided):  0.001123841 
-# # Odds ratio:            1.08 
-# # 
-# # ── Subtelomere (1Mb) ──
-# # hvCpGs in region:      4040 / 196333 (2.06%) 
-# # Background in region:  482013 / 21522541 (2.24%) 
-# # Fold enrichment:       0.92 
-# # Fisher p (one-sided):  1 
-# # Odds ratio:            0.92 
-# 
-# getEnrichCentroTelo(0.8)
-# ## enriched in centromeres 
-# # ── Centromere ──
-# # hvCpGs in region:      3701 / 282564 (1.31%) 
-# # Background in region:  190918 / 21522541 (0.89%) 
-# # Fold enrichment:       1.47 
-# # Fisher p (one-sided):  1.526111e-109 
-# # Odds ratio:            1.48 
-# # 
-# # ── Subtelomere (1Mb) ──
-# # hvCpGs in region:      6261 / 282564 (2.22%) 
-# # Background in region:  482013 / 21522541 (2.24%) 
-# # Fold enrichment:       0.99 
-# # Fisher p (one-sided):  0.8037475 
-# # Odds ratio:            0.99 
-# 
-# getEnrichCentroTelo(0.70)
-# ## enriched 
-# # ── Centromere ──
-# # hvCpGs in region:      8246 / 415760 (1.98%) 
-# # Background in region:  190918 / 21522541 (0.89%) 
-# # Fold enrichment:       2.22 
-# # Fisher p (one-sided):  0 
-# # Odds ratio:            2.26 
-# # 
-# # ── Subtelomere (1Mb) ──
-# # hvCpGs in region:      9858 / 415760 (2.37%) 
-# # Background in region:  482013 / 21522541 (2.24%) 
-# # Fold enrichment:       1.06 
-# # Fisher p (one-sided):  9.630318e-09 
-# # Odds ratio:            1.06 
-# 
-# ############################################################################
-# ## Test in B_MultiTissues/03_exploreResults/fetalSIV/testFetalSIV_ingp5.R ##
-# ############################################################################
-# length(top90SNPrm) # 385370
-# 
-# ## Map on arrays
-# matches <- match(x = top90SNPrm, table = dico$chrpos_hg38)
-# 
-# Pos <- dico[na.omit(matches), ]
-# 
-# table(Pos$array)
-# # 450k 450k and EPIC          EPIC 
-# # 275          3608          2538 
-# 
-# #################################
-# ## Test enrichment of features ##
-# #################################
-# 
-# # Import bed file
-# bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
-# 
-# # Annotate CpGs with features
-# topAnno <- genomation::annotateWithGeneParts(
-#   target  = listGR$top90,
-#   feature = bed_features
-# )
-# listGR$top90$featureType <- ifelse(topAnno@members[, "prom"] == 1, "promoter",
-#                                    ifelse(topAnno@members[, "exon"] == 1, "exon",
-#                                           ifelse(topAnno@members[, "intron"] == 1, "intron",
-#                                                  "intergenic")))
-# allButTop90Anno <- genomation::annotateWithGeneParts(
-#   target  = listGR$allButTop90,
-#   feature = bed_features
-# )
-# listGR$allButTop90$featureType <- ifelse(allButTop90Anno@members[, "prom"] == 1, "promoter",
-#                                          ifelse(allButTop90Anno@members[, "exon"] == 1, "exon",
-#                                                 ifelse(allButTop90Anno@members[, "intron"] == 1, "intron",
-#                                                        "intergenic")))
-# 
-# ## 1. Build counts for subset vs background 
-# 
-# # Feature levels in fixed order
-# feat_levels <- c("promoter", "exon", "intron", "intergenic")
-# 
-# # Count CpGs per feature
-# bg_counts   <- table(factor(listGR$allButTop90$featureType,   levels = feat_levels))
-# sub_counts  <- table(factor(listGR$top90$featureType, levels = feat_levels))
-# 
-# # Combine into a 2x4 contingency table
-# cont_tab <- rbind(
-#   subset    = as.numeric(sub_counts),
-#   background = as.numeric(bg_counts)
-# )
-# colnames(cont_tab) <- feat_levels
-# cont_tab
-# 
-# enrich_list <- lapply(feat_levels, function(f) {
-#   # 2x2 table for feature f vs not‑f
-#   a <- sub_counts[f]                     # subset in feature f
-#   b <- sum(sub_counts)  - a              # subset not in f
-#   c <- bg_counts[f] - a                  # background in f but not in subset
-#   d <- sum(bg_counts) - bg_counts[f] - b # background not in f and not in subset
-#   
-#   mat <- matrix(c(a, b, c, d), nrow = 2,
-#                 dimnames = list(
-#                   set      = c("subset", "background"),
-#                   inFeat   = c("yes", "no")
-#                 ))
-#   
-#   ft <- fisher.test(mat, alternative = "greater")
-#   
-#   data.frame(
-#     feature      = f,
-#     subset_n     = as.numeric(a),
-#     bg_n         = as.numeric(bg_counts[f]),
-#     subset_prop  = as.numeric(a) / sum(sub_counts),
-#     bg_prop      = as.numeric(bg_counts[f]) / sum(bg_counts),
-#     odds_ratio   = unname(ft$estimate),
-#     p_value      = ft$p.value
-#   )
-# })
-# 
-# enrich_df <- bind_rows(enrich_list) |>
-#   mutate(p_adj = p.adjust(p_value, method = "BH")) |>
-#   mutate(log2_or = log2(odds_ratio))
-# enrich_df
-# # feature subset_n     bg_n subset_prop    bg_prop odds_ratio       p_value         p_adj    log2_or
-# # 1   promoter    17168  3171023  0.08744327 0.14869137  0.5461601  1.000000e+00  1.000000e+00 -0.8726043
-# # 2       exon     7081  1194839  0.03606628 0.05602679  0.6281852  1.000000e+00  1.000000e+00 -0.6707382
-# # 3     intron   116681 12025864  0.59430152 0.56390072  1.1341610 3.351803e-165 6.703607e-165  0.1816254 ***
-# # 4 intergenic    55403  4934482  0.28218893 0.23138113  1.3093824  0.000000e+00  0.000000e+00  0.3888865 ***
-# 
-# ## Enrichment in intron & intergenic regions of the top 90% hvCpGs ***
-# }
-# 
-# ###############################
-# ## Test GO of top candidates ##
-# ###############################
-# 
-# # totalSiteswGeomMean <- table3layers_coveredIn3[!is.na(table3layers_coveredIn3$alpha_geomean), ]$chr_pos
-# # top90SNPrm <- table3layers_coveredIn3[!is.na(table3layers_coveredIn3$alpha_geomean) & 
-# #                              (table3layers_coveredIn3$alpha_geomean >= .9), ]$chr_pos
-# 
-# <<<<<<< HEAD
-# # Method. ClusterProfiler
-# =======
-#   <<<<<<< HEAD
-# # Method. ClusterProfiler
-# =======
-#   <<<<<<< HEAD
-# # Method 1. ClusterProfiler
-# =======
-#   # Method. ClusterProfiler
-#   >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
-# >>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
-# >>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
-# 
-# ## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
-# ## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
-# ## 3. run GO term enrichment with clusterProfiler::enrichGO
-# 
-# minimum_CpG_per_cluster = 2
-# 
-# ## Create universe
-# universe <- annotateCpGs_txdb(
-#   clusterCpGs(totalSiteswGeomMean, max_gap = 50, min_size = minimum_CpG_per_cluster),
-#   tss_window = 10000)
-# 
-# print(paste0("Gene universe contains ", length(universe), " genes"))
-# ## "Gene universe contains 32717 genes"
-# 
-# ## Annotate 
-# # resAnnot_top90SNPrm <- CpG_GO_pipeline(
-# #   top90SNPrm, universe = universe, 
-# #   max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000)
-# # # Reduced from 196333 to 7111 clustered CpGs
-# # # Found 1641 Entrez genes
-# # # Running GO enrichment...
-# 
-# # Original (no length control)
-# resAnnot_top90SNPrm <- CpG_GO_pipeline(
-#   top90SNPrm, universe = universe,
-#   max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000)
-# # Reduced from 196333 to 7111 clustered CpGs
-# # 2169 genes were dropped because they have exons located on both strands of the same reference sequence or on more than one
-# # reference sequence, so cannot be represented by a single genomic range.
-# # Found 1641 Entrez genes
-# # Running GO enrichment...
-# 
-# # Length-controlled
-# resAnnot_top90SNPrm_lenCtrl <- CpG_GO_pipeline_lengthControlled(
-#   top90SNPrm, universe = universe,
-#   max_gap = 50, min_size = minimum_CpG_per_cluster, tss_window = 10000,
-#   control_length = TRUE)
-# # Found 1641 Entrez genes
-# # Controlling for gene length...
-# # Median gene length — foreground: 5,514 bp, universe: 3,100 bp, ratio: 1.78
-# # Length-matched universe: 16779 genes (was 32717)
-# # Running GO enrichment...
-# 
-# # Compare which terms survive
-# terms_original    <- resAnnot_top90SNPrm$BP@result %>% filter(p.adjust < 0.05) %>% pull(ID)
-# terms_lenCtrl     <- resAnnot_top90SNPrm_lenCtrl$BP@result %>% filter(p.adjust < 0.05) %>% pull(ID)
-# 
-# cat("BP terms before length control:", length(terms_original), "\n")
-# cat("BP terms after  length control:", length(terms_lenCtrl),  "\n")
-# cat("Terms lost:", length(setdiff(terms_original, terms_lenCtrl)), "\n")
-# cat("Terms gained:", length(setdiff(terms_lenCtrl, terms_original)), "\n")
-# 
-# df_all <- purrr::imap_dfr(resAnnot_top90SNPrm_lenCtrl, function(er, ont_name) {
-#   if (is.null(er) || nrow(er@result) == 0) return(tibble())
-#   as_tibble(er@result) |> 
-#     mutate(group_raw = "top90SNPrm", ontology = ont_name)
-# }) |> bind_rows()
-# 
-# df_all <- df_all |>
-#   mutate(
-#     group = "top90SNPrm",
-#     group = factor(group),
-#     ontology = factor(ontology, levels = c("BP", "MF", "CC"))
-#   )
-# 
-# # Filter significant terms
-# df_sig <- df_all |>
-#   filter(!is.na(p.adjust) & p.adjust < 0.05) |> 
-#   filter(Count > 10 & FoldEnrichment > 2) 
-# 
-# # Reorder by enrichment strength
-# df_sig <- df_sig |>
-#   group_by(ontology) |>
-#   mutate(Description = fct_reorder(Description, FoldEnrichment, .desc = TRUE)) |>
-#   ungroup()
-# 
-# <<<<<<< HEAD
-# write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
-#           quote = F, row.names = F)
-# 
-# =======
-#   <<<<<<< HEAD
-# write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
-#           quote = F, row.names = F)
-# 
-# =======
-#   <<<<<<< HEAD
-# =======
-#   write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
-#             quote = F, row.names = F)
-# 
-# >>>>>>> f4378a16865649083ff37e95e78135fd1036eeb7
-# >>>>>>> 6ff651eada8a7269cd0538e27365b7ce01a915a4
-# >>>>>>> 44923781579b28d6862056d849b5e5c1f3e87b32
-# # Plot
-# p <- ggplot(df_sig, aes(x = group, y = Description)) +
-#   geom_point(aes(size = FoldEnrichment, color = p.adjust), alpha = 0.9) +
-#   scale_size_continuous(name = "Fold Enrichment", 
-#                         range = c(1.5, 8), breaks = c(2, 2.5, 3, 3.5)) +  
-#   scale_color_viridis_c(name = "FDR", option = "plasma", direction = -1) +
-#   facet_wrap(ontology ~ ., scales = "free", space = "free_x") +
-#   theme_bw(base_size = 11) +
-#   labs(x = NULL, y = NULL, 
-#        title = "GO Enrichment: top90SNPrm (FDR < 0.05)") +
-#   theme(
-#     legend.position = "top",
-#     axis.text.y = element_text(size = 9),
-#     strip.text = element_text(face = "bold")
-#   )
-# 
-# print(p)
-# <<<<<<< HEAD
-# =======
-#   <<<<<<< HEAD
-# =======
-#   <<<<<<< HEAD
-# write.csv(df_sig, file = here("B_MultiTissues/dataOut/df_sig_GOtop90SNPrm.csv"),
-#           quote = F, row.names = F)
-# 
-# 
-# 
-# 
-# 
-# 
-# # ###########################################
-# # ## Test different p0 and p1 in raw alpha ##
-# # ###########################################
-# # 
-# # ## Sub test: just one small batch
-# # # R0 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250000CpGs_0_8p0_0_65p1.rds"))
-# # # R1 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250000CpGs_0_55p0_0_65p1.rds"))
-# # # R2 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250000CpGs_0_9p0_0_65p1.rds"))
-# # R3 <- readRDS(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/Atlas_batch001/results_atlas_general_250000CpGs_0_8p0_0_9p1.rds"))
-# # 
-# # # R0 <- data.table(alpha = as.vector(R0), param = "0.8p0_0.65p1", chr_pos = rownames(R0))
-# # # R1 <- data.table(alpha = as.vector(R1), param = "0.55p0_0.65p1", chr_pos = rownames(R1))
-# # # R2 <- data.table(alpha = as.vector(R2), param = "0.9p0_0.65p1", chr_pos = rownames(R2))
-# # R3 <- data.table(alpha = as.vector(R3), param = "0.8p0_0.9p1", chr_pos = rownames(R3))
-# # 
-# # # setkey(R0, chr_pos)
-# # # setkey(R1, chr_pos)
-# # # setkey(R2, chr_pos)
-# # setkey(R3, chr_pos)
-# 
-# # # Merge all into one wide table
-# # merged_dt <- R0[R1, .(chr_pos, alpha_R0 = alpha, alpha_R1 = i.alpha),
-# #                 on = "chr_pos", nomatch = NULL]
-# # merged_dt <- merged_dt[R2, .(chr_pos, alpha_R0, alpha_R1, alpha_R2 = i.alpha),
-# #                        on = "chr_pos", nomatch = NULL]
-# # merged_dt <- merged_dt[R3, .(chr_pos, alpha_R0, alpha_R1, alpha_R2, alpha_R3 = i.alpha),
-# #                        on = "chr_pos", nomatch = NULL]
-# # 
-# # # Reshape to long: one row per CpG per comparison vs R0
-# # plot_long <- merged_dt %>%
-# #   pivot_longer(cols = c(alpha_R1, alpha_R2, alpha_R3),
-# #                names_to = "param", values_to = "alpha_other") %>%
-# #   mutate(param = factor(param,
-# #                         levels = c("alpha_R1", "alpha_R2", "alpha_R3"),
-# #                         labels = c("p0=0.55, p1=0.65",
-# #                                    "p0=0.90, p1=0.65",
-# #                                    "p0=0.80, p1=0.90")))
-# # 
-# # # Plot: 3 panels, x = R0 baseline, y = alternative
-# # ggplot(plot_long, aes(x = alpha_R0, y = alpha_other)) +
-# #   geom_point(alpha = 0.15, size = 0.4) +
-# #   geom_abline(slope = 1, intercept = 0,
-# #               colour = "red", linetype = "dashed", linewidth = 0.5) +
-# #   facet_wrap(~ param, ncol = 3) +
-# #   labs(x     = "Pr(hv) baseline (p0=0.80, p1=0.65)",
-# #        y     = "Pr(hv) alternative parameters",
-# #        title = "Sensitivity to parameter choice (batch 001, 250 CpGs)") +
-# #   theme_minimal(base_size = 11) +
-# #   theme(strip.text = element_text(face = "bold"))
+# Build a small data.frame with one row per ME range
+df_me <- as.data.frame(mcols(putativeME_GR)) |>
+  mutate(
+    in_top99q       = overlap_top,
+    in_allButTop99q = overlap_all
+  )
 
+# Summaries per set
+summary_df <- df_me |>
+  group_by(set) |>
+  summarise(
+    n_total = n(),
+    n_in_top99q = sum(in_top99q),
+    pc_in_top99q = n_in_top99q/n_total*100,
+    n_in_allButTop99q = sum(in_allButTop99q),
+    pc_in_allButTop99q = n_in_allButTop99q/n_total*100,
+    n_in_both = sum(in_top99q & in_allButTop99q),   # non 0 if region rather than CpG
+    pc_in_both = n_in_both/n_total*100,
+    n_in_neither = n_total - n_in_top99q - n_in_allButTop99q + n_in_both,
+    pc_in_neither = n_in_neither/n_total*100)
+
+## Format pretty
+summary_df %>%
+  mutate(across(starts_with("pc_"), ~ scales::percent(.x / 100, accuracy = 0.1))) %>%
+  gt() %>%
+  fmt_number(columns = starts_with("n_"), decimals = 0) %>%
+  cols_label(
+    set = "Putative ME set",
+    n_total = "Total CpG sites or regions",
+    n_in_top99q = "N in top 99q CpGs",
+    pc_in_top99q = "%",
+    n_in_allButTop99q = "N in all but top 99q CpGs",
+    pc_in_allButTop99q = "%",
+    n_in_both = "N in both groups",
+    pc_in_both = "%",
+    n_in_neither = "N CpGs not covered",
+    pc_in_neither = "%"
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "lightblue"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(
+    table.font.size = 13,
+    data_row.padding = px(3)
+  )
+
+## Screenshot saved in figures/topCpGsEnrichME_table.png
+
+######################################################################
+## Check enrichement of telomeres and centromeres for high geomMean ##
+######################################################################
+
+# Centromeres (from cytoBand - acen bands)
+# wget -qO- https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz \
+# | zcat | awk '$5=="acen"' > centromeres_hg38.bed
+
+# 1. Parse coordinates from name vectors
+parse_cpg_names <- function(names_vec) {
+  dt <- data.table(name = names_vec)
+  dt[, chr := sub("^(chr[^_]+)_.*", "\\1", name)]        # "chr1"
+  dt[, pos := as.integer(sub("^chr[^_]+_(\\d+)$", "\\1", name))]
+  dt[, pos_end := pos]
+  dt
+}
+
+getEnrichCentroTelo <- function(){
+  top <- top99q_CpGs
+  hv_dt <- parse_cpg_names(top)
+  totalSites <- table3layers_coveredIn3$chr_pos
+  total_dt <- parse_cpg_names(totalSites)  # all background sites
+  
+  # 2. Load regions
+  centro <- fread(here("gitignore/centromeres_hg38.bed"),
+                  col.names = c("chr", "start", "end", "band", "stain"))
+  centro[, region := "centromere"]
+  
+  # Add 1Mb subtelomeric buffer using chrom sizes
+  chrom_sizes <- fread("https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/chromInfo.txt.gz",
+                       col.names = c("chr", "size", "file"))
+  chrom_sizes  <- chrom_sizes[chr %in% paste0("chr", c(1:22, "X", "Y"))]
+  SUBTELO_DIST <- 1e6
+  
+  subtelo <- rbind(
+    chrom_sizes[, .(chr, start = 0L, end = as.integer(SUBTELO_DIST), region = "subtelomere")],
+    chrom_sizes[, .(chr, start = as.integer(size - SUBTELO_DIST), end = size, region = "subtelomere")]
+  )
+  
+  regions <- rbind(
+    centro[, .(chr, start, end, region)],
+    subtelo[, .(chr, start, end, region)]
+  )
+  setkey(regions, chr, start, end)
+  
+  # 3. Overlap function
+  get_region_hits <- function(dt, regions) {
+    setkey(dt, chr, pos, pos_end)
+    hits <- foverlaps(dt, regions,
+                      by.x = c("chr", "pos", "pos_end"),
+                      by.y = c("chr", "start", "end"),
+                      type = "within", nomatch = NULL)
+    unique(hits$name)  # CpG names overlapping any region
+  }
+  
+  hv_in_centro    <- get_region_hits(copy(hv_dt),    regions[region == "centromere"])
+  hv_in_subtelo   <- get_region_hits(copy(hv_dt),    regions[region == "subtelomere"])
+  bg_in_centro    <- get_region_hits(copy(total_dt), regions[region == "centromere"])
+  bg_in_subtelo   <- get_region_hits(copy(total_dt), regions[region == "subtelomere"])
+  
+  # 4. Contingency tables + Fisher test
+  enrich_test <- function(hv_in, bg_in, hv_all, bg_all, label) {
+    a <- length(hv_in)                        # hvCpG in region
+    b <- length(hv_all) - a                   # hvCpG outside
+    c <- length(bg_in)                        # background in region
+    d <- length(bg_all) - c                   # background outside
+    
+    mat <- matrix(c(a, b, c, d), nrow = 2,
+                  dimnames = list(c("in_region", "outside"),
+                                  c("hvCpG", "background")))
+    
+    ft  <- fisher.test(mat, alternative = "greater")
+    pct_hv <- round(100 * a / length(hv_all), 2)
+    pct_bg <- round(100 * c / length(bg_all), 2)
+    fold   <- round(pct_hv / pct_bg, 2)
+    
+    cat("\n──", label, "──\n")
+    cat("  hvCpGs in region:     ", a, "/", length(hv_all),
+        paste0("(", pct_hv, "%)"), "\n")
+    cat("  Background in region: ", c, "/", length(bg_all),
+        paste0("(", pct_bg, "%)"), "\n")
+    cat("  Fold enrichment:      ", fold, "\n")
+    cat("  Fisher p (one-sided): ", ft$p.value, "\n")
+    cat("  Odds ratio:           ", round(ft$estimate, 2), "\n")
+  }
+  
+  enrich_test(hv_in_centro,  bg_in_centro,  top, totalSites, "Centromere")
+  enrich_test(hv_in_subtelo, bg_in_subtelo, top, totalSites, "Subtelomere (1Mb)")
+}
+
+getEnrichCentroTelo()
+# ── Centromere ──
+# hvCpGs in region:      3413 / 215226 (1.59%)
+# Background in region:  190918 / 21522541 (0.89%)
+# Fold enrichment:       1.79
+# Fisher p (one-sided):  3.072442e-210
+# Odds ratio:            1.8
+# 
+# ── Subtelomere (1Mb) ──
+# hvCpGs in region:      4840 / 215226 (2.25%)
+# Background in region:  482013 / 21522541 (2.24%)
+# Fold enrichment:       1
+# Fisher p (one-sided):  0.3887386
+# Odds ratio:            1
+
+#######################
+## Test GO of top 1% ##
+#######################
+
+totalSites <- table3layers_coveredIn3$chr_pos
+if (!exists("top99q_CpGs")){
+  top99q <- quantile(table3layers_coveredIn3$logBF_per_ds_allLayers, probs = 0.99, na.rm = FALSE)
+  top99q_CpGs <- table3layers_coveredIn3[table3layers_coveredIn3$logBF_per_ds_allLayers >= top99q, ]$chr_pos
+}
+
+# Method. ClusterProfiler
+## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
+## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
+## 3. run GO term enrichment with clusterProfiler::enrichGO
+
+minimum_CpG_per_cluster = 2
+
+## Create universe
+universe <- annotateCpGs_txdb(
+  clusterCpGs(totalSites, max_gap = 50, min_size = minimum_CpG_per_cluster),
+  tss_window = 10000)
+
+print(paste0("Gene universe contains ", length(universe), " genes"))
+## "Gene universe contains 32717 genes"
+
+fg_bypass  <- unique(cpg_cluster_count_per_gene(top99q_CpGs)$entrez_id)
+fg_wrapper <- annotateCpGs_txdb(clusterCpGs(top99q_CpGs, 50, 2), 10000)
+length(intersect(fg_bypass, fg_wrapper)) / length(union(fg_bypass, fg_wrapper))  # want ≈ 1
+# 1 
+## The Jaccard is 1.0 --> the cpg_cluster_count_per_gene counts genes under exactly 
+# the same body∪promoter rule as the annotation wrapper. The CpG-count covariate is valid.
+
+# WGBS-correct control
+res_cpg <- CpG_GO_pipeline_lengthControlled(
+  top99q_CpGs, universe = universe,
+  control_method = "cpg_count", all_sites = totalSites)
+# Median clustered CpGs/gene — foreground: 1191.0, universe: 343.0, ratio: 3.47
+# Matched universe: 12086 genes (was 32717)
+# Foreground genes in matched universe: 2335 / 2335 (100.0%)
+# Running GO enrichment...
+
+# for the sensitivity table, also run the other two
+res_len  <- CpG_GO_pipeline_lengthControlled(top99q_CpGs, universe = universe,
+                                             control_method = "length")
+# Found 2335 Entrez genes
+# Controlling for gene length (bp)...
+# Median gene length — foreground: 5,214 bp, universe: 3,100 bp, ratio: 1.68
+# Matched universe: 13864 genes (was 32717)
+# Foreground genes in matched universe: 2335 / 2335 (100.0%)
+# Running GO enrichment...
+
+# NB. The density bias is severe. Foreground genes have a median of 1,191 clustered CpGs
+# vs 343 in the universe = a 3.47× ratio. That's much larger than the length bias (1.68×),
+# which confirms that for WGBS, CpG density, not bp length, is the dominant confound. 
+# --> The top99q genes aren't just longer, they're vastly more CpG-dense.
+
+res_none <- CpG_GO_pipeline_lengthControlled(top99q_CpGs, universe = universe,
+                                             control_method = "none")
+# Found 2335 Entrez genes
+# Matched universe: 32717 genes (was 32717)
+# Foreground genes in matched universe: 2335 / 2335 (100.0%)
+# Running GO enrichment...
+
+sapply(list(none = res_none, length = res_len, cpg = res_cpg),
+       function(r) sum(r$BP@result$p.adjust < 0.05, na.rm = TRUE))
+# none length    cpg 
+# 17      5      1 
+
+lapply(list(none = res_none, length = res_len, cpg = res_cpg),
+       function(r) r$BP@result %>% filter(p.adjust < 0.05) %>% pull(Description) %>% head(20))
+# $none
+# [1] "homophilic cell-cell adhesion"                        
+# [2] "synapse assembly"                                     
+# [3] "cell morphogenesis involved in neuron differentiation"
+# [4] "axonogenesis"                                         
+# [5] "cell junction assembly"                               
+# [6] "axon development"                                     
+# [7] "neuron recognition"                                   
+# [8] "axon guidance"                                        
+# [9] "neuron projection guidance"                           
+# [10] "negative chemotaxis"                                  
+# [11] "negative regulation of cAMP/PKA signal transduction"  
+# [12] "regulation of synapse assembly"                       
+# [13] "positive regulation of synapse assembly"              
+# [14] "regulation of neuron projection development"          
+# [15] "dendrite development"                                 
+# [16] "regulation of postsynaptic membrane potential"        
+# [17] "regulation of axonogenesis"                           
+# 
+# $length
+# [1] "homophilic cell-cell adhesion" "cell junction organization"   
+# [3] "synapse assembly"              "synapse organization"         
+# [5] "neuron recognition"           
+# 
+# $cpg
+# [1] "homophilic cell-cell adhesion"
+
+## --> Likely, the broad neurodevelopmental signature is largely a CpG-density artefact, not an ME signal.
+
+## cpg_count matching can under-power the protocadherin signal specifically,
+# because the PCDH clusters are so CpG-dense that few comparable genes exist to match them
+# so if adhesion terms weaken here, that's not proof they're artefactual.
+
+## Direct test of prothocadherin
+
+pcdh <- GRanges("chr5", IRanges(140710000, 141510000))     # hg38 PCDH clusters
+top_gr <- makeGRfromMyCpGPos(top99q_CpGs, "top99q")
+bg_gr  <- makeGRfromMyCpGPos(totalSites,  "bg")
+obs <- sum(overlapsAny(top_gr, pcdh))
+exp <- length(top_gr) * mean(overlapsAny(bg_gr, pcdh))
+c(observed = obs, expected = exp, fold = obs / exp)
+# observed   expected       fold 
+# 146.000000 108.720298   1.342896
+
+in_top <- sum(overlapsAny(top_gr, pcdh))
+in_bg  <- sum(overlapsAny(bg_gr,  pcdh))
+mat <- matrix(c(in_top, length(top_gr) - in_top,
+                in_bg,  length(bg_gr)  - in_bg), nrow = 2, byrow = TRUE)
+fisher.test(mat, alternative = "greater")   # p-value + CI for the 1.34x
+# Fisher's Exact Test for Count Data
+# 
+# data:  mat
+# p-value = 0.0004053
+# alternative hypothesis: true odds ratio is greater than 1
+# 95 percent confidence interval:
+#  1.164533      Inf
+# sample estimates:
+# odds ratio 
+#   1.343126 
+
+## --> top99q CpGs are 1.34× enriched at the PCDH clusters (146 observed vs 109 expected)
+## one term survives the most conservative control, and it's the biologically expected one.
+
+# # a naive GO enrichment shows a broad neurodevelopmental signature (17 BP terms),
+# but this is largely attributable to the higher CpG density of the foreground genes
+# (3.5× the universe); after matching the background on per-gene CpG count,
+# only homophilic cell-cell adhesion remains, driven by enrichment at the clustered
+# protocadherin locus on chr5 (Fisher's exact test OR = 1.34, p = 0.0004), a
+# a known systemically-variable ME region.
