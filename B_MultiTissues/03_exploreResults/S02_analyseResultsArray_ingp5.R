@@ -167,6 +167,38 @@ ggplot2::ggsave(
 ## Compare p0/p1 settings — one metric decides: sensitivity at fixed specificity
 ################################################################################
 
+## 1. one by the other
+slim <- function(x) {
+  x <- as.data.table(x)[, .(chrpos, logBF_per_ds)]
+  setkey(x, chrpos)
+  x
+}
+
+a <- slim(resArray_0_65p0_0_65p1); setnames(a, "logBF_per_ds", "lp_65")
+b <- slim(resArray_0_9p0_0_9p1);   setnames(b, "logBF_per_ds", "lp_90")
+
+m <- a[b, nomatch = 0]   # inner join on the shared key — CpGs present in both
+rm(a, b); gc()
+
+cor_val <- m[, cor(lp_65, lp_90, use = "complete.obs")]   # on ALL rows, not the subsample
+
+plot65by90 <- ggplot(m, aes(lp_65, lp_90)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey40") +
+  annotate("text", x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
+           label = sprintf("Pearson's r = %.3f", cor_val)) +
+  labs(x = "Hypervariability score (p0=0.65, p1=0.65)",
+       y = "Hypervariability score (p0=0.9,  p1=0.9)") +
+  theme_minimal(base_size = 13)
+
+ggplot2::ggsave(
+  filename = here::here("B_MultiTissues/dataOut/figures/script02/plot65by90.png"),
+  plot = plot65by90,
+  width = 6, height = 6,
+  dpi = 300, bg = "white")
+
+## 2. more detailed choice (ROC curve)
+
 # ── load one settings file, label the two control groups, return scored data ──
 load_scored <- function(file, base, score = "logBF_per_ds") {
   dat <- prepareChrDataset(as.data.frame(readRDS(file.path(base, file))))
@@ -227,9 +259,12 @@ ggplot2::ggsave(
 makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
                            label = "logBF per ds", shift = TRUE){
   
+  setDT(resArray)
   if (shift){
-    message("We shift the score so it starts at zero")
-    resArray[[score]] <- resArray[[score]] + abs(min(resArray[[score]]))
+    message("We shift the score so it starts at zero (for the Manhattan and violin only)")
+    resArray[, score_shifted := get(score) + abs(min(get(score), na.rm = TRUE))]
+  } else {
+    resArray[, score_shifted := get(score)]
   }
   
   # Plot
@@ -251,13 +286,13 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
   p1_manhattanArray <- ggplot() +
     # background cloud: alternating grey per chromosome
     geom_point(data = resArray[is.na(group)],
-               aes(x = cum_pos, y = .data[[score]], colour = parity),
+               aes(x = cum_pos, y = .data[["score_shifted"]], colour = parity),
                alpha = .4, size = .8) +
     scale_colour_manual(values = band_cols, na.translate = FALSE, guide = "none") +
     # highlighted sets keep their own colour scale
     ggnewscale::new_scale_colour() +
     geom_point(data = resArray[!is.na(group)],
-               aes(x = cum_pos, y = .data[[score]], colour = group), alpha = .6, size = 1) +
+               aes(x = cum_pos, y = .data[["score_shifted"]], colour = group), alpha = .6, size = 1) +
     scale_colour_manual(values = c("hvCpG_Derakhshan" = "#DC3220",
                                    "mQTLcontrols"     = "#005AB5"),
                         labels = c("hvCpG_Derakhshan" = "Derakhshan hvCpG",
@@ -300,10 +335,10 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
   )
   
   # Merge hvCpG logBFs
-  hv_score <- resArray[, .(hvCpG = chrpos, score_hvCpG = get(score))]
+  hv_score <- resArray[, .(hvCpG = chrpos, score_hvCpG = score_shifted)]
   
   # Merge control logBFs
-  ctrl_score <- resArray[, .(control = chrpos, score_control = get(score))]
+  ctrl_score <- resArray[, .(control = chrpos, score_control = score_shifted)]
   
   # Join everything
   merged <- pairs %>%
@@ -356,21 +391,24 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
     mycor <- cor(resCompArray$logBF_per_ds_array_all,
                  resCompArray$logBF_per_ds_array_reduce, use = "complete.obs")
     
+    xr <- range(resCompArray$logBF_per_ds_array_all,    na.rm = TRUE)
+    yr <- range(resCompArray$logBF_per_ds_array_reduce, na.rm = TRUE)
+    
     ggplot(resCompArray,
-           aes(x=logBF_per_ds_array_all, y=logBF_per_ds_array_reduce)) +
-      geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group),
-                 alpha = 0.01) +
-      geom_point(data = resCompArray[!is.na(resCompArray$group),], aes(col = group),
-                 alpha = 0.4) +
+           aes(x = logBF_per_ds_array_all, y = logBF_per_ds_array_reduce)) +
+      geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group), alpha = 0.01) +
+      geom_point(data = resCompArray[!is.na(resCompArray$group),], aes(col = group), alpha = 0.4) +
       geom_smooth(method = "lm", fill = "grey", col = "grey") +
       scale_color_manual(values = c("#DC3220", "#005AB5", "grey"),
                          labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
+      # anchor annotation to data corner, not to 0.5/0.9
+      annotate("text", x = xr[1], y = yr[2], hjust = 0, vjust = 1,
+               label = sprintf("Pearson r = %.2f", mycor)) +
+      coord_cartesian(xlim = xr, ylim = yr) +          # explicit, data-driven — nothing clipped
       theme_minimal(base_size = 14) +
       theme(legend.title = element_blank()) +
-      annotate("text", x = .5, y = .9, label = sprintf("Pearson correlation:\n r = %.2f\n", mycor)) +
-      labs(title = element_blank(),
-           x = "Hypervariability score using full datasets",
-           y = paste0("Hypervariability score using reduced (", N, " ind/ds) datasets")) 
+      labs(x = "Hypervariability score, full datasets",
+           y = sprintf("Hypervariability score, reduced (%d ind/ds)", N))
   }
   
   resArray3ind <- as.data.frame(readRDS(here(paste0(
@@ -419,11 +457,8 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
   
   plot_venn3 # "Cutoff algorithm"
   
-  ## How many CpGs detected by the cutoff method on full data?
-  K <- length(x$`Full array`) ## 4377
-  
-  ### Bayesian method
-  ## Rank within each analysis, take each analysis's own top-K
+  ## K = full-data cutoff hits (already computed): length(x$`Full array`)
+  K <- length(x$`Full array`)
   
   topK <- function(dt, score_col, k = K) {
     dt  <- as.data.frame(dt)
@@ -432,44 +467,37 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
     dt$chrpos[ok][ord][seq_len(min(k, sum(ok)))]
   }
   
-  full_top <- topK(resCompArray_allvs3, "logBF_per_ds_array_all")     # full-datasets ranking
-  red3_top <- topK(resCompArray_allvs3, "logBF_per_ds_array_reduce")  # 3-ind ranking
-  red2_top <- topK(resCompArray_allvs2, "logBF_per_ds_array_reduce")  # 2-ind ranking
+  # ---- Bayesian: top-K per analysis ----
+  full_top <- topK(resCompArray_allvs3, "logBF_per_ds_array_all")
+  red3_top <- topK(resCompArray_allvs3, "logBF_per_ds_array_reduce")
+  red2_top <- topK(resCompArray_allvs2, "logBF_per_ds_array_reduce")
   
-  y <- list(
-    "Full \ndatasets"     = full_top,
-    "2 ind per \ndataset"  = red2_top,
-    "3 ind per dataset"   = red3_top
+  # ---- Cutoff: from the saved Venn list x ----
+  cut_full <- x$`Full array`
+  cut_2    <- x$`Array 2 ind/ds`
+  cut_3    <- x$`Array 3 ind/ds`
+  
+  recovery <- data.frame(
+    method   = c("Bayesian","Bayesian","Cutoff","Cutoff"),
+    n_ind    = c(2, 3, 2, 3),
+    n_full   = c(length(full_top), length(full_top), length(cut_full), length(cut_full)),
+    n_recovered = c(
+      length(intersect(full_top, red2_top)),
+      length(intersect(full_top, red3_top)),
+      length(intersect(cut_full, cut_2)),
+      length(intersect(cut_full, cut_3))
+    )
   )
-  
-  plot_venn3_Bayes <- ggVennDiagram(y, label = "both", label_alpha = 0,
-                                    label_color = "white", category.names =
-                                      c("Full \ndatasets","2 ind per \ndataset", "3 ind per dataset")) +
-    scale_fill_gradient(low = "grey", high = "black") +
-    theme(legend.position = "none")+
-    coord_cartesian(xlim = c(-5, 10), ylim = c(-10, 5), clip = "off")
-  
-  plot_venn3_Bayes
-  
-  lab <- list(size = 14, x = 0.01, y = 0.99, hjust = 0, vjust = 1)
-  mg  <- theme(plot.margin = margin(15, 5, 5, 5))
-  
-  row2_1 <- cowplot::plot_grid(
-    plot_venn3      + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
-    plot_venn3_Bayes + theme_void(base_size = 10) + theme(legend.position = "none", plot.margin = margin(40, 5, 5, 5)),
-    labels = c("C. Detection of highly variable CpGs \nwith reduced datasets (cutoff)",
-               "D. Detection of highly variable CpGs \nwith reduced datasets (Bayesian)"), nrow = 1,
-    label_size = lab$size, label_x = lab$x, label_y = lab$y,
-    hjust = lab$hjust, vjust = lab$vjust)
-  
+  recovery$pct_recovered <- round(100 * recovery$n_recovered / recovery$n_full, 1)
+  print(recovery)
   row2_2 <- cowplot::plot_grid(
     p2ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
     p3ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
-    labels = c("E. Bayesian: full vs 2 ind/ds", "F. Bayesian: full vs 3 ind/ds"), nrow = 1,
+    labels = c("C. Bayesian: full vs 2 ind/ds", "D. Bayesian: full vs 3 ind/ds"), nrow = 1,
     label_size = lab$size, label_x = lab$x, label_y = lab$y,
     hjust = lab$hjust, vjust = lab$vjust)
   
-  row2 <- cowplot::plot_grid(row2_1, row2_2)
+  row2 <- cowplot::plot_grid(row2_2)
   
   figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
   
@@ -477,6 +505,11 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
 }
 
 fig2 <- makeScript2Fig(resArray_0_8p0_0_65p1, path = pathNew, p0p1 = "0_8p0_0_65p1")
+# method n_ind n_full n_recovered pct_recovered
+# 1 Bayesian     2   4377        1273          29.1
+# 2 Bayesian     3   4377        1644          37.6
+# 3   Cutoff     2   4377         143           3.3
+# 4   Cutoff     3   4377         693          15.8
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/Fig2_newAug26_resArray_0_8p0_0_65p1.png"),
