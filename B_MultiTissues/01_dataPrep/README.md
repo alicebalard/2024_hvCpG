@@ -1,310 +1,189 @@
 # CpG Methylation Data Preparation Pipeline
 
-Modular pipeline for preparing CpG methylation data for hvCpG analysis.
-Handles WGBS atlas data (`.beta` files) and Illumina array data (`.RDS` / `.h5`).
+Prepares WGBS atlas methylation data (`.beta` files) into HDF5 matrices for hvCpG analysis.
+One metadata source, one runner, many presets.
 
 ---
 
-## File structure
+## What it does (in order)
 
+For each preset, the runner performs three steps:
+
+1. **Filter metadata** (`prepare_metadata.py`) — takes the master table
+   `SupTab1_Loyfer2023_amended.csv`, applies the preset's row/group/sampling
+   filters, and writes a filtered sample list. Analysis groups are always
+   `Source Tissue + " - " + Cell type`.
+
+2. **Build the beta matrix** (`prepare_beta_matrices.py`) — reads the `.beta`
+   files for the selected samples, applies coverage and CpG-exclusion masks,
+   keeps CpGs covered in enough datasets, and writes an HDF5 matrix.
+
+3. **Compute per-dataset stats** (`cpg_utils.py`) — median SD and lambda are
+   computed **once, at the end**, on the final filtered CpG set only.
+
+Everything runs with one command:
+
+```bash
+bash run_pipeline_atlas.sh --preset 13_meso
 ```
-cpg_pipeline/
-├── cpg_utils.py                       ← Shared core library
-├── prepare_metadata.py                ← Step 1: annotate & filter metadata
-├── prepare_beta_matrices.py           ← Step 2: WGBS .beta files → HDF5
-├── run_pipeline_atlas.sh              ← One-command runner (16 presets)
-├── SupTab1_Loyfer2023_amended.csv     ← Single metadata source file
-└── README.md
-```
+
+Outputs land in `${WGBS_DIR}/output_<preset>/` (see **Outputs** below).
 
 ---
 
-## Key design principles
+## Prerequisites
 
-**Median SD and lambda are computed AFTER the final CpG selection step.**
-`compute_stats_on_filtered_matrix()` in `cpg_utils.py` is the single
-point of truth — called at the end of every entry-point script, after
-the `min_datasets` coverage filter has been applied.
+```bash
+pip install numpy pandas h5py bottleneck pyreadr
+```
 
-**All 18 `prepare_metadata_*.py` scripts are replaced by one.**
-`prepare_metadata.py` accepts composable flags; every original script
-maps to a specific flag combination documented below.
-
-**CpG site exclusion happens at the earliest possible point.**
-Pass `--exclude_sites` a plain-text file (one `chr_pos` per line) to
-any matrix-building script. For WGBS data the mask is applied before
-Pass 1, so excluded sites never accumulate coverage counts. For array
-data it is applied immediately after the common CpG set is determined,
-before alignment and NA filtering. Either way, excluded sites cannot
-appear in the final matrix, statistics, or CpG name list.
+Before any SD-ASM-excluded run, build the SD-ASM blacklist once (see
+**Exclusion → both**).
 
 ---
 
 ## Quick start
 
 ```bash
-# Run any of the analysis cases:
+# default run (SNP-excluded, see below)
 bash run_pipeline_atlas.sh --preset atlas_general
-bash run_pipeline_atlas.sh --preset 10_noImmune
-bash run_pipeline_atlas.sh --preset 17_pairs_MF
 
-# Override data directory or thresholds:
-DATA_DIR=/my/data bash run_pipeline_atlas.sh --preset 12_endo
-MIN_DATASETS_ATLAS=30 bash run_pipeline_atlas.sh --preset 06_bothsexes6gp
+# override data dir / thresholds
+DATA_DIR=/my/data       bash run_pipeline_atlas.sh --preset 12_endo
+MIN_DATASETS_ATLAS=30   bash run_pipeline_atlas.sh --preset 06_bothsexes6gp
 
-# Exclude a blacklist of CpG sites (applies to all presets):
-EXCLUDE_SITES=/data/snp_cpgs.txt bash run_pipeline_atlas.sh --preset 10_noImmune
-
-# Use a config file:
-bash run_pipeline_atlas.sh --config my_config.sh
+# submit to the cluster (pass env with -v)
+qsub -v EXCLUDE_MODE=both run_pipeline_atlas.sh --preset 13_meso
 ```
+
+Batch submission lives in `toQsub.txt`.
 
 ---
 
-## All presets
+# Details
+
+## Presets
 
 | Preset | What it does |
 |---|---|
-| `atlas_general` | All data, Source Tissue - Cell type grouping (baseline) |
+| `atlas_general` | All data, tissue–celltype grouping (baseline) |
 | `02_rmMultSamples` | One sample per PatientID |
 | `04_maleOnly` | Groups where all samples are male |
-| `05_femaleOnly6gp` | Female-only groups, sample 6 |
-| `06_bothsexes6gp` | Mixed-sex groups, sample 6 |
+| `05_femaleOnly6gp` | Female-only groups, sampled to 6 |
+| `06_bothsexes6gp` | Mixed-sex groups, sampled to 6 |
 | `09_immuneOnly` | Immune cells only |
 | `10_noImmune` | No immune cells |
-| `11_noImmune_sample11gp` | No immune, sample 11 groups |
-| `12_endo` | Endoderm only |
-| `12_2_endo6gp` | Endoderm, sample 6 groups |
-| `13_meso` | Mesoderm only |
-| `13_2_meso6gp` | Mesoderm, sample 6 groups |
+| `11_noImmune_sample11gp` | No immune, sampled to 11 groups |
+| `12_endo` / `12_2_endo6gp` | Endoderm (all / sampled to 6) |
+| `13_meso` / `13_2_meso6gp` | Mesoderm (all / sampled to 6) |
 | `14_ecto` | Ectoderm only |
-| `15_pairs_MM` | Sample 2 males per group |
-| `16_pairs_FF` | Sample 2 females per group |
-| `17_pairs_MF` | Sample 1M + 1F per group |
+| `15_pairs_MM` / `16_pairs_FF` / `17_pairs_MF` | 2 individuals per group (MM / FF / MF) |
 
 ---
 
-## `prepare_metadata.py` — all options
+## CpG exclusion (`EXCLUDE_MODE`)
 
-Analysis group is always built as `Source Tissue + " - " + Cell type`.
+CpGs can be masked before matrix building. Controlled by one variable:
 
-### Row-level filters
+| `EXCLUDE_MODE` | Excludes | Output folder suffix |
+|---|---|---|
+| `snp` *(default)* | SNP-overlapping CpGs (MAF > 0.01) | *(none)* → `output_<preset>` |
+| `both` | SNPs **+** all CpGs in SD-ASM regions | `_noSDASM` → `output_<preset>_noSDASM` |
+| `none` | nothing | *(none)* |
 
-| Argument | Description |
-|---|---|
-| `--exclude_immune` | Drop rows where `Immune? == True` |
-| `--germ_layer LAYER` | Keep rows where `Germ layer == LAYER` (Endo / Meso / Ecto) |
-| `--dedup_col COL` | Keep first row per unique value of COL (e.g. `PatientID`) |
-| `--keep_col COL --keep_val VAL` | Keep rows where COL == VAL. Repeatable. |
-| `--drop_col COL --drop_val VAL` | Drop rows where COL == VAL. Repeatable. |
+The suffix means a `both` run never overwrites the corresponding `snp` run —
+the two sit side by side, so you can compare with vs without SD-ASM.
 
-### Group-level filters
-
-| Argument | Description |
-|---|---|
-| `--sex_filter M\|F` | Keep groups where ALL samples have this sex |
-| `--mixed_sex` | Keep groups with BOTH at least one M and one F |
-| `--keep_groups_col COL --keep_groups_val VAL` | Keep groups where all rows match |
-
-### Sampling
-
-| Argument | Description |
-|---|---|
-| `--sample_n_groups N` | Randomly sample up to N eligible groups |
-| `--min_per_group N` | Minimum samples per group for eligibility (default: 3) |
-| `--pairs MM\|FF\|MF` | Sample exactly 2 individuals per group (MM/FF/MF) |
-| `--n_groups N` | Cap on groups when using `--pairs` |
-| `--seed N` | Random seed (default: 42) |
-
-### Flag combinations for each preset
+Source lists (override paths via `SNP_SITES` / `SDASM_SITES` if needed):
 
 ```bash
-# General (baseline) — no extra flags
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv
+bash run_pipeline_atlas.sh --preset 13_meso                     # snp (default)
+EXCLUDE_MODE=both bash run_pipeline_atlas.sh --preset 13_meso   # snp + SD-ASM
+EXCLUDE_MODE=none bash run_pipeline_atlas.sh --preset 13_meso   # nothing
+```
 
-# 02 — rmMultSamples
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --dedup_col "PatientID"
+### Building the SD-ASM blacklist (once, before `both`)
 
-# 04 — maleOnly
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --sex_filter M
+SD-ASM data are *regions*; the pipeline excludes by *point* (`chr_pos`).
+`SD-ASMprep.R` expands regions to the CpGs inside them, using the **same
+`CpG.bed`** the pipeline uses (coordinates must match, or exclusion silently
+does nothing):
 
-# 05 — femaleOnly6gp
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --sex_filter F --sample_n_groups 6
+```r
+source("B_MultiTissues/01_dataPrep/SD-ASMprep.R")   # builds SDASM_GR
+writeSDASM_blacklist(
+  SDASM_GR,
+  cpg_bed  = "/…/hg38/CpG.bed.gz",              # SAME as pipeline --cpg_bed
+  out_file = "gitignore/sdasm_all_chr_pos.txt"  # default SDASM_SITES path
+)
+```
 
-# 06 — bothsexes6gp
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --mixed_sex --sample_n_groups 6
+> **Downstream note:** for `both` runs, read results from
+> `output_<preset>_noSDASM` — e.g. in R set `analysis = "13_meso_noSDASM"`.
 
-# 09 — immuneOnly
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --keep_col "Immune?" --keep_val True
+---
 
-# 10 — noImmune
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --exclude_immune
+## `prepare_metadata.py` — filters
 
-# 11 — noImmune_sample11groups
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --exclude_immune --sample_n_groups 11
+Groups are always `Source Tissue + " - " + Cell type`.
 
-# 12 — endo
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --germ_layer Endo
+**Row filters:** `--exclude_immune` · `--germ_layer Endo|Meso|Ecto` ·
+`--dedup_col COL` · `--keep_col COL --keep_val VAL` · `--drop_col COL --drop_val VAL`
 
-# 12.2 — endo6gp
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --germ_layer Endo --sample_n_groups 6
+**Group filters:** `--sex_filter M|F` (all samples one sex) · `--mixed_sex`
+(both present) · `--keep_groups_col COL --keep_groups_val VAL`
 
-# 13 — meso
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --germ_layer Meso
+**Sampling:** `--sample_n_groups N` · `--min_per_group N` (default 3) ·
+`--pairs MM|FF|MF` · `--n_groups N` · `--seed N` (default 42)
 
-# 13.2 — meso6gp
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --germ_layer Meso --sample_n_groups 6
+Preset → flags (representative examples; the rest follow the same pattern):
 
-# 14 — ecto
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --germ_layer Ecto
-
-# 15 — pairs_MM
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --pairs MM
-
-# 16 — pairs_FF
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --pairs FF
-
-# 17 — pairs_MF
-python prepare_metadata.py --meta SupTab1_Loyfer2023_amended.csv --pairs MF
+```bash
+02_rmMultSamples   --dedup_col PatientID
+04_maleOnly        --sex_filter M
+06_bothsexes6gp    --mixed_sex --sample_n_groups 6
+10_noImmune        --exclude_immune
+13_meso            --germ_layer Meso
+13_2_meso6gp       --germ_layer Meso --sample_n_groups 6
+17_pairs_MF        --pairs MF
 ```
 
 ---
 
-## Step-by-step usage
-
-### Step 1 — Prepare metadata
-
-```bash
-python prepare_metadata.py \
-  --meta SupTab1_Loyfer2023_amended.csv \
-  [filter flags]
-```
-
-### Step 2 — Build WGBS beta matrix
-
-```bash
-python prepare_beta_matrices.py \
-  --beta_files "/data/betaFiles/GSM*.hg38.beta" \
-  --cpg_bed   /data/hg38/CpG.bed.gz \
-  --output_folder /data/output/atlas_general \
-  --meta      atlas_general.csv \
-  --minCov    10 \
-  --min_samples 3 \
-  --min_datasets 46 \
-  --chunk_size 100000 \
-  --output_prefix all \
-  --exclude_sites /data/snp_blacklist.txt   # optional
-```
+## `prepare_beta_matrices.py` — key arguments
 
 | Argument | Default | Description |
 |---|---|---|
-| `--beta_files` | required | Glob pattern for `.beta` files |
-| `--cpg_bed` | required | CpG BED reference (`.bed` or `.bed.gz`) |
-| `--meta` | required | Filtered metadata CSV (output of Step 1) |
+| `--beta_files` | required | Glob for `.beta` files |
+| `--cpg_bed` | required | CpG BED reference (`.bed`/`.bed.gz`) |
+| `--meta` | required | Filtered metadata (from Step 1) |
 | `--minCov` | 10 | Min read coverage per site |
 | `--min_samples` | 3 | Min samples per group |
 | `--min_datasets` | 46 | Min datasets per CpG |
-| `--chunk_size` | 100000 | Rows per processing chunk |
-| `--id_pattern` | `r'-([A-Za-z0-9_]+)\.hg38\.beta$'` | Regex to extract sample ID from filename |
-| `--lambda_percentile` | 95 | Percentile for lambda = perc/median |
-| `--exclude_sites` | — | Text file of `chr_pos` sites to exclude (applied before Pass 1) |
+| `--chunk_size` | 100000 | Rows per chunk |
+| `--lambda_percentile` | 95 | lambda = percentile / median SD |
+| `--exclude_sites` | — | `chr_pos` blacklist (applied before Pass 1) |
 
 ---
 
-## CpG site exclusion
+## Outputs (per preset, in `output_<preset>[_noSDASM]/`)
 
-Pass `--exclude_sites` a plain-text file listing sites to remove:
-
-```
-# snp_blacklist.txt
-# One chr_pos per line. Blank lines and # comments are ignored.
-# Gzipped files (.gz) are also accepted.
-chr1_12345
-chr3_778901
-chrX_55102
-```
-
-Excluded sites are applied before Pass 1 — they never accumulate coverage counts and cannot appear in the final matrix or statistics.
-
-```bash
-EXCLUDE_SITES=/data/snp_blacklist.txt bash run_pipeline_atlas.sh --preset 10_noImmune
-```
-
-Or permanently via a config file:
-
-```bash
-# my_config.sh
-EXCLUDE_SITES=/data/snp_blacklist.txt
-MIN_DATASETS_ATLAS=30
-```
-
-```bash
-bash run_pipeline_atlas.sh --config my_config.sh --preset 10_noImmune
-```
-
----
-
-## `cpg_utils.py` function reference
-
-| Function | Purpose |
+| File | Contents |
 |---|---|
-| `load_cpg_names_from_bed()` | Parse CpG BED file (gzipped or not) |
-| `load_cpg_names_from_h5()` | Read CpG names from an HDF5 file |
-| `load_exclude_sites()` | Load exclusion list → `frozenset` of `chr_pos` strings |
-| `build_exclude_mask()` | Convert exclusion frozenset → boolean array aligned to reference |
-| `load_beta_file()` | Load `.beta` binary → (beta, coverage) arrays |
-| `build_sample_to_path_map()` | Map sample IDs → file paths |
-| `filter_valid_groups()` | Filter metadata to groups with ≥ N samples |
-| `shorten_sample_ids()` | Strip prefix from sample name |
-| `build_beta_matrix_chunked()` | Two-pass chunked WGBS matrix builder |
-| `compute_median_and_lambda()` | Compute median SD and lambda = perc/median |
-| `compute_stats_on_filtered_matrix()` | Stats on final CpG set — canonical call, always after filtration |
-| `write_h5_matrix()` | Save matrix + metadata to HDF5 |
-| `write_medsd_lambda_tsv()` | Save per-dataset stats to TSV |
-| `write_metadata_tsv()` | Save sample metadata to TSV |
-| `add_analysis_group()` | Add `Analysis group` = tissue + cell_type |
-| `filter_by_column_value()` | Keep/drop rows by column value |
-| `deduplicate_by_column()` | Keep first row per unique value of a column |
-| `filter_groups_by_column()` | Keep groups where all rows match a value |
-| `filter_groups_mixed_sex()` | Keep groups with both M and F present |
-| `sample_n_groups()` | Randomly sample N eligible groups |
-| `sample_pairs()` | Sample MM / FF / MF pairs per group |
-| `normalize_sex()` | Normalise sex strings to 'M' or 'F' |
-
----
-
-## Adding a new analysis case
-
-1. Add a function in `run_pipeline_atlas.sh`:
-```bash
-run_18_noImmune_maleOnly() {
-  _run_atlas "18_noImmune_maleOnly" --exclude_immune --sex_filter M
-}
-```
-
-2. Add to the `case "$PRESET"` dispatch block:
-```bash
-18_noImmune_maleOnly) run_18_noImmune_maleOnly ;;
-```
-
-No changes to any Python file required.
-
----
-
-## Outputs (same for every preset)
-
-| File | Description |
-|---|---|
-| `{prefix}_matrix_noscale.h5` | HDF5: `matrix`, `cpg_names`, `samples`, `sample_groups` |
-| `sample_metadata.tsv` | Sample name and group per sample |
-| `{prefix}_medsd_lambda.tsv` | Per-dataset `median_sd` and `lambda` (on final CpGs) |
-| `{prefix}_cpg_names.txt` | Retained CpG site IDs |
+| `{prefix}_matrix_noscale.h5` | `matrix`, `cpg_names`, `samples`, `sample_groups` |
+| `{prefix}_cpg_names.txt` | Retained CpG IDs |
+| `{prefix}_medsd_lambda.tsv` | Per-dataset median SD and lambda (final CpGs) |
+| `sample_metadata.tsv` | Sample → group |
 | `logs/` | Per-step logs |
 
 ---
 
-## Dependencies
+## Adding a preset
+
+In `run_pipeline_atlas.sh`, add a function and a dispatch case — no Python
+changes needed:
 
 ```bash
-pip install numpy pandas h5py bottleneck pyreadr
+run_18_noImmune_maleOnly() { _run_atlas "18_noImmune_maleOnly" --exclude_immune --sex_filter M; }// then:
+18_noImmune_maleOnly) run_18_noImmune_maleOnly ;;
 ```

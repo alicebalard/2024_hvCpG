@@ -168,10 +168,8 @@ if (table3layers_coveredIn3_saved == FALSE){
     set.seed(1234)
     p1 <- ggplot(m[sample(nrow(m), 100000),], aes(x = logBF_per_ds_6gp, y = logBF_per_ds_endo))+
       geom_point(pch = 21, alpha = 0.1) +
-      geom_smooth() +
       geom_smooth(method = "lm") +
       theme_minimal(base_size = 14) +
-      ylim(c(0,1)) +
       annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
       labs(title = "Score of hypervariability in WGBS atlas endoderm cell types",
            subtitle = "(100k random CpG plotted)",
@@ -189,10 +187,8 @@ if (table3layers_coveredIn3_saved == FALSE){
     
     p2 <- ggplot(m[sample(nrow(m), 100000),], aes(x = logBF_per_ds_6gp, y = logBF_per_ds_meso))+
       geom_point(pch = 21, alpha = 0.1) +
-      geom_smooth() +
       geom_smooth(method = "lm") +
       theme_minimal(base_size = 14) +
-      ylim(c(0,1)) +
       annotate("text", x = .2, y = .9, label = sprintf("Pearson correlation: r = %.2f\n", mycor)) +
       labs(title = "Score of hypervariability in WGBS atlas mesoderm cell types",
            subtitle = "(100k random CpG plotted)",
@@ -328,6 +324,92 @@ if (table3layers_coveredIn3_saved == FALSE){
 ################################################################################
 load(here(paste0("gitignore/table3layers_coveredIn3_10_08_26.Rda")))
 
+################################################
+## Save the top 99% quantile for logBF_per_ds ##
+################################################
+
+top99q <- quantile(table3layers_coveredIn3$logBF_per_ds_allLayers, probs = 0.99, na.rm = FALSE)
+
+top99q_CpGs <- table3layers_coveredIn3[table3layers_coveredIn3$logBF_per_ds_allLayers >= top99q, ]$chr_pos
+
+message(paste0("Total CpG sites: ", length(table3layers_coveredIn3)))
+message(paste0("Total top99q CpG sites: ", length(top99q_CpGs), " (",
+               round(length(top99q_CpGs)/length(table3layers_coveredIn3)*100,2), "% of total)"))
+# Total CpG sites: 21522541
+# Total top99q CpG sites: 215226 (1% of total)
+
+###################################
+## Enrichement in SD-ASM regions ##
+###################################
+NOTtop99q <- table3layers_coveredIn3$chr_pos[!table3layers_coveredIn3$chr_pos %in% top99q_CpGs]
+source(here("B_MultiTissues/01_dataPrep/SD-ASMprep.R"))
+
+## Are hypervariable CpGs more likely to sit in SD-ASM regions than other covered CpGs?
+
+# --- build GRanges for foreground / background CpGs ---
+mk_gr <- function(cpg) {
+  chr <- sub("_.*", "", cpg)
+  pos <- as.integer(sub(".*_", "", cpg))
+  GRanges(chr, IRanges(pos, pos))
+}
+fg_gr <- mk_gr(top99q_CpGs)   # top 1%
+bg_gr <- mk_gr(NOTtop99q)     # the rest of covered-in-3 (disjoint from fg)
+
+# --- generic overlap-enrichment test against a region set ---
+sdasm_fisher <- function(region_gr, label) {
+  fg_in  <- sum(overlapsAny(fg_gr, region_gr, ignore.strand = TRUE))
+  bg_in  <- sum(overlapsAny(bg_gr, region_gr, ignore.strand = TRUE))
+  fg_out <- length(fg_gr) - fg_in
+  bg_out <- length(bg_gr) - bg_in
+  
+  m  <- matrix(c(fg_in, fg_out, bg_in, bg_out), nrow = 2, byrow = TRUE)
+  ft <- fisher.test(m, alternative = "two.sided")   # two-sided: detect enrichment OR depletion
+  
+  data.table(
+    set        = label,
+    fg_in      = fg_in, fg_total = length(fg_gr),
+    bg_in      = bg_in, bg_total = length(bg_gr),
+    fg_frac    = fg_in / length(fg_gr),
+    bg_frac    = bg_in / length(bg_gr),
+    odds_ratio = unname(ft$estimate),
+    conf_low   = ft$conf.int[1],
+    conf_high  = ft$conf.int[2],
+    pvalue     = ft$p.value
+  )
+}
+
+# --- 1. overall SD-ASM (any classification) ---
+res_all <- sdasm_fisher(reduce(SDASM_GR), "SD-ASM (all)")
+
+# --- 2. per classification ---
+cats <- unique(SDASM_GR$classification)
+res_cat <- rbindlist(lapply(cats, function(cl)
+  sdasm_fisher(reduce(SDASM_GR[SDASM_GR$classification == cl]), cl)))
+
+res <- rbind(res_all, res_cat)
+res[, p.adj := p.adjust(pvalue, "BH")]
+res[order(-odds_ratio)]
+#                        set fg_in fg_total   bg_in bg_total     fg_frac      bg_frac odds_ratio   conf_low conf_high        pvalue         p.adj
+# 1:                   ubiq.   408   215226    2862 21307315 0.001895682 0.0001343201 14.1432937 12.7128788 15.692384 1.427789e-296 2.379648e-296
+# 2:                   other 10468   215226  566545 21307315 0.048637246 0.0265892253  1.8716496  1.8347200  1.909029  0.000000e+00  0.000000e+00
+# 3:            SD-ASM (all) 19464   215226 1256398 21307315 0.090435170 0.0589655712  1.5867418  1.5632898  1.610523  0.000000e+00  0.000000e+00
+# 4: tissue-specific demeth.  8191   215226  633116 21307315 0.038057670 0.0297135514  1.2919267  1.2633532  1.320942 6.146815e-105 7.683519e-105
+# 5:            denovo meth.   397   215226   53875 21307315 0.001844573 0.0025284744  0.7290201  0.6587763  0.804765  4.897757e-11  4.897757e-11
+
+# a positive OR means "hv CpGs are enriched for cis-genetic control relative to typical covered CpGs"
+
+
+
+
+
+
+
+
+
+############## After rerun
+
+saveRDS(top99q_CpGs, file = here("gitignore/top99q_CpGs_august26.RDS"))
+## To use for testFetalSIV_ingp5.R
 ##################################
 ## Make GR object as data.table ##
 ##################################
@@ -364,6 +446,10 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script03/CompareWithResult
   ## Load array results
   if (!exists("resArray")) {
     resArray <- readRDS(here("B_MultiTissues/dataOut/resArray_0_8p0_0_65p1.RDS"))
+  }
+  
+  if (!exists("resArray3ind")) {
+    resArray3ind <- readRDS(here("B_MultiTissues/dataOut/resArray3ind_0_8p0_0_65p1.RDS"))
   }
   
   ###################################################################
@@ -428,16 +514,16 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script03/CompareWithResult
     ylab = "logBF per ds (WGBS atlas datasets)",
     minplot = 1e5)
   
-  compPlotArrayAtlasMESO <- makeCompPlot(
-    X = resArray,
-    Y = here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"),
+  compPlotArrayAtlasRED <- makeCompPlot(
+    X = resArray3ind,
+    Y = here::here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds"),
     whichX = "logBF_per_ds", whichY = "logBF_per_ds",
-    title = "Array vs Atlas (mesoderm)",
-    xlab = "logBF per ds (array datasets)",
-    ylab = "logBF per ds (WGBS atlas datasets, mesoderm-derived)",
+    title = "Array reduced to 3 individuals/ds vs Atlas",
+    xlab = "logBF per ds (array datasets reduced to 3 ind/ds)",
+    ylab = "logBF per ds (WGBS atlas datasets)",
     minplot = 1e5)
   
-  row2 <- cowplot::plot_grid(pdiffhv_controls, compPlotArrayAtlas, compPlotArrayAtlasMESO, 
+  row2 <- cowplot::plot_grid(pdiffhv_controls, compPlotArrayAtlas, compPlotArrayAtlasRED, 
                              labels = c("B", "C","D"), ncol = 3)
   
   ggsave(here("B_MultiTissues/dataOut/figures/script03/CompareWithResultsDerakhshan.png"),
@@ -607,23 +693,6 @@ if (!file.exists(here(paste0("gitignore/pfeatures.RDS")))){
 # feature type the percentage of its CpGs falling in each upper quantile is shown 
 # (the bottom quintile is omitted; percentages are of all CpGs in the feature). 
 # Bars exceeding 10% (the expected share under no enrichment) indicate feature types enrichement.
-
-################################################
-## Save the top 99% quantile for logBF_per_ds ##
-################################################
-
-top99q <- quantile(table3layers_coveredIn3$logBF_per_ds_allLayers, probs = 0.99, na.rm = FALSE)
-
-top99q_CpGs <- table3layers_coveredIn3[table3layers_coveredIn3$logBF_per_ds_allLayers >= top99q, ]$chr_pos
-
-message(paste0("Total CpG sites: ", length(table3layers_coveredIn3)))
-message(paste0("Total top99q CpG sites: ", length(top99q_CpGs), " (",
-               round(length(top99q_CpGs)/length(table3layers_coveredIn3)*100,2), "% of total)"))
-# Total CpG sites: 21522541
-# Total top99q CpG sites: 215226 (1% of total)
-
-saveRDS(top99q_CpGs, file = here("gitignore/top99q_CpGs_august26.RDS"))
-## To use for testFetalSIV_ingp5.R
 
 #######################
 ## Enrichement in TE ##
