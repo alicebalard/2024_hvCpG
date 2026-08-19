@@ -33,9 +33,6 @@ source /share/apps/source_files/python/python-3.13.0a6.source
 #   15_pairs_MM                2 males per group
 #   16_pairs_FF                2 females per group
 #   17_pairs_MF                1 male + 1 female per group
-#   18_mesoEndo             Mesoderm 6gp + Endoderm 6gp (exclude Ecto)
-#   19_endoEcto             Endoderm 6gp + Ectoderm (exclude Meso)
-#   20_mesoEcto             Mesoderm 6gp + Ectoderm (exclude Endo)
 #
 # Override any path or threshold via environment variables:
 #   DATA_DIR=/my/data bash run_pipeline.sh --preset 04_maleOnly
@@ -67,9 +64,30 @@ MAX_NA="${MAX_NA:-0.2}"
 CHUNK_SIZE="${CHUNK_SIZE:-100000}"
 LAMBDA_PERCENTILE="${LAMBDA_PERCENTILE:-95}"
 RANDOM_SEED="${RANDOM_SEED:-42}"
-# Optional: path to a file listing CpG sites to exclude (one chr_pos per line).
-# Leave empty to skip exclusion.
-EXCLUDE_SITES="${EXCLUDE_SITES:-/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/snps_maf_0.01_chr_pos.txt}"
+
+# CpG exclusion list (one chr_pos per line), applied before Pass 1.
+#   EXCLUDE_MODE=snp   → SNPs only          (default, = previous behaviour)
+#   EXCLUDE_MODE=both  → SNPs + SD-ASM regions
+#   EXCLUDE_MODE=none  → no exclusion
+EXCLUDE_MODE="${EXCLUDE_MODE:-snp}"
+
+SNP_SITES="${SNP_SITES:-/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/snps_maf_0.01_chr_pos.txt}"
+SDASM_SITES="${SDASM_SITES:-/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/sdasm_all_chr_pos.txt}"
+
+case "$EXCLUDE_MODE" in
+  none) EXCLUDE_SITES="" ;;
+  snp)  EXCLUDE_SITES="$SNP_SITES" ;;
+  both)
+    [[ -f "$SNP_SITES"   ]] || { echo "ERROR: SNP list not found: $SNP_SITES" >&2; exit 1; }
+    [[ -f "$SDASM_SITES" ]] || { echo "ERROR: SD-ASM list not found: $SDASM_SITES" >&2; exit 1; }
+    EXCLUDE_SITES="${WGBS_DIR}/_exclude_snp_plus_sdasm.${JOB_ID:-$$}.txt"
+    sort -u "$SNP_SITES" "$SDASM_SITES" > "$EXCLUDE_SITES"
+    echo "  Exclusion: SNP + SD-ASM = $(wc -l < "$EXCLUDE_SITES") sites -> $EXCLUDE_SITES" ;;
+  *) echo "ERROR: EXCLUDE_MODE must be snp|both|none (got '$EXCLUDE_MODE')" >&2; exit 1 ;;
+esac
+
+SUFFIX=""
+[[ "$EXCLUDE_MODE" == "both" ]] && SUFFIX="_noSDASM"
 
 # ──────────────────────────────────────────────
 #  Argument parsing
@@ -127,7 +145,7 @@ _run_atlas() {
   # Remaining positional args are the metadata flags (may be zero args)
   local META_OUT="${WGBS_DIR}/${out_prefix}.csv"
 
-  OUTPUT_FOLDER="${WGBS_DIR}/output_${out_prefix}"
+  OUTPUT_FOLDER="${WGBS_DIR}/output_${out_prefix}${SUFFIX}"
   mkdir -p "$OUTPUT_FOLDER"
 
   _run "01_prepare_metadata" \
@@ -147,7 +165,7 @@ _run_atlas() {
       --min_samples        "$MIN_SAMPLES" \
       --chunk_size         "$CHUNK_SIZE" \
       --lambda_percentile  "$LAMBDA_PERCENTILE" \
-      --output_prefix      "$out_prefix" \
+      --output_prefix      "${out_prefix}${SUFFIX}" \
       ${EXCLUDE_SITES:+--exclude_sites "$EXCLUDE_SITES"}
 }
 
@@ -230,139 +248,6 @@ run_17_pairs_MF() {
   _run_atlas "17_pairs_MF" --pairs MF
 }
 
-# Combined germ layers — Mesoderm 6gp + Endoderm 6gp
-run_18_mesoEndo() {
-  # Sample 6 meso and 6 endo separately, then combine via output metadata
-  MESO_META="${WGBS_DIR}/18_mesoEndo_meso.csv"
-  ENDO_META="${WGBS_DIR}/18_mesoEndo_endo.csv"
-  COMBINED_META="${WGBS_DIR}/18_mesoEndo.csv"
-  OUTPUT_FOLDER="${WGBS_DIR}/output_18_mesoEndo"
-  mkdir -p "$OUTPUT_FOLDER"
-
-  # Sample 6 meso groups
-  _run "01a_prepare_metadata_meso" \
-    "$PYTHON" "${CODE_DIR}/prepare_metadata.py" \
-      --meta   "$META_ATLAS" \
-      --output "$MESO_META" \
-      --seed   "$RANDOM_SEED" \
-      --germ_layer Meso \
-      --sample_n_groups 6 --min_per_group 3
-
-  # Sample 6 endo groups
-  _run "01b_prepare_metadata_endo" \
-    "$PYTHON" "${CODE_DIR}/prepare_metadata.py" \
-      --meta   "$META_ATLAS" \
-      --output "$ENDO_META" \
-      --seed   "$RANDOM_SEED" \
-      --germ_layer Endo \
-      --sample_n_groups 6 --min_per_group 3
-
-  # Concatenate (skip header of second file)
-  head -1 "$MESO_META" > "$COMBINED_META"
-  tail -n +2 "$MESO_META" >> "$COMBINED_META"
-  tail -n +2 "$ENDO_META" >> "$COMBINED_META"
-  echo "  Combined metadata: $(wc -l < "$COMBINED_META") rows -> $COMBINED_META"
-
-  _run "02_prepare_matrix" \
-    "$PYTHON" "${CODE_DIR}/prepare_beta_matrices.py" \
-      --beta_files         "$BETA_PATTERN" \
-      --cpg_bed            "$CPG_BED" \
-      --output_folder      "$OUTPUT_FOLDER" \
-      --meta               "$COMBINED_META" \
-      --minCov             "$MIN_COV" \
-      --min_samples        "$MIN_SAMPLES" \
-      --chunk_size         "$CHUNK_SIZE" \
-      --lambda_percentile  "$LAMBDA_PERCENTILE" \
-      --output_prefix      "18_mesoEndo" \
-      ${EXCLUDE_SITES:+--exclude_sites "$EXCLUDE_SITES"}
-}
-
-# Combined germ layers — Endoderm 6gp + Ectoderm 6gp
-run_19_endoEcto() {
-  ENDO_META="${WGBS_DIR}/19_endoEcto_endo.csv"
-  ECTO_META="${WGBS_DIR}/19_endoEcto_ecto.csv"
-  COMBINED_META="${WGBS_DIR}/19_endoEcto.csv"
-  OUTPUT_FOLDER="${WGBS_DIR}/output_19_endoEcto"
-  mkdir -p "$OUTPUT_FOLDER"
-
-  _run "01a_prepare_metadata_endo" \
-    "$PYTHON" "${CODE_DIR}/prepare_metadata.py" \
-      --meta   "$META_ATLAS" \
-      --output "$ENDO_META" \
-      --seed   "$RANDOM_SEED" \
-      --germ_layer Endo \
-      --sample_n_groups 6 --min_per_group 3
-
-  _run "01b_prepare_metadata_ecto" \
-    "$PYTHON" "${CODE_DIR}/prepare_metadata.py" \
-      --meta   "$META_ATLAS" \
-      --output "$ECTO_META" \
-      --seed   "$RANDOM_SEED" \
-      --germ_layer Ecto \
-      --sample_n_groups 6 --min_per_group 3
-
-  head -1 "$ENDO_META" > "$COMBINED_META"
-  tail -n +2 "$ENDO_META" >> "$COMBINED_META"
-  tail -n +2 "$ECTO_META" >> "$COMBINED_META"
-  echo "  Combined metadata: $(wc -l < "$COMBINED_META") rows -> $COMBINED_META"
-
-  _run "02_prepare_matrix" \
-    "$PYTHON" "${CODE_DIR}/prepare_beta_matrices.py" \
-      --beta_files         "$BETA_PATTERN" \
-      --cpg_bed            "$CPG_BED" \
-      --output_folder      "$OUTPUT_FOLDER" \
-      --meta               "$COMBINED_META" \
-      --minCov             "$MIN_COV" \
-      --min_samples        "$MIN_SAMPLES" \
-      --chunk_size         "$CHUNK_SIZE" \
-      --lambda_percentile  "$LAMBDA_PERCENTILE" \
-      --output_prefix      "19_endoEcto" \
-      ${EXCLUDE_SITES:+--exclude_sites "$EXCLUDE_SITES"}
-}
-
-# Combined germ layers — Mesoderm 6gp + Ectoderm 6gp
-run_20_mesoEcto() {
-  MESO_META="${WGBS_DIR}/20_mesoEcto_meso.csv"
-  ECTO_META="${WGBS_DIR}/20_mesoEcto_ecto.csv"
-  COMBINED_META="${WGBS_DIR}/20_mesoEcto.csv"
-  OUTPUT_FOLDER="${WGBS_DIR}/output_20_mesoEcto"
-  mkdir -p "$OUTPUT_FOLDER"
-
-  _run "01a_prepare_metadata_meso" \
-    "$PYTHON" "${CODE_DIR}/prepare_metadata.py" \
-      --meta   "$META_ATLAS" \
-      --output "$MESO_META" \
-      --seed   "$RANDOM_SEED" \
-      --germ_layer Meso \
-      --sample_n_groups 6 --min_per_group 3
-
-  _run "01b_prepare_metadata_ecto" \
-    "$PYTHON" "${CODE_DIR}/prepare_metadata.py" \
-      --meta   "$META_ATLAS" \
-      --output "$ECTO_META" \
-      --seed   "$RANDOM_SEED" \
-      --germ_layer Ecto \
-      --sample_n_groups 6 --min_per_group 3
-
-  head -1 "$MESO_META" > "$COMBINED_META"
-  tail -n +2 "$MESO_META" >> "$COMBINED_META"
-  tail -n +2 "$ECTO_META" >> "$COMBINED_META"
-  echo "  Combined metadata: $(wc -l < "$COMBINED_META") rows -> $COMBINED_META"
-
-  _run "02_prepare_matrix" \
-    "$PYTHON" "${CODE_DIR}/prepare_beta_matrices.py" \
-      --beta_files         "$BETA_PATTERN" \
-      --cpg_bed            "$CPG_BED" \
-      --output_folder      "$OUTPUT_FOLDER" \
-      --meta               "$COMBINED_META" \
-      --minCov             "$MIN_COV" \
-      --min_samples        "$MIN_SAMPLES" \
-      --chunk_size         "$CHUNK_SIZE" \
-      --lambda_percentile  "$LAMBDA_PERCENTILE" \
-      --output_prefix      "20_mesoEcto" \
-      ${EXCLUDE_SITES:+--exclude_sites "$EXCLUDE_SITES"}
-}
-
 # General atlas — all data, Source Tissue - Cell type grouping (baseline, no filtering)
 run_atlas_general() {
   _run_atlas "atlas_general"
@@ -397,9 +282,6 @@ case "$PRESET" in
   15_pairs_MM)             run_15_pairs_MM ;;
   16_pairs_FF)             run_16_pairs_FF ;;
   17_pairs_MF)             run_17_pairs_MF ;;
-  18_mesoEndo)             run_18_mesoEndo ;;
-  19_endoEcto)             run_19_endoEcto ;;
-  20_mesoEcto)             run_20_mesoEcto ;;
   "")
     echo ""
     echo "No preset specified. Available presets:"
@@ -420,9 +302,6 @@ case "$PRESET" in
     echo "  15_pairs_MM            2 males per group"
     echo "  16_pairs_FF            2 females per group"
     echo "  17_pairs_MF            1 male + 1 female per group"
-    echo "  18_mesoEndo            Mesoderm 6gp + Endoderm 6gp"
-    echo "  19_endoEcto            Endoderm 6gp + Ectoderm 6gp"
-    echo "  20_mesoEcto            Mesoderm 6gp + Ectoderm 6gp"
     echo ""
     echo "Usage: bash run_pipeline_atlas.sh --preset atlas_general"
     echo "       EXCLUDE_SITES=/data/snp.txt bash run_pipeline_atlas.sh --preset 10_noImmune"

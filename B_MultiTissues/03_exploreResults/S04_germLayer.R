@@ -263,11 +263,11 @@ print(overlap_summary)
 # 6:     ambiguous 20450363 21488395  20257105        99.1       94.3
 
 ## Ccl:
-## MEs are robust to dataset-size reduction, but the layer-specific markers are
-## not — Ecto in particular. NB the layer-specific categories are tiny and defined
-## by a SECOND (bottom-10%) threshold, so their overlap is sensitive to the per-
-## layer quantile cutoffs shifting between the full and 6gp analyses; treat the
-## low pct_of_6gp values as instability of the strict definition, not biology.
+# MEs are robust to dataset-size reduction, but the layer-specific markers are
+# not — Ecto in particular. NB the layer-specific categories are tiny and defined
+# by a SECOND (bottom-10%) threshold, so their overlap is sensitive to the per-
+# layer quantile cutoffs shifting between the full and 6gp analyses; treat the
+# low pct_of_6gp values as instability of the strict definition, not biology.
 
 # ── Write CpG lists for python extraction ─────────────────────────────────────
 
@@ -572,6 +572,8 @@ message("Written: control_sample20k.txt (20000 CpGs: 10k constitutive + 10k ambi
 # --output    /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/methylation_control20k.tsv \
 # --minCov    10
 
+## !! Transfert gitignore/methylation_control20k.tsv to local
+
 # ── Load control methylation (extracted previously) ───────────────────────────
 meth_control <- fread(here("gitignore/methylation_control20k.tsv"))
 meth_control <- merge(meth_control, tissue_to_layer,
@@ -593,6 +595,7 @@ meth_control_multi <- meth_control[patient_id %in% multi_patients]
 message(sprintf("Control CpGs loaded: %d constitutive, %d ambiguous",
                 uniqueN(meth_control_multi[category == "constitutive", cpg_site]),
                 uniqueN(meth_control_multi[category == "ambiguous",    cpg_site])))
+# Control CpGs loaded: 12 constitutive, 7 ambiguous
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Run for Meso_specific, Endo_specific and controls
@@ -647,10 +650,10 @@ thr <- data.table(
   n_pat  = c(9, 15),
   r_crit = c(r_crit(9), r_crit(15)))
 print(thr)
-# layer   r_high     r_low        mu        sd n_pat    r_crit
-# <char>    <num>     <num>     <num>     <num> <num>     <num>
-#   1:   Meso 0.871830 0.4230834 0.4355550 0.2642223     9 0.6663836
-# 2:   Endo 0.807881 0.2515141 0.3080883 0.2381601    15 0.5139775
+# layer    r_high     r_low        mu        sd n_pat    r_crit
+# <char>     <num>     <num>     <num>     <num> <num>     <num>
+# 1:   Meso 0.6810714 0.2506185 0.2835287 0.2055916     9 0.6663836
+# 2:   Endo 0.6955997 0.1879514 0.2531251 0.2448413    15 0.5139775
 
 # ── Summary function ──────────────────────────────────────────────────────────
 make_summary_samelayer <- function(r_same, layer_tested, category_name,
@@ -680,16 +683,16 @@ results_summary <- rbindlist(list(
 ))
 
 print(results_summary)
-# category same_layer_tested r_high_used n_cpgs_tested pct_high_same    mean_r  median_r
+#         category same_layer_tested r_high_used n_cpgs_tested pct_high_same    mean_r  median_r
 # <char>            <char>       <num>         <int>         <num>     <num>     <num>
-#   1: Meso_specific              Meso    0.871830         18655      33.69606 0.7451634 0.8096028
-# 2: Meso_specific              Endo    0.807881         18655      14.07666 0.4192403 0.3724780
-# 3: Endo_specific              Endo    0.807881          4208      35.93156 0.6573657 0.7180795
-# 4: Endo_specific              Meso    0.871830          4208      17.20532 0.5426829 0.5693192
-# 5:  constitutive              Meso    0.871830         10000       5.00000 0.4355550 0.4230834
-# 6:  constitutive              Endo    0.807881         10000       5.00000 0.3080883 0.2515141
-# 7:     ambiguous              Meso    0.871830         10000      20.17000 0.6390037 0.7117579
-# 8:     ambiguous              Endo    0.807881         10000      20.18000 0.4986843 0.4971093
+# 1: Meso_specific              Meso   0.6810714            30     83.333333 0.7890745 0.8555211
+# 2: Meso_specific              Endo   0.6955997            30      0.000000 0.2577406 0.1955097
+# 3: Endo_specific              Endo   0.6955997             3     66.666667 0.8434886 0.8871436
+# 4: Endo_specific              Meso   0.6810714             3      0.000000 0.4409972 0.4423979
+# 5:  constitutive              Meso   0.6810714            12      8.333333 0.2835287 0.2506185
+# 6:  constitutive              Endo   0.6955997            12      8.333333 0.2531251 0.1879514
+# 7:     ambiguous              Meso   0.6810714             7     71.428571 0.6753872 0.7007080
+# 8:     ambiguous              Endo   0.6955997             7     28.571429 0.4063682 0.1384330
 
 # ── Annotate and plot ─────────────────────────────────────────────────────────
 results_summary[, expected := fcase(
@@ -908,7 +911,7 @@ thr_cross <- data.table(
 print(thr_cross)
 # comparison n_pat    r_high     r_low r_low_strict        mu        sd
 # <char> <int>     <num>     <num>        <num>     <num>     <num>
-# 1: Endo_x_Meso    26 0.9563602 0.5200925    0.2659833 0.5164641 0.2909058
+# 1: Endo_x_Meso    26 0.8926701 0.4055105    0.1161466 0.3809395 0.3040298
 
 tri_tabs <- rbindlist(list(
   # Meso pipeline (own = Meso, other = Endo)
@@ -992,7 +995,7 @@ extract_ME_cpgs <- function(meth_sub,
 
 ME_hits <- extract_ME_cpgs(meth_ME)
 message(sprintf("Putative systemic-ME CpGs: %d", if (is.null(ME_hits)) 0L else nrow(ME_hits)))
-# Putative systemic-ME CpGs: 4136
+# Putative systemic-ME CpGs: 4098
 
 #################################
 ## Save the interesting targets##
@@ -1003,7 +1006,10 @@ endo_hits <- extract_layer_specific_cpgs(meth_endo_specific,
                                          own_layer = "Endo", other_layer = "Meso")
 
 message(sprintf("Meso_specific true-signature CpGs: %d", nrow(meso_hits)))
+## Meso_specific true-signature CpGs: 3
+
 message(sprintf("Endo_specific true-signature CpGs: %d", nrow(endo_hits)))
+# Endo_specific true-signature CpGs: 0
 
 #################################
 ## Annotation of these targets ##
@@ -1098,153 +1104,6 @@ meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr, gap = 
 endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr, gap = 100)
 ME_res   <- annotate_layer_hits(ME_hits,   "ME",   genes_gr, uni, uni_gr, gap = 100)
 
-#################################
-## Manhattan plot of candidates##
-#################################
-library(GenomeInfoDb)
+meso_res
+ME_res
 
-## ── Assemble the three candidate sets ────────────────────────────────────────
-## `hits` tables carry cpg_site (+ r_own/r_cross); Pr(HV) comes from wideFull.
-cand <- rbindlist(list(
-  data.table(cpg_site = meso_hits$cpg_site, category = "Meso_specific",
-             r_own   = meso_hits$r_own,
-             r_other = meso_hits$r_other,
-             r_cross = meso_hits$r_cross),
-  data.table(cpg_site = endo_hits$cpg_site, category = "Endo_specific",
-             r_own   = endo_hits$r_own,
-             r_other = endo_hits$r_other,
-             r_cross = endo_hits$r_cross),
-  data.table(cpg_site = ME_hits$cpg_site,   category = "ME",
-             r_own   = pmin(ME_hits$r_endo, ME_hits$r_meso),  # weakest of the two
-             r_other = pmax(ME_hits$r_endo, ME_hits$r_meso),  # ME has no "wrong" layer
-             r_cross = ME_hits$r_cross)
-), fill = TRUE)
-
-cand <- merge(cand, wideFull[, .(cpg_site = name, endo, meso, ecto)],
-              by = "cpg_site", all.x = TRUE)
-
-## own-layer Pr(HV): the layer that defines the category (geo-mean for ME)
-cand[, alpha_own := fcase(
-  category == "Meso_specific", meso,
-  category == "Endo_specific", endo,
-  category == "ME",           (endo * meso * ecto)^(1/3))]
-
-cand[, `:=`(chr = sub("_.*", "", cpg_site),
-            pos = as.integer(sub(".*_", "", cpg_site)))]
-
-## ── Cumulative genomic coordinate ────────────────────────────────────────────
-chrs   <- paste0("chr", c(1:22, "X"))
-sl     <- seqlengths(TxDb.Hsapiens.UCSC.hg38.knownGene)[chrs]
-offset <- data.table(chr = chrs, offset = c(0, head(cumsum(as.numeric(sl)), -1)))
-
-cand <- cand[chr %in% chrs]
-cand <- merge(cand, offset, by = "chr")
-cand[, pos_cum := pos + offset]
-cand[, chr := factor(chr, levels = chrs)]
-
-axis_dt <- cand[, .(centre = mean(range(pos_cum))), by = chr][order(chr)]
-
-## ── Plot ─────────────────────────────────────────────────────────────────────
-make_manhattan <- function(dt, yvar = "alpha_own", ylab = "Pr(HV) own layer",
-                           hline = HVt, label_top = 40) {
-  d <- copy(dt)[!is.na(get(yvar))]
-  d[, y := get(yvar)]
-  d[, category := factor(category, levels = c("ME","Endo_specific","Meso_specific"))]
-  
-  gene_map <- unique(rbindlist(list(
-    meso_res$ann[, .(cpg_site, gene)],
-    endo_res$ann[, .(cpg_site, gene)],
-    ME_res$ann[,   .(cpg_site, gene)]), fill = TRUE))[!is.na(gene)]
-  
-  d <- merge(d, gene_map, by = "cpg_site", all.x = TRUE)
-  
-  d[, score := fifelse(
-    category == "ME",
-    pmin(r_own, r_cross),
-    r_own - pmax(r_other, r_cross, na.rm = TRUE)
-  )]
-  
-  ## per-category top N (one row per gene, then top `label_top` per category)
-  top <- d[!is.na(gene)][order(-score), .SD[1], by = .(gene, category)][
-    , head(.SD, label_top), by = category]
-  
-  ggplot(d, aes(pos_cum, y)) +
-    ## alternating chromosome shading
-    geom_point(aes(colour = category), size = 0.9, alpha = 0.75) +
-    geom_hline(yintercept = hline, linetype = 2, linewidth = 0.3, colour = "grey40") +
-    ggrepel::geom_text_repel(data = top, aes(label = gene), size = 2.6,
-                             max.overlaps = Inf, min.segment.length = 0,
-                             segment.size = 0.2, colour = "grey20") +
-    scale_x_continuous("Chromosome", breaks = axis_dt$centre,
-                       labels = sub("chr", "", axis_dt$chr), expand = c(0.01, 0)) +
-    scale_y_continuous(ylab, limits = c(.9, 1)) +
-    scale_colour_manual(values = category_colours, drop = FALSE, name = NULL) +
-    theme_bw(base_size = 11) +
-    theme(panel.grid.minor = element_blank(),
-          panel.grid.major.x = element_blank(),
-          legend.position = "top") +
-    ggtitle("Layer-specific and ME candidate CpGs across the genome",
-            subtitle = sprintf("%d Meso | %d Endo | %d ME candidates",
-                               nrow(meso_hits), nrow(endo_hits), nrow(ME_hits)))
-}
-
-## Facetted version — one row per category, easier to see each layer's spread
-p_manh_facet <- make_manhattan(cand) +
-  facet_wrap(~ category, ncol = 1, scales = "free_y") +
-  theme(legend.position = "none")
-
-ggplot2::ggsave(
-  here("B_MultiTissues/dataOut/figures/script04/manhattan_candidates_byLayer.pdf"),
-  p_manh_facet, width = 12, height = 8)
-
-
-## ── Save final results only ──────────────────────────────────────────────────
-## Keep: the candidate CpG lists, their gene annotations, and the thresholds
-## used to derive them. Drop: all intermediate methylation tables, wide matrices,
-## per-CpG correlation scratch objects — these are large and recomputable.
-
-results_S04 <- list(
-  
-  ## Candidate CpGs passing all three concordance criteria, per category.
-  ## Columns: cpg_site, r_own (own-layer intra-individual |r|),
-  ## r_other (other-layer |r|), r_cross (cross-layer Endo×Meso |r|), n_* counts.
-  meso_hits = meso_hits,     # Meso-specific: high in Meso, low in Endo + low cross
-  endo_hits = endo_hits,     # Endo-specific: high in Endo, low in Meso + low cross
-  ME_hits   = ME_hits,       # systemic ME: high in BOTH layers AND high cross-layer
-  
-  ## Gene-level annotation of the above (from annotate_layer_hits): one row per
-  ## hit CpG with nearest gene, distance, and cluster membership (CpGs within
-  ## `gap` bp). $clusters = genes with >=2 clustered hits, ranked by density.
-  meso_clusters = meso_res$clusters,
-  endo_clusters = endo_res$clusters,
-  ME_clusters   = ME_res$clusters,
-  
-  ## Empirical thresholds used for selection (from the constitutive-CpG null):
-  ## thr = per-layer same-layer |r| cutoffs (r_high = 95th pct of noise,
-  ## r_low = median of noise); thr_cross = cross-layer (Endo×Meso, n=4) cutoffs.
-  thr       = thr,
-  thr_cross = thr_cross,
-  
-  ## Provenance so the file is interpretable on its own.
-  meta = list(
-    script      = "S04_...R",
-    date        = Sys.Date(),
-    HVt         = HVt,        # Pr(HV) "high" cutoff (own layer)
-    notHVt      = notHVt,     # Pr(HV) "low" cutoff (other layers)
-    n_meso      = nrow(meso_hits),
-    n_endo      = nrow(endo_hits),
-    n_ME        = nrow(ME_hits),
-    description = paste(
-      "Layer-specific and systemic-ME candidate CpGs from the 3-germ-layer atlas.",
-      "Selection: Pr(HV) category (>=HVt own, <notHVt other) then within-individual",
-      "concordance criteria using empirical noise thresholds. See thr/thr_cross."
-    )
-  )
-)
-
-saveRDS(results_S04, here("gitignore/resultsAtlasPrepared/S04_candidates.rds"))
-message("Saved S04 candidates: ",
-        results_S04$meta$n_meso, " meso | ",
-        results_S04$meta$n_endo, " endo | ",
-        results_S04$meta$n_ME,   " ME")
-# Saved S04 candidates: 1112 meso | 290 endo | 4136 ME
