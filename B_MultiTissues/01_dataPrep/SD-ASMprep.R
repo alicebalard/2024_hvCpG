@@ -2,7 +2,8 @@
 ## Prepare
 library(here)
 ## Load libraries
-source(here("B_MultiTissues", "quiet_library.R"))
+library(data.table)
+library(GenomicRanges)
 #####################################################################
 
 createSDASM_GR <- function(){
@@ -62,7 +63,7 @@ writeSDASM_blacklist <- function(sdasm_gr,
                                    IRanges::IRanges(bed$pos, bed$pos))
   
   # CpGs falling inside any SD-ASM region
-  hit <- GenomicRanges::overlapsAny(cpg_gr, gr, ignore.strand = TRUE)
+  hit <- IRanges::overlapsAny(cpg_gr, gr, ignore.strand = TRUE)
   black <- paste0(bed$chr[hit], "_", bed$pos[hit])
   
   writeLines(black, out_file)
@@ -77,7 +78,7 @@ writeSDASM_blacklist <- function(sdasm_gr,
 ## Point cpg_bed at the SAME file used in run_pipeline_atlas.sh (--cpg_bed).
 writeSDASM_blacklist(
   SDASM_GR,
-  cpg_bed  = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/hg38/CpG.bed.gz",
+  cpg_bed  = "/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/wgbs_tools/references/hg38/CpG.bed.gz",
   out_file = here::here("gitignore/sdasm_all_chr_pos.txt")
 )
 

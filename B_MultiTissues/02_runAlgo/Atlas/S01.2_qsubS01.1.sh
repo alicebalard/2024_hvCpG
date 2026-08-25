@@ -16,24 +16,17 @@ RSCRIPT="/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues/02
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID started at $(date) ****"
 
-## Run after bug fix, with higher thresholds
-## Run again using now mean over all individuals in a dataset, instead of sum
+# ---- pick the run variant here ----
+DATA_SUFFIX="_noSDASM"      # ""  for SNP-only  |  "_noSDASM" for SNP+SD-ASM
+RES_SUBDIR="SNP_SDASMrm"    # "SNPrm"          |  "SNP_SDASMrm"
+
+## 3 layers individually, with higher thresholds
 P0=0.80
-P1=0.9
+P1=0.65
 MININD=3
-for ANALYSIS in "12_endo" "13_meso" "14_ecto" "12_2_endo6gp" "13_2_meso6gp" "atlas_general" "02_rmMultSamples"; do
+for ANALYSIS in  "atlas_general" "02_rmMultSamples" "12_endo" "13_meso" "14_ecto" "12_2_endo6gp" "13_2_meso6gp"; do
     echo "[INFO] Running analysis: $ANALYSIS"
-    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
+    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD "$DATA_SUFFIX" "$RES_SUBDIR"
 done
-    
-## Before bug fix we ran:
-##P0=0.80
-##P1=0.65
-##MININD=3
-##
-##for ANALYSIS in "atlas_general" "02_rmMultSamples" "04_maleOnly" "05_femaleOnly6gp" "06_bothsexes6gp" "09_immuneOnly" "10_noImmune" "11_noImmune_sample11gp" "12_endo" "12_2_endo6gp" "13_meso" "13_2_meso6gp" "14_ecto" "18_mesoEndo" "19_endoEcto" "20_mesoEcto"; do
-##    echo "[INFO] Running analysis: $ANALYSIS"
-##    Rscript $RSCRIPT $ANALYSIS $SGE_TASK_ID $CHUNK_SIZE $BATCH_SIZE $P0 $P1 $MININD
-##done
 
 echo "**** Job $JOB_NAME.$SGE_TASK_ID finished at $(date) ****"
