@@ -39,10 +39,10 @@ fetalData_long <- data.frame(fetalData) %>%
 fetalData_long$chrpos_hg38 <- dico$chrpos_hg38[match(fetalData_long$CpG, dico$CpG)]
 
 #########################################################################################
-## Load positions to test for SIV (calculated in B_MultiTissues/03_exploreResults/S03) ##
+## Load positions to test for SIV (calculated in B_MultiTissues/03_exploreResults/S04) ##
 #########################################################################################
 
-top99q_CpGs <- readRDS(here("gitignore/top99q_CpGs_august26.RDS"))
+top99q_CpGs <- readRDS(here("gitignore/top99q_CpGs_SNP_SDASMrm.RDS"))
 fetalData_subset_top99q <- fetalData_long[fetalData_long$chrpos_hg38 %in% top99q_CpGs,]
 
 #######################################
@@ -82,7 +82,7 @@ ggVennDiagram(cpgs, label_alpha = 0, label = "count") +
   scale_fill_gradient2(low = "white", mid = "yellow", high = "red")+
   theme(legend.position = "none")
 
-## top 99q: 313 overlap with prevSIV, 235 extra ones, 6181 undetected
+## top 99q: 112 overlap with prevSIV, 207 extra ones, 6382 undetected
 
 #########################
 ## Shape data for plot ##
@@ -118,11 +118,11 @@ getinterlayer_corr <- function(fetalData_subset, name, min_samples = 8) {
 }
 
 interlayer_corr_backgrd <- getinterlayer_corr(fetalData_subset_backgrd, "background")
-# mean: 0.1833129
+# mean: 0.1833394
 interlayer_corr_prevSIV <- getinterlayer_corr(fetalData_subset_prevSIV, "prevSIV")
 # mean: 0.3863042
 interlayer_corr_top99q <- getinterlayer_corr(fetalData_subset_top99q, "top99q")
-# mean: 0.5945178
+# mean: 0.4927717
 interlayer_corr_all <- getinterlayer_corr(fetalData_long, "allEPICfetal")
 # mean: 0.1851726
 
@@ -166,7 +166,7 @@ CpG_summary <- interlayer_corr %>%
 
 table(CpG_summary$group)
 # background    prevSIV     top99q 
-# 739763       6494        548 
+# 739791       6494        319
 
 p2 <- ggplot(CpG_summary, aes(x = interindividual_var, color = group)) +
   geom_density(alpha = 0.5)+
@@ -335,12 +335,12 @@ CpG_summary <- interlayer_corr %>%
 table(CpG_summary$group)
 
 # background     mQTLcontrols        HarrisSIV       KesslerSIV DerakhshanhvCpGs GunasekaraCorSIV 
-# 739763             3237             1316              188             3401             1610 
+# 739791             3237             1316              188             3401             1610 
 # VanBaakESS           top99q       VanBaakSIV 
-# 1257              548              306 
+# 1257              319              306 
 
 p2 <- ggplot(CpG_summary, aes(x = interindividual_var, fill = group)) +
-  geom_density(alpha = .8)+
+  geom_density(alpha = .7)+
   scale_fill_manual(values = group_cols) +
   theme_minimal(base_size = 14) +
   labs(x = "Interindividual variation")
