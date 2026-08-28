@@ -15,7 +15,7 @@ cran_packages <- c(
   "parallel", "rhdf5",
   # Graphics
   "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram", "patchwork",
-  "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo",
+  "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo", "paletteer",
   "UpSetR",
   # Stats
   "boot", "emmeans",
