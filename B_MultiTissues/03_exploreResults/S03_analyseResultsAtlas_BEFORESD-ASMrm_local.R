@@ -19,6 +19,10 @@ if (!exists("previousSIVprepared")) {
   source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))}
 #####################################################################
 
+variant <- "SNPrm"
+prep_dir <- here("gitignore/resultsAtlasPrepared", variant)
+fr <- function(f) readRDS(file.path(prep_dir, f)) # short reader
+
 ## --> Jump top "checkpoint" if table3layers_coveredIn3 has been saved in gitignore
 table3layers_coveredIn3_saved = TRUE
 
@@ -35,7 +39,7 @@ if (table3layers_coveredIn3_saved == FALSE){
   ## from the CS cluster: 
   ## /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/AtlasLoyfer/output_atlas_general/sample_metadata.tsv
   sample_groups <- read.table(
-    here("B_MultiTissues/resultsDir_gitIgnored/Atlas/atlas_general/sample_metadata.tsv"), 
+    here("B_MultiTissues/dataIn/sample_metadata.tsv"), 
     sep = "\t", header = T)
   
   sample_groups %>% group_by(dataset) %>% summarise(n = n()) %>% 
@@ -59,72 +63,21 @@ if (table3layers_coveredIn3_saved == FALSE){
   ## Save all data in RDS objects ##
   ##################################
   
-  savePrepedAtlasFile <- function(
-    file, p0, p1,
-    res       = "fullres_",
-    atlas_dir = here("B_MultiTissues/resultsDir_gitIgnored/Atlas"),
-    out_dir   = here("gitignore/resultsAtlasPrepared"),
-    a0ornot   = TRUE
-  ) {
-    search_dir <- file.path(atlas_dir, file)
-    out_path   <- file.path(out_dir,
-                            paste0(res, p0, "p0_", p1, "p1_", file, ".rds"))
-    
-    pattern <- if (a0ornot)
-      paste0("^results_.*", p0, "p0_", p1, "p1_.*a0\\.rds$")
-    else
-      paste0("^results_.*", p0, "p0_", p1, "p1\\.rds$")
-    
-    rds_files <- base::dir(search_dir, pattern = pattern, recursive = TRUE, full.names = TRUE)
-    if (length(rds_files) == 0) {
-      message("SKIP ", file, " [", p0, "/", p1, "] - no matching files."); return(invisible(NULL))
-    }
-    
-    # completeness: one file per batch, up to the highest batch number, no gaps
-    batch_nums <- as.integer(regmatches(dirname(rds_files),
-                                        regexpr("(?<=Atlas_batch)\\d+", dirname(rds_files), perl = TRUE)))
-    expected_n <- max(batch_nums, na.rm = TRUE)
-    if (length(rds_files) != expected_n || !all(sort(batch_nums) == seq_len(expected_n))) {
-      message("SKIP ", file, " - found ", length(rds_files), " files, batches run 1..",
-              expected_n, " (missing: ",
-              paste(setdiff(seq_len(expected_n), batch_nums), collapse = ","), ")")
-      return(invisible(NULL))
-    }
-    
-    # last batch should be the short remainder, not a full 250000 (truncation check)
-    cpgs <- as.integer(regmatches(rds_files,
-                                  regexpr("(?<=_)\\d+(?=CpGs)", rds_files, perl = TRUE)))
-    ord  <- order(batch_nums)
-    if (!is.na(tail(cpgs[ord], 1)) && tail(cpgs[ord], 1) == 250000) {
-      message("SKIP ", file, " - last batch has 250000 CpGs (truncated?).")
-      return(invisible(NULL))
-    }
-    
-    message("OK   ", file, " - ", length(rds_files), " batches.")
-    if (file.exists(out_path)) { message("     already prepared - skipping."); return(invisible(NULL)) }
-    
-    dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
-    Atlas_dt <- prepAtlasdt(file, p0, p1, atlas_dir = atlas_dir, mypattern = pattern)
-    saveRDS(Atlas_dt, out_path)
-    message("     saved: ", out_path)
-  }
-  
-  subdirs <- list.files(here("B_MultiTissues/resultsDir_gitIgnored/Atlas/"))
+  subdirs <- list.files(file.path(here("B_MultiTissues/resultsDir_gitIgnored/Atlas"), variant))
   subdirs <- subdirs[!grepl("^PREVIOUS", subdirs)]
   for (subdir in subdirs) {
-    savePrepedAtlasFile(subdir, p0 = "0_8", p1 = "0_65")
+    savePrepedAtlasFile(subdir, p0 = "0_8", p1 = "0_65", variant = variant)
   }
   
-  ## New August 2026
-  # Saved: /home/alice/Documents/Research/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/
+  # Saved: /home/alice/Documents/Research/GIT/2024_hvCpG/gitignore/resultsAtlasPrepared/SNPrm
   
   ################################################################################
   ## Load layer-specific analyses                                               ##
   ################################################################################
   
-  endo <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
-  meso <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
-  ecto <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
+  endo <- fr("fullres_0_8p0_0_65p1_12_endo.rds")
+  meso <- fr("fullres_0_8p0_0_65p1_13_meso.rds")
+  ecto <- fr("fullres_0_8p0_0_65p1_14_ecto.rds")
   
   ################################################################################
   ## Compare algo ran on all datasets with geometric mean                       ##
@@ -142,7 +95,7 @@ if (table3layers_coveredIn3_saved == FALSE){
                     ranges = IRanges(start = meso$pos, end = meso$pos),
                     logBF_per_ds_meso = meso$logBF_per_ds)
   
-  Atlas_dt <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_atlas_general.rds"))
+  Atlas_dt <- fr("fullres_0_8p0_0_65p1_atlas_general.rds")
   
   allLayersGR <- GRanges(seqnames = Atlas_dt$chr,
                          ranges = IRanges(start = Atlas_dt$pos, end = Atlas_dt$pos),
@@ -301,9 +254,9 @@ res[order(-odds_ratio)]
 
 # ── Load ───────────────────────────────────────────────────────────────────
 if (!exists("endo")){
-  endo     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_12_endo.rds"))
-  meso     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_13_meso.rds"))
-  ecto     <- readRDS(here("gitignore/resultsAtlasPrepared/fullres_0_8p0_0_65p1_14_ecto.rds"))
+  endo     <- fr("fullres_0_8p0_0_65p1_12_endo.rds")
+  meso     <- fr("fullres_0_8p0_0_65p1_13_meso.rds")
+  ecto     <- fr("fullres_0_8p0_0_65p1_14_ecto.rds")
   analyses <- list(endo = endo, meso = meso, ecto = ecto)
 }
 

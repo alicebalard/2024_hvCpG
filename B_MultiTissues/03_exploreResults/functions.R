@@ -3,6 +3,7 @@
 
 ## makeVennArrayReduced
 ## prepAtlasdt
+## savePrepedAtlasFile
 ## plotManhattanFromdt
 ## makeZ_inner
 ## makeCompPlot
@@ -21,7 +22,9 @@
 ### plot_decay_curve_layered (by germ layers)
 ### compute_percpg_interlayer_corr: Compute per-CpG interlayer correlation from raw meth
 ### plot_stochastic_test
-
+### fisher_test_te (for scripts S04 and S05)
+### parse_cpg_names & getEnrichCentroTelo (Centromere enrichment test for S04)
+ 
 makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   size = 4
   ggplot2::ggplot() +
@@ -91,6 +94,60 @@ prepAtlasdt <- function(subdir, p0, p1, atlas_dir, mypattern,
   dt[, pos2 := pos + as.numeric(cum_offset)]
   
   dt[]
+}
+
+savePrepedAtlasFile <- function(
+    file, p0, p1,
+    variant   = "SNPrm",
+    res       = "fullres_",
+    atlas_dir = here("B_MultiTissues/resultsDir_gitIgnored/Atlas"),
+    out_dir   = here("gitignore/resultsAtlasPrepared"),
+    a0ornot   = TRUE
+) {
+  atlas_dir <- file.path(atlas_dir, variant)     # .../Atlas/<variant>
+  out_dir   <- file.path(out_dir,   variant)     # .../resultsAtlasPrepared/<variant>
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  search_dir <- file.path(atlas_dir, file)
+  out_path   <- file.path(out_dir,
+                          paste0(res, p0, "p0_", p1, "p1_", file, ".rds"))
+  
+  pattern <- if (a0ornot)
+    paste0("^results_.*", p0, "p0_", p1, "p1_.*a0\\.rds$")
+  else
+    paste0("^results_.*", p0, "p0_", p1, "p1\\.rds$")
+  
+  rds_files <- base::dir(search_dir, pattern = pattern, recursive = TRUE, full.names = TRUE)
+  if (length(rds_files) == 0) {
+    message("SKIP ", file, " [", p0, "/", p1, "] - no matching files."); return(invisible(NULL))
+  }
+  
+  # completeness: one file per batch, up to the highest batch number, no gaps
+  batch_nums <- as.integer(regmatches(dirname(rds_files),
+                                      regexpr("(?<=Atlas_batch)\\d+", dirname(rds_files), perl = TRUE)))
+  expected_n <- max(batch_nums, na.rm = TRUE)
+  if (length(rds_files) != expected_n || !all(sort(batch_nums) == seq_len(expected_n))) {
+    message("SKIP ", file, " - found ", length(rds_files), " files, batches run 1..",
+            expected_n, " (missing: ",
+            paste(setdiff(seq_len(expected_n), batch_nums), collapse = ","), ")")
+    return(invisible(NULL))
+  }
+  
+  # last batch should be the short remainder, not a full 250000 (truncation check)
+  cpgs <- as.integer(regmatches(rds_files,
+                                regexpr("(?<=_)\\d+(?=CpGs)", rds_files, perl = TRUE)))
+  ord  <- order(batch_nums)
+  if (!is.na(tail(cpgs[ord], 1)) && tail(cpgs[ord], 1) == 250000) {
+    message("SKIP ", file, " - last batch has 250000 CpGs (truncated?).")
+    return(invisible(NULL))
+  }
+  
+  message("OK   ", file, " - ", length(rds_files), " batches.")
+  if (file.exists(out_path)) { message("     already prepared - skipping."); return(invisible(NULL)) }
+  
+  Atlas_dt <- prepAtlasdt(file, p0, p1, atlas_dir = atlas_dir, mypattern = pattern)
+  saveRDS(Atlas_dt, out_path)
+  message("     saved: ", out_path)
 }
 
 # hg38 centromeres; gaps table has type == "centromere"
@@ -370,7 +427,8 @@ CpG_GO_pipeline_lengthControlled <- function(CpGvec,
                                              control_method = c("cpg_count", "length", "none"),
                                              all_sites      = NULL,
                                              n_bins         = 20,
-                                             controls_per_fg = 5) {
+                                             controls_per_fg = 5,
+                                             exclude_genes  = NULL) {   # <- NEW: entrez IDs to drop from foreground
   
   control_method <- match.arg(control_method)
   
@@ -383,6 +441,14 @@ CpG_GO_pipeline_lengthControlled <- function(CpGvec,
   message("Annotating genes...")
   ensg <- annotateCpGs_txdb(CpGclustered, tss_window)
   message(sprintf("Found %d Entrez genes", length(ensg)))
+  
+  # ── NEW: drop excluded genes from the FOREGROUND only ───────────────────────
+  if (!is.null(exclude_genes)) {
+    n_before <- length(ensg)
+    ensg <- setdiff(ensg, as.character(exclude_genes))
+    message(sprintf("  Excluded %d foreground genes (e.g. PCDH cluster); %d -> %d",
+                    n_before - length(ensg), n_before, length(ensg)))
+  }
   
   if (is.null(universe)) stop("Please supply a `universe` (background gene set).")
   
@@ -635,8 +701,8 @@ plot_decay_curve <- function(MEsetdt) {
   ggplot(prop_table, aes(x = threshold, y = proportion, colour = ME)) +
     geom_line(linewidth = 3) +
     geom_point(size = 5) +
-    scale_x_continuous("Hypervariability score (logBF per ds) threshold", breaks = thresholds) +
-    scale_y_continuous("Proportion above threshold", labels = scales::percent) +
+    scale_x_continuous("Hypervariability score percentile", breaks = thresholds) +
+    scale_y_continuous("Proportion above percentile", labels = scales::percent) +
     scale_colour_manual(values = my_cols) +
     theme_bw()
 }
@@ -1032,6 +1098,111 @@ plot_candidate_locus <- function(gene_name_arg,
     combined <- patchwork::wrap_plots(row1, row2, ncol = 1, heights = c(1, 1.2))
   }
   return(combined)
+}
+
+## Scripts S04 and S05
+fisher_test_te <- function(te_gr, target, background,
+                           label = "TE", nameTarget = "foreground") {
+  fg_in  <- sum(overlapsAny(target,     te_gr, ignore.strand = TRUE))
+  bg_in  <- sum(overlapsAny(background, te_gr, ignore.strand = TRUE))
+  fg_out <- length(target)     - fg_in
+  bg_out <- length(background) - bg_in
+  
+  contingency <- matrix(c(fg_in, fg_out, bg_in, bg_out),
+                        nrow = 2, byrow = TRUE,
+                        dimnames = list(c(nameTarget, "background"),
+                                        c(paste0("in_", label), paste0("not_in_", label))))
+  test <- fisher.test(contingency, alternative = "two.sided")   # two-sided -> finite CI + detects depletion
+  list(label       = label,
+       contingency = contingency,
+       pvalue      = test$p.value,
+       odds_ratio  = unname(test$estimate),
+       conf_low    = unname(test$conf.int[1]),
+       conf_high   = unname(test$conf.int[2]))
+}
+
+
+## Centromere enrichment test for S04
+# Parse coordinates from name vectors
+parse_cpg_names <- function(names_vec) {
+  dt <- data.table(name = names_vec)
+  dt[, chr := sub("^(chr[^_]+)_.*", "\\1", name)]        # "chr1"
+  dt[, pos := as.integer(sub("^chr[^_]+_(\\d+)$", "\\1", name))]
+  dt[, pos_end := pos]
+  dt
+}
+
+getEnrichCentroTelo <- function(){
+  top <- top99q_CpGs
+  hv_dt <- parse_cpg_names(top)
+  totalSites <- table3layers_coveredIn3$chr_pos
+  total_dt <- parse_cpg_names(totalSites)  # all background sites
+  
+  # 2. Load regions
+  centro <- fread(here("gitignore/centromeres_hg38.bed"),
+                  col.names = c("chr", "start", "end", "band", "stain"))
+  centro[, region := "centromere"]
+  
+  # Add 1Mb subtelomeric buffer using chrom sizes
+  chrom_sizes <- fread("https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/chromInfo.txt.gz",
+                       col.names = c("chr", "size", "file"))
+  chrom_sizes  <- chrom_sizes[chr %in% paste0("chr", c(1:22, "X", "Y"))]
+  SUBTELO_DIST <- 1e6
+  
+  subtelo <- rbind(
+    chrom_sizes[, .(chr, start = 0L, end = as.integer(SUBTELO_DIST), region = "subtelomere")],
+    chrom_sizes[, .(chr, start = as.integer(size - SUBTELO_DIST), end = size, region = "subtelomere")]
+  )
+  
+  regions <- rbind(
+    centro[, .(chr, start, end, region)],
+    subtelo[, .(chr, start, end, region)]
+  )
+  setkey(regions, chr, start, end)
+  
+  # 3. Overlap function
+  get_region_hits <- function(dt, regions) {
+    setkey(dt, chr, pos, pos_end)
+    hits <- foverlaps(dt, regions,
+                      by.x = c("chr", "pos", "pos_end"),
+                      by.y = c("chr", "start", "end"),
+                      type = "within", nomatch = NULL)
+    unique(hits$name)  # CpG names overlapping any region
+  }
+  
+  hv_in_centro    <- get_region_hits(copy(hv_dt),    regions[region == "centromere"])
+  hv_in_subtelo   <- get_region_hits(copy(hv_dt),    regions[region == "subtelomere"])
+  bg_in_centro    <- get_region_hits(copy(total_dt), regions[region == "centromere"])
+  bg_in_subtelo   <- get_region_hits(copy(total_dt), regions[region == "subtelomere"])
+  
+  # 4. Contingency tables + Fisher test
+  enrich_test <- function(hv_in, bg_in, hv_all, bg_all, label) {
+    a <- length(hv_in)                        # hvCpG in region
+    b <- length(hv_all) - a                   # hvCpG outside
+    c <- length(bg_in)                        # background in region
+    d <- length(bg_all) - c                   # background outside
+    
+    mat <- matrix(c(a, b, c, d), nrow = 2,
+                  dimnames = list(c("in_region", "outside"),
+                                  c("hvCpG", "background")))
+    
+    ft  <- fisher.test(mat, alternative = "greater")
+    pct_hv <- round(100 * a / length(hv_all), 2)
+    pct_bg <- round(100 * c / length(bg_all), 2)
+    fold   <- round(pct_hv / pct_bg, 2)
+    
+    cat("\n──", label, "──\n")
+    cat("  top-1% hvCpGs in region:     ", a, "/", length(hv_all),
+        paste0("(", pct_hv, "%)"), "\n")
+    cat("  Background in region: ", c, "/", length(bg_all),
+        paste0("(", pct_bg, "%)"), "\n")
+    cat("  Fold enrichment:      ", fold, "\n")
+    cat("  Fisher p (one-sided): ", ft$p.value, "\n")
+    cat("  Odds ratio:           ", round(ft$estimate, 2), "\n")
+  }
+  
+  enrich_test(hv_in_centro,  bg_in_centro,  top, totalSites, "Centromere")
+  enrich_test(hv_in_subtelo, bg_in_subtelo, top, totalSites, "Subtelomere (1Mb)")
 }
 
 functionsLoaded = TRUE
