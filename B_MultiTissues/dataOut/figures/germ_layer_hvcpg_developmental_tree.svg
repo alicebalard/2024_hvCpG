@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
    width="626.50397"
-   viewBox="0 0 626.50397 466.46567"
+   viewBox="0 0 626.50397 365.33087"
    role="img"
    version="1.1"
    id="svg99"
    sodipodi:docname="germ_layer_hvcpg_developmental_tree.svg"
-   height="466.46567"
+   height="365.33087"
    inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -26,10 +26,10 @@
      inkscape:deskcolor="#d1d1d1"
      showgrid="false"
      inkscape:zoom="1.4482143"
-     inkscape:cx="329.7164"
-     inkscape:cy="257.90382"
-     inkscape:window-width="1854"
-     inkscape:window-height="1011"
+     inkscape:cx="331.09741"
+     inkscape:cy="259.28483"
+     inkscape:window-width="1920"
+     inkscape:window-height="1043"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -59,10 +59,10 @@
     </marker>
   </defs>
   <rect
-     style="fill:#ffffff;stroke-width:1.89766;stop-color:#000000"
+     style="fill:#ffffff;stroke-width:1.67939;stop-color:#000000"
      id="rect562"
      width="626.50397"
-     height="466.46567"
+     height="365.33087"
      x="0"
      y="0" />
   <line
@@ -225,170 +225,138 @@
        style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#0f6e56;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
        id="text51">top 1% in endoderm, mesoderm &amp; ectoderm</text>
     <text
-       x="355"
+       x="354.66501"
        y="152"
        text-anchor="middle"
        dominant-baseline="central"
        style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#0f6e56;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="text53">N = 60,424 · systemic (ME candidates)</text>
+       id="text53">N = 60,424 (ME candidates)</text>
   </g>
+  <rect
+     x="77.520866"
+     y="272.78107"
+     width="169.56966"
+     height="70.966248"
+     rx="8.4784842"
+     stroke-width="0.5"
+     style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;fill:#faece7;stroke:#993c1d;stroke-width:0.533751px;stroke-linecap:butt;stroke-linejoin:miter"
+     id="rect57" />
+  <rect
+     x="256.95917"
+     y="272.78107"
+     width="169.56966"
+     height="70.966248"
+     rx="8.4784842"
+     stroke-width="0.5"
+     style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;fill:#faece7;stroke:#993c1d;stroke-width:0.533751px;stroke-linecap:butt;stroke-linejoin:miter"
+     id="rect57-2" />
+  <rect
+     x="435.16583"
+     y="272.78107"
+     width="169.56966"
+     height="70.966248"
+     rx="8.4784842"
+     stroke-width="0.5"
+     style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;fill:#faece7;stroke:#993c1d;stroke-width:0.533751px;stroke-linecap:butt;stroke-linejoin:miter"
+     id="rect57-9" />
   <g
-     style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#000000;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-     id="g65"
-     transform="translate(-13.496012,-25.235821)">
-    <rect
-       x="95"
-       y="298"
-       width="160"
-       height="66"
-       rx="8"
-       stroke-width="0.5"
-       style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#faece7;stroke:#993c1d;stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="rect57" />
+     id="g735"
+     transform="translate(0.5197204,-4.9433774)">
     <text
-       x="175"
-       y="316"
+       x="161.40097"
+       y="290.76419"
        text-anchor="middle"
        dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:500;font-size:14px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#712b13;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       style="color:#0b0b0b;font-weight:500;font-size:14px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#712b13;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
        id="text59">endoderm only hv</text>
     <text
-       x="175"
-       y="334"
+       x="161.54597"
+       y="308.00507"
        text-anchor="middle"
        dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="text61">top 1% endoderm</text>
+       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       id="text61"><tspan
+         sodipodi:role="line"
+         id="tspan396"
+         x="161.54597"
+         y="308.00507">top 1% endoderm</tspan><tspan
+         sodipodi:role="line"
+         id="tspan398"
+         x="161.54597"
+         y="323.00507">bottom 50% other two layers</tspan></text>
     <text
-       x="175"
-       y="350"
+       x="161.50398"
+       y="338.76419"
        text-anchor="middle"
        dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
        id="text63">N = 18</text>
   </g>
   <g
-     style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#000000;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-     id="g75"
-     transform="translate(-13.496012,-25.235821)">
-    <rect
-       x="275"
-       y="298"
-       width="160"
-       height="66"
-       rx="8"
-       stroke-width="0.5"
-       style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#faece7;stroke:#993c1d;stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="rect67" />
+     id="g722"
+     transform="translate(0,-4.9433774)">
     <text
-       x="355"
-       y="316"
+       x="341.14899"
+       y="290.76419"
        text-anchor="middle"
        dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:500;font-size:14px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#712b13;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       style="color:#0b0b0b;font-weight:500;font-size:14px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#712b13;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
        id="text69">mesoderm only hv</text>
     <text
-       x="355"
-       y="334"
+       x="341.504"
+       y="338.76419"
        text-anchor="middle"
        dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="text71">top 1% mesoderm</text>
-    <text
-       x="355"
-       y="350"
-       text-anchor="middle"
-       dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
        id="text73">N = 63</text>
+    <text
+       x="341.504"
+       y="308.00507"
+       text-anchor="middle"
+       dominant-baseline="central"
+       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       id="text61-3"><tspan
+         sodipodi:role="line"
+         id="tspan396-6"
+         x="341.504"
+         y="308.00507">top 1% mesoderm</tspan><tspan
+         sodipodi:role="line"
+         id="tspan398-7"
+         x="341.504"
+         y="323.00507">bottom 50% other two layers</tspan></text>
   </g>
   <g
-     style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#000000;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-     id="g85"
-     transform="translate(-13.496012,-25.235821)">
-    <rect
-       x="455"
-       y="298"
-       width="160"
-       height="66"
-       rx="8"
-       stroke-width="0.5"
-       style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#faece7;stroke:#993c1d;stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="rect77" />
+     id="g709"
+     transform="translate(-1.8412797,-4.9433774)">
     <text
-       x="535"
-       y="316"
+       x="521.40698"
+       y="290.76419"
        text-anchor="middle"
        dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:500;font-size:14px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#712b13;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       style="color:#0b0b0b;font-weight:500;font-size:14px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#712b13;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
        id="text79">ectoderm only hv</text>
     <text
-       x="535"
-       y="334"
+       x="521.50397"
+       y="338.76419"
        text-anchor="middle"
        dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="text81">top 1% ectoderm</text>
-    <text
-       x="535"
-       y="350"
-       text-anchor="middle"
-       dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
        id="text83">N = 297</text>
-  </g>
-  <rect
-     x="26.503988"
-     y="381.78842"
-     width="575.25"
-     height="75.026855"
-     rx="11.505"
-     fill="var(--surface-1)"
-     stroke="var(--border)"
-     stroke-width="0.5"
-     style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#fcfcfb;stroke-width:0.387115px;stroke-linecap:butt;stroke-linejoin:miter"
-     id="rect87" />
-  <g
-     id="g502"
-     transform="translate(-13.496012,-29.222393)">
-    <rect
-       x="60"
-       y="420"
-       width="16"
-       height="16"
-       rx="4"
-       stroke-width="0.5"
-       style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#e1f5ee;stroke:#0f6e56;stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="rect89" />
     <text
-       x="85"
-       y="429"
+       x="521.55194"
+       y="308.00507"
+       text-anchor="middle"
        dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:start;opacity:1;fill:#52514e;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="text91">Systemic: hypervariable (hv) across all three layers; set before gastrulation (ME candidate)</text>
-    <rect
-       x="60"
-       y="447"
-       width="16"
-       height="16"
-       rx="4"
-       stroke-width="0.5"
-       style="color:#0b0b0b;font-weight:400;font-size:16px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:auto;text-anchor:start;opacity:1;fill:#faece7;stroke:#993c1d;stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="rect93" />
-    <text
-       x="85"
-       y="456"
-       dominant-baseline="central"
-       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:start;opacity:1;fill:#52514e;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
-       id="text95"><tspan
+       style="color:#0b0b0b;font-weight:400;font-size:12px;font-family:anthropic-sans, '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;dominant-baseline:central;text-anchor:middle;fill:#993c1d;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter"
+       id="text61-3-3"><tspan
          sodipodi:role="line"
-         id="tspan744"
-         x="85"
-         y="456">Layer-specific: hypervariable in one lineage,</tspan><tspan
+         id="tspan396-6-5"
+         x="521.55194"
+         y="308.00507">top 1% ectoderm</tspan><tspan
          sodipodi:role="line"
-         id="tspan746"
-         x="85"
-         y="471">stable (hypervariability score &lt; median) in the other two</tspan></text>
+         id="tspan398-7-6"
+         x="521.55194"
+         y="323.00507">bottom 50% other two layers</tspan></text>
   </g>
   <metadata
      id="metadata628">
