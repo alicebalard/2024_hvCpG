@@ -24,6 +24,13 @@
 ### plot_stochastic_test
 ### fisher_test_te (for scripts S04 and S05)
 ### parse_cpg_names & getEnrichCentroTelo (Centromere enrichment test for S04)
+### Script S06:
+# kb_lab
+# plot_raw_meth
+# plot_percpg_interlayer_corr
+# plot_region
+# make_region_ld_plots
+
  
 makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   size = 4
@@ -1203,6 +1210,167 @@ getEnrichCentroTelo <- function(){
   
   enrich_test(hv_in_centro,  bg_in_centro,  top, totalSites, "Centromere")
   enrich_test(hv_in_subtelo, bg_in_subtelo, top, totalSites, "Subtelomere (1Mb)")
+}
+
+## ═════════════════════════════════════════════════════════════════════════════
+## Functions required by S06 (target-region figure) — append to functions.R
+## Conventions matched to the rest of functions.R:
+##   - `meth` has: cpg_site, chr, pos, methylation, patient_id, sample_id,
+##                 source_tissue_celltype, germ_layer
+##   - germ_colours <- c(Endo="#1D9E75", Meso="#D85A30", Ecto="#185FA5")
+##   - score column on the covered-in-3 table is logBF_per_ds (percentile too)
+## ═════════════════════════════════════════════════════════════════════════════
+
+## small shared helper (kb axis labels) — top-level so all fns can use it
+kb_lab <- function(x) paste0(round(x / 1e3, 1), " kb")
+
+# ── plot_raw_meth ─────────────────────────────────────────────────────────────
+# Raw per-CpG methylation across a window, coloured by germ layer.
+plot_raw_meth <- function(meth, region_gr, title = NULL,
+                          germ_colours = c(Endo = "#1D9E75",
+                                           Meso = "#D85A30",
+                                           Ecto = "#185FA5")) {
+  chr_sel <- as.character(seqnames(region_gr))[1]
+  x_min   <- min(start(region_gr)); x_max <- max(end(region_gr))
+  d <- as.data.table(meth)[chr == chr_sel & pos >= x_min & pos <= x_max]
+  if (!nrow(d)) return(ggplot() + theme_void() +
+                         labs(title = title, subtitle = "no CpGs in window"))
+  ggplot(d, aes(pos, methylation, colour = germ_layer)) +
+    geom_point(alpha = 0.35, size = 0.7) +
+    geom_smooth(aes(group = germ_layer), method = "loess", span = 0.3,
+                se = FALSE, linewidth = 0.6) +
+    scale_colour_manual(values = germ_colours, name = "Germ layer") +
+    scale_x_continuous("Position (hg38)", labels = kb_lab,
+                       limits = c(x_min, x_max), expand = c(0.01, 0)) +
+    scale_y_continuous("Methylation", limits = c(0, 1)) +
+    theme_bw(base_size = 10) +
+    theme(panel.grid.minor = element_blank()) +
+    { if (!is.null(title)) ggtitle(title) }
+}
+
+# ── plot_percpg_interlayer_corr ───────────────────────────────────────────────
+# Per-CpG inter-germ-layer |r| across a window (uses compute_percpg_interlayer_corr).
+plot_percpg_interlayer_corr <- function(meth, region_gr, title = NULL) {
+  chr_sel <- as.character(seqnames(region_gr))[1]
+  x_min   <- min(start(region_gr)); x_max <- max(end(region_gr))
+  d <- as.data.table(meth)[chr == chr_sel & pos >= x_min & pos <= x_max]
+  if (!nrow(sub)) return(ggplot() + theme_void() +
+                           labs(title = title, subtitle = "no CpGs in window"))
+  corr <- compute_percpg_interlayer_corr(copy(sub))
+  if (is.null(corr) || !nrow(corr))
+    return(ggplot() + theme_void() +
+             labs(title = title, subtitle = "insufficient paired samples"))
+  corr[, abs_r := abs(r)]
+  ggplot(corr[!is.na(abs_r)], aes(pos, abs_r, colour = pair)) +
+    geom_point(alpha = 0.6, size = 1) +
+    geom_line(aes(group = pair), alpha = 0.4) +
+    scale_colour_brewer(palette = "Dark2", name = "Layer pair") +
+    scale_x_continuous("Position (hg38)", labels = kb_lab,
+                       limits = c(x_min, x_max), expand = c(0.01, 0)) +
+    scale_y_continuous("Inter-layer |r|", limits = c(0, 1)) +
+    theme_bw(base_size = 10) +
+    theme(panel.grid.minor = element_blank()) +
+    { if (!is.null(title)) ggtitle(title) }
+}
+
+# ── plot_region ───────────────────────────────────────────────────────────────
+# Composite region panel: raw methylation on top, an annotation track
+# (gene / VMR / TE) below, sharing the x-axis. Returns a patchwork.
+plot_region <- function(region_gr, annot_gr, meth, title = NULL,
+                        germ_colours = c(Endo = "#1D9E75",
+                                         Meso = "#D85A30",
+                                         Ecto = "#185FA5")) {
+  if (!requireNamespace("patchwork", quietly = TRUE))
+    stop("plot_region() needs the 'patchwork' package.")
+  chr_sel <- as.character(seqnames(region_gr))[1]
+  x_min   <- min(start(region_gr)); x_max <- max(end(region_gr))
+
+  p_meth <- plot_raw_meth(meth, region_gr, title = title,
+                          germ_colours = germ_colours) +
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank())
+  
+  ann <- as.data.table(annot_gr)
+  annot_cols <- c(gene = "#4477AA", geneVMR = "#EE6677", TE = "#228833")
+  ann[, y := as.integer(factor(annot_type))]
+  p_annot <- ggplot(ann) +
+    geom_rect(aes(xmin = start, xmax = end, ymin = y - 0.3, ymax = y + 0.3,
+                  fill = annot_type), colour = "grey20", linewidth = 0.2) +
+    geom_text(aes(x = (start + end) / 2, y = y, label = name),
+              size = 2.6, vjust = -1.1) +
+    scale_fill_manual(values = annot_cols, name = "Feature") +
+    scale_x_continuous("Position (hg38)", labels = kb_lab,
+                       limits = c(x_min, x_max), expand = c(0.01, 0)) +
+    scale_y_continuous(NULL, breaks = NULL,
+                       limits = c(0.5, max(ann$y) + 0.7)) +
+    theme_bw(base_size = 10) +
+    theme(panel.grid = element_blank())
+  
+  patchwork::wrap_plots(p_meth, p_annot, ncol = 1, heights = c(3, 1)) &
+    patchwork::plot_layout(guides = "collect")
+}
+
+# ── make_region_ld_plots ──────────────────────────────────────────────────────
+# Co-methylation (pairwise Pearson r) heatmaps over a region, all samples and
+# per germ layer. Wraps the make_ld() logic. Returns a named list of ggplots.
+make_region_ld_plots <- function(region_gr, meth, label, feature_ticks = NULL,
+                                 min_samples = 5, max_ld_cpg = 60) {
+  base_th <- theme_bw(base_size = 9) +
+    theme(panel.grid = element_blank(),
+          plot.subtitle = element_text(size = 8))
+  
+  chr_sel <- as.character(seqnames(region_gr))[1]
+  x_min   <- min(start(region_gr)); x_max <- max(end(region_gr))
+  d <- as.data.table(meth)[chr == chr_sel & pos >= x_min & pos <= x_max]
+  
+  # internal LD heatmap builder (self-contained copy of make_ld)
+  make_ld <- function(md_sub, sub_label, ms) {
+    if (is.null(md_sub) || !nrow(md_sub)) return(NULL)
+    keep   <- md_sub[, .(n = uniqueN(sample_id)), by = .(cpg_site, pos)][n >= ms]
+    md_sub <- md_sub[cpg_site %in% keep$cpg_site]
+    lev    <- sort(unique(md_sub$pos))
+    if (length(lev) < 3) return(NULL)
+    if (length(lev) > max_ld_cpg)
+      lev <- lev[round(seq(1, length(lev), length.out = max_ld_cpg))]
+    md_sub <- md_sub[pos %in% lev]
+    
+    w   <- dcast(md_sub, sample_id ~ pos, value.var = "methylation")
+    mat <- as.matrix(w[, -1, with = FALSE])
+    mat <- mat[, order(as.integer(colnames(mat))), drop = FALSE]
+    if (ncol(mat) < 3) return(NULL)
+    cpos   <- as.integer(colnames(mat))
+    cormat <- suppressWarnings(stats::cor(mat, use = "pairwise.complete.obs"))
+    n      <- ncol(cormat)
+    
+    long <- as.data.table(as.table(cormat)); setnames(long, c("c1","c2","r"))
+    idx  <- setNames(seq_len(n), colnames(cormat))
+    long[, `:=`(i = idx[as.character(c1)], j = idx[as.character(c2)])]
+    long <- long[j > i & !is.na(r)]
+    if (!nrow(long)) return(NULL)
+    
+    br <- unique(round(seq(1, n, length.out = 6)))
+    ggplot(long, aes(i, j, fill = r)) +
+      geom_raster() +
+      scale_fill_gradient2("Pearson r", low = "#2166AC", mid = "white",
+                           high = "#D73027", midpoint = 0, limits = c(-1, 1)) +
+      scale_x_continuous(breaks = br, labels = kb_lab(cpos[br]), expand = c(0, 0)) +
+      scale_y_continuous(breaks = br, labels = kb_lab(cpos[br]), expand = c(0, 0)) +
+      coord_fixed() + base_th +
+      theme(axis.title = element_blank(),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+      labs(subtitle = sub_label)
+  }
+  
+  layer_min <- max(3L, min_samples %/% 2L)
+  cols <- c("sample_id","cpg_site","pos","methylation")
+  
+  list(
+    meth = make_ld(mdw[, ..cols],
+                   sprintf("Co-methylation pairwise r \u2014 %s (all samples)", label),
+                   min_samples),
+    endo = make_ld(mdw[germ_layer == "Endo", ..cols], "Endoderm", layer_min),
+    meso = make_ld(mdw[germ_layer == "Meso", ..cols], "Mesoderm", layer_min),
+    ecto = make_ld(mdw[germ_layer == "Ecto", ..cols], "Ectoderm", layer_min)
+  )
 }
 
 functionsLoaded = TRUE
