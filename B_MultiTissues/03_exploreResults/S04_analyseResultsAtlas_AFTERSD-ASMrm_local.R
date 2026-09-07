@@ -286,6 +286,11 @@ if (table3layers_coveredIn3_saved == FALSE){
   table(table3layers_coveredIn3$n_layers)
   ## 20.246.679
   
+  # Fix chromosome names in geomMeanGR (1 -> chr1)
+  if (sum(grepl("chr", seqlevels(table3layers_coveredIn3))) == 0){
+    seqlevels(table3layers_coveredIn3) <- paste0("chr", seqlevels(table3layers_coveredIn3))
+  }
+  
   ### SAVED ###
   save(table3layers_coveredIn3, file =
          here(paste0("gitignore/table3layers_coveredIn3_", format(Sys.Date(), "%d_%m_%y"), ".Rda")))
