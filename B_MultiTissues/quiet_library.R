@@ -16,7 +16,7 @@ cran_packages <- c(
   # Graphics
   "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram", "patchwork",
   "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo", "paletteer",
-  "UpSetR",
+  "UpSetR", "ggridges",
   # Stats
   "boot", "emmeans",
   # Reporting
