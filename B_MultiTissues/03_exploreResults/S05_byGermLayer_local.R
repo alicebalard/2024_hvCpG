@@ -1,13 +1,7 @@
 #####################################################################
 # S05 — Per-germ-layer hypervariability categories
 #
-# Four mutually-exclusive categories, each a set of chr_pos:
-#   top1pc3layers : top 1% of logBF_per_ds in endo AND in meso AND in ecto (stricter than in S04)
-#   top1pcEndoOnly : top 1% in endo  AND bottom 50% in meso AND bottom 50% in ecto
-#   top1pcMesoOnly : top 1% in meso  AND bottom 50% in endo AND bottom 50% in ecto
-#   top1pcEctoOnly : top 1% in ecto  AND bottom 50% in endo AND bottom 50% in meso
-#
-# Then run the SAME enrichment tests S04 ran on top99q, once per category:
+# Run the SAME enrichment tests S04 ran on top99q, once per category:
 #   (1) TE enrichment (overall + per repClass)
 #   (2) SD-ASM enrichment (overall + per classification)
 #   (3) GO enrichment (CpG-density-controlled)
@@ -38,7 +32,158 @@ load(here("gitignore/table3layers_coveredIn3_26_08_26.Rda"))
 dt <- as.data.table(table3layers_coveredIn3)           # one row per covered-in-3 CpG
 setnames(dt, "chr_pos", "chr_pos", skip_absent = TRUE) # ensure chr_pos exists
 
-## ── 1. Define the four categories (all from per-layer top-1% / bottom-50% flags) ──
+## =============================================================================
+## Test Pr(hv) one layer - mean(Pr(hv) the others): can we find a threshold?
+## =============================================================================
+
+dt$endo <- dt$logBF_per_ds_endo - rowMeans(dt[, .(logBF_per_ds_ecto, logBF_per_ds_meso)], 
+                                           na.rm = TRUE)
+dt$ecto <- dt$logBF_per_ds_ecto - rowMeans(dt[, .(logBF_per_ds_endo, logBF_per_ds_meso)], 
+                                           na.rm = TRUE)
+dt$meso <- dt$logBF_per_ds_meso - rowMeans(dt[, .(logBF_per_ds_ecto, logBF_per_ds_endo)], 
+                                           na.rm = TRUE)
+
+## 6 gp
+dt$endo6gp <- dt$logBF_per_ds_endo6gp - rowMeans(dt[, .(logBF_per_ds_ecto, logBF_per_ds_meso6gp)], 
+                                                 na.rm = TRUE)
+dt$ecto6gp <- dt$logBF_per_ds_ecto - rowMeans(dt[, .(logBF_per_ds_endo6gp, logBF_per_ds_meso6gp)], 
+                                              na.rm = TRUE)
+dt$meso6gp <- dt$logBF_per_ds_meso6gp - rowMeans(dt[, .(logBF_per_ds_ecto, logBF_per_ds_endo6gp)], 
+                                                 na.rm = TRUE)
+
+nrow(dt) ## 20,246,679
+## We select randomly 100k CpGs
+set.seed(1234)
+sample <- dt[sample(nrow(dt), 100000),]
+
+# long format: one row per (CpG, layer)
+long <- melt(sample[, .(endo, meso, ecto)],
+             measure.vars = c("endo", "meso", "ecto"),
+             variable.name = "layer", value.name = "value")
+
+# per-layer quantile position (0-1) = rank within that layer
+long[, quantile := rank(value, na.last = "keep") / sum(!is.na(value)), by = layer]
+
+plotQuant <- ggplot(long[!is.na(value)], aes(x = quantile, y = value, colour = layer)) +
+  geom_line(linewidth = 0.8) +
+  scale_colour_manual(values = c(endo = "#1D9E75", meso = "#D85A30", ecto = "#185FA5"),
+                      name = "Germ layer") +
+  geom_hline(yintercept = 0, linetype = 2, colour = "grey50") +
+  labs(x = "Quantile (within layer)",
+       y = "Layer-specific score\n(layer - mean of other two)",
+       title = "Per-CpG layer-specificity across the quantile distribution") +
+  theme_bw(base_size = 13)
+
+# work per layer on the sorted curve (quantile vs value)
+find_inflection <- function(d) {
+  d <- d[!is.na(value)][order(quantile)]
+  x <- d$quantile; y <- d$value
+  # smooth first (100k points is noisy); spline gives clean derivatives
+  sm  <- smooth.spline(x, y, spar = 0.6)
+  d1  <- predict(sm, x, deriv = 1)$y        # slope
+  d2  <- predict(sm, x, deriv = 2)$y        # curvature
+  
+  # (a) inflection = second derivative crosses zero (concave <-> convex)
+  sign_change <- which(diff(sign(d2)) != 0)
+  infl_q <- x[sign_change]
+  
+  # (b) "knee" = point of maximum curvature in the upper tail (steep takeoff)
+  upper <- x > 0.5
+  knee_q <- x[upper][which.max(abs(d2[upper]))]
+  
+  list(inflection_quantiles = infl_q, knee_quantile = knee_q,
+       knee_value = y[x == knee_q])
+}
+
+res <- long[, find_inflection(.SD), by = layer]
+
+# one knee point per layer
+knee_dt <- unique(res[, .(layer, knee_quantile, knee_value)])
+
+plotQuant <- plotQuant +
+  # knee: vertical AND horizontal guide lines to the axes
+  geom_vline(data = knee_dt, aes(xintercept = knee_quantile, colour = layer),
+             linetype = 2, linewidth = 0.6, show.legend = FALSE) +
+  geom_segment(data = knee_dt,                       # horizontal line from y-axis to the knee
+               aes(x = 0, xend = knee_quantile,
+                   y = knee_value, yend = knee_value, colour = layer),
+               linetype = 3, linewidth = 0.5, show.legend = FALSE) +
+  geom_point(data = knee_dt, aes(x = knee_quantile, y = knee_value, colour = layer),
+             size = 3.5, show.legend = FALSE) +
+  # label each knee with its quantile
+  geom_text(data = knee_dt,
+            aes(x = knee_quantile, y = knee_value, colour = layer,
+                label = sprintf("q=%.3f", knee_quantile)),
+            hjust = 1.1, vjust = -1, size = 3, fontface = "bold",
+            show.legend = FALSE) +
+  # mark the knee values on the y-axis itself
+  scale_y_continuous(sec.axis = sec_axis(~ ., breaks = round(knee_dt$knee_value, 2),
+                                         name = "Knee values"))
+ggsave(here("B_MultiTissues/dataOut/figures/script05/plotQuant.pdf"),
+       plotQuant, width = 8, height = 8)
+
+# Inflection point:
+# Endo = 0.59
+# Meso = 0.63
+# Ecto = 0.82
+
+########
+## 6 gp
+
+# long format: one row per (CpG, layer)
+long <- melt(sample[, .(endo6gp, meso6gp, ecto6gp)],
+             measure.vars = c("endo6gp", "meso6gp", "ecto6gp"),
+             variable.name = "layer", value.name = "value")
+
+# per-layer quantile position (0-1) = rank within that layer
+long[, quantile := rank(value, na.last = "keep") / sum(!is.na(value)), by = layer]
+
+plotQuant <- ggplot(long[!is.na(value)], aes(x = quantile, y = value, colour = layer)) +
+  geom_line(linewidth = 0.8) +
+  scale_colour_manual(values = c(endo6gp = "#1D9E75", meso6gp = "#D85A30", ecto6gp = "#185FA5"),
+                      name = "Germ layer") +
+  geom_hline(yintercept = 0, linetype = 2, colour = "grey50") +
+  labs(x = "Quantile (within layer)",
+       y = "Layer-specific score\n(layer - mean of other two)",
+       title = "Per-CpG layer-specificity across the quantile distribution") +
+  theme_bw(base_size = 13)
+
+res <- long[, find_inflection(.SD), by = layer]
+
+# one knee point per layer
+knee_dt <- unique(res[, .(layer, knee_quantile, knee_value)])
+
+plotQuant <- plotQuant +
+  # knee: vertical AND horizontal guide lines to the axes
+  geom_vline(data = knee_dt, aes(xintercept = knee_quantile, colour = layer),
+             linetype = 2, linewidth = 0.6, show.legend = FALSE) +
+  geom_segment(data = knee_dt,                       # horizontal line from y-axis to the knee
+               aes(x = 0, xend = knee_quantile,
+                   y = knee_value, yend = knee_value, colour = layer),
+               linetype = 3, linewidth = 0.5, show.legend = FALSE) +
+  geom_point(data = knee_dt, aes(x = knee_quantile, y = knee_value, colour = layer),
+             size = 3.5, show.legend = FALSE) +
+  # label each knee with its quantile
+  geom_text(data = knee_dt,
+            aes(x = knee_quantile, y = knee_value, colour = layer,
+                label = sprintf("q=%.3f", knee_quantile)),
+            hjust = 1.1, vjust = -1, size = 3, fontface = "bold",
+            show.legend = FALSE) +
+  # mark the knee values on the y-axis itself
+  scale_y_continuous(sec.axis = sec_axis(~ ., breaks = round(knee_dt$knee_value, 2),
+                                         name = "Knee values"))
+plotQuant
+
+# Inflection points:
+# Endo6gp = 1.27
+# Meso6gp = 1.20
+# Ecto6gp = 1.32
+
+## =============================================================================
+## Define the four categories
+## =============================================================================
+
+## ── Define the top and bottom per layer for ME and constitutive (all from per-layer top-1% / bottom-50% flags) ──
 q_top <- function(x) quantile(x, 0.99, na.rm = TRUE)   # top 1% within a layer
 q_bot <- function(x) quantile(x, 0.50, na.rm = TRUE)   # bottom 50% cutoff (median)
 
@@ -67,117 +212,130 @@ dt[, `:=`(
   lo_ecto6gp = logBF_per_ds_ecto <  thr$ecto6gp["bot"]
 )]
 
+## ── Define categories: use previous criteria for top1pc3layers(6gp) and constitutive
+## & use the inflection points detected earlier for the layers only top
+
+# Inflection points:
+# Endo = 0.59
+# Meso = 0.63
+# Ecto = 0.82
+# Endo6gp = 1.27
+# Meso6gp = 1.20
+# Ecto6gp = 1.32
+
 categories <- list(
   top1pc3layers = dt[hv_endo & hv_meso & hv_ecto, chr_pos],   # top 1% in ALL three layers
-  top1pcEndoOnly = dt[hv_endo & lo_meso & lo_ecto, chr_pos],   # top 1% in 1 layer, bottom 50% in the others
-  top1pcMesoOnly = dt[hv_meso & lo_endo & lo_ecto, chr_pos],
-  top1pcEctoOnly = dt[hv_ecto & lo_endo & lo_meso, chr_pos],
   constitutive = dt[lo_ecto & lo_endo & lo_meso, chr_pos],
-  top1pc3layers6gp = dt[hv_endo6gp & hv_meso6gp & hv_ecto6gp, chr_pos],
-  endo6gp_only = dt[hv_endo6gp & lo_meso6gp & lo_ecto6gp, chr_pos],
-  meso6gp_only = dt[hv_meso6gp & lo_endo6gp & lo_ecto6gp, chr_pos],
-  ecto6gp_only = dt[hv_ecto6gp & lo_endo6gp & lo_meso6gp, chr_pos]
+  top1pcEndoOnly = dt[hv_endo & endo >= 0.59, chr_pos], # genuinely hypervariable in endo AND specific to it
+  top1pcMesoOnly = dt[hv_meso & meso >= 0.63, chr_pos],
+  top1pcEctoOnly = dt[hv_ecto & ecto >= 0.82, chr_pos],
+  ## 6gp:
+  top1pc3layer6gps = dt[hv_endo6gp & hv_meso6gp & hv_ecto6gp, chr_pos],   # top 1% in ALL three layers
+  constitutive6gp = dt[lo_ecto6gp & lo_endo6gp & lo_meso6gp, chr_pos],
+  top1pcEndoOnly6gp = dt[hv_endo6gp & endo6gp >= 1.27, chr_pos], # genuinely hypervariable in endo AND specific to it
+  top1pcMesoOnly6gp = dt[hv_meso6gp & meso6gp >= 1.20, chr_pos],
+  top1pcEctoOnly6gp = dt[hv_ecto6gp & ecto6gp >= 1.32, chr_pos]
 )
 
 message("Category sizes:")
 print(sapply(categories, length))
-# top1pc3layers    top1pcEndoOnly    top1pcMesoOnly    top1pcEctoOnly constitutive 
-# 60424           18           63          297      6723417     
-# top1pc3layers6gp endo6gp_only meso6gp_only  ecto6gp_only 
-#      26        47166        51527           48122 
+# top1pc3layers      constitutive    top1pcEndoOnly    top1pcMesoOnly    top1pcEctoOnly 
+# 60424           6723417              9545              9494             41413 
+# top1pc3layer6gps   constitutive6gp top1pcEndoOnly6gp top1pcMesoOnly6gp top1pcEctoOnly6gp 
+# 26           2570512            131309            137801            134230  
 
-## =============================================================================
-## Test overlap between the 1% in each layer
-## =============================================================================
-
-if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/venn_scatter_1_50pc.pdf"))){
-  cat1pc <- list(
-    endo1pc = dt[(hv_endo), chr_pos],
-    meso1pc = dt[(hv_meso), chr_pos],
-    ecto1pc = dt[(hv_ecto), chr_pos])
-  
-  print(sapply(cat1pc, length))
-  # endo1pc meso1pc ecto1pc 
-  # 202467  202467  202467 
-  
-  p_venn1pc <- ggVennDiagram(cat1pc,
-                             category.names = c("Endo 1%", "Meso 1%", "Ecto 1%"),
-                             label = "both", label_alpha = 0) +
-    scale_fill_gradient(low = "grey95", high = "#2166AC") +
-    scale_colour_manual(values = rep("grey30", 3)) +
-    labs(title = "Overlap of top-1% hvCpGs across germ layers") +
-    theme(legend.position = "none")
-  
-  q50 <- function(x) quantile(x, 0.50, na.rm = TRUE)
-  
-  cat50pc <- list(
-    endo50pc = dt[logBF_per_ds_endo >= q50(logBF_per_ds_endo), chr_pos],
-    meso50pc = dt[logBF_per_ds_meso >= q50(logBF_per_ds_meso), chr_pos],
-    ecto50pc = dt[logBF_per_ds_ecto >= q50(logBF_per_ds_ecto), chr_pos])
-  
-  p_venn50pc <- ggVennDiagram(cat50pc, 
-                              category.names = c("Endo 50%", "Meso 50%", "Ecto 50%"),
-                              label = "both", label_alpha = 0) +
-    scale_fill_gradient(low = "grey95", high = "#B2182B") +   # different hue from the 1% Venn
-    scale_colour_manual(values = rep("grey30", 3)) +
-    labs(title = "Overlap of top-50% hvCpGs across germ layers") +
-    theme(legend.position = "none")
-  
-  p_venn50pc
-  
-  # endo vs meso, with the thresholds that define the categories
-  p_scatter_1 <- ggplot(dt, aes(logBF_per_ds_endo, logBF_per_ds_meso)) +
-    geom_hex(bins = 100) +
-    scale_fill_viridis_c(trans = "log10", name = "CpGs") +
-    # meso thresholds (y): top 1% and bottom 50%
-    geom_hline(yintercept = thr$meso["top"], colour = "#B2182B", linetype = 2) +
-    geom_hline(yintercept = thr$meso["bot"], colour = "grey40",  linetype = 3) +
-    # endo thresholds (x)
-    geom_vline(xintercept = thr$endo["top"], colour = "#B2182B", linetype = 2) +
-    geom_vline(xintercept = thr$endo["bot"], colour = "grey40",  linetype = 3) +
-    annotate("rect", xmin = thr$endo["top"], xmax = Inf,
-             ymin = -Inf, ymax = thr$meso["bot"],
-             fill = NA, colour = "black", linewidth = 0.6) +   # the "endo-specific" corner
-    labs(x = "Hypervariability score endoderm", y = "Hypervariability score mesoderm",
-         title = "Hypervariability scores are strongly correlated") +
-    theme_minimal(base_size = 12)
-  
-  p_scatter_2 <- ggplot(dt, aes(logBF_per_ds_endo, logBF_per_ds_ecto)) +
-    geom_hex(bins = 100) +
-    scale_fill_viridis_c(trans = "log10", name = "CpGs") +
-    # ecto thresholds (y): top 1% and bottom 50%
-    geom_hline(yintercept = thr$ecto["top"], colour = "#B2182B", linetype = 2) +
-    geom_hline(yintercept = thr$ecto["bot"], colour = "grey40",  linetype = 3) +
-    # endo thresholds (x)
-    geom_vline(xintercept = thr$endo["top"], colour = "#B2182B", linetype = 2) +
-    geom_vline(xintercept = thr$endo["bot"], colour = "grey40",  linetype = 3) +
-    annotate("rect", xmin = thr$endo["top"], xmax = Inf,
-             ymin = -Inf, ymax = thr$ecto["bot"],
-             fill = NA, colour = "black", linewidth = 0.6) +   # the "endo-specific" corner
-    labs(x = "Hypervariability score endoderm", y = "Hypervariability score ectoderm",
-         title = "Hypervariability scores are strongly correlated") +
-    theme_minimal(base_size = 12)
-  
-  p_scatter_3 <- ggplot(dt, aes(logBF_per_ds_ecto, logBF_per_ds_meso)) +
-    geom_hex(bins = 100) +
-    scale_fill_viridis_c(trans = "log10", name = "CpGs") +
-    # meso thresholds (y): top 1% and bottom 50%
-    geom_hline(yintercept = thr$meso["top"], colour = "#B2182B", linetype = 2) +
-    geom_hline(yintercept = thr$meso["bot"], colour = "grey40",  linetype = 3) +
-    # ecto thresholds (x)
-    geom_vline(xintercept = thr$ecto["top"], colour = "#B2182B", linetype = 2) +
-    geom_vline(xintercept = thr$ecto["bot"], colour = "grey40",  linetype = 3) +
-    annotate("rect", xmin = thr$ecto["top"], xmax = Inf,
-             ymin = -Inf, ymax = thr$meso["bot"],
-             fill = NA, colour = "black", linewidth = 0.6) +   # the "ecto-specific" corner
-    labs(x = "Hypervariability score ectoderm", y = "Hypervariability score mesoderm",
-         title = "Hypervariability scores are strongly correlated") +
-    theme_minimal(base_size = 12)
-  
-  ggsave(here("B_MultiTissues/dataOut/figures/script05/venn_scatter_1_50pc.pdf"),
-         (p_venn1pc | p_venn50pc) / 
-           (p_scatter_1 | p_scatter_2 | p_scatter_3), width = 18, height = 10)
-}
+# ## =============================================================================
+# ## Test overlap between the top in each layer
+# ## =============================================================================
+# 
+# if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/venn_scatter_1_50pc.pdf"))){
+#   cat1pc <- list(
+#     endo1pc = dt[(hv_endo), chr_pos],
+#     meso1pc = dt[(hv_meso), chr_pos],
+#     ecto1pc = dt[(hv_ecto), chr_pos])
+#   
+#   print(sapply(cat1pc, length))
+#   # endo1pc meso1pc ecto1pc 
+#   # 202467  202467  202467 
+#   
+#   p_venn1pc <- ggVennDiagram(cat1pc,
+#                              category.names = c("Endo 1%", "Meso 1%", "Ecto 1%"),
+#                              label = "both", label_alpha = 0) +
+#     scale_fill_gradient(low = "grey95", high = "#2166AC") +
+#     scale_colour_manual(values = rep("grey30", 3)) +
+#     labs(title = "Overlap of top-1% hvCpGs across germ layers") +
+#     theme(legend.position = "none")
+#   
+#   q50 <- function(x) quantile(x, 0.50, na.rm = TRUE)
+#   
+#   cat50pc <- list(
+#     endo50pc = dt[logBF_per_ds_endo >= q50(logBF_per_ds_endo), chr_pos],
+#     meso50pc = dt[logBF_per_ds_meso >= q50(logBF_per_ds_meso), chr_pos],
+#     ecto50pc = dt[logBF_per_ds_ecto >= q50(logBF_per_ds_ecto), chr_pos])
+#   
+#   p_venn50pc <- ggVennDiagram(cat50pc, 
+#                               category.names = c("Endo 50%", "Meso 50%", "Ecto 50%"),
+#                               label = "both", label_alpha = 0) +
+#     scale_fill_gradient(low = "grey95", high = "#B2182B") +   # different hue from the 1% Venn
+#     scale_colour_manual(values = rep("grey30", 3)) +
+#     labs(title = "Overlap of top-50% hvCpGs across germ layers") +
+#     theme(legend.position = "none")
+#   
+#   p_venn50pc
+#   
+#   # endo vs meso, with the thresholds that define the categories
+#   p_scatter_1 <- ggplot(dt, aes(logBF_per_ds_endo, logBF_per_ds_meso)) +
+#     geom_hex(bins = 100) +
+#     scale_fill_viridis_c(trans = "log10", name = "CpGs") +
+#     # meso thresholds (y): top 1% and bottom 50%
+#     geom_hline(yintercept = thr$meso["top"], colour = "#B2182B", linetype = 2) +
+#     geom_hline(yintercept = thr$meso["bot"], colour = "grey40",  linetype = 3) +
+#     # endo thresholds (x)
+#     geom_vline(xintercept = thr$endo["top"], colour = "#B2182B", linetype = 2) +
+#     geom_vline(xintercept = thr$endo["bot"], colour = "grey40",  linetype = 3) +
+#     annotate("rect", xmin = thr$endo["top"], xmax = Inf,
+#              ymin = -Inf, ymax = thr$meso["bot"],
+#              fill = NA, colour = "black", linewidth = 0.6) +   # the "endo-specific" corner
+#     labs(x = "Hypervariability score endoderm", y = "Hypervariability score mesoderm",
+#          title = "Hypervariability scores are strongly correlated") +
+#     theme_minimal(base_size = 12)
+#   
+#   p_scatter_2 <- ggplot(dt, aes(logBF_per_ds_endo, logBF_per_ds_ecto)) +
+#     geom_hex(bins = 100) +
+#     scale_fill_viridis_c(trans = "log10", name = "CpGs") +
+#     # ecto thresholds (y): top 1% and bottom 50%
+#     geom_hline(yintercept = thr$ecto["top"], colour = "#B2182B", linetype = 2) +
+#     geom_hline(yintercept = thr$ecto["bot"], colour = "grey40",  linetype = 3) +
+#     # endo thresholds (x)
+#     geom_vline(xintercept = thr$endo["top"], colour = "#B2182B", linetype = 2) +
+#     geom_vline(xintercept = thr$endo["bot"], colour = "grey40",  linetype = 3) +
+#     annotate("rect", xmin = thr$endo["top"], xmax = Inf,
+#              ymin = -Inf, ymax = thr$ecto["bot"],
+#              fill = NA, colour = "black", linewidth = 0.6) +   # the "endo-specific" corner
+#     labs(x = "Hypervariability score endoderm", y = "Hypervariability score ectoderm",
+#          title = "Hypervariability scores are strongly correlated") +
+#     theme_minimal(base_size = 12)
+#   
+#   p_scatter_3 <- ggplot(dt, aes(logBF_per_ds_ecto, logBF_per_ds_meso)) +
+#     geom_hex(bins = 100) +
+#     scale_fill_viridis_c(trans = "log10", name = "CpGs") +
+#     # meso thresholds (y): top 1% and bottom 50%
+#     geom_hline(yintercept = thr$meso["top"], colour = "#B2182B", linetype = 2) +
+#     geom_hline(yintercept = thr$meso["bot"], colour = "grey40",  linetype = 3) +
+#     # ecto thresholds (x)
+#     geom_vline(xintercept = thr$ecto["top"], colour = "#B2182B", linetype = 2) +
+#     geom_vline(xintercept = thr$ecto["bot"], colour = "grey40",  linetype = 3) +
+#     annotate("rect", xmin = thr$ecto["top"], xmax = Inf,
+#              ymin = -Inf, ymax = thr$meso["bot"],
+#              fill = NA, colour = "black", linewidth = 0.6) +   # the "ecto-specific" corner
+#     labs(x = "Hypervariability score ectoderm", y = "Hypervariability score mesoderm",
+#          title = "Hypervariability scores are strongly correlated") +
+#     theme_minimal(base_size = 12)
+#   
+#   ggsave(here("B_MultiTissues/dataOut/figures/script05/venn_scatter_1_50pc.pdf"),
+#          (p_venn1pc | p_venn50pc) / 
+#            (p_scatter_1 | p_scatter_2 | p_scatter_3), width = 18, height = 10)
+# }
 
 ## =============================================================================
 ## Test power of detection if reduced N of group (Ecto has only 6 groups)
@@ -206,14 +364,12 @@ calc_stats <- function(full_vec, gp6_vec, label) {
   ))
 }
 
-calc_stats(categories$top1pcEndoOnly,    categories$endo6gp_only,    "Endo_specific")
-calc_stats(categories$top1pcMesoOnly,    categories$meso6gp_only,    "Meso_specific")
-calc_stats(categories$top1pcEctoOnly,    categories$ecto6gp_only,    "Ecto_specific")
-calc_stats(categories$top1pc3layers,    categories$top1pc3layers6gp,    "top1pc3layers")
-# Endo_specific: full=18, 6gp=47166, shared=0 (0% of full, 0.0% of 6gp)
-# Meso_specific: full=63, 6gp=51527, shared=0 (0% of full, 0.1% of 6gp)
-# Ecto_specific: full=297, 6gp=48122, shared=73 (25% of full, 0.6% of 6gp)
-# top1pc3layers: full=60424, 6gp=26, shared=4 (0% of full, 232400.0% of 6gp)
+calc_stats(categories$top1pcEndoOnly,    categories$top1pcEndoOnly6gp,    "Endo_specific")
+calc_stats(categories$top1pcMesoOnly,    categories$top1pcMesoOnly6gp,    "Meso_specific")
+calc_stats(categories$top1pcEctoOnly,    categories$top1pcEctoOnly6gp,    "Ecto_specific")
+# Endo_specific: full=9545, 6gp=131309, shared=40 (0% of full, 7.3% of 6gp)
+# Meso_specific: full=9494, 6gp=137801, shared=55 (1% of full, 6.9% of 6gp)
+# Ecto_specific: full=41413, 6gp=134230, shared=27515 (66% of full, 30.9% of 6gp)
 
 ## Remove useless categories
 categories <- categories[
@@ -224,7 +380,7 @@ categories <- categories[
 ## TE ENRICHMENT — per category, overall + per repClass
 ## =============================================================================
 
-if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byCategory.png"))){
+if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byCategory.pdf"))){
   
   ## Shared background = all covered-in-3 CpGs NOT in the focal category
   ## (built per test below, so each category is compared against everything else)
@@ -283,13 +439,13 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byC
   ord <- te_plot[category == "top1pc3layers"][order(odds_ratio), te_class]
   te_plot[, te_class := factor(te_class, levels = unique(ord))]
   te_plot[, category := factor(category,
-                               levels = c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly"))]
+                               levels = c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly", "constitutive"))]
   
   ## Add N
   te_plot[, category := factor(category,
-                               levels = c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly"),
-                               labels = paste0(c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly"),
-                                               "\n(N=", sapply(categories, length)[c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly")], ")"))]
+                               levels = c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly", "constitutive"),
+                               labels = paste0(c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly", "constitutive"),
+                                               "\n(N=", sapply(categories, length)[c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly", "constitutive")], ")"))]
   
   TEplot_S05 <- ggplot(te_plot[te_plot$sig %in% "FDR < 0.05",],
                        aes(odds_ratio, te_class, colour = sig)) +
@@ -304,8 +460,8 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byC
     theme_minimal(base_size = 12)
   
   TEplot_S05
-  ggsave(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byCategory.png"),
-         TEplot_S05, width = 16, height = 5, dpi = 300, bg = "white")
+  ggsave(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byCategory.pdf"),
+         TEplot_S05, width = 10, height = 8, dpi = 300, bg = "white")
   
   ## Add per sub categories of TE
   
@@ -336,13 +492,13 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byC
   ord <- te_plot[category == "top1pc3layers"][order(odds_ratio), te_class]
   te_plot[, te_class := factor(te_class, levels = unique(ord))]
   te_plot[, category := factor(category,
-                               levels = c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly"))]
+                               levels = c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly", "constitutive"))]
   
   ## Add N
   te_plot[, category := factor(category,
-                               levels = c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly"),
-                               labels = paste0(c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly"),
-                                               "\n(N=", sapply(categories, length)[c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly")], ")"))]
+                               levels = c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly", "constitutive"),
+                               labels = paste0(c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly", "constitutive"),
+                                               "\n(N=", sapply(categories, length)[c("top1pc3layers","top1pcEndoOnly","top1pcMesoOnly","top1pcEctoOnly", "constitutive")], ")"))]
   
   TEplot_fam_S05 <- ggplot(te_plot[te_plot$sig %in% "FDR < 0.05",],
                            aes(odds_ratio, te_class, colour = sig)) +
@@ -358,8 +514,8 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byC
   
   TEplot_fam_S05
   
-  ggsave(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byFamily.png"),
-         TEplot_fam_S05, width = 16, height = 7, dpi = 300, bg = "white")
+  ggsave(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byFamily.pdf"),
+         TEplot_fam_S05, width = 10, height = 20, dpi = 300, bg = "white")
 }
 
 ## =============================================================================
@@ -367,331 +523,335 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/TE_enrichment_byC
 ## =============================================================================
 
 top99q_S04     <- readRDS(here(paste0("gitignore/top99q_CpGs_", variant, ".RDS")))  # S04 set
-top1pc3layers_S05  <- categories$top1pc3layers                                              # S05 set
+top1pc3layers_S05  <- categories$top1pc3layers                                      # S05 set
 
-n_over <- length(intersect(top99q_S04, top1pc3layers_S05))
-data.table(
-  n_top99q_S04   = length(top99q_S04),
-  n_top1pc3layers_S05 = length(top1pc3layers_S05),
-  n_overlap      = n_over,
-  pc_of_top99q   = round(100 * n_over / length(top99q_S04), 1),
-  pc_of_top1pc3layers = round(100 * n_over / length(top1pc3layers_S05), 1)
-)
-
-# n_top99q_S04 n_top1pc3layers_S05 n_overlap pc_of_top99q pc_of_top1pc3layers
-#    202467           60424     60424         29.8             100
-
-# use top1pc3layers_S05 instead of the top 1% of script 04
-
-## Focal set = top1pc3layers_S05 (was top99q)
-if (!exists("listGR")){
-  listGR <- list(top1pc3layers    = makeGRfromMyCpGPos(vec = top1pc3layers_S05, setname = "top1pc3layers"),
-                 allButtop1pc3layers = makeGRfromMyCpGPos(
-                   setdiff(table3layers_coveredIn3$chr_pos, top1pc3layers_S05), "allButtop1pc3layers"))
-}
-
-# Fix chromosome names in geomMeanGR (1 -> chr1)
-if (sum(grepl("chr", seqlevels(table3layers_coveredIn3))) == 0){
-  seqlevels(table3layers_coveredIn3) <- paste0("chr", seqlevels(table3layers_coveredIn3))
-}
-
-
-## Use the GR object with analyses in the 3 layers
-## Focal "our hvCpG set" for this figure = top1pc3layers from S05 (top 1% in ALL three layers)
-top1pc3layers_S05 <- categories$top1pc3layers
-
-sets <- list(
-  mQTLcontrols     = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
-  HarrisSIV        = HarrisSIV_hg38_GR,
-  VanBaakSIV       = VanBaakSIV_hg38_GR,
-  VanBaakESS       = VanBaakESS_hg38_GR,
-  KesslerSIV       = KesslerSIV_GRanges_hg38,
-  GunasekaraCorSIV = corSIV_GRanges_hg38,
-  DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR
-)
-
-## Associate a colour to a group
-group_cols <- c(
-  "background"         = "#999999",
-  "mQTLcontrols"       = "#000000",
-  "HarrisSIV"          = RColorBrewer::brewer.pal(8, "Set2")[1],
-  "KesslerSIV"         = RColorBrewer::brewer.pal(8, "Set2")[2],
-  "DerakhshanhvCpGs"   = RColorBrewer::brewer.pal(8, "Set2")[3],
-  "GunasekaraCorSIV"   = RColorBrewer::brewer.pal(8, "Set2")[4],
-  "VanBaakESS"         = RColorBrewer::brewer.pal(8, "Set2")[5],
-  "top1pc3layers"          = "orange",
-  "top99q"             = RColorBrewer::brewer.pal(8, "Set2")[6],
-  "VanBaakSIV"         = RColorBrewer::brewer.pal(8, "Set2")[7]
-)
-
-# ── shared spacing refinements ───────────────────────────────────────────────
-# Added AFTER each theme_minimal()/theme_classic() so it is not overwritten.
-# Top margin reserves room for the cowplot panel labels; axis-title margins
-# push titles off the tick text.
-spacing <- theme(
-  plot.margin  = margin(t = 24, r = 10, b = 12, l = 10),
-  axis.title.y = element_text(margin = margin(r = 10)),
-  axis.title.x = element_text(margin = margin(t = 10))
-)
-
-# ── ME overlap ────────────────────────────────────────────
-MEsetdt <- make_MEsetdt(sets, GR = table3layers_coveredIn3)
-
-MEsetdt <- na.omit(MEsetdt)
-nrow(MEsetdt) ## 52.244
-
-# Set controls as baseline
-MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
-
-## Statistical comparisons of alpha between MEs
-fit <- lm(logBF_per_ds ~ ME, data = MEsetdt)
-emm <- emmeans(fit, ~ ME)
-contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
-  as.data.frame()
-
-contrasts <- contrasts %>%
-  mutate(ME = contrast,
-         ME_name = sub(" - mQTLcontrols$", "", contrast),   # match colour to the ME group being compared
-         lower = estimate - 1.96 * SE,
-         upper = estimate + 1.96 * SE)
-
-# after fit/emmeans/contrasts are computed on the original MEsetdt,
-# reorder ME by mean score FOR THE PLOT
-MEsetdt_plot <- copy(MEsetdt)
-MEsetdt_plot[, ME := forcats::fct_reorder(ME, logBF_per_ds, .fun = median, na.rm = TRUE)]
-
-# recompute N labels on the reordered data (levels now in mean order)
-n_labels <- MEsetdt_plot[, .(n = .N), by = ME]
-y_top    <- max(MEsetdt_plot$logBF_per_ds, na.rm = TRUE)
-
-pMElogBF_per_ds <- ggplot(MEsetdt_plot, aes(x = ME, y = logBF_per_ds)) +
-  geom_jitter(aes(colour = ME), size = 3, alpha = .2) +
-  geom_violin(aes(colour = ME)) +
-  geom_boxplot(aes(colour = ME), width = .1) +
-  geom_text(data = n_labels,
-            aes(x = ME, y = y_top, label = format(n, big.mark = ",")),
-            vjust = -0.4, size = 5.5, fontface = "bold", inherit.aes = FALSE) +
-  scale_colour_manual(values = group_cols, name = "CpG set") +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
-  theme_minimal(base_size = 14) +
-  theme(legend.position = "none", axis.title.x = element_blank()) +
-  ylab("Hypervariability score")
-
-contrasts_plot <- contrasts %>%
-  mutate(ME_name = forcats::fct_reorder(ME_name, estimate, .desc = TRUE))
-
-pcontrast <- ggplot(contrasts_plot, aes(x = ME_name, y = estimate, colour = ME_name)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, linewidth = 1.2) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  scale_colour_manual(values = group_cols, name = "CpG set") +
-  coord_flip() +
-  labs(y = "Difference in hypervariability score vs mQTLcontrols", x = "") +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-## pdecay - legend inside the plot, bottom-left corner
-pdecay <- plot_decay_curve(MEsetdt) +
-  scale_colour_manual(values = group_cols, name = "CpG set")
-
-# ── Save key objects for S07 ──────────────────────────────────────────────────
-saveRDS(MEsetdt, here(paste0("gitignore/MEsetdt_", variant, ".rds")))
-
-####################################################################################
-## Test enrichement of the most likely germ layer-universal hvCpG in previous MEs ##
-####################################################################################
-
-# ---- Run it (ME sets in putativeME_GR$set will be tested separately)
-res_quadrants <- test_enrichment_quadrants(listGR, putativeME_GR, me_col = "set")
-
-# Order quadrants within each facet by log2OR
-res_plot2 <- res_quadrants %>%
-  mutate(
-    log2OR = log2(odds_ratio),
-    signif  = p_adj_BH < 0.05
-  ) %>%
-  dplyr::group_by(CpG_set) %>%
-  mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
-  ungroup()
-
-plot_top1pc3layersCpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
-  geom_col(width = 0.8) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
-  scale_fill_manual(values = c("black", "grey")) +
-  labs(
-    x = NULL,
-    y = expression(log[2]~"(odds ratio)"),
-    title = "ME enrichment by group (vs other group)",
-    subtitle = "2x2 Fisher's exact test "
-  ) +
-  facet_wrap(~ CpG_set, scales = "free_x", nrow = 1) +
-  theme_classic(base_size = 10) +
-  theme(
-    axis.text.x = element_text(angle = 30, hjust = 1),
-    strip.background = element_rect(fill = "white"),
-    strip.text = element_text(face = "bold")
+if(!file.exists(here::here(
+  "B_MultiTissues/dataOut/figures/script05/CompareWithpreviousMEs.png"))){
+  
+  n_over <- length(intersect(top99q_S04, top1pc3layers_S05))
+  data.table(
+    n_top99q_S04   = length(top99q_S04),
+    n_top1pc3layers_S05 = length(top1pc3layers_S05),
+    n_overlap      = n_over,
+    pc_of_top99q   = round(100 * n_over / length(top99q_S04), 1),
+    pc_of_top1pc3layers = round(100 * n_over / length(top1pc3layers_S05), 1)
   )
-
-print(plot_top1pc3layersCpGsEnrichME)
-
-################################################################################
-## Load SIV plots calculated in fetalSIV folder script (in ing-p5)            ##
-##                                                                            ##
-## top1pc3layers is an EXACT SUBSET of top99q, and the fetal object stores    ##
-## per-CpG values (interlayer_r, interindividual_var) — computed per CpG,     ##
-## independent of group. So we do NOT re-run the fetal script: we relabel the ##
-## top99q rows that belong to top1pc3layers as a new "top1pc3layers" group.   ##
-## Panels D (interlayer_corr) and E (CpG_summary) are direct relabels;        ##
-## panel F (binned_summary_boot) is re-bootstrapped locally for top1pc3layers.##
-################################################################################
-
-plots <- readRDS(here("gitignore/intercorrelationSIVfetal_sepSIV.rds"))
-
-## top1pc3layers CpGs from S05 (chr_pos) -> EPIC CpG ids via the same dico
-top1pc3layers_S05 <- categories$top1pc3layers
-## `dico` maps CpG <-> chrpos_hg38 (same object the fetal script used).
-## If not in memory, load it here (adjust path to wherever the fetal dico lives):
-# dico <- readRDS(here("gitignore/EPIC_dico_hg38.rds"))
-top1pc3layers_CpG <- dico$CpG[dico$chrpos_hg38 %in% top1pc3layers_S05]
-message(length(top1pc3layers_CpG), " top1pc3layers CpGs mapped to EPIC ids")
-
-## helper: spin off an "top1pc3layers" group by subsetting the top99q rows
-add_top1pc3layers <- function(df) {
-  sub <- df[df$group == "top99q" & df$CpG %in% top1pc3layers_CpG, ]
-  sub$group <- "top1pc3layers"
-  dplyr::bind_rows(df, sub)     # keep top99q AND add top1pc3layers alongside
+  
+  # n_top99q_S04 n_top1pc3layers_S05 n_overlap pc_of_top99q pc_of_top1pc3layers
+  #    202467           60424     60424         29.8             100
+  
+  # use top1pc3layers_S05 instead of the top 1% of script 04
+  
+  ## Focal set = top1pc3layers_S05 (was top99q)
+  if (!exists("listGR")){
+    listGR <- list(top1pc3layers    = makeGRfromMyCpGPos(vec = top1pc3layers_S05, setname = "top1pc3layers"),
+                   allButtop1pc3layers = makeGRfromMyCpGPos(
+                     setdiff(table3layers_coveredIn3$chr_pos, top1pc3layers_S05), "allButtop1pc3layers"))
+  }
+  
+  # Fix chromosome names in geomMeanGR (1 -> chr1)
+  if (sum(grepl("chr", seqlevels(table3layers_coveredIn3))) == 0){
+    seqlevels(table3layers_coveredIn3) <- paste0("chr", seqlevels(table3layers_coveredIn3))
+  }
+  
+  
+  ## Use the GR object with analyses in the 3 layers
+  ## Focal "our hvCpG set" for this figure = top1pc3layers from S05 (top 1% in ALL three layers)
+  top1pc3layers_S05 <- categories$top1pc3layers
+  
+  sets <- list(
+    mQTLcontrols     = makeGRfromMyCpGPos(vec = mQTLcontrols_hg38, setname = "mQTLcontrols"),
+    HarrisSIV        = HarrisSIV_hg38_GR,
+    VanBaakSIV       = VanBaakSIV_hg38_GR,
+    VanBaakESS       = VanBaakESS_hg38_GR,
+    KesslerSIV       = KesslerSIV_GRanges_hg38,
+    GunasekaraCorSIV = corSIV_GRanges_hg38,
+    DerakhshanhvCpGs = DerakhshanhvCpGs_hg38_GR
+  )
+  
+  ## Associate a colour to a group
+  group_cols <- c(
+    "background"         = "#999999",
+    "mQTLcontrols"       = "#000000",
+    "HarrisSIV"          = RColorBrewer::brewer.pal(8, "Set2")[1],
+    "KesslerSIV"         = RColorBrewer::brewer.pal(8, "Set2")[2],
+    "DerakhshanhvCpGs"   = RColorBrewer::brewer.pal(8, "Set2")[3],
+    "GunasekaraCorSIV"   = RColorBrewer::brewer.pal(8, "Set2")[4],
+    "VanBaakESS"         = RColorBrewer::brewer.pal(8, "Set2")[5],
+    "top1pc3layers"          = "orange",
+    "top99q"             = RColorBrewer::brewer.pal(8, "Set2")[6],
+    "VanBaakSIV"         = RColorBrewer::brewer.pal(8, "Set2")[7]
+  )
+  
+  # ── shared spacing refinements ───────────────────────────────────────────────
+  # Added AFTER each theme_minimal()/theme_classic() so it is not overwritten.
+  # Top margin reserves room for the cowplot panel labels; axis-title margins
+  # push titles off the tick text.
+  spacing <- theme(
+    plot.margin  = margin(t = 24, r = 10, b = 12, l = 10),
+    axis.title.y = element_text(margin = margin(r = 10)),
+    axis.title.x = element_text(margin = margin(t = 10))
+  )
+  
+  # ── ME overlap ────────────────────────────────────────────
+  MEsetdt <- make_MEsetdt(sets, GR = table3layers_coveredIn3)
+  
+  MEsetdt <- na.omit(MEsetdt)
+  nrow(MEsetdt) ## 52.244
+  
+  # Set controls as baseline
+  MEsetdt[, ME := relevel(factor(ME), ref = "mQTLcontrols")]
+  
+  ## Statistical comparisons of alpha between MEs
+  fit <- lm(logBF_per_ds ~ ME, data = MEsetdt)
+  emm <- emmeans(fit, ~ ME)
+  contrasts <- contrast(emm, method = "trt.vs.ctrl", ref = "mQTLcontrols", adjust = "sidak") %>%
+    as.data.frame()
+  
+  contrasts <- contrasts %>%
+    mutate(ME = contrast,
+           ME_name = sub(" - mQTLcontrols$", "", contrast),   # match colour to the ME group being compared
+           lower = estimate - 1.96 * SE,
+           upper = estimate + 1.96 * SE)
+  
+  # after fit/emmeans/contrasts are computed on the original MEsetdt,
+  # reorder ME by mean score FOR THE PLOT
+  MEsetdt_plot <- copy(MEsetdt)
+  MEsetdt_plot[, ME := forcats::fct_reorder(ME, logBF_per_ds, .fun = median, na.rm = TRUE)]
+  
+  # recompute N labels on the reordered data (levels now in mean order)
+  n_labels <- MEsetdt_plot[, .(n = .N), by = ME]
+  y_top    <- max(MEsetdt_plot$logBF_per_ds, na.rm = TRUE)
+  
+  pMElogBF_per_ds <- ggplot(MEsetdt_plot, aes(x = ME, y = logBF_per_ds)) +
+    geom_jitter(aes(colour = ME), size = 3, alpha = .2) +
+    geom_violin(aes(colour = ME)) +
+    geom_boxplot(aes(colour = ME), width = .1) +
+    geom_text(data = n_labels,
+              aes(x = ME, y = y_top, label = format(n, big.mark = ",")),
+              vjust = -0.4, size = 5.5, fontface = "bold", inherit.aes = FALSE) +
+    scale_colour_manual(values = group_cols, name = "CpG set") +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+    theme_minimal(base_size = 14) +
+    theme(legend.position = "none", axis.title.x = element_blank()) +
+    ylab("Hypervariability score")
+  
+  contrasts_plot <- contrasts %>%
+    mutate(ME_name = forcats::fct_reorder(ME_name, estimate, .desc = TRUE))
+  
+  pcontrast <- ggplot(contrasts_plot, aes(x = ME_name, y = estimate, colour = ME_name)) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, linewidth = 1.2) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    scale_colour_manual(values = group_cols, name = "CpG set") +
+    coord_flip() +
+    labs(y = "Difference in hypervariability score vs mQTLcontrols", x = "") +
+    theme_minimal() +
+    theme(legend.position = "none")
+  
+  ## pdecay - legend inside the plot, bottom-left corner
+  pdecay <- plot_decay_curve(MEsetdt) +
+    scale_colour_manual(values = group_cols, name = "CpG set")
+  
+  # ── Save key objects for S07 ──────────────────────────────────────────────────
+  saveRDS(MEsetdt, here(paste0("gitignore/MEsetdt_", variant, ".rds")))
+  
+  ####################################################################################
+  ## Test enrichement of the most likely germ layer-universal hvCpG in previous MEs ##
+  ####################################################################################
+  
+  # ---- Run it (ME sets in putativeME_GR$set will be tested separately)
+  res_quadrants <- test_enrichment_quadrants(listGR, putativeME_GR, me_col = "set")
+  
+  # Order quadrants within each facet by log2OR
+  res_plot2 <- res_quadrants %>%
+    mutate(
+      log2OR = log2(odds_ratio),
+      signif  = p_adj_BH < 0.05
+    ) %>%
+    dplyr::group_by(CpG_set) %>%
+    mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
+    ungroup()
+  
+  plot_top1pc3layersCpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
+    geom_col(width = 0.8) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    scale_fill_manual(values = c("black", "grey")) +
+    labs(
+      x = NULL,
+      y = expression(log[2]~"(odds ratio)"),
+      title = "ME enrichment by group (vs other group)",
+      subtitle = "2x2 Fisher's exact test "
+    ) +
+    facet_wrap(~ CpG_set, scales = "free_x", nrow = 1) +
+    theme_classic(base_size = 10) +
+    theme(
+      axis.text.x = element_text(angle = 30, hjust = 1),
+      strip.background = element_rect(fill = "white"),
+      strip.text = element_text(face = "bold")
+    )
+  
+  plot_top1pc3layersCpGsEnrichME
+  
+  ################################################################################
+  ## Load SIV plots calculated in fetalSIV folder script (in ing-p5)            ##
+  ##                                                                            ##
+  ## top1pc3layers is an EXACT SUBSET of top99q, and the fetal object stores    ##
+  ## per-CpG values (interlayer_r, interindividual_var) — computed per CpG,     ##
+  ## independent of group. So we do NOT re-run the fetal script: we relabel the ##
+  ## top99q rows that belong to top1pc3layers as a new "top1pc3layers" group.   ##
+  ## Panels D (interlayer_corr) and E (CpG_summary) are direct relabels;        ##
+  ## panel F (binned_summary_boot) is re-bootstrapped locally for top1pc3layers.##
+  ################################################################################
+  
+  plots <- readRDS(here("gitignore/intercorrelationSIVfetal_sepSIV.rds"))
+  
+  ## top1pc3layers CpGs from S05 (chr_pos) -> EPIC CpG ids via the same dico
+  top1pc3layers_S05 <- categories$top1pc3layers
+  ## `dico` maps CpG <-> chrpos_hg38 (same object the fetal script used).
+  ## If not in memory, load it here (adjust path to wherever the fetal dico lives):
+  # dico <- readRDS(here("gitignore/EPIC_dico_hg38.rds"))
+  top1pc3layers_CpG <- dico$CpG[dico$chrpos_hg38 %in% top1pc3layers_S05]
+  message(length(top1pc3layers_CpG), " top1pc3layers CpGs mapped to EPIC ids")
+  
+  ## helper: spin off an "top1pc3layers" group by subsetting the top99q rows
+  add_top1pc3layers <- function(df) {
+    sub <- df[df$group == "top99q" & df$CpG %in% top1pc3layers_CpG, ]
+    sub$group <- "top1pc3layers"
+    dplyr::bind_rows(df, sub)     # keep top99q AND add top1pc3layers alongside
+  }
+  
+  plots$interlayer_corr <- add_top1pc3layers(plots$interlayer_corr)
+  plots$CpG_summary     <- add_top1pc3layers(plots$CpG_summary)
+  
+  ## sanity: top1pc3layers should be more systemically correlated than top99q (subset effect)
+  message("mean interlayer_r  top99q: ",
+          round(mean(plots$interlayer_corr$interlayer_r[plots$interlayer_corr$group=="top99q"], na.rm=TRUE),3),
+          " | top1pc3layers: ",
+          round(mean(plots$interlayer_corr$interlayer_r[plots$interlayer_corr$group=="top1pc3layers"], na.rm=TRUE),3))
+  
+  ## panel F: re-bootstrap ONLY the new top1pc3layers group, same bins/bootstrap as fetal script
+  boot_median_ci <- function(x, nboot = 1000, conf = 0.95) {
+    x <- x[!is.na(x)]
+    if (length(x) < 5) return(c(median = NA, low = NA, high = NA))
+    bootfun <- function(data, idx) median(data[idx], na.rm = TRUE)
+    b  <- boot(x, statistic = bootfun, R = nboot)
+    ci <- boot.ci(b, type = "perc", conf = conf)
+    if (!is.null(ci) && "percent" %in% names(ci))
+      c(median = median(x, na.rm = TRUE), low = ci$percent[4], high = ci$percent[5])
+    else c(median = median(x, na.rm = TRUE), low = NA, high = NA)
+  }
+  
+  binned_top1pc3layers <- plots$CpG_summary %>%
+    dplyr::filter(group == "top1pc3layers") %>%
+    mutate(bin = cut(interindividual_var,
+                     breaks = seq(0, max(interindividual_var, na.rm = TRUE) + 0.1, by = 0.1),
+                     include.lowest = TRUE)) %>%
+    group_by(group, bin) %>%
+    summarise(boot_res = list(boot_median_ci(interlayer_r)), .groups = "drop") %>%
+    mutate(median_r = sapply(boot_res, `[[`, "median"),
+           low      = sapply(boot_res, `[[`, "low"),
+           high     = sapply(boot_res, `[[`, "high")) %>%
+    dplyr::select(-boot_res)
+  
+  plots$binned_summary_boot <- dplyr::bind_rows(plots$binned_summary_boot, binned_top1pc3layers)
+  
+  ## ── panels ───────────────────────────────────────────────────────────────────
+  # per-group N for panel D
+  nD <- as.data.table(plots$interlayer_corr)[, .(n = .N), by = group]
+  yD_top <- max(plots$interlayer_corr$interlayer_r, na.rm = TRUE)
+  
+  ## Order levels
+  plots$interlayer_corr <- plots$interlayer_corr %>%
+    mutate(group = fct_reorder(group, interlayer_r, .fun = median, .desc = FALSE))
+  
+  pinterlayer_corr <- ggplot(plots$interlayer_corr,
+                             aes(x = group, y = interlayer_r, group = group, fill = group)) +
+    geom_violin(width = 1.4) +
+    geom_boxplot(width = 0.3, fill = "white") +
+    geom_text(data = nD,
+              aes(x = group, y = yD_top, label = format(n, big.mark = ",")),
+              vjust = -0.4, size = 5.5, fontface = "bold", inherit.aes = FALSE) +
+    scale_fill_manual(values = group_cols) +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+    theme_minimal(base_size = 14) +
+    labs(y = "Mean inter-germ layer correlation\n(Pearson's r)")
+  
+  ## Order levels
+  plots$CpG_summary <- plots$CpG_summary %>%
+    mutate(group = fct_reorder(group, interindividual_var, .fun = median, .desc = FALSE))
+  
+  pinterindividual_var <- ggplot(plots$CpG_summary, aes(x = interindividual_var, fill = group)) +
+    geom_density(alpha = .8) +
+    scale_fill_manual(values = group_cols) +
+    theme_minimal(base_size = 14) +
+    labs(x = "Interindividual variation")
+  
+  plots$binned_summary_boot <- plots$binned_summary_boot %>%
+    mutate(group = fct_reorder(group, median_r, .fun = median, .na_rm = TRUE, .desc = FALSE))
+  
+  pbinned <- ggplot(plots$binned_summary_boot,
+                    aes(x = bin, y = median_r, color = group, fill = group)) +
+    geom_point(position = position_dodge(width = 0.5), size = 3) +
+    geom_errorbar(aes(ymin = low, ymax = high), width = 0.2,
+                  position = position_dodge(width = 0.5)) +
+    scale_color_manual(values = group_cols) +
+    scale_fill_manual(values = group_cols) +
+    theme_minimal(base_size = 14) +
+    labs(x = "Interindividual variation",
+         y = "Inter-germ layer correlation \n(median ± bootstrap CI)")
+  
+  upperRow <- plot_grid(
+    plot_grid(
+      pMElogBF_per_ds + spacing + theme(axis.title.x = element_blank()),
+      pcontrast + theme_minimal(base_size = 18) + spacing +
+        theme(plot.title = element_text(size=16), legend.position = "none"),
+      nrow = 2,
+      labels = c("A. Distribution of the hypervariability score for each CpG set",
+                 "B. Comparison of previous CPG sets groups to mQTLcontrols"),
+      label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1),
+    pdecay + theme_minimal(base_size = 20) + spacing +
+      theme(legend.position = "inside",
+            legend.position.inside = c(.7, .6),
+            legend.justification = c(0, 0),
+            legend.background = element_rect(fill = "white", colour = "black", linewidth = 0.3)),
+    ncol = 2,
+    rel_widths = c(1, 1),
+    labels = c("", "C. Decay curve of hypervariability score per percentile"),
+    label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1
+  )
+  
+  SIV_plot <- plot_grid(
+    pinterlayer_corr + theme_minimal(base_size = 20) + spacing +
+      theme(axis.text.x = element_text(angle = 20, hjust = 1),
+            axis.title.x = element_blank(), legend.position = "none"),
+    plot_grid(pinterindividual_var + theme_minimal(base_size = 14) + spacing +
+                labs(fill = "CpG set"),
+              pbinned + theme_minimal(base_size = 16) + spacing +
+                theme(axis.text.x = element_text(angle = 20, hjust = 1))+
+                labs(colour = "CpG set", fill = "CpG set"),
+              ncol = 1, align = "v",
+              labels = c("E. Densities of interindividual variation per CpG within the fetal data, by set",
+                         "F. Inter-germ-layer correlation per interindividual variation, binned"),
+              label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1),
+    ncol = 2,
+    rel_widths = c(1, 1),
+    labels = c("D. Mean inter-germ-layer correlation for each CpG set", ""),
+    label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1
+  )
+  
+  final_plot <- plot_grid(
+    upperRow,
+    SIV_plot,
+    ncol = 1,
+    rel_heights = c(1, 1)
+  ) + theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10))
+  
+  ggplot2::ggsave(
+    filename = here::here(
+      "B_MultiTissues/dataOut/figures/script05/CompareWithpreviousMEs.png"),
+    plot = final_plot, width = 26, height = 20,  dpi = 300, bg = "white")
 }
-
-plots$interlayer_corr <- add_top1pc3layers(plots$interlayer_corr)
-plots$CpG_summary     <- add_top1pc3layers(plots$CpG_summary)
-
-## sanity: top1pc3layers should be more systemically correlated than top99q (subset effect)
-message("mean interlayer_r  top99q: ",
-        round(mean(plots$interlayer_corr$interlayer_r[plots$interlayer_corr$group=="top99q"], na.rm=TRUE),3),
-        " | top1pc3layers: ",
-        round(mean(plots$interlayer_corr$interlayer_r[plots$interlayer_corr$group=="top1pc3layers"], na.rm=TRUE),3))
-
-## panel F: re-bootstrap ONLY the new top1pc3layers group, same bins/bootstrap as fetal script
-boot_median_ci <- function(x, nboot = 1000, conf = 0.95) {
-  x <- x[!is.na(x)]
-  if (length(x) < 5) return(c(median = NA, low = NA, high = NA))
-  bootfun <- function(data, idx) median(data[idx], na.rm = TRUE)
-  b  <- boot(x, statistic = bootfun, R = nboot)
-  ci <- boot.ci(b, type = "perc", conf = conf)
-  if (!is.null(ci) && "percent" %in% names(ci))
-    c(median = median(x, na.rm = TRUE), low = ci$percent[4], high = ci$percent[5])
-  else c(median = median(x, na.rm = TRUE), low = NA, high = NA)
-}
-
-binned_top1pc3layers <- plots$CpG_summary %>%
-  dplyr::filter(group == "top1pc3layers") %>%
-  mutate(bin = cut(interindividual_var,
-                   breaks = seq(0, max(interindividual_var, na.rm = TRUE) + 0.1, by = 0.1),
-                   include.lowest = TRUE)) %>%
-  group_by(group, bin) %>%
-  summarise(boot_res = list(boot_median_ci(interlayer_r)), .groups = "drop") %>%
-  mutate(median_r = sapply(boot_res, `[[`, "median"),
-         low      = sapply(boot_res, `[[`, "low"),
-         high     = sapply(boot_res, `[[`, "high")) %>%
-  dplyr::select(-boot_res)
-
-plots$binned_summary_boot <- dplyr::bind_rows(plots$binned_summary_boot, binned_top1pc3layers)
-
-## ── panels ───────────────────────────────────────────────────────────────────
-# per-group N for panel D
-nD <- as.data.table(plots$interlayer_corr)[, .(n = .N), by = group]
-yD_top <- max(plots$interlayer_corr$interlayer_r, na.rm = TRUE)
-
-## Order levels
-plots$interlayer_corr <- plots$interlayer_corr %>%
-  mutate(group = fct_reorder(group, interlayer_r, .fun = median, .desc = FALSE))
-
-pinterlayer_corr <- ggplot(plots$interlayer_corr,
-                           aes(x = group, y = interlayer_r, group = group, fill = group)) +
-  geom_violin(width = 1.4) +
-  geom_boxplot(width = 0.3, fill = "white") +
-  geom_text(data = nD,
-            aes(x = group, y = yD_top, label = format(n, big.mark = ",")),
-            vjust = -0.4, size = 5.5, fontface = "bold", inherit.aes = FALSE) +
-  scale_fill_manual(values = group_cols) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
-  theme_minimal(base_size = 14) +
-  labs(y = "Mean inter-germ layer correlation\n(Pearson's r)")
-
-## Order levels
-plots$CpG_summary <- plots$CpG_summary %>%
-  mutate(group = fct_reorder(group, interindividual_var, .fun = median, .desc = FALSE))
-
-pinterindividual_var <- ggplot(plots$CpG_summary, aes(x = interindividual_var, fill = group)) +
-  geom_density(alpha = .8) +
-  scale_fill_manual(values = group_cols) +
-  theme_minimal(base_size = 14) +
-  labs(x = "Interindividual variation")
-
-plots$binned_summary_boot <- plots$binned_summary_boot %>%
-  mutate(group = fct_reorder(group, median_r, .fun = median, .na_rm = TRUE, .desc = FALSE))
-
-pbinned <- ggplot(plots$binned_summary_boot,
-                  aes(x = bin, y = median_r, color = group, fill = group)) +
-  geom_point(position = position_dodge(width = 0.5), size = 3) +
-  geom_errorbar(aes(ymin = low, ymax = high), width = 0.2,
-                position = position_dodge(width = 0.5)) +
-  scale_color_manual(values = group_cols) +
-  scale_fill_manual(values = group_cols) +
-  theme_minimal(base_size = 14) +
-  labs(x = "Interindividual variation",
-       y = "Inter-germ layer correlation \n(median ± bootstrap CI)")
-
-upperRow <- plot_grid(
-  plot_grid(
-    pMElogBF_per_ds + spacing + theme(axis.title.x = element_blank()),
-    pcontrast + theme_minimal(base_size = 18) + spacing +
-      theme(plot.title = element_text(size=16), legend.position = "none"),
-    nrow = 2,
-    labels = c("A. Distribution of the hypervariability score for each CpG set",
-               "B. Comparison of previous CPG sets groups to mQTLcontrols"),
-    label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1),
-  pdecay + theme_minimal(base_size = 20) + spacing +
-    theme(legend.position = "inside",
-          legend.position.inside = c(.7, .6),
-          legend.justification = c(0, 0),
-          legend.background = element_rect(fill = "white", colour = "black", linewidth = 0.3)),
-  ncol = 2,
-  rel_widths = c(1, 1),
-  labels = c("", "C. Decay curve of hypervariability score per percentile"),
-  label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1
-)
-
-SIV_plot <- plot_grid(
-  pinterlayer_corr + theme_minimal(base_size = 20) + spacing +
-    theme(axis.text.x = element_text(angle = 20, hjust = 1),
-          axis.title.x = element_blank(), legend.position = "none"),
-  plot_grid(pinterindividual_var + theme_minimal(base_size = 14) + spacing +
-              labs(fill = "CpG set"),
-            pbinned + theme_minimal(base_size = 16) + spacing +
-              theme(axis.text.x = element_text(angle = 20, hjust = 1))+
-              labs(colour = "CpG set", fill = "CpG set"),
-            ncol = 1, align = "v",
-            labels = c("E. Densities of interindividual variation per CpG within the fetal data, by set",
-                       "F. Inter-germ-layer correlation per interindividual variation, binned"),
-            label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1),
-  ncol = 2,
-  rel_widths = c(1, 1),
-  labels = c("D. Mean inter-germ-layer correlation for each CpG set", ""),
-  label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1
-)
-
-final_plot <- plot_grid(
-  upperRow,
-  SIV_plot,
-  ncol = 1,
-  rel_heights = c(1, 1)
-) + theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10))
-
-ggplot2::ggsave(
-  filename = here::here(
-    "B_MultiTissues/dataOut/figures/script05/CompareWithpreviousMEs.png"),
-  plot = final_plot, width = 26, height = 20,  dpi = 300, bg = "white")
 
 ##############################################################
 ## How many of each putative ME is actually in all Layers ? ##
@@ -765,6 +925,7 @@ if(!file.exists(here("B_MultiTissues/dataOut/figures/script05/topCpGsEnrichME_ta
 ## GO ENRICHMENT — CpG-density-controlled, per category
 ## =============================================================================
 if (!file.exists(here(paste0("gitignore/S05_GO_", variant, ".rds")))){
+  all_cpg <- dt$chr_pos
   totalSites <- all_cpg
   minimum_CpG_per_cluster <- 1
   universe <- annotateCpGs_txdb(
@@ -782,22 +943,78 @@ if (!file.exists(here(paste0("gitignore/S05_GO_", variant, ".rds")))){
   saveRDS(go_res, here(paste0("gitignore/S05_GO_", variant, ".rds")))
 } else go_res <- readRDS(here(paste0("gitignore/S05_GO_", variant, ".rds")))
 
-# significant BP terms per category
-lapply(go_res[names(go_res) %in% c("top1pcEctoOnly", "top1pcMesoOnly", "top1pcEndoOnly")],
-       function(r) if (!is.null(r))
-         r$BP@result[r$BP@result$p.adjust < 0.05, ])
+go_dt <- rbindlist(lapply(names(go_res), function(cat) {
+  res <- go_res[[cat]]
+  rbindlist(lapply(names(res), function(ontology) {
+    if (is.null(res[[ontology]]) || nrow(as.data.frame(res[[ontology]])) == 0)
+      return(NULL)
+    x <- as.data.table(as.data.frame(res[[ontology]]))
+    x[, `:=`(cat = cat, ontology = ontology)]
+    x
+  }), fill = TRUE)
+}), fill = TRUE)
 
-# significant MF terms per category
-lapply(go_res[names(go_res) %in% c("top1pcEctoOnly", "top1pcMesoOnly", "top1pcEndoOnly")],
-       function(r) if (!is.null(r))
-         r$MF@result[r$MF@result$p.adjust < 0.05, ])
+table(go_dt$cat)
 
-# significant CC terms per category
-lapply(go_res[names(go_res) %in% c("top1pcEctoOnly", "top1pcMesoOnly", "top1pcEndoOnly")],
-       function(r) if (!is.null(r))
-         r$CC@result[r$CC@result$p.adjust < 0.05, ])
+## GO plot top 10 terms by ontology
+go_top <- go_dt[order(p.adjust),
+                head(.SD, 10), by = .(cat, ontology)]
 
-## Nothing significant for layers except for ecto (the least conclusive dataset)
+go_top[, Description := factor(Description,
+                               levels = rev(unique(Description)))]
+
+p <- ggplot(go_top, aes(x = cat, y = Description, size = Count,
+                        colour = -log10(p.adjust))) +
+  geom_point() +
+  facet_wrap(~ontology, scales = "free_y") +
+  scale_colour_viridis_c(option = "plasma") +
+  labs(x = NULL, y = NULL,
+       colour = "-log10 adjusted P",
+       size = "Gene count", title = "GO enrichment comparison") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 8))
+
+ggplot2::ggsave(
+  filename = here::here(paste0("B_MultiTissues/dataOut/figures/script05/GOplottopcat_1CpG.pdf")),
+  plot = p, width = 14, height = 8)
+
+## With clusters of 2 CpGs (pre-ran)
+go_res <- readRDS(here(paste0("gitignore/S05_GO_SNP_SDASMrm_2cpgsclusters.rds")))
+
+go_dt <- rbindlist(lapply(names(go_res), function(cat) {
+  res <- go_res[[cat]]
+  rbindlist(lapply(names(res), function(ontology) {
+    if (is.null(res[[ontology]]) || nrow(as.data.frame(res[[ontology]])) == 0)
+      return(NULL)
+    x <- as.data.table(as.data.frame(res[[ontology]]))
+    x[, `:=`(cat = cat, ontology = ontology)]
+    x
+  }), fill = TRUE)
+}), fill = TRUE)
+
+## GO plot top 10 terms by ontology
+go_top <- go_dt[order(p.adjust),
+                head(.SD, 10), by = .(cat, ontology)]
+
+go_top[, Description := factor(Description,
+                               levels = rev(unique(Description)))]
+
+p <- ggplot(go_top, aes(x = cat, y = Description, size = Count,
+                        colour = -log10(p.adjust))) +
+  geom_point() +
+  facet_wrap(~ontology, scales = "free_y") +
+  scale_colour_viridis_c(option = "plasma") +
+  labs(x = NULL, y = NULL,
+       colour = "-log10 adjusted P",
+       size = "Gene count", title = "GO enrichment comparison") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 8))
+
+ggplot2::ggsave(
+  filename = here::here(paste0("B_MultiTissues/dataOut/figures/script05/GOplottopcat_2CpGs.pdf")),
+  plot = p, width = 14, height = 6)
 
 ################################################################################
 ## Extract raw methylation for our 4 main categories                         ##
@@ -808,6 +1025,8 @@ lapply(go_res[names(go_res) %in% c("top1pcEctoOnly", "top1pcMesoOnly", "top1pcEn
 ## We have 4 samples with endoderm and mesoderm cells
 message("Category sizes:")
 print(sapply(categories, length))
+# top1pc3layers   constitutive top1pcEndoOnly top1pcMesoOnly top1pcEctoOnly 
+# 60424        6723417           9545           9494          41413 
 
 # ── Write CpG lists for python extraction ─────────────────────────────────────
 
@@ -823,9 +1042,9 @@ neutral_sample <- sample(dt$chr_pos, min(2000, nrow(dt)))
 
 ## Exclude other categories
 neutral_sample <- neutral_sample[!neutral_sample %in% 
-                 c(categories$top1pcEctoOnly, categories$top1pcMesoOnly,
-                   categories$top1pcEndoOnly, categories$top1pc3layers,
-                   categories$constitutive)]
+                                   c(categories$top1pcEctoOnly, categories$top1pcMesoOnly,
+                                     categories$top1pcEndoOnly, categories$top1pc3layers,
+                                     categories$constitutive)]
 
 neutral_sample <- sample(neutral_sample, 1000)
 
@@ -842,7 +1061,7 @@ writeLines(all_cpgs_to_extract,
            here("B_MultiTissues/dataOut/CpG2extractS05.txt"))
 message(sprintf("Written: CpG2extractS05.txt (%d CpGs total)",
                 length(all_cpgs_to_extract)))
-# Written: CpG2extractS05.txt (3378 CpGs total)
+# Written: CpG2extractS05.txt (63385 CpGs total)
 
 ## In pchuckle (after git pull):
 # source /share/apps/source_files/python/python-3.13.0a6.source
@@ -1232,8 +1451,8 @@ makeIVbyICplot <- function(meth2cells = em, rdat = em_r) {
   legend <- grobs[[which(sapply(grobs, function(x) x$name) == "guide-box")]]
   
   return(list(plot = plot_grid(pintvardens + theme(legend.position = "none"),
-            pbinned + theme(legend.position = "none"), ncol = 2),
-            legend = legend))
+                               pbinned + theme(legend.position = "none"), ncol = 2),
+              legend = legend))
 }
 
 ## 1. meso-endo

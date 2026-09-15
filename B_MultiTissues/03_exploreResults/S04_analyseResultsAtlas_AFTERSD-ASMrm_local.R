@@ -179,12 +179,12 @@ if (table3layers_coveredIn3_saved == FALSE){
                          logBF_per_ds_allLayers = Atlas_dt$logBF_per_ds)
   
   endo6gpGR <- GRanges(seqnames = endo6gp$chr,
-                    ranges = IRanges(start = endo6gp$pos, end = endo6gp$pos),
-                    logBF_per_ds_endo6gp = endo6gp$logBF_per_ds)
+                       ranges = IRanges(start = endo6gp$pos, end = endo6gp$pos),
+                       logBF_per_ds_endo6gp = endo6gp$logBF_per_ds)
   
   meso6gpGR <- GRanges(seqnames = meso6gp$chr,
-                    ranges = IRanges(start = meso6gp$pos, end = meso6gp$pos),
-                    logBF_per_ds_meso6gp = meso6gp$logBF_per_ds)
+                       ranges = IRanges(start = meso6gp$pos, end = meso6gp$pos),
+                       logBF_per_ds_meso6gp = meso6gp$logBF_per_ds)
   
   ####################################################################
   ## Create a table with all CpG sites & score for each germ layer ##
@@ -301,6 +301,43 @@ if (table3layers_coveredIn3_saved == FALSE){
 ################################################################################
 load(here(paste0("gitignore/table3layers_coveredIn3_26_08_26.Rda")))
 
+##################################
+## Distribution of logBF_per_ds ##
+##################################
+
+if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/DistributionProba.pdf"))){
+  makeplotdist <- function(x = "logBF_per_ds_allLayers"){
+    qa <- quantile(mcols(table3layers_coveredIn3)[[x]],
+                   probs = c(0.5, 0.9, 0.95, 0.98, 0.99), na.rm = TRUE)
+    
+    qa_df <- data.frame(quantile = c("50th percentile", "90th percentile", 
+                                     "95th percentile", "98th percentile", "99th percentile"),
+                        value = as.numeric(qa))
+    
+    pdist <- ggplot(data.frame(table3layers_coveredIn3), aes(x = .data[[x]])) +
+      geom_histogram(bins = 60, fill = "grey80", colour = "white") +
+      geom_vline(data = qa_df, aes(xintercept = value, colour = quantile),
+                 linetype = "dashed",linewidth = 0.8) +
+      geom_text(data = qa_df, aes(
+        x = value, y = Inf, label = paste0(quantile, " = ",format(round(value, 3), nsmall = 3)),
+        colour = quantile), angle = 90, vjust = 1.2, hjust = 1.1, show.legend = FALSE) +
+      labs(x = "Atlas score", y = "Number of CpGs", title = "Distribution of atlas scores",
+           subtitle = x) +
+      theme_bw() + theme(legend.position = "none")
+    
+    return(pdist)
+  }
+  
+  ggsave(here("B_MultiTissues/dataOut/figures/script04/DistributionProba.pdf"),
+         plot = cowplot::plot_grid(
+           makeplotdist(x = "logBF_per_ds_allLayers"), 
+           makeplotdist(x = "logBF_per_ds_meso"),
+           makeplotdist(x = "logBF_per_ds_endo"),
+           makeplotdist(x = "logBF_per_ds_ecto"),
+           nrow = 2, labels = c("A", "B", "C", "D")),
+         width = 12, height = 6, dpi = 300, bg = "white")
+}
+
 ################################################
 ## Get the top 99% quantile for logBF_per_ds ##
 ################################################
@@ -314,8 +351,27 @@ message(paste0("Total top99q CpG sites: ", length(top99q_CpGs), " (",
 # Total CpG sites: 20246679
 # Total top99q CpG sites: 202467 (1% of total)
 
+## What is the top 1% in the 3 layers (overlap)?
+top99q_endo <- quantile(table3layers_coveredIn3$logBF_per_ds_endo, probs = 0.99, na.rm = FALSE)
+top99q_ecto <- quantile(table3layers_coveredIn3$logBF_per_ds_ecto, probs = 0.99, na.rm = FALSE)
+top99q_meso <- quantile(table3layers_coveredIn3$logBF_per_ds_meso, probs = 0.99, na.rm = FALSE)
+
+top99q_in3layersoverlap_CpGs <- table3layers_coveredIn3[
+  table3layers_coveredIn3$logBF_per_ds_endo >= top99q_endo &
+    table3layers_coveredIn3$logBF_per_ds_ecto >= top99q_ecto &
+    table3layers_coveredIn3$logBF_per_ds_meso >= top99q_meso, ]$chr_pos
+
+message(paste0("Total top99q in3layersoverlap CpG sites: ", length(top99q_in3layersoverlap_CpGs), " (",
+               round(length(top99q_in3layersoverlap_CpGs)/length(table3layers_coveredIn3)*100,2), "% of total)"))
+# Total top99q in3layersoverlap CpG sites: 60424 (0.3% of total)
+length(intersect(top99q_in3layersoverlap_CpGs, top99q_CpGs)) # 60424
+
 if (!file.exists(here(paste0("gitignore/top99q_CpGs_", variant, ".RDS")))){
   saveRDS(top99q_CpGs, here(paste0("gitignore/top99q_CpGs_", variant, ".RDS")))  
+}
+
+if (!file.exists(here(paste0("gitignore/top99q_in3layersoverlap_CpGs_", variant, ".RDS")))){
+  saveRDS(top99q_in3layersoverlap_CpGs, here(paste0("gitignore/top99q_in3layersoverlap_CpGs_", variant, ".RDS")))  
 }
 
 ## To use for testFetalSIV_ingp5.R
@@ -475,7 +531,7 @@ gaps_dt[!is.na(gap_size)]
 
 # chr gap_start   gap_end gap_size
 # <fctr>     <int>     <int>    <int>
-#   1:      1        NA 124793275  2292432
+# 1:      1        NA 124793275  2292432
 # 2:      1 124793275 143184605 18000029
 # 3:      2 143184605  91406100  1003595
 # 4:      5  91406100  49592147  2283407
@@ -625,119 +681,190 @@ if (!file.exists(here(paste0("gitignore/TEplot_", variant, ".RDS")))){
   length(te_regions)  # Total TE regions
   
   top99q_CpGs_GR <- makeGRfromMyCpGPos(top99q_CpGs, "top99q_CpGs")
+  top99q_in3layersoverlap_CpGs_GR <- makeGRfromMyCpGPos(top99q_in3layersoverlap_CpGs, "top99q_in3layersoverlap_CpGs")
   totalSites_GR  <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos, "totalSites")
   
-  # Strict background = non-hvCpG sites only (must be disjoint from top99q_CpGs)
-  bg_only_GR <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos[
-    !table3layers_coveredIn3dt$chr_pos %in% top99q_CpGs], "bg_only")
-  
-  # Enrichment/depletion of `target` CpGs vs `background` CpGs inside a set of repeat regions.
-  
-  # columns to pull from each result into a table
-  res_cols <- c("label", "pvalue", "odds_ratio", "conf_low", "conf_high")
-  
-  ## ---- All TEs pooled ----
-  allTE_test <- fisher_test_te(te_regions, top99q_CpGs_GR, bg_only_GR,
-                               label = "TE", nameTarget = "top99q_CpGs")
-  allTE_test
+  makeTEplot <- function(top = top99q_CpGs_GR, whichtop = "top99q_CpGs"){
+    
+    # Strict background = non-hvCpG sites only (must be disjoint from top)
+    bg_only_GR <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos[
+      !table3layers_coveredIn3dt$chr_pos %in% top], "bg_only")
+    
+    # Enrichment/depletion of `target` CpGs vs `background` CpGs inside a set of repeat regions.
+    
+    # columns to pull from each result into a table
+    res_cols <- c("label", "pvalue", "odds_ratio", "conf_low", "conf_high")
+    
+    ## ---- All TEs pooled ----
+    allTE_test <- fisher_test_te(te_regions, top, bg_only_GR,
+                                 label = "TE", nameTarget = "top99q_CpGs")
+    print(allTE_test)
+    
+    ## ---- Per repClass ----
+    te_by_class <- split(te_regions, mcols(te_regions)$repClass)
+    class_res <- lapply(names(te_by_class), function(cl)
+      fisher_test_te(te_by_class[[cl]], top, bg_only_GR,
+                     label = cl, nameTarget = "top99q_CpGs"))
+    class_dt <- data.table::rbindlist(lapply(class_res, `[`, res_cols))
+    class_dt[, p.adj := p.adjust(pvalue, "BH")]
+    print(class_dt[order(-odds_ratio)])
+    
+    ## ---- Per repFamily (drop tiny/uncertain families so ORs are stable) ----
+    fam_tab  <- table(mcols(te_regions)$repFamily)
+    fam_keep <- names(fam_tab)[fam_tab >= 1000 & !grepl("\\?$", names(fam_tab))]
+    
+    fam_by  <- split(te_regions, mcols(te_regions)$repFamily)
+    fam_res <- lapply(fam_keep, function(f)
+      fisher_test_te(fam_by[[f]], top, bg_only_GR,
+                     label = f, nameTarget = "top99q_CpGs"))
+    
+    res_dt <- data.table::rbindlist(lapply(fam_res, `[`, res_cols))
+    res_dt[, p.adj := p.adjust(pvalue, "BH")]           # correct across families
+    print(res_dt[order(-odds_ratio)])
+    
+    ## ---- Plot: OR with 95% CI, ordered, coloured by significance ----
+    res_plot <- res_dt[order(odds_ratio)]
+    res_plot[, label := factor(label, levels = label)]  # lock the OR order
+    res_plot[, sig := ifelse(p.adj < 0.05, "FDR < 0.05", "n.s.")]
+    
+    TEplot <- ggplot(res_plot, aes(odds_ratio, label, colour = sig)) +
+      geom_vline(xintercept = 1, linetype = 3) +
+      geom_errorbar(aes(xmin = conf_low, xmax = conf_high), height = 0.25, orientation = "y") +
+      geom_point(size = 3) +
+      scale_x_log10(breaks = c(0,.5, 1, 1.5,2)) +                                 # OR is multiplicative -> log axis
+      scale_colour_manual(values = c("FDR < 0.05" = "#DC3220", "n.s." = "grey60")) +
+      labs(x = "Odds ratio (top99q hvCpG vs background, log scale)",
+           y = NULL, colour = NULL,
+           title = "TE family enrichment among 1% top hypervariable CpGs") +
+      theme_minimal(base_size = 12)
+    
+    saveRDS(TEplot, here(paste0("gitignore/TEplot_", whichtop, "_", variant, ".RDS")))
+  }
+  makeTEplot(top99q_CpGs_GR, "top99q_CpGs")
   # $label
   # [1] "TE"
   # 
   # $contingency
   # in_TE not_in_TE
   # top99q_CpGs   112737     89730
-  # background  10669103   9375109
+  # background  10781840   9464839
   # 
   # $pvalue
-  # [1] 1.061446e-107
+  # [1] 1.332613e-105
   # 
   # $odds_ratio
-  # [1] 1.103994
+  # [1] 1.102905
   # 
   # $conf_low
-  # [1] 1.094269
+  # [1] 1.09325
   # 
   # $conf_high
-  # [1] 1.113781
+  # [1] 1.112685
+  # 
+  # label        pvalue odds_ratio  conf_low conf_high         p.adj
+  # <char>         <num>      <num>     <num>     <num>         <num>
+  # 1:       LINE  0.000000e+00  1.5553095 1.5377996  1.573005  0.000000e+00
+  # 2:        LTR 7.649540e-276  1.3128470 1.2938973  1.332009 1.529908e-275
+  # 3:        DNA  2.030086e-24  1.1430595 1.1144968  1.172222  3.045129e-24
+  # 4: Retroposon  2.380273e-01  1.0818589 0.9449651  1.233174  2.856327e-01
+  # 5:         RC  9.039334e-01  1.0291717 0.6084856  1.631416  9.039334e-01
+  # 6:       SINE  0.000000e+00  0.7371553 0.7295801  0.744744  0.000000e+00
+  # label        pvalue odds_ratio  conf_low conf_high         p.adj
+  # <char>         <num>      <num>     <num>     <num>         <num>
+  # 1:            L1  0.000000e+00  1.6787164 1.6583288 1.6993290  0.000000e+00
+  # 2:          ERVK  5.391939e-20  1.3489968 1.2677907 1.4341111  2.695969e-19
+  # 3:     ERVL-MaLR 8.698016e-126  1.3356109 1.3053668 1.3664271 8.698016e-125
+  # 4:     MULE-MuDR  5.108937e-02  1.3295892 0.9881317 1.7518940  1.021787e-01
+  # 5:          ERVL  6.407374e-55  1.3008409 1.2599006 1.3427905  3.844425e-54
+  # 6:           hAT  4.674471e-02  1.2949115 0.9977691 1.6535247  1.001672e-01
+  # 7: TcMar-Mariner  2.302027e-04  1.2905693 1.1267510 1.4717433  6.278255e-04
+  # 8:          ERV1  6.445483e-69  1.2406186 1.2118375 1.2699249  4.834112e-68
+  # 9:    hAT-Tip100  3.763599e-06  1.2276315 1.1260981 1.3359825  1.129080e-05
+  # 10:           LTR  2.602610e-01  1.2144678 0.8441980 1.6930860  3.852471e-01
+  # 11:         Gypsy  2.876436e-02  1.1710860 1.0138878 1.3459350  7.191091e-02
+  # 12: hAT-Blackjack  3.243543e-02  1.1685235 1.0093529 1.3458349  7.485099e-02
+  # 13:  TcMar-Tigger  8.088091e-10  1.1454019 1.0973642 1.1949964  3.466325e-09
+  # 14:   hAT-Charlie  1.903610e-08  1.1140045 1.0731271 1.1560324  7.138539e-08
+  # 15:         RTE-X  2.696730e-01  1.0910537 0.9300923 1.2720495  3.852471e-01
+  # 16:     TcMar-Tc2  4.470745e-01  1.0844786 0.8588974 1.3516349  5.412316e-01
+  # 17:           SVA  2.380273e-01  1.0818589 0.9449651 1.2331745  3.758325e-01
+  # 18:            L2  7.738175e-07  1.0692152 1.0413072 1.0977500  2.579392e-06
+  # 19:           CR1  1.988895e-01  1.0547082 0.9701952 1.1445814  3.314825e-01
+  # 20:      Helitron  9.039334e-01  1.0291717 0.6084856 1.6314159  1.000000e+00
+  # 21:           MIR  3.194412e-01  0.9849600 0.9560782 1.0145126  4.356017e-01
+  # 22:     5S-Deu-L2  1.000000e+00  0.9615346 0.5368616 1.5909042  1.000000e+00
+  # 23:      tRNA-RTE  8.716416e-01  0.9523713 0.6695017 1.3151591  1.000000e+00
+  # 24:          tRNA  1.000000e+00  0.9481621 0.5293797 1.5687321  1.000000e+00
+  # 25:      Penelope  1.000000e+00  0.9216565 0.2499683 2.3768415  1.000000e+00
+  # 26:      PiggyBac  4.510264e-01  0.8577526 0.5819027 1.2197413  5.412316e-01
+  # 27:      RTE-BovB  1.586413e-01  0.8307844 0.6347992 1.0684900  2.974525e-01
+  # 28:        hAT-Ac  3.852737e-01  0.7936326 0.4614145 1.2737448  5.025309e-01
+  # 29:           Alu  0.000000e+00  0.7248988 0.7171715 0.7326592  0.000000e+00
+  # 30:           DNA  1.987925e-01  0.6476503 0.3099628 1.1943424  3.314825e-01
+  # label        pvalue odds_ratio  conf_low conf_high         p.adj
+  # <char>         <num>      <num>     <num>     <num>         <num>
   
-  ## ---- Per repClass ----
-  te_by_class <- split(te_regions, mcols(te_regions)$repClass)
-  class_res <- lapply(names(te_by_class), function(cl)
-    fisher_test_te(te_by_class[[cl]], top99q_CpGs_GR, bg_only_GR,
-                   label = cl, nameTarget = "top99q_CpGs"))
-  class_dt <- data.table::rbindlist(lapply(class_res, `[`, res_cols))
-  class_dt[, p.adj := p.adjust(pvalue, "BH")]
-  class_dt[order(-odds_ratio)]
-  #         label        pvalue odds_ratio  conf_low conf_high         p.adj
-  # 1:       LINE  0.000000e+00  1.5634939 1.5459085 1.5812874  0.000000e+00
-  # 2:        LTR 7.486682e-282  1.3169069 1.2978621 1.3362254 1.497336e-281
-  # 3:        DNA  6.510516e-25  1.1447071 1.1160691 1.1739134  9.765774e-25
-  # 4: Retroposon  2.377514e-01  1.0827551 0.9457392 1.2342082  2.853017e-01
-  # 5:         RC  9.039149e-01  1.0294752 0.6086499 1.6319471  9.039149e-01
-  # 6:       SINE  0.000000e+00  0.7350373 0.7274819 0.7426105  0.000000e+00
-  
-  ## ---- Per repFamily (drop tiny/uncertain families so ORs are stable) ----
-  fam_tab  <- table(mcols(te_regions)$repFamily)
-  fam_keep <- names(fam_tab)[fam_tab >= 1000 & !grepl("\\?$", names(fam_tab))]
-  
-  fam_by  <- split(te_regions, mcols(te_regions)$repFamily)
-  fam_res <- lapply(fam_keep, function(f)
-    fisher_test_te(fam_by[[f]], top99q_CpGs_GR, bg_only_GR,
-                   label = f, nameTarget = "top99q_CpGs"))
-  
-  res_dt <- data.table::rbindlist(lapply(fam_res, `[`, res_cols))
-  res_dt[, p.adj := p.adjust(pvalue, "BH")]           # correct across families
-  res_dt[order(-odds_ratio)]
-  
-  #            label        pvalue odds_ratio  conf_low conf_high         p.adj
-  # 1:            L1  0.000000e+00  1.6895785 1.6690312 1.7103443  0.000000e+00
-  # 2:          ERVK  1.992181e-20  1.3537627 1.2722759 1.4391576  9.960903e-20
-  # 3:     ERVL-MaLR 1.488889e-128  1.3401095 1.3097615 1.3709956 1.488889e-127
-  # 4:     MULE-MuDR  5.065536e-02  1.3340302 0.9914094 1.7577955  1.013107e-01
-  # 5:          ERVL  4.344403e-56  1.3047879 1.2637651 1.3469158  2.606642e-55
-  # 6:           hAT  3.944642e-02  1.2987802 1.0007350 1.6584729  8.452803e-02
-  # 7: TcMar-Mariner  1.941548e-04  1.2943674 1.1300442 1.4760304  5.295130e-04
-  # 8:          ERV1  2.168918e-70  1.2436195 1.2147891 1.2729879  1.626688e-69
-  # 9:    hAT-Tip100  3.246848e-06  1.2304593 1.1286943 1.3390571  9.740544e-06
-  # 10:           LTR  2.596615e-01  1.2171044 0.8460100 1.6968093  3.709449e-01
-  # 11:         Gypsy  2.601682e-02  1.1731130 1.0156331 1.3482781  6.504205e-02
-  # 12: hAT-Blackjack  3.219628e-02  1.1705158 1.0110940 1.3481605  7.429911e-02
-  # 13:  TcMar-Tigger  5.071898e-10  1.1470843 1.0989709 1.1967884  2.173670e-09
-  # 14:   hAT-Charlie  1.319619e-08  1.1152870 1.0743518 1.1573815  4.948571e-08
-  # 15:         RTE-X  2.524237e-01  1.0920580 0.9309300 1.2732332  3.709449e-01
-  # 16:     TcMar-Tc2  4.467066e-01  1.0854058 0.8596229 1.3527137  5.413684e-01
-  # 17:           SVA  2.377514e-01  1.0827551 0.9457392 1.2342082  3.709449e-01
-  # 18:            L2  5.969915e-07  1.0699628 1.0420265 1.0985182  1.989972e-06
-  # 19:           CR1  1.986627e-01  1.0552915 0.9707259 1.1452053  3.317800e-01
-  # 20:      Helitron  9.039149e-01  1.0294752 0.6086499 1.6319471  1.000000e+00
-  # 21:           MIR  3.158246e-01  0.9848103 0.9559255 1.0143601  4.306700e-01
-  # 22:     5S-Deu-L2  1.000000e+00  0.9611612 0.5366395 1.5903342  1.000000e+00
-  # 23:      tRNA-RTE  8.716565e-01  0.9519133 0.6691719 1.3145428  1.000000e+00
-  # 24:          tRNA  1.000000e+00  0.9476658 0.5290862 1.5679598  1.000000e+00
-  # 25:      Penelope  1.000000e+00  0.9209277 0.2497598 2.3751213  1.000000e+00
-  # 26:      PiggyBac  4.511404e-01  0.8565219 0.5810600 1.2180101  5.413684e-01
-  # 27:      RTE-BovB  1.587532e-01  0.8293667 0.6337110 1.0666768  2.976622e-01
-  # 28:        hAT-Ac  3.852743e-01  0.7919817 0.4604471 1.2711185  5.025317e-01
-  # 29:           Alu  0.000000e+00  0.7227254 0.7150546 0.7304433  0.000000e+00
-  # 30:           DNA  1.990680e-01  0.6453533 0.3088561 1.1901137  3.317800e-01
-  
-  ## ---- Plot: OR with 95% CI, ordered, coloured by significance ----
-  res_plot <- res_dt[order(odds_ratio)]
-  res_plot[, label := factor(label, levels = label)]  # lock the OR order
-  res_plot[, sig := ifelse(p.adj < 0.05, "FDR < 0.05", "n.s.")]
-  
-  TEplot <- ggplot(res_plot, aes(odds_ratio, label, colour = sig)) +
-    geom_vline(xintercept = 1, linetype = 3) +
-    geom_errorbar(aes(xmin = conf_low, xmax = conf_high), height = 0.25, orientation = "y") +
-    geom_point(size = 3) +
-    scale_x_log10(breaks = c(0,.5, 1, 1.5,2)) +                                 # OR is multiplicative -> log axis
-    scale_colour_manual(values = c("FDR < 0.05" = "#DC3220", "n.s." = "grey60")) +
-    labs(x = "Odds ratio (top99q hvCpG vs background, log scale)",
-         y = NULL, colour = NULL,
-         title = "TE family enrichment among 1% top hypervariable CpGs") +
-    theme_minimal(base_size = 12)
-  
-  saveRDS(TEplot, here(paste0("gitignore/TEplot_", variant, ".RDS")))
+  makeTEplot(top99q_in3layersoverlap_CpGs_GR, "top99q_in3layersoverlap_CpGs")
+  # $label
+  # [1] "TE"
+  # 
+  # $contingency
+  # in_TE not_in_TE
+  # top99q_CpGs    35261     25163
+  # background  10781840   9464839
+  # 
+  # $pvalue
+  # [1] 6.478401e-140
+  # 
+  # $odds_ratio
+  # [1] 1.230133
+  # 
+  # $conf_low
+  # [1] 1.210341
+  # 
+  # $conf_high
+  # [1] 1.250265
+  # 
+  # label       pvalue odds_ratio   conf_low conf_high        p.adj
+  # <char>        <num>      <num>      <num>     <num>        <num>
+  # 1:       LINE 0.000000e+00  1.5392355 1.50767987 1.5713301 0.000000e+00
+  # 2:        LTR 9.661159e-99  1.3407969 1.30589380 1.3765104 2.898348e-98
+  # 3: Retroposon 3.129908e-02  1.2778213 1.01266477 1.5913013 3.755890e-02
+  # 4:        DNA 9.961784e-05  1.0987018 1.04792619 1.1513696 1.494268e-04
+  # 5:       SINE 3.745399e-68  0.8529081 0.83757039 0.8684888 7.490798e-68
+  # 6:         RC 2.635788e-01  0.3831443 0.04636648 1.3861755 2.635788e-01
+  # label       pvalue odds_ratio   conf_low conf_high        p.adj
+  # <char>        <num>      <num>      <num>     <num>        <num>
+  #   1:            L1 0.000000e+00  1.6496875 1.61306606 1.6869590 0.000000e+00
+  # 2:           LTR 2.299307e-01  1.3952303 0.72005481 2.4412298 5.306093e-01
+  # 3:    hAT-Tip100 2.387713e-05  1.3866956 1.19295680 1.6031119 1.023306e-04
+  # 4: hAT-Blackjack 1.038024e-02  1.3856883 1.07748324 1.7549754 3.114072e-02
+  # 5:     ERVL-MaLR 7.345924e-44  1.3575755 1.30223758 1.4146648 7.345924e-43
+  # 6:          ERVK 3.806708e-07  1.3513168 1.20513500 1.5104462 1.903354e-06
+  # 7:          ERVL 2.619105e-20  1.3254995 1.25063454 1.4037191 1.571463e-19
+  # 8:     MULE-MuDR 2.966080e-01  1.3103329 0.73260252 2.1641110 5.932160e-01
+  # 9:     5S-Deu-L2 4.804499e-01  1.2887827 0.47221508 2.8116678 6.910699e-01
+  # 10:           SVA 3.129908e-02  1.2778213 1.01266477 1.5913013 8.536113e-02
+  # 11:          ERV1 2.069362e-27  1.2725703 1.21967519 1.3272144 1.552021e-26
+  # 12: TcMar-Mariner 8.290316e-02  1.2436934 0.95929918 1.5862117 2.072579e-01
+  # 13:         RTE-X 3.704673e-01  1.1300288 0.84089451 1.4868134 6.537659e-01
+  # 14:  TcMar-Tigger 4.439191e-03  1.1221660 1.03627527 1.2133016 1.479730e-02
+  # 15:            L2 2.048230e-04  1.0953816 1.04406535 1.1486259 7.680864e-04
+  # 16:         Gypsy 4.837489e-01  1.0931941 0.82533034 1.4204854 6.910699e-01
+  # 17:           CR1 4.119120e-01  1.0626189 0.91059748 1.2328826 6.865199e-01
+  # 18:      tRNA-RTE 8.822943e-01  1.0350088 0.53431629 1.8102144 9.803269e-01
+  # 19:   hAT-Charlie 7.853974e-01  1.0094805 0.93923189 1.0836184 9.062278e-01
+  # 20:           MIR 3.188433e-01  0.9722543 0.92022980 1.0264913 5.978311e-01
+  # 21:           hAT 1.000000e+00  0.9344619 0.51047466 1.5695110 1.000000e+00
+  # 22:           DNA 1.000000e+00  0.8680658 0.23621208 2.2273309 1.000000e+00
+  # 23:           Alu 4.993578e-69  0.8482141 0.83250811 0.8641875 7.490367e-68
+  # 24:          tRNA 1.000000e+00  0.8472131 0.23054482 2.1736911 1.000000e+00
+  # 25:      PiggyBac 7.589880e-01  0.8344222 0.38122165 1.5858478 9.062278e-01
+  # 26:      RTE-BovB 5.191092e-01  0.8214371 0.48655567 1.2992922 7.078761e-01
+  # 27:     TcMar-Tc2 4.546537e-01  0.8175384 0.48421783 1.2930953 6.910699e-01
+  # 28:        hAT-Ac 5.467680e-01  0.6257022 0.17034465 1.6044730 7.131757e-01
+  # 29:      Helitron 2.635788e-01  0.3831443 0.04636648 1.3861755 5.648118e-01
+  # 30:      Penelope 6.446330e-01  0.0000000 0.00000000 2.8601722 8.057913e-01
 }
 
 #################################
@@ -747,20 +874,19 @@ if (!file.exists(here(paste0("gitignore/TEplot_", variant, ".RDS")))){
 if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariability.png"))){
   plotManhattan_noDerakh <- readRDS(here(paste0("gitignore/plotManhattan_noDerakh_", variant, ".RDS")))
   pfeatures <- readRDS(here(paste0("gitignore/pfeatures_", variant, ".RDS")))
-  TEplot <- readRDS(here(paste0("gitignore/TEplot_", variant, ".RDS")))
+  TEplot <- readRDS(here("gitignore/TEplot_top99q_CpGs_SNP_SDASMrm.RDS"))
+  TEplot2 <- readRDS(here("gitignore/TEplot_top99q_in3layersoverlap_CpGs_SNP_SDASMrm.RDS"))
   
+  bottomrow <- plot_grid(pfeatures, TEplot, 
+                         TEplot2 + labs(title = "1% top overlap 3 layers") , ncol = 3,
+                         labels = c("B", "C", "D"))
   ggplot2::ggsave(
     filename = here::here(
-      "B_MultiTissues/dataOut/figures/script04/MappingVariability.png"),
-    plot = plot_grid(plotManhattan_noDerakh + ylab("Hypervariability score"),
-                     plot_grid(
-                       pfeatures, TEplot, 
-                       ncol= 2,
-                       labels = c("B", "C")
-                     ), nrow = 2,
-                     labels = c("A", "")),
-    width = 18, height = 10,
-    dpi = 300, bg = "white")
+      "B_MultiTissues/dataOut/figures/script04/MappingVariability.pdf"),
+    plot = plot_grid(
+      plotManhattan_noDerakh + ylab("Hypervariability score"), bottomrow,
+      labels = c("A", ""), nrow = 2),
+    width = 20, height = 10, dpi = 300, bg = "white")
 }
 
 ###########################################
@@ -1018,6 +1144,12 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
 ## How many of each putative ME is actually in the top99q? ##
 ############################################################
 
+if (!exists("listGR")){
+  listGR <- list(top99q = makeGRfromMyCpGPos(vec = top99q_CpGs, setname = "top99q"),
+                 allButTop99q = makeGRfromMyCpGPos(
+                   setdiff(table3layers_coveredIn3$chr_pos, top99q_CpGs), "allButTop99q"))
+}
+
 # Universe of covered CpGs, each already labelled top99q vs not
 # (both are single-CpG GRanges built from your covered-in-3 sites)
 top_gr  <- listGR$top99q          # top 1% CpGs
@@ -1087,7 +1219,7 @@ summary_df %>%
 # wget -qO- https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/cytoBand.txt.gz \
 # | zcat | awk '$5=="acen"' > centromeres_hg38.bed
 
-getEnrichCentroTelo()
+# getEnrichCentroTelo()
 # ── Centromere ──
 # hvCpGs in region:      3541 / 202467 (1.75%)
 # Background in region:  187301 / 20246679 (0.93%)
@@ -1108,8 +1240,8 @@ getEnrichCentroTelo()
 
 totalSites <- table3layers_coveredIn3$chr_pos
 if (!exists("top99q_CpGs")){
-  top99q <- quantile(table3layers_coveredIn3$logBF_per_ds_allLayers, probs = 0.99, na.rm = FALSE)
-  top99q_CpGs <- table3layers_coveredIn3[table3layers_coveredIn3$logBF_per_ds_allLayers >= top99q, ]$chr_pos
+  top99q <- readRDS(here(paste0("gitignore/top99q_CpGs_", variant, ".RDS")))
+  top99q_in3layersoverlap_CpGs <- readRDS(here(paste0("gitignore/top99q_in3layersoverlap_CpGs_", variant, ".RDS")))
 }
 
 # Method. ClusterProfiler
@@ -1119,210 +1251,151 @@ if (!exists("top99q_CpGs")){
 
 minimum_CpG_per_cluster = 2
 
-## Create universe
-universe <- annotateCpGs_txdb(
-  clusterCpGs(totalSites, max_gap = 50, min_size = minimum_CpG_per_cluster),
-  tss_window = 10000)
+getGOtop <- function(top){
+  
+  ## Create universe
+  universe <- suppressWarnings(suppressMessages(
+    annotateCpGs_txdb(
+      clusterCpGs(totalSites, max_gap = 50, min_size = minimum_CpG_per_cluster),
+      tss_window = 10000)
+  ))
+  
+  print(paste0("Gene universe contains ", length(universe), " genes"))
+  ## "Gene universe contains 32326 genes"
+  
+  fg_bypass  <- unique(cpg_cluster_count_per_gene(top)$entrez_id)
+  fg_wrapper <- annotateCpGs_txdb(clusterCpGs(top, 50, 2), 10000)
+  message("Jaccard:")
+  print(length(intersect(fg_bypass, fg_wrapper)) / length(union(fg_bypass, fg_wrapper)))  # want ≈ 1
+  ## The Jaccard is 1.0 --> the cpg_cluster_count_per_gene counts genes under exactly 
+  # the same body∪promoter rule as the annotation wrapper. The CpG-count covariate is valid.
+  
+  # WGBS-correct control
+  res_cpg <- CpG_GO_pipeline_lengthControlled(
+    top, universe = universe, min_size = minimum_CpG_per_cluster,
+    control_method = "cpg_count", all_sites = totalSites)
 
-print(paste0("Gene universe contains ", length(universe), " genes"))
-## "Gene universe contains 32326 genes"
+  # for the sensitivity table, also run the other two
+  res_len  <- CpG_GO_pipeline_lengthControlled(top, universe = universe,
+                                               control_method = "length")
 
-fg_bypass  <- unique(cpg_cluster_count_per_gene(top99q_CpGs)$entrez_id)
-fg_wrapper <- annotateCpGs_txdb(clusterCpGs(top99q_CpGs, 50, 2), 10000)
-length(intersect(fg_bypass, fg_wrapper)) / length(union(fg_bypass, fg_wrapper))  # want ≈ 1
-# 1 
-## The Jaccard is 1.0 --> the cpg_cluster_count_per_gene counts genes under exactly 
-# the same body∪promoter rule as the annotation wrapper. The CpG-count covariate is valid.
+  res_none <- CpG_GO_pipeline_lengthControlled(top, universe = universe,
+                                               control_method = "none")
 
-# WGBS-correct control
-res_cpg <- CpG_GO_pipeline_lengthControlled(
-  top99q_CpGs, universe = universe,
-  control_method = "cpg_count", all_sites = totalSites)
+  ## cpg_count matching can under-power the protocadherin signal specifically,
+  # because the PCDH clusters are so CpG-dense that few comparable genes exist to match them
+  # so if adhesion terms weaken here, that's not proof they're artefactual.
 
-# Clustering CpGs...
-# Reduced from 202467 to 9321 clustered CpGs
-# Annotating genes...
-# Found 1977 Entrez genes
-# Controlling for CpG-cluster count per gene (WGBS)...
-# Median clustered CpGs/gene — foreground: 1204.0, universe: 327.0, ratio: 3.68
-# Matched universe: 10427 genes (was 32326)
-# Foreground genes in matched universe: 1977 / 1977 (100.0%)
-# Running GO enrichment...
+  print("Direct test of prothocadherin")
 
-# for the sensitivity table, also run the other two
-res_len  <- CpG_GO_pipeline_lengthControlled(top99q_CpGs, universe = universe,
-                                             control_method = "length")
-# Clustering CpGs...
-# Reduced from 202467 to 9321 clustered CpGs
-# Annotating genes...
-# Found 1977 Entrez genes
-# Controlling for gene length (bp)...
-# Median gene length — foreground: 5,434 bp, universe: 3,137 bp, ratio: 1.73
-# Matched universe: 11862 genes (was 32326)
-# Foreground genes in matched universe: 1977 / 1977 (100.0%)
-# Running GO enrichment...
+  pcdh <- GRanges("chr5", IRanges(140710000, 141510000))     # hg38 PCDH clusters
+  top_gr <- makeGRfromMyCpGPos(top, "top")
+  bg_gr  <- makeGRfromMyCpGPos(totalSites,  "bg")
+  obs <- sum(overlapsAny(top_gr, pcdh))
+  exp <- length(top_gr) * mean(overlapsAny(bg_gr, pcdh))
+  print(c(observed = obs, expected = exp, fold = obs / exp))
+  in_top <- sum(overlapsAny(top_gr, pcdh))
+  in_bg  <- sum(overlapsAny(bg_gr,  pcdh))
+  mat <- matrix(c(in_top, length(top_gr) - in_top,
+                  in_bg,  length(bg_gr)  - in_bg), nrow = 2, byrow = TRUE)
 
-res_none <- CpG_GO_pipeline_lengthControlled(top99q_CpGs, universe = universe,
-                                             control_method = "none")
-# Clustering CpGs...
-# Reduced from 202467 to 9321 clustered CpGs
-# Annotating genes...
-# Found 1977 Entrez genes
-# Matched universe: 32326 genes (was 32326)
-# Foreground genes in matched universe: 1977 / 1977 (100.0%)
-# Running GO enrichment...
+  message("Fisher test:")
+  print(fisher.test(mat, alternative = "greater"))
 
-sapply(list(none = res_none, length = res_len, cpg = res_cpg),
-       function(r) sum(r$BP@result$p.adjust < 0.05, na.rm = TRUE))
-# none length    cpg 
-# 17      3      3 
+  message("Leave-one-out: does removing the protocadherin cluster drop the terms?")
+  # PCDH-cluster entrez IDs (hg38 chr5 ~140.7–141.5 Mb)
+  pcdh_region <- GRanges("chr5", IRanges(140710000, 141510000))
+  genes_gr <- suppressMessages(genes(TxDb.Hsapiens.UCSC.hg38.knownGene))
+  pcdh_entrez <- genes_gr$gene_id[overlapsAny(genes_gr, pcdh_region, ignore.strand = TRUE)]
 
-lapply(list(none = res_none, length = res_len, cpg = res_cpg),
-       function(r) r$BP@result %>% filter(p.adjust < 0.05) %>% pull(Description) %>% head(20))
+  res_cpg_noPCDH <- CpG_GO_pipeline_lengthControlled(
+    top, universe = universe,
+    control_method = "cpg_count", all_sites = totalSites,
+    exclude_genes = pcdh_entrez)
 
-# $none
-# [1] "homophilic cell-cell adhesion"                          
-# [2] "synapse assembly"                                       
-# [3] "cell junction assembly"                                 
-# [4] "negative chemotaxis"                                    
-# [5] "axon guidance"                                          
-# [6] "neuron projection guidance"                             
-# [7] "axonogenesis"                                           
-# [8] "neuron recognition"                                     
-# [9] "cell morphogenesis involved in neuron differentiation"  
-# [10] "axon development"                                       
-# [11] "regulation of small GTPase mediated signal transduction"
-# [12] "regulation of postsynaptic membrane potential"          
-# [13] "regulation of membrane potential"                       
-# [14] "negative regulation of cAMP/PKA signal transduction"    
-# [15] "regulation of axonogenesis"                             
-# [16] "regulation of synapse organization"                     
-# [17] "regulation of cytosolic calcium ion concentration"      
-# 
-# $length
-# [1] "cell junction organization"    "homophilic cell-cell adhesion" "synapse organization"         
-# 
-# $cpg
-# [1] "homophilic cell-cell adhesion" "cell junction organization"    "negative chemotaxis"   
+  return(list(res_cpg = res_cpg, res_len = res_len, res_none = res_none,
+              res_cpg_noPCDH = res_cpg_noPCDH))
+}
 
-## --> Likely, the broad neurodevelopmental signature is largely a CpG-density artefact, not an ME signal.
+if(!file.exists(here::here(paste0("B_MultiTissues/dataOut/figures/script04/GOplottop1pc.pdf")))){
+  GO_top99q_CpGs <- getGOtop(top = top99q_CpGs)
+  
+  go_dt <- rbindlist(lapply(names(GO_top99q_CpGs)[1:3], function(method) {
+    res <- GO_top99q_CpGs[[method]]
+    rbindlist(lapply(names(res), function(ontology) {
+      if (is.null(res[[ontology]]) || nrow(as.data.frame(res[[ontology]])) == 0)
+        return(NULL)
+      x <- as.data.table(as.data.frame(res[[ontology]]))
+      x[, `:=`(method = method, ontology = ontology)]
+      x
+    }), fill = TRUE)
+  }), fill = TRUE)
+  
+  ## GO plot top 10 terms by ontology
+  go_top <- go_dt[order(p.adjust),
+                  head(.SD, 10), by = .(method, ontology)]
+  
+  go_top[, Description := factor(Description,
+                                 levels = rev(unique(Description)))]
+  
+  p <- ggplot(go_top, aes(x = method, y = Description,size = Count,
+                          colour = -log10(p.adjust))) +
+    geom_point() +
+    facet_wrap(~ontology, scales = "free_y") +
+    scale_colour_viridis_c(option = "plasma") +
+    labs(x = NULL, y = NULL,
+         colour = "-log10 adjusted P",
+         size = "Gene count", title = "GO enrichment comparison") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          axis.text.y = element_text(size = 8))
+  
+  ggplot2::ggsave(
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/script04/GOplottop1pc.pdf")),
+    plot = p, width = 14, height = 4)
+  ## --> Likely, the broad neurodevelopmental signature is largely a CpG-density artefact, not an ME signal.
+  
+  # [1] "Direct test of prothocadherin"
+  # observed   expected       fold 
+  # 161.000000  99.380103   1.620043 
+  # Fisher test:
+  #   
+  #   Fisher's Exact Test for Count Data
+  # 
+  # data:  mat
+  # p-value = 1.029e-08
+  # alternative hypothesis: true odds ratio is greater than 1
+  # 95 percent confidence interval:
+  #  1.41476     Inf
+  # sample estimates:
+  # odds ratio 
+  #   1.620518 
+  
+  # --> top99q CpGs are 1.62× enriched at the PCDH clusters (161 observed vs 99 expected)
+  # a naive GO enrichment shows a broad neurodevelopmental signature (17 BP terms),
+  # but this is largely attributable to the higher CpG density of the foreground genes
+  # (3.7× the universe); after matching the background on per-gene CpG count,
+  # only homophilic cell-cell adhesion, cell junction organization, and
+  # negative chemotaxis remain, likely driven by enrichment at the clustered
+  # protocadherin locus on chr5 (Fisher's exact test OR = 1.62, p < 0.0001), a
+  # a known systemically-variable ME region.
+  
+  # terms lost by removing PCDH = attributable to the cluster
+  bp_with    <- GO_top99q_CpGs$res_cpg$BP@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
+  bp_without <- GO_top99q_CpGs$res_cpg_noPCDH$BP@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
+  
+  setdiff(bp_with, bp_without)
+  # [1] "homophilic cell-cell adhesion" "negative chemotaxis"     
+  bp_without
+  # [1] "cell junction organization"
+}
 
-## cpg_count matching can under-power the protocadherin signal specifically,
-# because the PCDH clusters are so CpG-dense that few comparable genes exist to match them
-# so if adhesion terms weaken here, that's not proof they're artefactual.
+######################################
+## And for top 1% overlap 3 layers? ##
+######################################
 
-## Direct test of prothocadherin
-
-pcdh <- GRanges("chr5", IRanges(140710000, 141510000))     # hg38 PCDH clusters
-top_gr <- makeGRfromMyCpGPos(top99q_CpGs, "top99q")
-bg_gr  <- makeGRfromMyCpGPos(totalSites,  "bg")
-obs <- sum(overlapsAny(top_gr, pcdh))
-exp <- length(top_gr) * mean(overlapsAny(bg_gr, pcdh))
-c(observed = obs, expected = exp, fold = obs / exp)
-# observed   expected       fold 
-# 161.000000  99.380103   1.620043 
-
-in_top <- sum(overlapsAny(top_gr, pcdh))
-in_bg  <- sum(overlapsAny(bg_gr,  pcdh))
-mat <- matrix(c(in_top, length(top_gr) - in_top,
-                in_bg,  length(bg_gr)  - in_bg), nrow = 2, byrow = TRUE)
-fisher.test(mat, alternative = "greater")   # p-value + CI for the 1.34x
-# Fisher's Exact Test for Count Data
-# data:  mat
-# p-value = 1.029e-08
-# alternative hypothesis: true odds ratio is greater than 1
-# 95 percent confidence interval:
-#   1.41476     Inf
-# sample estimates:
-#   odds ratio 
-# 1.620518 
-
-# --> top99q CpGs are 1.62× enriched at the PCDH clusters (161 observed vs 99 expected)
-# a naive GO enrichment shows a broad neurodevelopmental signature (17 BP terms),
-# but this is largely attributable to the higher CpG density of the foreground genes
-# (3.7× the universe); after matching the background on per-gene CpG count,
-# only homophilic cell-cell adhesion, cell junction organization, and
-# negative chemotaxis remain, likely driven by enrichment at the clustered
-# protocadherin locus on chr5 (Fisher's exact test OR = 1.62, p < 0.0001), a
-# a known systemically-variable ME region.
-
-## ── Leave-one-out: does removing the protocadherin cluster drop the terms? ──
-
-# PCDH-cluster entrez IDs (hg38 chr5 ~140.7–141.5 Mb)
-pcdh_region <- GRanges("chr5", IRanges(140710000, 141510000))
-genes_gr <- suppressMessages(genes(TxDb.Hsapiens.UCSC.hg38.knownGene))
-pcdh_entrez <- genes_gr$gene_id[overlapsAny(genes_gr, pcdh_region, ignore.strand = TRUE)]
-
-res_cpg_noPCDH <- CpG_GO_pipeline_lengthControlled(
-  top99q_CpGs, universe = universe,
-  control_method = "cpg_count", all_sites = totalSites,
-  exclude_genes = pcdh_entrez)
-
-# Clustering CpGs...
-# Reduced from 202467 to 9321 clustered CpGs
-# Annotating genes...
-# Found 1977 Entrez genes
-# Excluded 12 foreground genes (e.g. PCDH cluster); 1977 -> 1965
-# Controlling for CpG-cluster count per gene (WGBS)...
-
-# terms lost by removing PCDH = attributable to the cluster
-bp_with    <- res_cpg$BP@result        %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
-bp_without <- res_cpg_noPCDH$BP@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
-setdiff(bp_with, bp_without)
-# [1] "homophilic cell-cell adhesion" "negative chemotaxis"     
-
-bp_without
-# [1] "cell junction organization"
-
-res_cpg$BP@result %>% filter(Description == "negative chemotaxis") %>% pull(geneID)
-# ROBO2/UNC5C/SEMA3E/ROBO1/SEMA5B/NRG3/SEMA5A/EFNA5/SEMA6A/SLIT2/SEMA6D/ITGB3/NTN1/SLIT3
-
-res_cpg_noPCDH$BP@result  %>% dplyr::filter(p.adjust < 0.05)
-# ID                Description GeneRatio  BgRatio RichFactor FoldEnrichment   zScore
-# GO:0034330 GO:0034330 cell junction organization  104/1044 411/6133  0.2530414       1.486497 4.624471
-# pvalue   p.adjust     qvalue
-# GO:0034330 6.874005e-06 0.02492514 0.02492514
-# geneID
-# GO:0034330 NOS1AP/BMP6/NEURL1/ROBO2/ITSN1/CNTN2/LZTS1/EPHB2/NRXN3/SLITRK2/CDH22/PECAM1/LRP4/IQSEC1/KIRREL1/ADGRL2/EGFLAM/STRN/PPFIA3/TMEM108/CDH13/SHANK1/SEMA3E/CHRNA1/DRD2/SORBS1/FN1/ITGA6/CNTN4/DOCK4/PKP2/LAMC1/ERBB4/CNTN5/ARHGAP4/GABRA5/NRG3/ABCC8/CSMD2/DUSP22/GABRA1/HAPLN4/GPR158/IL1RAPL2/EFNA5/ASIC2/SDK1/UBE3B/GABRB3/PLXNC1/THBS2/GRID1/PKP1/KCNK13/ILDR1/IL1RAPL1/KLK8/NLGN1/EPHB1/MTMR2/ERC2/SRPX2/LIMS1/CDH5/MTSS1/GAP43/ARHGAP6/RDX/TENM3/DOCK1/PRMT8/BCR/CLDN11/TENM2/ITGB3/GRID2/DNER/GABRG1/SHISA6/CACNB2/CDKL5/SYN3/MAPRE2/LAMA1/PRICKLE1/PEAK1/OPCML/PIP5K1A/TJP2/PAK2/LRRC4C/EPHB3/HMCN2/NTN1/EGLN1/SLC8A2/LARGE1/PDLIM5/SHANK2/PKHD1/APBB2/CDH8/TENM4/CACNA2D3
-# Count
-# GO:0034330   104
-
-res_cpg_noPCDH$CC@result  %>% dplyr::filter(p.adjust < 0.05)
-# ID           Description GeneRatio  BgRatio RichFactor FoldEnrichment   zScore       pvalue
-# GO:0097060 GO:0097060     synaptic membrane   65/1089 237/6426  0.2742616       1.618370 4.381414 2.583329e-05
-# GO:0009986 GO:0009986          cell surface   78/1089 306/6426  0.2549020       1.504132 4.081609 6.848117e-05
-# GO:0045211 GO:0045211 postsynaptic membrane   47/1089 165/6426  0.2848485       1.680841 4.001917 1.269869e-04
-# p.adjust     qvalue
-# GO:0097060 0.01304581 0.01304581
-# GO:0009986 0.01729150 0.01729150
-# GO:0045211 0.02137612 0.02137612
-# geneID
-# GO:0097060                                                                                  CNTN2/CNIH3/EPHB2/PCDH9/NRXN3/SLC1A2/SLITRK2/LRP4/IQSEC1/ADGRL2/STRN/GRM1/TMEM108/SHANK1/GRM7/SYNE1/CHRNA1/DRD2/ERBB4/PICALM/GRIP1/CNTN5/GABRA5/ABCC8/CSMD2/GABRA1/SORCS2/GPR158/SCN10A/ASIC2/PRKCG/UNC13C/GABRB3/GRID1/NCAM2/CLTA/IL1RAPL1/CHRM5/NLGN1/SLC6A6/MTMR2/ERC2/SRPX2/DMD/HCN1/NETO1/KCNA1/LRRC7/CLMP/TENM2/ITGB3/GRID2/GABRG1/SHISA6/KCNA2/RGS7/LRRC4C/SLC1A7/DGKB/SHANK2/GSG1L/CDH8/CACNG5/CACNA2D3/GRIN2A
-# GO:0009986 GPC6/GPC5/ROBO2/GFRA1/PTPRT/UNC5C/CNTN2/EPHB2/TSPAN8/AJAP1/SLC1A2/ADAMTS7/ANTXRL/PECAM1/SLAMF8/LRP4/TRPC4/CLEC4C/NRROS/SIRPA/CDH13/ENTPD1/CD200R1L/CHRNA1/PCSK6/ITGA6/IGSF5/HAVCR2/MYO18A/CR1/ROBO1/PICALM/ATP5PO/FCGR3A/PKD1L3/DSCAML1/TPO/COL23A1/MUC17/TFRC/IL1RAPL2/EFNA5/GABRB3/P2RX7/TMC1/IL1RAPL1/NLGN1/LMO7/SLIT2/KCNN2/SRPX2/DMD/ITGB8/CDH5/HCN1/SEMA6D/KCNA1/TMX3/TF/SLC46A2/CLMP/ITGB3/ENOX2/MELTF/PDGFRA/STAB2/ANXA4/GFRA2/TSPEAR/SCNN1A/ZPLD1/PKHD1/TMEM8B/FCGR2A/ABCG1/BTNL8/ASTN1/GRIN2A
-# GO:0045211                                                                                                                                                                                                 CNTN2/CNIH3/EPHB2/SLITRK2/IQSEC1/ADGRL2/STRN/GRM1/TMEM108/SHANK1/GRM7/SYNE1/CHRNA1/DRD2/ERBB4/PICALM/GRIP1/GABRA5/CSMD2/GABRA1/SORCS2/GPR158/ASIC2/GABRB3/GRID1/IL1RAPL1/CHRM5/NLGN1/SLC6A6/DMD/HCN1/NETO1/LRRC7/CLMP/TENM2/ITGB3/GRID2/GABRG1/SHISA6/KCNA2/RGS7/LRRC4C/DGKB/SHANK2/GSG1L/CACNG5/GRIN2A
-# Count
-# GO:0097060    65
-# GO:0009986    78
-# GO:0045211    47
-
-res_cpg_noPCDH$MF@result  %>% dplyr::filter(p.adjust < 0.05)
-# ID                                Description GeneRatio  BgRatio RichFactor FoldEnrichment
-# GO:0005216 GO:0005216            monoatomic ion channel activity   57/1081 201/6345  0.2835821       1.664504
-# GO:0022836 GO:0022836                     gated channel activity   43/1081 148/6345  0.2905405       1.705347
-# GO:0015267 GO:0015267                           channel activity   57/1081 213/6345  0.2676056       1.570729
-# GO:0022803 GO:0022803 passive transmembrane transporter activity   57/1081 213/6345  0.2676056       1.570729
-# zScore       pvalue   p.adjust     qvalue
-# GO:0005216 4.338167 3.357596e-05 0.02350317 0.02350317
-# GO:0022836 3.934406 1.690876e-04 0.03369974 0.03369974
-# GO:0015267 3.839326 1.925700e-04 0.03369974 0.03369974
-# GO:0022803 3.839326 1.925700e-04 0.03369974 0.03369974
-# geneID
-# GO:0005216 TPTE/PIEZO2/CLIC5/TRPM3/CACNA1H/OTOP1/TRPC4/RYR3/CLCN1/TPTE2/RYR2/KCNIP1/ANO2/CHRNA1/KCNJ5/KCNG2/ATP5PO/CACNA1F/GABRA5/PKD1L3/ABCC8/GABRA1/TRPC4AP/SCN10A/ASIC2/GABRB3/KCNK3/P2RX7/GRID1/ANO5/TMC1/KCNK13/TMEM175/FXYD3/ANO3/KCNN2/HCN1/CLCN5/ANO7/KCNA1/ITPR1/CACNA1G/RYR1/GRID2/GABRG1/KCNMB2/CLIC2/CACNB2/KCNA2/TMEM63A/TRPC1/SLC1A7/SCNN1A/CATSPER3/CACNG5/CACNA2D3/GRIN2A
-# GO:0022836                                                                                         PIEZO2/CACNA1H/RYR3/CLCN1/RYR2/ANO2/CHRNA1/KCNJ5/KCNG2/CACNA1F/GABRA5/PKD1L3/ABCC8/GABRA1/SCN10A/ASIC2/GABRB3/KCNK3/P2RX7/GRID1/ANO5/TMC1/KCNK13/KCNN2/HCN1/CLCN5/ANO7/KCNA1/ITPR1/CACNA1G/RYR1/GRID2/GABRG1/KCNMB2/CACNB2/KCNA2/TMEM63A/SLC1A7/SCNN1A/CATSPER3/CACNG5/CACNA2D3/GRIN2A
-# GO:0015267 TPTE/PIEZO2/CLIC5/TRPM3/CACNA1H/OTOP1/TRPC4/RYR3/CLCN1/TPTE2/RYR2/KCNIP1/ANO2/CHRNA1/KCNJ5/KCNG2/ATP5PO/CACNA1F/GABRA5/PKD1L3/ABCC8/GABRA1/TRPC4AP/SCN10A/ASIC2/GABRB3/KCNK3/P2RX7/GRID1/ANO5/TMC1/KCNK13/TMEM175/FXYD3/ANO3/KCNN2/HCN1/CLCN5/ANO7/KCNA1/ITPR1/CACNA1G/RYR1/GRID2/GABRG1/KCNMB2/CLIC2/CACNB2/KCNA2/TMEM63A/TRPC1/SLC1A7/SCNN1A/CATSPER3/CACNG5/CACNA2D3/GRIN2A
-# GO:0022803 TPTE/PIEZO2/CLIC5/TRPM3/CACNA1H/OTOP1/TRPC4/RYR3/CLCN1/TPTE2/RYR2/KCNIP1/ANO2/CHRNA1/KCNJ5/KCNG2/ATP5PO/CACNA1F/GABRA5/PKD1L3/ABCC8/GABRA1/TRPC4AP/SCN10A/ASIC2/GABRB3/KCNK3/P2RX7/GRID1/ANO5/TMC1/KCNK13/TMEM175/FXYD3/ANO3/KCNN2/HCN1/CLCN5/ANO7/KCNA1/ITPR1/CACNA1G/RYR1/GRID2/GABRG1/KCNMB2/CLIC2/CACNB2/KCNA2/TMEM63A/TRPC1/SLC1A7/SCNN1A/CATSPER3/CACNG5/CACNA2D3/GRIN2A
-# Count
-# GO:0005216    57
-# GO:0022836    43
-# GO:0015267    57
-# GO:0022803    57
+rerunGO2 = FALSE
+if (rerunGO2){
+  GO_top99q_in3layersoverlap_CpGs <- getGOtop(top = top99q_in3layersoverlap_CpGs)
+  ## No GO terms significant (too few CpGs)  
+}
