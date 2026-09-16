@@ -1,11 +1,5 @@
 #####################################################################
 # S05 — Per-germ-layer hypervariability categories
-#
-# Run the SAME enrichment tests S04 ran on top99q, once per category:
-#   (1) TE enrichment (overall + per repClass)
-#   (2) SD-ASM enrichment (overall + per classification)
-#   (3) GO enrichment (CpG-density-controlled)
-#   (4) protocadherin-locus enrichment
 #####################################################################
 
 #####################################################################
@@ -244,99 +238,6 @@ print(sapply(categories, length))
 # top1pc3layer6gps   constitutive6gp top1pcEndoOnly6gp top1pcMesoOnly6gp top1pcEctoOnly6gp 
 # 26           2570512            131309            137801            134230  
 
-# ## =============================================================================
-# ## Test overlap between the top in each layer
-# ## =============================================================================
-# 
-# if (!file.exists(here("B_MultiTissues/dataOut/figures/script05/venn_scatter_1_50pc.pdf"))){
-#   cat1pc <- list(
-#     endo1pc = dt[(hv_endo), chr_pos],
-#     meso1pc = dt[(hv_meso), chr_pos],
-#     ecto1pc = dt[(hv_ecto), chr_pos])
-#   
-#   print(sapply(cat1pc, length))
-#   # endo1pc meso1pc ecto1pc 
-#   # 202467  202467  202467 
-#   
-#   p_venn1pc <- ggVennDiagram(cat1pc,
-#                              category.names = c("Endo 1%", "Meso 1%", "Ecto 1%"),
-#                              label = "both", label_alpha = 0) +
-#     scale_fill_gradient(low = "grey95", high = "#2166AC") +
-#     scale_colour_manual(values = rep("grey30", 3)) +
-#     labs(title = "Overlap of top-1% hvCpGs across germ layers") +
-#     theme(legend.position = "none")
-#   
-#   q50 <- function(x) quantile(x, 0.50, na.rm = TRUE)
-#   
-#   cat50pc <- list(
-#     endo50pc = dt[logBF_per_ds_endo >= q50(logBF_per_ds_endo), chr_pos],
-#     meso50pc = dt[logBF_per_ds_meso >= q50(logBF_per_ds_meso), chr_pos],
-#     ecto50pc = dt[logBF_per_ds_ecto >= q50(logBF_per_ds_ecto), chr_pos])
-#   
-#   p_venn50pc <- ggVennDiagram(cat50pc, 
-#                               category.names = c("Endo 50%", "Meso 50%", "Ecto 50%"),
-#                               label = "both", label_alpha = 0) +
-#     scale_fill_gradient(low = "grey95", high = "#B2182B") +   # different hue from the 1% Venn
-#     scale_colour_manual(values = rep("grey30", 3)) +
-#     labs(title = "Overlap of top-50% hvCpGs across germ layers") +
-#     theme(legend.position = "none")
-#   
-#   p_venn50pc
-#   
-#   # endo vs meso, with the thresholds that define the categories
-#   p_scatter_1 <- ggplot(dt, aes(logBF_per_ds_endo, logBF_per_ds_meso)) +
-#     geom_hex(bins = 100) +
-#     scale_fill_viridis_c(trans = "log10", name = "CpGs") +
-#     # meso thresholds (y): top 1% and bottom 50%
-#     geom_hline(yintercept = thr$meso["top"], colour = "#B2182B", linetype = 2) +
-#     geom_hline(yintercept = thr$meso["bot"], colour = "grey40",  linetype = 3) +
-#     # endo thresholds (x)
-#     geom_vline(xintercept = thr$endo["top"], colour = "#B2182B", linetype = 2) +
-#     geom_vline(xintercept = thr$endo["bot"], colour = "grey40",  linetype = 3) +
-#     annotate("rect", xmin = thr$endo["top"], xmax = Inf,
-#              ymin = -Inf, ymax = thr$meso["bot"],
-#              fill = NA, colour = "black", linewidth = 0.6) +   # the "endo-specific" corner
-#     labs(x = "Hypervariability score endoderm", y = "Hypervariability score mesoderm",
-#          title = "Hypervariability scores are strongly correlated") +
-#     theme_minimal(base_size = 12)
-#   
-#   p_scatter_2 <- ggplot(dt, aes(logBF_per_ds_endo, logBF_per_ds_ecto)) +
-#     geom_hex(bins = 100) +
-#     scale_fill_viridis_c(trans = "log10", name = "CpGs") +
-#     # ecto thresholds (y): top 1% and bottom 50%
-#     geom_hline(yintercept = thr$ecto["top"], colour = "#B2182B", linetype = 2) +
-#     geom_hline(yintercept = thr$ecto["bot"], colour = "grey40",  linetype = 3) +
-#     # endo thresholds (x)
-#     geom_vline(xintercept = thr$endo["top"], colour = "#B2182B", linetype = 2) +
-#     geom_vline(xintercept = thr$endo["bot"], colour = "grey40",  linetype = 3) +
-#     annotate("rect", xmin = thr$endo["top"], xmax = Inf,
-#              ymin = -Inf, ymax = thr$ecto["bot"],
-#              fill = NA, colour = "black", linewidth = 0.6) +   # the "endo-specific" corner
-#     labs(x = "Hypervariability score endoderm", y = "Hypervariability score ectoderm",
-#          title = "Hypervariability scores are strongly correlated") +
-#     theme_minimal(base_size = 12)
-#   
-#   p_scatter_3 <- ggplot(dt, aes(logBF_per_ds_ecto, logBF_per_ds_meso)) +
-#     geom_hex(bins = 100) +
-#     scale_fill_viridis_c(trans = "log10", name = "CpGs") +
-#     # meso thresholds (y): top 1% and bottom 50%
-#     geom_hline(yintercept = thr$meso["top"], colour = "#B2182B", linetype = 2) +
-#     geom_hline(yintercept = thr$meso["bot"], colour = "grey40",  linetype = 3) +
-#     # ecto thresholds (x)
-#     geom_vline(xintercept = thr$ecto["top"], colour = "#B2182B", linetype = 2) +
-#     geom_vline(xintercept = thr$ecto["bot"], colour = "grey40",  linetype = 3) +
-#     annotate("rect", xmin = thr$ecto["top"], xmax = Inf,
-#              ymin = -Inf, ymax = thr$meso["bot"],
-#              fill = NA, colour = "black", linewidth = 0.6) +   # the "ecto-specific" corner
-#     labs(x = "Hypervariability score ectoderm", y = "Hypervariability score mesoderm",
-#          title = "Hypervariability scores are strongly correlated") +
-#     theme_minimal(base_size = 12)
-#   
-#   ggsave(here("B_MultiTissues/dataOut/figures/script05/venn_scatter_1_50pc.pdf"),
-#          (p_venn1pc | p_venn50pc) / 
-#            (p_scatter_1 | p_scatter_2 | p_scatter_3), width = 18, height = 10)
-# }
-
 ## =============================================================================
 ## Test power of detection if reduced N of group (Ecto has only 6 groups)
 ## --> low (1% only, change easily)
@@ -375,6 +276,42 @@ calc_stats(categories$top1pcEctoOnly,    categories$top1pcEctoOnly6gp,    "Ecto_
 categories <- categories[
   names(categories) %in% 
     c("top1pc3layers", "top1pcEndoOnly", "top1pcMesoOnly", "top1pcEctoOnly", "constitutive")]
+
+## =============================================================================
+## Sanity check: does each CpG belong to only ONE layer?
+## =============================================================================
+# one row per (cpg, categories)
+dt_sets <- rbindlist(lapply(names(categories), function(s)
+  data.table(cpg = categories[[s]], categories = s)))
+
+testDup = FALSE ## long to run
+if (testDup){
+  # how many DISTINCT categories does each CpG appear in?
+  overlap <- dt_sets[, .(n_sets = uniqueN(categories),
+                         which_sets = paste(sort(unique(categories)), collapse = " + ")),
+                     by = cpg][n_sets > 1]
+  
+  if (nrow(overlap) == 0) {
+    message("✓ All CpGs are unique to a single categories")
+  } else {
+    message("✗ ", nrow(overlap), " CpGs appear in more than one set:")
+    print(overlap[, .N, by = which_sets][order(-N)])   # which categories-pairs overlap, and how many
+  }
+  # ✗ 67 CpGs appear in more than one set:
+  #                         which_sets     N
+  # 1: top1pcEndoOnly + top1pcMesoOnly    60
+  # 2: top1pcEctoOnly + top1pcEndoOnly     6
+  # 3: top1pcEctoOnly + top1pcMesoOnly     1
+}
+
+# drop CpGs that appear in >1 
+dup_main <- dt_sets[, .N, by = cpg][N > 1, cpg]
+categories <- lapply(categories, setdiff, dup_main)
+
+message("Category sizes:")
+print(sapply(categories, length))
+# top1pc3layers   constitutive top1pcEndoOnly top1pcMesoOnly top1pcEctoOnly 
+# 60424        6723417           9479           9433          41406 
 
 ## =============================================================================
 ## TE ENRICHMENT — per category, overall + per repClass
@@ -954,17 +891,22 @@ go_dt <- rbindlist(lapply(names(go_res), function(cat) {
   }), fill = TRUE)
 }), fill = TRUE)
 
-table(go_dt$cat)
+## Filter by p.adjusted (was done with ontology == 0 but extra safe)
+go_dt <- go_dt[go_dt$p.adjust < 0.05,]
 
-## GO plot top 10 terms by ontology
+table(go_dt$cat)
+# constitutive  top1pc3layers top1pcEctoOnly top1pcEndoOnly top1pcMesoOnly 
+# 181            183            392            129            172 
+
+## GO plot top 20 terms by ontology
 go_top <- go_dt[order(p.adjust),
-                head(.SD, 10), by = .(cat, ontology)]
+                head(.SD, 20), by = .(cat, ontology)]
 
 go_top[, Description := factor(Description,
                                levels = rev(unique(Description)))]
 
-p <- ggplot(go_top, aes(x = cat, y = Description, size = Count,
-                        colour = -log10(p.adjust))) +
+p <- ggplot(go_dt, aes(x = cat, y = Description, size = Count,
+                       colour = -log10(p.adjust))) +
   geom_point() +
   facet_wrap(~ontology, scales = "free_y") +
   scale_colour_viridis_c(option = "plasma") +
@@ -977,44 +919,82 @@ p <- ggplot(go_top, aes(x = cat, y = Description, size = Count,
 
 ggplot2::ggsave(
   filename = here::here(paste0("B_MultiTissues/dataOut/figures/script05/GOplottopcat_1CpG.pdf")),
-  plot = p, width = 14, height = 8)
+  plot = p, width = 18, height = 40)
 
-## With clusters of 2 CpGs (pre-ran)
-go_res <- readRDS(here(paste0("gitignore/S05_GO_SNP_SDASMrm_2cpgsclusters.rds")))
+## =============================================================================
+## KEGG ENRICHMENT — same CpG-density-matched design as the GO block
+## =============================================================================
 
-go_dt <- rbindlist(lapply(names(go_res), function(cat) {
-  res <- go_res[[cat]]
-  rbindlist(lapply(names(res), function(ontology) {
-    if (is.null(res[[ontology]]) || nrow(as.data.frame(res[[ontology]])) == 0)
-      return(NULL)
-    x <- as.data.table(as.data.frame(res[[ontology]]))
-    x[, `:=`(cat = cat, ontology = ontology)]
-    x
-  }), fill = TRUE)
+## also ran with minimum_CpG_per_cluster <- 2 (in gitignore)
+if (!file.exists(here(paste0("gitignore/S05_KEGG_", variant, ".rds")))) {
+  all_cpg    <- dt$chr_pos
+  totalSites <- all_cpg
+  minimum_CpG_per_cluster <- 1
+  
+  # universe = all genes annotated from covered CpGs (entrez), as in GO
+  universe <- annotateCpGs_txdb(
+    clusterCpGs(totalSites, max_gap = 50, min_size = minimum_CpG_per_cluster),
+    tss_window = 10000)
+  
+  kegg_res <- lapply(names(categories), function(cat) {
+    cpgs <- categories[[cat]]
+    if (length(cpgs) < 20) { message("SKIP KEGG ", cat); return(NULL) }
+    
+    # foreground genes (same clustering + annotation as GO)
+    ensg <- annotateCpGs_txdb(clusterCpGs(cpgs, 50, minimum_CpG_per_cluster), 10000)
+    
+    # CpG-density-matched background (reuse the helper function), then enrichKEGG
+    cpg_count_dt <- cpg_cluster_count_per_gene(totalSites, 50, minimum_CpG_per_cluster, 10000)
+    uni_matched  <- match_universe_by_covariate(ensg, universe, cpg_count_dt, "n_cpg")
+    
+    kk <- enrichKEGG(gene          = as.character(ensg),
+                     universe      = as.character(uni_matched),
+                     organism      = "hsa",
+                     keyType       = "ncbi-geneid",   # entrez ids
+                     pAdjustMethod = "BH",
+                     pvalueCutoff  = 0.05)
+    if (is.null(kk) || nrow(as.data.frame(kk)) == 0) return(NULL)
+    # translate entrez -> symbol in the geneID column for readable plots
+    setReadable(kk, OrgDb = org.Hs.eg.db, keyType = "ENTREZID")
+  })
+  names(kegg_res) <- names(categories)
+  saveRDS(kegg_res, here(paste0("gitignore/S05_KEGG_", variant, ".rds")))
+} else kegg_res <- readRDS(here(paste0("gitignore/S05_KEGG_", variant, ".rds")))
+
+## ── collate to one table ─────────────────────────────────────────────────────
+kegg_dt <- rbindlist(lapply(names(kegg_res), function(cat) {
+  res <- kegg_res[[cat]]
+  if (is.null(res)) return(NULL)
+  x <- as.data.table(as.data.frame(res))
+  if (!nrow(x)) return(NULL)
+  x[, cat := cat]; x
 }), fill = TRUE)
+kegg_dt <- kegg_dt[p.adjust < 0.05]
+print(kegg_dt[, .N, by = cat])
+# cat     N
+# <char> <int>
+# 1: top1pc3layers    30
+# 2: top1pcEndoOnly     5 ## too small to interpret
+# 3: top1pcMesoOnly     0
+# 4: top1pcEctoOnly    77 ## weirdly too big; less reliable dataset
+## no KEGG for constitutive
 
-## GO plot top 10 terms by ontology
-go_top <- go_dt[order(p.adjust),
-                head(.SD, 10), by = .(cat, ontology)]
+# Kegg network per category (top1pc3layers)
+kk <- kegg_res[["top1pc3layers"]]
+if (!is.null(kk) && nrow(as.data.frame(kk)) > 0) {
+  p_net <- cnetplot(kk, showCategory = 30, # all pathways
+                    node_label = "none") +
+    geom_cnet_label(node_label = "item", colour = "steelblue", size = 2.5) +
+    geom_cnet_label(node_label = "category", colour = "firebrick", size = 5)
+  ggsave(here("B_MultiTissues/dataOut/figures/script05/KEGG_cnet_top1pc3layers.pdf"),
+         p_net, width = 20, height = 20)
+}
 
-go_top[, Description := factor(Description,
-                               levels = rev(unique(Description)))]
-
-p <- ggplot(go_top, aes(x = cat, y = Description, size = Count,
-                        colour = -log10(p.adjust))) +
-  geom_point() +
-  facet_wrap(~ontology, scales = "free_y") +
-  scale_colour_viridis_c(option = "plasma") +
-  labs(x = NULL, y = NULL,
-       colour = "-log10 adjusted P",
-       size = "Gene count", title = "GO enrichment comparison") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        axis.text.y = element_text(size = 8))
-
-ggplot2::ggsave(
-  filename = here::here(paste0("B_MultiTissues/dataOut/figures/script05/GOplottopcat_2CpGs.pdf")),
-  plot = p, width = 14, height = 6)
+# emapplot: pathway-pathway network (pathways sharing genes are linked)
+kk2 <- pairwise_termsim(kk)
+p_emap <- emapplot(kk2, showCategory = 30)
+ggsave(here("B_MultiTissues/dataOut/figures/script05/KEGG_emap_top1pc3layers.pdf"),
+       p_emap, width = 10, height = 10)
 
 ################################################################################
 ## Extract raw methylation for our 4 main categories                         ##
@@ -1026,27 +1006,53 @@ ggplot2::ggsave(
 message("Category sizes:")
 print(sapply(categories, length))
 # top1pc3layers   constitutive top1pcEndoOnly top1pcMesoOnly top1pcEctoOnly 
-# 60424        6723417           9545           9494          41413 
+# 60424        6723417           9479           9433          41406
 
 # ── Write CpG lists for python extraction ─────────────────────────────────────
 
 set.seed(1234)
-## top1pc3layers CpGs — subsample 1000 as positive control
-top1pc3layers_sample <- sample(categories$top1pc3layers, min(1000, length(categories$top1pc3layers)))
+## top1pc3layers CpGs — subsample 10000 as positive control
+top1pc3layers_sample <- sample(categories$top1pc3layers, min(10000, length(categories$top1pc3layers)))
 
-## constitutive_sample — subsample 1000 as negative control
-constitutive_sample <- sample(categories$constitutive, min(1000, length(categories$constitutive)))
+## constitutive_sample — subsample 10000 as negative control
+constitutive_sample <- sample(categories$constitutive, min(10000, length(categories$constitutive)))
 
 ## Neutral (variance-unfiltered) background
-neutral_sample <- sample(dt$chr_pos, min(2000, nrow(dt)))
-
+neutral_sample <- sample(dt$chr_pos, min(20000, nrow(dt)))
 ## Exclude other categories
 neutral_sample <- neutral_sample[!neutral_sample %in% 
                                    c(categories$top1pcEctoOnly, categories$top1pcMesoOnly,
                                      categories$top1pcEndoOnly, categories$top1pc3layers,
                                      categories$constitutive)]
 
-neutral_sample <- sample(neutral_sample, 1000)
+neutral_sample <- sample(neutral_sample, 10000)
+
+## Sanity check: each CpG must belong to ONE layer
+sets <- list(
+  top1pcEndoOnly = categories$top1pcEndoOnly,
+  top1pcMesoOnly = categories$top1pcMesoOnly,
+  top1pcEctoOnly = categories$top1pcEctoOnly,
+  top1pc3layers  = top1pc3layers_sample,
+  constitutive   = constitutive_sample,
+  neutral        = neutral_sample
+)
+
+# one row per (cpg, set)
+dt_sets <- rbindlist(lapply(names(sets), function(s)
+  data.table(cpg = sets[[s]], set = s)))
+
+# how many DISTINCT sets does each CpG appear in?
+overlap <- dt_sets[, .(n_sets = uniqueN(set),
+                       which_sets = paste(sort(unique(set)), collapse = " + ")),
+                   by = cpg][n_sets > 1]
+
+if (nrow(overlap) == 0) {
+  message("✓ All CpGs are unique to a single set.")
+} else {
+  message("✗ ", nrow(overlap), " CpGs appear in more than one set:")
+  print(overlap[, .N, by = which_sets][order(-N)])   # which set-pairs overlap, and how many
+}
+# ✓ All CpGs are unique to a single set.
 
 all_cpgs_to_extract <- unique(c(
   categories$top1pcEndoOnly,
@@ -1061,7 +1067,7 @@ writeLines(all_cpgs_to_extract,
            here("B_MultiTissues/dataOut/CpG2extractS05.txt"))
 message(sprintf("Written: CpG2extractS05.txt (%d CpGs total)",
                 length(all_cpgs_to_extract)))
-# Written: CpG2extractS05.txt (63385 CpGs total)
+# Written: CpG2extractS05.txt (90318 CpGs total)
 
 ## In pchuckle (after git pull):
 # source /share/apps/source_files/python/python-3.13.0a6.source
@@ -1075,7 +1081,6 @@ message(sprintf("Written: CpG2extractS05.txt (%d CpGs total)",
 # --minCov    10
 
 ## !! Transfer to local gitignore/CpG2extractS05.tsv
-
 meth_CpG2extractS05 <- fread(here("gitignore/CpG2extractS05.tsv"))
 
 # There are DUPLICATES for some samples, let's remove them to avoid confusion at a later stage
@@ -1084,6 +1089,7 @@ meth_CpG2extractS05_dedup <- unique(
   meth_CpG2extractS05,
   by = c("cpg_site", "patient_id", "source_tissue_celltype")
 )
+rm(meth_CpG2extractS05)
 
 ##############################################
 ## Add categories to meth_CpG2extractS05_dedup
@@ -1094,7 +1100,8 @@ cpg_category <- rbindlist(lapply(names(categories), function(cat)
 cpg_category <- rbind(cpg_category,
                       data.table(cpg_site = neutral_sample, category = "background"))
 
-meth_CpG2extractS05_dedup <- merge(meth_CpG2extractS05_dedup, cpg_category, by = "cpg_site", all.x = TRUE)
+meth_CpG2extractS05_dedup <- merge(meth_CpG2extractS05_dedup, cpg_category, 
+                                   by = "cpg_site", all.x = TRUE)
 
 ############################
 ## Add germ_layer to allmeth
@@ -1197,33 +1204,8 @@ em_r <- em_wide[, {
 
 ## result: one row per CpG, with signed r, |r|, and how many patients contributed
 
-############################
-## Add categories to allmeth
+## Add categories
 em_r <- merge(em_r, cpg_category, by = "cpg_site", all.x = TRUE)
-
-category_colours <- c(
-  "top1pcEctoOnly" = paletteer::paletteer_d("nationalparkcolors::Everglades")[1],
-  "top1pcEndoOnly" = paletteer::paletteer_d("nationalparkcolors::Everglades")[2],
-  "top1pcMesoOnly" = paletteer::paletteer_d("nationalparkcolors::Everglades")[3],
-  "top1pc3layers" = "orange",
-  "constitutive" = "grey80",
-  "background" = "black"
-)
-
-## And plot inter-germ layer (endo-meso, Nind=4) correlation by category
-p_mesoendocor_violin <- ggplot(em_r, aes(x=category, y=abs_r, group = category, fill = category))+
-  geom_violin(width=2) +
-  geom_boxplot(width=0.1, color="black", fill = "white") +
-  scale_fill_manual(values = category_colours) +
-  theme_minimal(base_size = 14) +
-  geom_text(data = em_r[, .(nCpG = .N), by = category],
-            aes(x = category, y = 1, label = format(nCpG, big.mark = ",")),
-            vjust = -0.4, size = 3, inherit.aes = FALSE) +
-  labs(y = "Mesoderm-endoderm correlation\n(Pearson's r)")+
-  theme(axis.title.x = element_blank(), legend.position = "none",
-        axis.text.x = element_text(angle = 30, hjust = 1)) 
-
-p_mesoendocor_violin
 
 ################################################################################
 ## SAME-LAYER (Endo-Endo): patients with >= 2 endodermal cell types
@@ -1260,6 +1242,8 @@ ee <- merge(
 ## reshape: each patient gets a tissueA column and a tissueB column, per CpG
 ee_wide <- dcast(ee, cpg_site + patient_id ~ slot, value.var = "methylation")
 # columns now: cpg_site, patient_id, tissueA, tissueB
+# Warning in dcast.data.table(mm, cpg_site + patient_id ~ slot, value.var = "methylation") :
+#   'fun.aggregate' is NULL, but found duplicate row/column combinations, so defaulting to length(). That is, the variables [cpg_site, patient_id, slot] used in 'formula' do not uniquely identify rows in the input 'data'. In such cases, 'fun.aggregate' is used to derive a single representative value for each combination in the output data.table, for example by summing or averaging (fun.aggregate=sum or fun.aggregate=mean, respectively). Check the resulting table for values larger than 1 to see which combinations were not unique. See ?dcast.data.table for more details.
 
 ## 3. per CpG: Pearson r between tissueA and tissueB across patients -----------
 ee_r <- ee_wide[, {
@@ -1275,22 +1259,8 @@ ee_r <- ee_wide[, {
   .(r = r, abs_r = abs(r), n_patients = n)
 }, by = cpg_site]
 
-## categories + plot (identical to the cross-layer version)
+## categories 
 ee_r <- merge(ee_r, cpg_category, by = "cpg_site", all.x = TRUE)
-
-p_endoendocor_violin <- ggplot(ee_r, aes(x = category, y = abs_r, group = category, fill = category)) +
-  geom_violin(width = 2) +
-  geom_boxplot(width = 0.1, color = "black", fill = "white") +
-  scale_fill_manual(values = category_colours) +
-  theme_minimal(base_size = 14) +
-  geom_text(data = ee_r[, .(nCpG = .N), by = category],
-            aes(x = category, y = 1, label = format(nCpG, big.mark = ",")),
-            vjust = -0.4, size = 3, inherit.aes = FALSE) +
-  labs(y = "Endoderm-endoderm correlation\n(Pearson's r)") +
-  theme(axis.title.x = element_blank(), legend.position = "none",
-        axis.text.x = element_text(angle = 30, hjust = 1))
-
-p_endoendocor_violin
 
 ################################################################################
 ## SAME-LAYER (Meso-Meso): patients with >= 2 mesodermal cell types
@@ -1327,6 +1297,8 @@ mm <- merge(
 ## reshape: each patient gets a tissueA column and a tissueB column, per CpG
 mm_wide <- dcast(mm, cpg_site + patient_id ~ slot, value.var = "methylation")
 # columns now: cpg_site, patient_id, tissueA, tissueB
+# Warning in dcast.data.table(mm, cpg_site + patient_id ~ slot, value.var = "methylation") :
+#   'fun.aggregate' is NULL, but found duplicate row/column combinations, so defaulting to length(). That is, the variables [cpg_site, patient_id, slot] used in 'formula' do not uniquely identify rows in the input 'data'. In such cases, 'fun.aggregate' is used to derive a single representative value for each combination in the output data.table, for example by summing or averaging (fun.aggregate=sum or fun.aggregate=mean, respectively). Check the resulting table for values larger than 1 to see which combinations were not unique. See ?dcast.data.table for more details.
 
 ## 3. per CpG: Pearson r between tissueA and tissueB across patients -----------
 mm_r <- mm_wide[, {
@@ -1342,127 +1314,8 @@ mm_r <- mm_wide[, {
   .(r = r, abs_r = abs(r), n_patients = n)
 }, by = cpg_site]
 
-## categories + plot (identical to the cross-layer version)
+## categories
 mm_r <- merge(mm_r, cpg_category, by = "cpg_site", all.x = TRUE)
-
-p_mesomesocor_violin <- ggplot(mm_r, aes(x = category, y = abs_r, group = category, fill = category)) +
-  geom_violin(width = 2) +
-  geom_boxplot(width = 0.1, color = "black", fill = "white") +
-  scale_fill_manual(values = category_colours) +
-  theme_minimal(base_size = 14) +
-  geom_text(data = mm_r[, .(nCpG = .N), by = category],
-            aes(x = category, y = 1, label = format(nCpG, big.mark = ",")),
-            vjust = -0.4, size = 3, inherit.aes = FALSE) +
-  labs(y = "Mesoderm-mesoderm correlation\n(Pearson's r)") +
-  theme(axis.title.x = element_blank(), legend.position = "none",
-        axis.text.x = element_text(angle = 30, hjust = 1))
-
-p_mesomesocor_violin
-
-################################################################################
-## Binned by inter-individual variation range                                 ##
-################################################################################
-
-# We calculated interindividual variation using the same metric as van Baak et al. (27):
-# for each CpG, we took the mean methylation value across the two cell type
-# for every individual and defined interindividual variation of the CpG as the 
-# range of these means.
-
-makeIVbyICplot <- function(meth2cells = em, rdat = em_r) {
-  interindividual_var <- meth2cells %>%
-    dplyr::group_by(patient_id, cpg_site) %>%
-    dplyr::summarise(mean_beta = mean(methylation, na.rm = TRUE), .groups = "drop") %>%
-    dplyr::group_by(cpg_site) %>%
-    dplyr::summarise(interindividual_var = max(mean_beta, na.rm = TRUE) - min(mean_beta, na.rm = TRUE))
-  
-  ## Add category and inter cell type correlation:
-  interindividual_var <- merge(interindividual_var, rdat, by = "cpg_site", all.x = TRUE)
-  
-  pintvardens <- ggplot(interindividual_var, aes(x = interindividual_var, fill = category)) +
-    geom_density(alpha = .7)+
-    scale_fill_manual(values = category_colours) +
-    theme_minimal(base_size = 14) +
-    labs(x = "Interindividual variation")
-  
-  ###################################################################
-  # Bin interindividual_var into 0.2 intervals and bootstrap for CI #
-  ###################################################################
-  # Function to compute bootstrap CI for median
-  boot_median_ci <- function(x, nboot = 1000, conf = 0.95) {
-    x <- x[!is.na(x)]
-    if (length(x) < 5) return(c(median = NA, low = NA, high = NA))  # skip small bins
-    
-    bootfun <- function(data, idx) median(data[idx], na.rm = TRUE)
-    b <- boot(x, statistic = bootfun, R = nboot)
-    ci <- boot.ci(b, type = "perc", conf = conf)
-    
-    if (!is.null(ci) && "percent" %in% names(ci)) {
-      c(median = median(x, na.rm = TRUE), low = ci$percent[4], high = ci$percent[5])
-    } else {
-      c(median = median(x, na.rm = TRUE), low = NA, high = NA)
-    }
-  }
-  
-  # Apply bootstrap per (group, bin) + now also carry n (CpGs per bin)
-  binned_summary_boot <- interindividual_var %>%
-    mutate(bin = cut(
-      interindividual_var,
-      breaks = seq(0, max(interindividual_var, na.rm = TRUE) + 0.2, by = 0.2),
-      include.lowest = TRUE
-    )) %>%
-    group_by(category, bin) %>%
-    summarise(
-      boot_res = list(boot_median_ci(abs_r)),
-      n = sum(!is.na(abs_r)),          # <- CpGs contributing to this bin
-      .groups = "drop"
-    ) %>%
-    mutate(
-      median_r = sapply(boot_res, `[[`, "median"),
-      low = sapply(boot_res, `[[`, "low"),
-      high = sapply(boot_res, `[[`, "high")
-    ) %>%
-    dplyr::select(-boot_res)
-  
-  # label height: just above each point's upper CI, staggered a touch per category
-  binned_summary_boot <- binned_summary_boot %>%
-    mutate(lab_y = pmax(high, median_r, na.rm = TRUE) + 0.03 +
-             0.025 * (as.integer(factor(category)) - 1))
-  
-  dodge <- position_dodge(width = 0.5)   # ONE dodge, shared by points/errorbars/text
-  
-  # Plot
-  pbinned <- ggplot(binned_summary_boot,
-                    aes(x = bin, y = median_r, color = category, fill = category)) +
-    geom_point(position = dodge, size = 3) +
-    geom_errorbar(aes(ymin = low, ymax = high), width = 0.2, position = dodge) +
-    geom_text(aes(y = lab_y, label = n), position = dodge,
-              size = 2.8, fontface = "bold", show.legend = FALSE, vjust = 0) +
-    scale_color_manual(values = category_colours) +
-    scale_fill_manual(values = category_colours) +
-    scale_y_continuous(expand = expansion(mult = c(0.05, 0.18))) +   # headroom for labels
-    theme_minimal(base_size = 14) +
-    labs(
-      x = "Interindividual variation",
-      y = "Inter-cell type correlation \n(median ± bootstrap CI)"
-    ) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  
-  grobs  <- ggplotGrob(pintvardens)$grobs
-  legend <- grobs[[which(sapply(grobs, function(x) x$name) == "guide-box")]]
-  
-  return(list(plot = plot_grid(pintvardens + theme(legend.position = "none"),
-                               pbinned + theme(legend.position = "none"), ncol = 2),
-              legend = legend))
-}
-
-## 1. meso-endo
-Pa <- makeIVbyICplot(em, em_r)
-
-## 2. meso-meso
-Pb <- makeIVbyICplot(mm, mm_r)
-
-## 3. endo-endo
-Pc <- makeIVbyICplot(ee, ee_r)
 
 ########## Third row: layer-specific selection (high own r + low others)
 ## Selection logic, per germ layer "own":
@@ -1485,7 +1338,7 @@ thr_em <- bg_thr(em_r)   # Endo-Meso cross-layer
 
 message(sprintf("thresholds  EE high=%.2f low=%.2f | MM high=%.2f low=%.2f | EM hig=%.2f low=%.2f",
                 thr_ee$high, thr_ee$low, thr_mm$high, thr_mm$low, thr_em$high, thr_em$low))
-# thresholds  EE high=0.40 low=0.20 | MM high=0.52 low=0.30 | EM hig=0.81 low=0.52
+# thresholds  EE high=0.42 low=0.21 | MM high=0.51 low=0.29 | EM hig=0.80 low=0.51
 
 ## ── 2. one wide table: each CpG's r in all three contexts ─────────────────────
 ## rename abs_r per source so they don't clash, then join on cpg_site.
@@ -1584,6 +1437,183 @@ print(meso_pass3[, .N, by = category])
 endo_candidates <- endo_pass3$cpg_site[endo_pass3$category %in% "top1pcEndoOnly"]
 meso_candidates <- meso_pass3$cpg_site[meso_pass3$category %in% "top1pcMesoOnly"]
 
+length(endo_candidates) # 351
+length(meso_candidates) # 368
+
+################################################################################
+## Plot inter-germ layer (endo-meso, Nind=4) correlation for the candidates
+category_colours <- c(
+  "top1pcEctoOnly" = paletteer::paletteer_d("nationalparkcolors::Everglades")[1],
+  "top1pcEndoOnly" = paletteer::paletteer_d("nationalparkcolors::Everglades")[2],
+  "top1pcMesoOnly" = paletteer::paletteer_d("nationalparkcolors::Everglades")[3],
+  "top1pc3layers" = "orange",
+  "constitutive" = "grey80",
+  "background" = "black"
+)
+
+em_r_candidates <- em_r[em_r$cpg_site %in% c(endo_candidates, meso_candidates) | 
+                          em_r$category %in% c("constitutive", "background", "top1pc3layers"),]
+
+p_mesoendocor_violin <- ggplot(em_r_candidates, 
+                               aes(x=category, y=abs_r, group = category, fill = category))+
+  geom_violin(width=2) +
+  geom_boxplot(width=0.1, color="black", fill = "white") +
+  scale_fill_manual(values = category_colours) +
+  theme_minimal(base_size = 14) +
+  coord_cartesian(ylim = c(0,1)) +
+  geom_text(data = em_r_candidates[, .(nCpG = .N), by = category],
+            aes(x = category, y = 1, label = format(nCpG, big.mark = ",")),
+            vjust = -0.4, size = 3, inherit.aes = FALSE) +
+  labs(y = "Mesoderm-endoderm correlation\n(Pearson's r)")+
+  theme(axis.title.x = element_blank(), legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1))
+
+p_mesoendocor_violin
+
+
+ee_r_candidates <- ee_r[ee_r$cpg_site %in% c(endo_candidates, meso_candidates) | 
+                          ee_r$category %in% c("constitutive", "background", "top1pc3layers"),]
+
+p_endoendocor_violin <- ggplot(ee_r_candidates,
+                               aes(x = category, y = abs_r, group = category, fill = category)) +
+  geom_violin(width = 2) +
+  geom_boxplot(width = 0.1, color = "black", fill = "white") +
+  scale_fill_manual(values = category_colours) +
+  theme_minimal(base_size = 14) +
+  geom_text(data = ee_r_candidates[, .(nCpG = .N), by = category],
+            aes(x = category, y = 1, label = format(nCpG, big.mark = ",")),
+            vjust = -0.4, size = 3, inherit.aes = FALSE) +
+  labs(y = "Endoderm-endoderm correlation\n(Pearson's r)") +
+  theme(axis.title.x = element_blank(), legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1))
+
+p_endoendocor_violin
+
+mm_r_candidates <- mm_r[mm_r$cpg_site %in% c(endo_candidates, meso_candidates) | 
+                          mm_r$category %in% c("constitutive", "background", "top1pc3layers"),]
+
+p_mesomesocor_violin <- ggplot(mm_r_candidates, aes(x = category, y = abs_r, group = category, fill = category)) +
+  geom_violin(width = 2) +
+  geom_boxplot(width = 0.1, color = "black", fill = "white") +
+  scale_fill_manual(values = category_colours) +
+  theme_minimal(base_size = 14) +
+  geom_text(data = mm_r_candidates[, .(nCpG = .N), by = category],
+            aes(x = category, y = 1, label = format(nCpG, big.mark = ",")),
+            vjust = -0.4, size = 3, inherit.aes = FALSE) +
+  labs(y = "Mesoderm-mesoderm correlation\n(Pearson's r)") +
+  theme(axis.title.x = element_blank(), legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1))
+
+p_mesomesocor_violin
+
+################################################################################
+## Binned by inter-individual variation range                                 ##
+################################################################################
+
+# We calculated interindividual variation using the same metric as van Baak et al. (27):
+# for each CpG, we took the mean methylation value across the two cell type
+# for every individual and defined interindividual variation of the CpG as the
+# range of these means.
+
+makeIVbyICplot <- function(meth2cells = em, rdat = em_r) {
+  interindividual_var <- meth2cells %>%
+    dplyr::group_by(patient_id, cpg_site) %>%
+    dplyr::summarise(mean_beta = mean(methylation, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::group_by(cpg_site) %>%
+    dplyr::summarise(interindividual_var = max(mean_beta, na.rm = TRUE) - min(mean_beta, na.rm = TRUE))
+  
+  ## Add category and inter cell type correlation:
+  interindividual_var <- merge(interindividual_var, rdat, by = "cpg_site", all.x = TRUE)
+  
+  pintvardens <- ggplot(interindividual_var, aes(x = interindividual_var, fill = category)) +
+    geom_density(alpha = .7)+
+    scale_fill_manual(values = category_colours) +
+    theme_minimal(base_size = 14) +
+    labs(x = "Interindividual variation")
+  
+  ###################################################################
+  # Bin interindividual_var into 0.2 intervals and bootstrap for CI #
+  ###################################################################
+  # Function to compute bootstrap CI for median
+  boot_median_ci <- function(x, nboot = 1000, conf = 0.95) {
+    x <- x[!is.na(x)]
+    if (length(x) < 5) return(c(median = NA, low = NA, high = NA))  # skip small bins
+    
+    bootfun <- function(data, idx) median(data[idx], na.rm = TRUE)
+    b <- boot(x, statistic = bootfun, R = nboot)
+    ci <- boot.ci(b, type = "perc", conf = conf)
+    
+    if (!is.null(ci) && "percent" %in% names(ci)) {
+      c(median = median(x, na.rm = TRUE), low = ci$percent[4], high = ci$percent[5])
+    } else {
+      c(median = median(x, na.rm = TRUE), low = NA, high = NA)
+    }
+  }
+  
+  # Apply bootstrap per (group, bin) + now also carry n (CpGs per bin)
+  binned_summary_boot <- interindividual_var %>%
+    mutate(bin = cut(
+      interindividual_var,
+      breaks = seq(0, max(interindividual_var, na.rm = TRUE) + 0.2, by = 0.2),
+      include.lowest = TRUE
+    )) %>%
+    group_by(category, bin) %>%
+    summarise(
+      boot_res = list(boot_median_ci(abs_r)),
+      n = sum(!is.na(abs_r)),          # <- CpGs contributing to this bin
+      .groups = "drop"
+    ) %>%
+    mutate(
+      median_r = sapply(boot_res, `[[`, "median"),
+      low = sapply(boot_res, `[[`, "low"),
+      high = sapply(boot_res, `[[`, "high")
+    ) %>%
+    dplyr::select(-boot_res)
+  
+  # label height: just above each point's upper CI, staggered a touch per category
+  binned_summary_boot <- binned_summary_boot %>%
+    mutate(lab_y = pmax(high, median_r, na.rm = TRUE) + 0.03 +
+             0.025 * (as.integer(factor(category)) - 1))
+  
+  dodge <- position_dodge(width = 0.5)   # ONE dodge, shared by points/errorbars/text
+  
+  # Plot
+  pbinned <- ggplot(binned_summary_boot,
+                    aes(x = bin, y = median_r, color = category, fill = category)) +
+    geom_point(position = dodge, size = 3) +
+    geom_errorbar(aes(ymin = low, ymax = high), width = 0.2, position = dodge) +
+    geom_text(aes(y = lab_y, label = n), position = dodge,
+              size = 2.8, fontface = "bold", show.legend = FALSE, vjust = 0) +
+    scale_color_manual(values = category_colours) +
+    scale_fill_manual(values = category_colours) +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.18))) +   # headroom for labels
+    theme_minimal(base_size = 14) +
+    labs(
+      x = "Interindividual variation",
+      y = "Inter-cell type correlation \n(median ± bootstrap CI)"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  grobs  <- ggplotGrob(pintvardens)$grobs
+  legend <- grobs[[which(sapply(grobs, function(x) x$name) == "guide-box")]]
+  
+  return(list(plot = plot_grid(pintvardens + theme(legend.position = "none"),
+                               pbinned + theme(legend.position = "none"), ncol = 2),
+              legend = legend))
+}
+
+## 1. meso-endo
+em_candidates <- em[em$cpg_site %in% c(endo_candidates, meso_candidates),]
+Pa <- makeIVbyICplot(em_candidates, em_r_candidates)
+
+## 2. meso-meso
+mm_candidates <- mm[mm$cpg_site %in% c(endo_candidates, meso_candidates),]
+Pb <- makeIVbyICplot(mm_candidates, mm_r_candidates)
+
+## 3. endo-endo
+ee_candidates <- ee[ee$cpg_site %in% c(endo_candidates, meso_candidates),]
+Pc <- makeIVbyICplot(ee_candidates, ee_r_candidates)
+
 #################################
 ## Annotation of these targets ##
 #################################
@@ -1599,8 +1629,8 @@ cpg_to_gr <- function(cpg) {                     # "chr7_107543290" -> 1bp GRang
           cpg_site = cpg)
 }
 
-# universe of tested CpGs = the background only
-uni <- cpg_category[category == "background"]          # cols: cpg_site, category
+# universe of tested CpGs = all covered-in-3 CpGs NOT in the focal category
+uni <- data.table(cpg_site = dt$chr_pos)
 uni[, `:=`(chr = sub("_.*", "", cpg_site),
            pos = as.integer(sub(".*_", "", cpg_site)))]
 uni_gr <- GRanges(uni$chr, IRanges(uni$pos, width = 1))
@@ -1709,18 +1739,20 @@ setnames(meso_hits, c("r_oth","r_x"), c("r_other","r_cross"), skip_absent = TRUE
 endo_hits <- endo_pass3[cpg_site %in% endo_candidates]   # get the full rows back
 setnames(endo_hits, c("r_oth","r_x"), c("r_other","r_cross"), skip_absent = TRUE)
 
-meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr,
-                                tss_gr, prom_gr, exon_gr, intron_gr, te_regions, gap = 100)
-endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr,
-                                tss_gr, prom_gr, exon_gr, intron_gr, te_regions, gap = 100)
+meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr, min_hits = 2,
+                                tss_gr, prom_gr, exon_gr, intron_gr, te_regions, gap = 1000)
+# $clusters
+#       gene cluster_id n_hits  span    density
+# 1:  ATP8A2         87      3   245 0.01219512
+# 2: COL21A1        255      2   128 0.01550388
+# 3:   MYH14        142      2   146 0.01360544
 
-message("\n=== MESO layer-specific hits (all 3 criteria) ===")
-if (!is.null(meso_res)) print(meso_res$ann[, .(cpg_site, gene, dist_to_gene,
-                                               dist_to_tss_signed, feature, in_TE, TE_class, TE_family, r_own, r_other, r_cross)])
-
-message("\n=== ENDO layer-specific hits (all 3 criteria) ===")
-if (!is.null(endo_res)) print(endo_res$ann[, .(cpg_site, gene, dist_to_gene,
-                                               dist_to_tss_signed, feature, in_TE, TE_class, TE_family, r_own, r_other, r_cross)])
+endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr, min_hits = 2,
+                                tss_gr, prom_gr, exon_gr, intron_gr, te_regions, gap = 1000)
+# $clusters
+#       gene cluster_id n_hits  span     density
+# 1: MIR1324        207      2    73 0.027027027
+# 2:   SHTN1         38      2   245 0.008130081
 
 saveRDS(list(meso = meso_res, endo = endo_res),
         here(paste0("B_MultiTissues/dataOut/S05_annotatedHits_", variant, ".rds")))
@@ -1731,15 +1763,30 @@ hits_tab <- rbindlist(list(
   if (!is.null(endo_res)) endo_res$ann[, layer := "Endoderm"]
 ), fill = TRUE)
 
-if (nrow(hits_tab)) {
-  hits_tab <- hits_tab[, .(
-    layer, cpg_site, gene, feature,
-    dist_to_tss_signed,
-    TE = fifelse(in_TE, paste0(TE_class, " / ", TE_family), "\u2014"),
-    r_own, r_other, r_cross
-  )][order(layer, -r_own)]
+## subselect clusters
+hits_tab_1CpGs <- hits_tab
+hits_tab_2CpGs <- hits_tab[hits_tab$gene %in% c(meso_res$clusters$gene, endo_res$clusters$gene),]
+
+makeTab <- function(nCpG){
+  if (nCpG == 1){
+    HT = hits_tab_1CpGs
+    HT <- HT[, .(
+      layer, cpg_site, gene, feature,
+      dist_to_tss_signed,
+      TE = fifelse(in_TE, paste0(TE_class, " / ", TE_family), "\u2014"),
+      r_own, r_other, r_cross
+    )][order(layer, -r_own)][, head(.SD, 10), by = layer] ## top 10 per layer
+  } else if (nCpG == 2){
+    HT = hits_tab_2CpGs
+    HT <- HT[, .(
+      layer, cpg_site, gene, feature,
+      dist_to_tss_signed,
+      TE = fifelse(in_TE, paste0(TE_class, " / ", TE_family), "\u2014"),
+      r_own, r_other, r_cross
+    )][order(layer, -cpg_site)]
+  }
   
-  gt_hits <- hits_tab %>%
+  gt_hits <- HT %>%
     gt(groupname_col = "layer") %>%
     tab_header(
       title    = md("**Layer-specific hypervariable CpGs passing all three criteria**"),
@@ -1772,9 +1819,11 @@ if (nrow(hits_tab)) {
   
   gtsave(gt_hits, here("B_MultiTissues/dataOut/figures/script05/layerSpecificHits_table.png"))
   gt_hits
-} else {
-  message("No layer-specific hits passed all three criteria — no table produced.")
+  
 }
+
+makeTab(nCpG = 1)
+makeTab(nCpG = 2)
 
 ################################################################################
 ## Save full layers plot:                                                     ##
@@ -1792,11 +1841,10 @@ Pa_with_legend <- ggdraw(Pa$plot) +
             hjust = 3.5, vjust = 2)      
 
 layersPlot <- plot_grid(
-  plot_grid(p_mesoendocor_violin, p_mesomesocor_violin, p_endoendocor_violin,
-            Pa_with_legend, Pb$plot, Pc$plot, nrow = 3, 
-            labels = c("A", "B", "C", "D", "E", "F")),
-  plot_grid(p_row3, tbl_grob, nrow = 1),
-  nrow = 2, rel_heights = c(2,1, 1), labels = c("", "G", "H"))
+  plot_grid(p_row3, p_mesoendocor_violin, p_mesomesocor_violin, p_endoendocor_violin, 
+            ncol = 4, labels = c("A", "B", "C", "D")),
+  plot_grid(Pa_with_legend, Pb$plot, Pc$plot, ncol = 3, labels = c("D", "E", "F")),
+  nrow = 2)
 
-ggsave(here("B_MultiTissues/dataOut/figures/script05/layersPlot.png"),
-       layersPlot, width = 22, height = 22, dpi = 300, bg = "white")
+ggsave(here("B_MultiTissues/dataOut/figures/script05/layersPlot.pdf"),
+       layersPlot, width = 22, height = 8, dpi = 300, bg = "white")

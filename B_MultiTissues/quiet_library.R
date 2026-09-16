@@ -34,7 +34,7 @@ bioc_packages <- c(
   "methylKit", 
   # Enrichment
   "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "BioMartGOGeneSets",
-  "AnnotationHub"
+  "AnnotationHub", "clusterProfiler", "enrichplot"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
