@@ -1,0 +1,162 @@
+sample	dataset
+Z000000T7	Abdominal Subcut. - Adipocytes
+Z000000T9	Abdominal Subcut. - Adipocytes
+Z000000T5	Abdominal Subcut. - Adipocytes
+Z000000QM	Bladder - Epithelium
+Z000000QP	Bladder - Epithelium
+Z0000043F	Bladder - Epithelium
+Z0000044L	Bladder - Epithelium
+Z00000450	Bladder - Epithelium
+Z000000TX	Blood - B cells
+Z000000UB	Blood - B cells
+Z000000UR	Blood - B cells
+Z000000TZ	Blood - Granulocytes
+Z000000UD	Blood - Granulocytes
+Z000000UT	Blood - Granulocytes
+Z000000TP	Blood - Monocytes
+Z000000U3	Blood - Monocytes
+Z000000UH	Blood - Monocytes
+Z000000TM	Blood - NK
+Z000000U1	Blood - NK
+Z000000UF	Blood - NK
+Z00000417	Blood - T central memory CD4
+Z0000041D	Blood - T central memory CD4
+Z0000041N	Blood - T central memory CD4
+Z000000TR	Blood - T cytotoxic (CD8+) cells
+Z000000U5	Blood - T cytotoxic (CD8+) cells
+Z000000UK	Blood - T cytotoxic (CD8+) cells
+Z00000419	Blood - T effector cell CD8
+Z0000041F	Blood - T effector cell CD8
+Z0000041Q	Blood - T effector cell CD8
+Z00000416	Blood - T effector memory CD4
+Z0000041C	Blood - T effector memory CD4
+Z0000041M	Blood - T effector memory CD4
+Z000000TT	Blood - T helper(CD4+) cells
+Z000000U7	Blood - T helper(CD4+) cells
+Z000000UM	Blood - T helper(CD4+) cells
+Z000000RF	Bone marrow - Erythrocyte progenitors
+Z000000RH	Bone marrow - Erythrocyte progenitors
+Z000000RK	Bone marrow - Erythrocyte progenitors
+Z000000TF	Brain - Neuronal
+Z000000TH	Brain - Neuronal
+Z0000042F	Brain - Neuronal
+Z0000042H	Brain - Neuronal
+Z0000042J	Brain - Neuronal
+Z0000042M	Brain - Neuronal
+Z0000042P	Brain - Neuronal
+Z0000042K	Brain - Neuronal
+Z000000TB	Brain - Neuronal
+Z000000TD	Brain - Neuronal
+Z000000TK	Brain - Oligodendrocytes
+Z0000042E	Brain - Oligodendrocytes
+Z0000042L	Brain - Oligodendrocytes
+Z0000042N	Brain - Oligodendrocytes
+Z000000V6	Breast - Basal epithelial
+Z000000VG	Breast - Basal epithelial
+Z000000VL	Breast - Basal epithelial
+Z0000043E	Breast - Basal epithelial
+Z000000V2	Breast - Luminal epithelial
+Z000000VJ	Breast - Luminal epithelial
+Z000000VN	Breast - Luminal epithelial
+Z0000044S	Colon - Endocrine
+Z0000044J	Colon - Endocrine
+Z0000044T	Colon - Endocrine
+Z000000V0	Colon - Epithelium
+Z000000V8	Colon - Epithelium
+Z000000VA	Colon - Epithelium
+Z0000043B	Colon - Epithelium
+Z0000043C	Colon - Epithelium
+Z00000434	Endometrium - Epithelium
+Z00000435	Endometrium - Epithelium
+Z0000043S	Endometrium - Epithelium
+Z000000Q7	Fallopien tubes - Epithelium
+Z000000S9	Fallopien tubes - Epithelium
+Z000000UV	Fallopien tubes - Epithelium
+Z000000SF	Gastric antrum - Epithelium
+Z000000SP	Gastric antrum - Epithelium
+Z000000SR	Gastric antrum - Epithelium
+Z000000SD	Gastric body - Epithelium
+Z000000SM	Gastric body - Epithelium
+Z000000ST	Gastric body - Epithelium
+Z000000RX	Gastric fundus - Epithelium
+Z000000SK	Gastric fundus - Epithelium
+Z000000SV	Gastric fundus - Epithelium
+Z0000044G	Heart - Cardiomyocyte
+Z0000044K	Heart - Cardiomyocyte
+Z0000044Q	Heart - Cardiomyocyte
+Z0000044R	Heart - Cardiomyocyte
+Z0000043R	Heart - Fibroblast
+Z0000041V	Heart - Fibroblast
+Z0000041W	Heart - Fibroblast
+Z0000041X	Heart - Fibroblast
+Z000000Q5	Kidney glomerular - Endothelium
+Z00000443	Kidney glomerular - Endothelium
+Z0000045J	Kidney glomerular - Endothelium
+Z0000042W	Kidney glomerular - Podocyte
+Z00000441	Kidney glomerular - Podocyte
+Z00000442	Kidney glomerular - Podocyte
+Z000000PX	Kidney tubular - Endothelium
+Z000000Q3	Kidney tubular - Endothelium
+Z0000042R	Kidney tubular - Endothelium
+Z000000QH	Kidney tubular - Epithelium
+Z0000043Z	Kidney tubular - Epithelium
+Z00000440	Kidney tubular - Epithelium
+Z000000R3	Liver - Hepatocyte
+Z000000T3	Liver - Hepatocyte
+Z0000043Q	Liver - Hepatocyte
+Z0000044H	Liver - Hepatocyte
+Z0000044M	Liver - Hepatocyte
+Z00000431	Liver - Hepatocyte
+Z000000Q1	Lung alveolar - Endothelium
+Z000000QK	Lung alveolar - Endothelium
+Z0000045H	Lung alveolar - Endothelium
+Z000000T1	Lung alveolar - Epithelium
+Z000000VC	Lung alveolar - Epithelium
+Z000000VE	Lung alveolar - Epithelium
+Z000000QD	Lung bronchus - Epithelium
+Z000000RZ	Lung bronchus - Epithelium
+Z000000S5	Lung bronchus - Epithelium
+Z00000447	Lung interstitial - Macrophages
+Z0000044D	Lung interstitial - Macrophages
+Z0000044E	Lung interstitial - Macrophages
+Z000000QX	Pancreas - Acinar
+Z0000043W	Pancreas - Acinar
+Z0000043X	Pancreas - Acinar
+Z0000043Y	Pancreas - Acinar
+Z00000453	Pancreas - Alpha
+Z00000456	Pancreas - Alpha
+Z00000459	Pancreas - Alpha
+Z00000452	Pancreas - Beta
+Z00000455	Pancreas - Beta
+Z00000458	Pancreas - Beta
+Z00000451	Pancreas - Delta
+Z00000454	Pancreas - Delta
+Z00000457	Pancreas - Delta
+Z0000043T	Pancreas - Duct
+Z0000043U	Pancreas - Duct
+Z0000043V	Pancreas - Duct
+Z000000QZ	Pancreas - Duct
+Z0000042D	Pancreas - Endothelium
+Z0000042X	Pancreas - Endothelium
+Z00000430	Pancreas - Endothelium
+Z0000042Y	Pancreas - Endothelium
+Z000000RV	Prostate - Epithelium
+Z000000S3	Prostate - Epithelium
+Z0000045F	Prostate - Epithelium
+Z0000045G	Prostate - Epithelium
+Z000000RT	Small intestine - Epithelium
+Z000000UW	Small intestine - Epithelium
+Z000000UY	Small intestine - Epithelium
+Z0000042S	Thyroid - Epithelium
+Z0000042T	Thyroid - Epithelium
+Z0000042U	Thyroid - Epithelium
+Z000000QV	Tongue - Epithelium
+Z00000449	Tongue - Epithelium
+Z0000044F	Tongue - Epithelium
+Z0000044B	Tongue - Epithelium
+Z000000QF	Tonsil palatine - Epithelium
+Z000000RP	Tonsil palatine - Epithelium
+Z000000RR	Tonsil palatine - Epithelium
+Z000000RM	Vascular saphenous - Endothelium
+Z000000S7	Vascular saphenous - Endothelium
+Z000000SB	Vascular saphenous - Endothelium

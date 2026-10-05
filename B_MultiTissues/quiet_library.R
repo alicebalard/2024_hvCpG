@@ -15,8 +15,8 @@ cran_packages <- c(
   "parallel", "rhdf5",
   # Graphics
   "ggplot2", "ggrastr", "ggrepel", "ggExtra", "ggVennDiagram", "patchwork",
-  "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo",
-  "UpSetR",
+  "scales", "viridis", "cowplot", "gridGraphics", "grid", "Cairo", "paletteer",
+  "UpSetR", "ggridges",
   # Stats
   "boot", "emmeans",
   # Reporting
@@ -34,7 +34,7 @@ bioc_packages <- c(
   "methylKit", 
   # Enrichment
   "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "BioMartGOGeneSets",
-  "AnnotationHub"
+  "AnnotationHub", "clusterProfiler", "enrichplot"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
