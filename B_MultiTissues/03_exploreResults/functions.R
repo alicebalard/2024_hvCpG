@@ -31,7 +31,7 @@
 # plot_region
 # make_region_ld_plots
 
- 
+
 makeVennArrayReduced <- function(df_circles, v, counts, fmt_fn){
   size = 4
   ggplot2::ggplot() +
@@ -172,7 +172,7 @@ plotManhattanFromdt <- function(dt, transp = 0.1, plotDerakhshan = TRUE,
   dt$score <- dt[[score]]
   
   # canonical chromosome order; keep ONLY chromosomes that actually have plottable points
-  chr_levels <- as.character(c(1:22, "X", "Y", "M"))
+  chr_levels <- paste0("chr", as.character(c(1:22, "X", "Y", "M")))
   present    <- dt[!is.na(pos2), unique(as.character(chr))]
   chr_order  <- chr_levels[chr_levels %in% present]     # ordered, no gaps, data-backed
   if (length(present[!present %in% chr_levels]))
@@ -202,7 +202,8 @@ plotManhattanFromdt <- function(dt, transp = 0.1, plotDerakhshan = TRUE,
   p <- ggplot() +
     theme_minimal(base_size = 14) +
     theme(legend.position = "none") +
-    scale_x_continuous(breaks = chr_tab$center, labels = as.character(chr_tab$chr),
+    scale_x_continuous(breaks = chr_tab$center, 
+                       labels = function(x) sub("^chr", "", as.character(chr_tab$chr)),
                        expand = c(0, 0)) +
     scale_y_continuous(expand = c(0, 0)) +
     labs(x = "Chromosome", y = "Hypervariability score (logBF per ds)") +
@@ -211,7 +212,7 @@ plotManhattanFromdt <- function(dt, transp = 0.1, plotDerakhshan = TRUE,
     scale_colour_manual(values = band_cols, na.translate = FALSE) +
     { if (!is.null(centro))
       geom_vline(data = centro, aes(xintercept = x_mid),
-                 linetype = 1, colour = "black", linewidth = 0.3) } +
+                 linetype = 1, colour = "darkgreen", linewidth = 1) } +
     { if (plotDerakhshan)
       list(
         geom_point(data = dt[group == "hvCpG_Derakhshan"],
@@ -1284,7 +1285,7 @@ plot_region <- function(region_gr, annot_gr, meth, title = NULL,
     stop("plot_region() needs the 'patchwork' package.")
   chr_sel <- as.character(seqnames(region_gr))[1]
   x_min   <- min(start(region_gr)); x_max <- max(end(region_gr))
-
+  
   p_meth <- plot_raw_meth(meth, region_gr, title = title,
                           germ_colours = germ_colours) +
     theme(axis.title.x = element_blank(), axis.text.x = element_blank())

@@ -508,8 +508,7 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithResult
 
 if (!file.exists(here(paste0("gitignore/plotManhattan_noDerakh_", variant, ".RDS")))){
   plotManhattan_noDerakh <- plotManhattanFromdt(
-    table3layers_coveredIn3dt[!chr %in% c("M", "Y"),], plotDerakhshan = FALSE, centro = centro) +
-    ggtitle("Hypervariability score along the genome")
+    table3layers_coveredIn3dt, plotDerakhshan = FALSE, centro = centro) 
   saveRDS(plotManhattan_noDerakh, here(paste0("gitignore/plotManhattan_noDerakh_", variant, ".RDS")))
 }
 
@@ -663,7 +662,8 @@ if (!file.exists(here(paste0("gitignore/pfeatures_", variant, ".RDS")))){
 ## Enrichement in TE ##
 #######################
 
-if (!file.exists(here(paste0("gitignore/TEplot_", variant, ".RDS")))){
+if (!file.exists(here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))){
+  
   # UCSC RepeatMasker annotations (Oct2022) for Human (hg38) from AnnotationHub
   ah <- AnnotationHub()
   query(ah, c("UCSC", "RepeatMasker", "Homo sapiens"))
@@ -671,200 +671,395 @@ if (!file.exists(here(paste0("gitignore/TEplot_", variant, ".RDS")))){
   # Retrieve the desired resource, UCSC RepeatMasker annotations for hg38:
   rmskhg38 <- ah[["AH111333"]]
   
-  table(mcols(rmskhg38)$repFamily)
-  
   te_classes <- c("LINE", "SINE", "LTR", "DNA", "RC", "Retroposon")
   te_regions <- rmskhg38[mcols(rmskhg38)$repClass %in% te_classes]
   
   # View summary
-  table(mcols(te_regions)$repFamily)
+  table(mcols(te_regions)$repFamily, mcols(te_regions)$repClass)
+  #                   DNA    LINE     LTR      RC Retroposon    SINE
+  # 5S-Deu-L2           0       0       0       0          0    2588
+  # Alu                 0       0       0       0          0 1282821
+  # CR1                 0   69603       0       0          0       0
+  # Crypton             3       0       0       0          0       0
+  # Crypton-A           1       0       0       0          0       0
+  # DNA              2430       0       0       0          0       0
+  # Dong-R4             0     548       0       0          0       0
+  # ERV1                0       0  187201       0          0       0
+  # ERV1?               0       0    1288       0          0       0
+  # ERVK                0       0   11903       0          0       0
+  # ERVL                0       0  171950       0          0       0
+  # ERVL-MaLR           0       0  367470       0          0       0
+  # ERVL?               0       0    2326       0          0       0
+  # Gypsy               0       0   17427       0          0       0
+  # Gypsy?              0       0    7548       0          0       0
+  # hAT              8888       0       0       0          0       0
+  # hAT-Ac           4596       0       0       0          0       0
+  # hAT-Blackjack   20062       0       0       0          0       0
+  # hAT-Charlie    270942       0       0       0          0       0
+  # hAT-Tag1          244       0       0       0          0       0
+  # hAT-Tip100      47824       0       0       0          0       0
+  # hAT-Tip100?      2041       0       0       0          0       0
+  # hAT?             1543       0       0       0          0       0
+  # Helitron            0       0       0    1820          0       0
+  # I-Jockey            0       5       0       0          0       0
+  # Kolobok             4       0       0       0          0       0
+  # L1                  0 1031524       0       0          0       0
+  # L1-Tx1              0       1       0       0          0       0
+  # L2                  0  486431       0       0          0       0
+  # LTR                 0       0    3438       0          0       0
+  # Merlin             63       0       0       0          0       0
+  # MIR                 0       0       0       0          0  616589
+  # MULE-MuDR        2078       0       0       0          0       0
+  # MULE-MuDR?          7       0       0       0          0       0
+  # Penelope            0    1128       0       0          0       0
+  # PIF-Harbinger      33       0       0       0          0       0
+  # PiggyBac         2253       0       0       0          0       0
+  # PiggyBac?         225       0       0       0          0       0
+  # RTE-BovB            0    9297       0       0          0       0
+  # RTE-X               0   15944       0       0          0       0
+  # SVA                 0       0       0       0       5974       0
+  # TcMar             172       0       0       0          0       0
+  # TcMar-Mariner   16871       0       0       0          0       0
+  # TcMar-Pogo         35       0       0       0          0       0
+  # TcMar-Tc1          15       0       0       0          0       0
+  # TcMar-Tc2        8479       0       0       0          0       0
+  # TcMar-Tigger   123237       0       0       0          0       0
+  # TcMar?            358       0       0       0          0       0
+  # tRNA                0       0       0       0          0    2295
+  # tRNA-Deu            0       0       0       0          0     643
+  # tRNA-RTE            0       0       0       0          0    5695
   length(te_regions)  # Total TE regions
   
   top99q_CpGs_GR <- makeGRfromMyCpGPos(top99q_CpGs, "top99q_CpGs")
   top99q_in3layersoverlap_CpGs_GR <- makeGRfromMyCpGPos(top99q_in3layersoverlap_CpGs, "top99q_in3layersoverlap_CpGs")
   totalSites_GR  <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos, "totalSites")
   
-  makeTEplot <- function(top = top99q_CpGs_GR, whichtop = "top99q_CpGs"){
+  makeTEplot <- function(top = top99q_CpGs_GR, whichtop = "top99q_CpGs",
+                         mode = c("shell","nested"), famorclass = c("family","class")){
+    mode       <- match.arg(mode)
+    famorclass <- match.arg(famorclass)
     
-    # Strict background = non-hvCpG sites only (must be disjoint from top)
     bg_only_GR <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos[
       !table3layers_coveredIn3dt$chr_pos %in% top], "bg_only")
+    res_cols <- c("label","pvalue","odds_ratio","conf_low","conf_high")
     
-    # Enrichment/depletion of `target` CpGs vs `background` CpGs inside a set of repeat regions.
+    ## ── choose the grouping column, the split, and the keys ONCE ────────────
+    grp_col <- if (famorclass == "family") mcols(te_regions)$repFamily
+    else                        mcols(te_regions)$repClass
+    gr_by   <- split(te_regions, grp_col)
     
-    # columns to pull from each result into a table
-    res_cols <- c("label", "pvalue", "odds_ratio", "conf_low", "conf_high")
+    grp_tab <- table(grp_col)
+    if (famorclass == "family") {
+      keep <- names(grp_tab)[grp_tab >= 1000 & !grepl("\\?$", names(grp_tab))]
+    } else {
+      keep <- names(grp_tab)                       # keep all 6 TE classes
+    }
     
-    ## ---- All TEs pooled ----
-    allTE_test <- fisher_test_te(te_regions, top, bg_only_GR,
-                                 label = "TE", nameTarget = "top99q_CpGs")
-    print(allTE_test)
+    ## windows
+    if (mode == "nested") {
+      wins  <- list("TE body"=0L, "TE+1kb"=1000L, "TE+3kb"=3000L, "TE+10kb"=10000L)
+      build <- function(gr, w) trim(gr + wins[[w]])
+    } else {
+      bounds <- list("TE body"=c(0,0), "0-1kb"=c(0,1000),
+                     "1-3kb"=c(1000,3000), "3-10kb"=c(3000,10000),
+                     "10-15kb"=c(10000,15000))
+      build <- function(gr, w) {
+        b <- bounds[[w]]
+        if (b[1]==b[2]) reduce(trim(gr))
+        else GenomicRanges::setdiff(reduce(trim(gr + b[2])), reduce(trim(gr + b[1])))
+      }
+      wins <- bounds
+    }
     
-    ## ---- Per repClass ----
-    te_by_class <- split(te_regions, mcols(te_regions)$repClass)
-    class_res <- lapply(names(te_by_class), function(cl)
-      fisher_test_te(te_by_class[[cl]], top, bg_only_GR,
-                     label = cl, nameTarget = "top99q_CpGs"))
-    class_dt <- data.table::rbindlist(lapply(class_res, `[`, res_cols))
-    class_dt[, p.adj := p.adjust(pvalue, "BH")]
-    print(class_dt[order(-odds_ratio)])
+    run_one_window <- function(w) {
+      res <- lapply(keep, function(f)
+        fisher_test_te(build(gr_by[[f]], w), top, bg_only_GR,
+                       label = f, nameTarget = whichtop))
+      dt <- data.table::rbindlist(lapply(res, `[`, res_cols))
+      dt[, window := w]
+      dt
+    }
     
-    ## ---- Per repFamily (drop tiny/uncertain families so ORs are stable) ----
-    fam_tab  <- table(mcols(te_regions)$repFamily)
-    fam_keep <- names(fam_tab)[fam_tab >= 1000 & !grepl("\\?$", names(fam_tab))]
+    res_dt <- data.table::rbindlist(lapply(names(wins), run_one_window))
+    res_dt[, window := factor(window, levels = names(wins))]
+    res_dt[, p.adj  := p.adjust(pvalue, "BH")]
+    res_dt[, sig    := p.adj < 0.05]
+    res_dt[, log2OR := log2(odds_ratio)]            # <- needed for ordering & heatmap
     
-    fam_by  <- split(te_regions, mcols(te_regions)$repFamily)
-    fam_res <- lapply(fam_keep, function(f)
-      fisher_test_te(fam_by[[f]], top, bg_only_GR,
-                     label = f, nameTarget = "top99q_CpGs"))
-    
-    res_dt <- data.table::rbindlist(lapply(fam_res, `[`, res_cols))
-    res_dt[, p.adj := p.adjust(pvalue, "BH")]           # correct across families
-    print(res_dt[order(-odds_ratio)])
-    
-    ## ---- Plot: OR with 95% CI, ordered, coloured by significance ----
-    res_plot <- res_dt[order(odds_ratio)]
-    res_plot[, label := factor(label, levels = label)]  # lock the OR order
-    res_plot[, sig := ifelse(p.adj < 0.05, "FDR < 0.05", "n.s.")]
-    
-    TEplot <- ggplot(res_plot, aes(odds_ratio, label, colour = sig)) +
-      geom_vline(xintercept = 1, linetype = 3) +
-      geom_errorbar(aes(xmin = conf_low, xmax = conf_high), height = 0.25, orientation = "y") +
-      geom_point(size = 3) +
-      scale_x_log10(breaks = c(0,.5, 1, 1.5,2)) +                                 # OR is multiplicative -> log axis
-      scale_colour_manual(values = c("FDR < 0.05" = "#DC3220", "n.s." = "grey60")) +
-      labs(x = "Odds ratio (top99q hvCpG vs background, log scale)",
-           y = NULL, colour = NULL,
-           title = "TE family enrichment among 1% top hypervariable CpGs") +
-      theme_minimal(base_size = 12)
-    
-    saveRDS(TEplot, here(paste0("gitignore/TEplot_", whichtop, "_", variant, ".RDS")))
+    ref <- res_dt[window == "TE body"][order(log2OR), unique(as.character(label))]
+    res_dt[, label := factor(as.character(label), levels = ref)]
+    res_dt[]
   }
-  makeTEplot(top99q_CpGs_GR, "top99q_CpGs")
-  # $label
-  # [1] "TE"
-  # 
-  # $contingency
-  # in_TE not_in_TE
-  # top99q_CpGs   112737     89730
-  # background  10781840   9464839
-  # 
-  # $pvalue
-  # [1] 1.332613e-105
-  # 
-  # $odds_ratio
-  # [1] 1.102905
-  # 
-  # $conf_low
-  # [1] 1.09325
-  # 
-  # $conf_high
-  # [1] 1.112685
-  # 
-  # label        pvalue odds_ratio  conf_low conf_high         p.adj
-  # <char>         <num>      <num>     <num>     <num>         <num>
-  # 1:       LINE  0.000000e+00  1.5553095 1.5377996  1.573005  0.000000e+00
-  # 2:        LTR 7.649540e-276  1.3128470 1.2938973  1.332009 1.529908e-275
-  # 3:        DNA  2.030086e-24  1.1430595 1.1144968  1.172222  3.045129e-24
-  # 4: Retroposon  2.380273e-01  1.0818589 0.9449651  1.233174  2.856327e-01
-  # 5:         RC  9.039334e-01  1.0291717 0.6084856  1.631416  9.039334e-01
-  # 6:       SINE  0.000000e+00  0.7371553 0.7295801  0.744744  0.000000e+00
-  # label        pvalue odds_ratio  conf_low conf_high         p.adj
-  # <char>         <num>      <num>     <num>     <num>         <num>
-  # 1:            L1  0.000000e+00  1.6787164 1.6583288 1.6993290  0.000000e+00
-  # 2:          ERVK  5.391939e-20  1.3489968 1.2677907 1.4341111  2.695969e-19
-  # 3:     ERVL-MaLR 8.698016e-126  1.3356109 1.3053668 1.3664271 8.698016e-125
-  # 4:     MULE-MuDR  5.108937e-02  1.3295892 0.9881317 1.7518940  1.021787e-01
-  # 5:          ERVL  6.407374e-55  1.3008409 1.2599006 1.3427905  3.844425e-54
-  # 6:           hAT  4.674471e-02  1.2949115 0.9977691 1.6535247  1.001672e-01
-  # 7: TcMar-Mariner  2.302027e-04  1.2905693 1.1267510 1.4717433  6.278255e-04
-  # 8:          ERV1  6.445483e-69  1.2406186 1.2118375 1.2699249  4.834112e-68
-  # 9:    hAT-Tip100  3.763599e-06  1.2276315 1.1260981 1.3359825  1.129080e-05
-  # 10:           LTR  2.602610e-01  1.2144678 0.8441980 1.6930860  3.852471e-01
-  # 11:         Gypsy  2.876436e-02  1.1710860 1.0138878 1.3459350  7.191091e-02
-  # 12: hAT-Blackjack  3.243543e-02  1.1685235 1.0093529 1.3458349  7.485099e-02
-  # 13:  TcMar-Tigger  8.088091e-10  1.1454019 1.0973642 1.1949964  3.466325e-09
-  # 14:   hAT-Charlie  1.903610e-08  1.1140045 1.0731271 1.1560324  7.138539e-08
-  # 15:         RTE-X  2.696730e-01  1.0910537 0.9300923 1.2720495  3.852471e-01
-  # 16:     TcMar-Tc2  4.470745e-01  1.0844786 0.8588974 1.3516349  5.412316e-01
-  # 17:           SVA  2.380273e-01  1.0818589 0.9449651 1.2331745  3.758325e-01
-  # 18:            L2  7.738175e-07  1.0692152 1.0413072 1.0977500  2.579392e-06
-  # 19:           CR1  1.988895e-01  1.0547082 0.9701952 1.1445814  3.314825e-01
-  # 20:      Helitron  9.039334e-01  1.0291717 0.6084856 1.6314159  1.000000e+00
-  # 21:           MIR  3.194412e-01  0.9849600 0.9560782 1.0145126  4.356017e-01
-  # 22:     5S-Deu-L2  1.000000e+00  0.9615346 0.5368616 1.5909042  1.000000e+00
-  # 23:      tRNA-RTE  8.716416e-01  0.9523713 0.6695017 1.3151591  1.000000e+00
-  # 24:          tRNA  1.000000e+00  0.9481621 0.5293797 1.5687321  1.000000e+00
-  # 25:      Penelope  1.000000e+00  0.9216565 0.2499683 2.3768415  1.000000e+00
-  # 26:      PiggyBac  4.510264e-01  0.8577526 0.5819027 1.2197413  5.412316e-01
-  # 27:      RTE-BovB  1.586413e-01  0.8307844 0.6347992 1.0684900  2.974525e-01
-  # 28:        hAT-Ac  3.852737e-01  0.7936326 0.4614145 1.2737448  5.025309e-01
-  # 29:           Alu  0.000000e+00  0.7248988 0.7171715 0.7326592  0.000000e+00
-  # 30:           DNA  1.987925e-01  0.6476503 0.3099628 1.1943424  3.314825e-01
-  # label        pvalue odds_ratio  conf_low conf_high         p.adj
-  # <char>         <num>      <num>     <num>     <num>         <num>
   
-  makeTEplot(top99q_in3layersoverlap_CpGs_GR, "top99q_in3layersoverlap_CpGs")
-  # $label
-  # [1] "TE"
-  # 
-  # $contingency
-  # in_TE not_in_TE
-  # top99q_CpGs    35261     25163
-  # background  10781840   9464839
-  # 
-  # $pvalue
-  # [1] 6.478401e-140
-  # 
-  # $odds_ratio
-  # [1] 1.230133
-  # 
-  # $conf_low
-  # [1] 1.210341
-  # 
-  # $conf_high
-  # [1] 1.250265
-  # 
-  # label       pvalue odds_ratio   conf_low conf_high        p.adj
-  # <char>        <num>      <num>      <num>     <num>        <num>
-  # 1:       LINE 0.000000e+00  1.5392355 1.50767987 1.5713301 0.000000e+00
-  # 2:        LTR 9.661159e-99  1.3407969 1.30589380 1.3765104 2.898348e-98
-  # 3: Retroposon 3.129908e-02  1.2778213 1.01266477 1.5913013 3.755890e-02
-  # 4:        DNA 9.961784e-05  1.0987018 1.04792619 1.1513696 1.494268e-04
-  # 5:       SINE 3.745399e-68  0.8529081 0.83757039 0.8684888 7.490798e-68
-  # 6:         RC 2.635788e-01  0.3831443 0.04636648 1.3861755 2.635788e-01
-  # label       pvalue odds_ratio   conf_low conf_high        p.adj
-  # <char>        <num>      <num>      <num>     <num>        <num>
-  #   1:            L1 0.000000e+00  1.6496875 1.61306606 1.6869590 0.000000e+00
-  # 2:           LTR 2.299307e-01  1.3952303 0.72005481 2.4412298 5.306093e-01
-  # 3:    hAT-Tip100 2.387713e-05  1.3866956 1.19295680 1.6031119 1.023306e-04
-  # 4: hAT-Blackjack 1.038024e-02  1.3856883 1.07748324 1.7549754 3.114072e-02
-  # 5:     ERVL-MaLR 7.345924e-44  1.3575755 1.30223758 1.4146648 7.345924e-43
-  # 6:          ERVK 3.806708e-07  1.3513168 1.20513500 1.5104462 1.903354e-06
-  # 7:          ERVL 2.619105e-20  1.3254995 1.25063454 1.4037191 1.571463e-19
-  # 8:     MULE-MuDR 2.966080e-01  1.3103329 0.73260252 2.1641110 5.932160e-01
-  # 9:     5S-Deu-L2 4.804499e-01  1.2887827 0.47221508 2.8116678 6.910699e-01
-  # 10:           SVA 3.129908e-02  1.2778213 1.01266477 1.5913013 8.536113e-02
-  # 11:          ERV1 2.069362e-27  1.2725703 1.21967519 1.3272144 1.552021e-26
-  # 12: TcMar-Mariner 8.290316e-02  1.2436934 0.95929918 1.5862117 2.072579e-01
-  # 13:         RTE-X 3.704673e-01  1.1300288 0.84089451 1.4868134 6.537659e-01
-  # 14:  TcMar-Tigger 4.439191e-03  1.1221660 1.03627527 1.2133016 1.479730e-02
-  # 15:            L2 2.048230e-04  1.0953816 1.04406535 1.1486259 7.680864e-04
-  # 16:         Gypsy 4.837489e-01  1.0931941 0.82533034 1.4204854 6.910699e-01
-  # 17:           CR1 4.119120e-01  1.0626189 0.91059748 1.2328826 6.865199e-01
-  # 18:      tRNA-RTE 8.822943e-01  1.0350088 0.53431629 1.8102144 9.803269e-01
-  # 19:   hAT-Charlie 7.853974e-01  1.0094805 0.93923189 1.0836184 9.062278e-01
-  # 20:           MIR 3.188433e-01  0.9722543 0.92022980 1.0264913 5.978311e-01
-  # 21:           hAT 1.000000e+00  0.9344619 0.51047466 1.5695110 1.000000e+00
-  # 22:           DNA 1.000000e+00  0.8680658 0.23621208 2.2273309 1.000000e+00
-  # 23:           Alu 4.993578e-69  0.8482141 0.83250811 0.8641875 7.490367e-68
-  # 24:          tRNA 1.000000e+00  0.8472131 0.23054482 2.1736911 1.000000e+00
-  # 25:      PiggyBac 7.589880e-01  0.8344222 0.38122165 1.5858478 9.062278e-01
-  # 26:      RTE-BovB 5.191092e-01  0.8214371 0.48655567 1.2992922 7.078761e-01
-  # 27:     TcMar-Tc2 4.546537e-01  0.8175384 0.48421783 1.2930953 6.910699e-01
-  # 28:        hAT-Ac 5.467680e-01  0.6257022 0.17034465 1.6044730 7.131757e-01
-  # 29:      Helitron 2.635788e-01  0.3831443 0.04636648 1.3861755 5.648118e-01
-  # 30:      Penelope 6.446330e-01  0.0000000 0.00000000 2.8601722 8.057913e-01
+  res_dt_class <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", mode = "shell", famorclass = "class")
+  res_dt_fam <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", mode = "shell", famorclass = "family")
+  
+  plotclass <- ggplot(res_dt_class, aes(window, label, fill = log2OR)) +
+    geom_tile(colour = "white", linewidth = 0.4) +
+    geom_text(aes(label = ifelse(sig, "*", "")), vjust = 0.75, size = 6) +
+    scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#DC3220",
+                         midpoint = 0, name = expression(log[2]~OR)) +
+    labs(x = NULL, y = NULL,
+         title = "TE class enrichment of top 1% hypervariable CpGs\nby distance from element") +
+    theme_minimal(base_size = 12) +
+    theme(panel.grid = element_blank(),
+          axis.text.x = element_text(angle = 30, hjust = 1))
+  
+  plotfam <- ggplot(res_dt_fam, aes(window, label, fill = log2OR)) +
+    geom_tile(colour = "white", linewidth = 0.4) +
+    geom_text(aes(label = ifelse(sig, "*", "")), vjust = 0.75, size = 6) +
+    scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#DC3220",
+                         midpoint = 0, name = expression(log[2]~OR)) +
+    labs(x = NULL, y = NULL,
+         title = "TE family enrichment of top 1% hypervariable CpGs\nby distance from element") +
+    theme_minimal(base_size = 12) +
+    theme(panel.grid = element_blank(),
+          axis.text.x = element_text(angle = 30, hjust = 1))
+  
+  saveRDS(res_dt_class, here("gitignore/TEplot_res_dt_class.RDS"))
+  saveRDS(res_dt_fam, here("gitignore/TEplot_res_dt_fam.RDS"))
+  saveRDS(plotclass, here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))
+  saveRDS(plotfam, here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
+}
+
+########################################################################
+## KZFP BINDING-SITE enrichment of top 1% hypervariable CpGs          ##
+##                                                                    ##
+## Data : KRABopedia hg38 peaks (Imbeault 2017, GSE78099), 293T,      ##
+##        one BED per KZFP experiment (_peaks.bed = binding intervals).##
+## Model: same Fisher target-vs-background overlap as the TE script.  ##
+##                                                                    ##
+## Three tests:                                                       ##
+##   (1) pooled "bound by any KZFP" + distance shells (decay)         ##
+##   (2) DECISIVE: hv enriched at KZFP-bound vs unbound TEs           ##
+##       (conditional on being in a TE -> removes the TE confound)    ##
+##   (3) per-factor: which KZFPs' targets are most hypervariable      ##
+########################################################################
+
+if (!file.exists(here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))) {
+  
+  peak_dir <- here("gitignore/hg38_peaks_un_filt_Krabopedia6oct26")
+  
+  ## ============================================================
+  ## 0. LOAD KZFP BINDING SITES  (keep ONLY KZFPs)
+  ## ============================================================
+  files  <- list.files(peak_dir, pattern = "_peaks\\.bed$", full.names = TRUE)
+  
+  # factor = token before the FIRST underscore. Gene symbols contain no "_",
+  # so this keeps ZNF324B / ZNF75D / ZNF585A etc. intact while pooling
+  # ZNF100_rep1_pubM, ZNF100_rep2_pubM, ... -> ZNF100.
+  factor <- sub("_.*$", "", basename(files))
+  
+  # --- keep ONLY KZFP binding sites: drop the 3 non-KZFP entries ---
+  non_kzfp <- c("293TexoT",  # 293T control track (not a factor)
+                "PRDM9",      # PR/SET meiotic ZNF, no KRAB domain
+                "ZSCAN18")    # SCAN-only zinc finger, no KRAB domain
+  keep   <- !(factor %in% non_kzfp)
+  files  <- files[keep];  factor <- factor[keep]
+  
+  # drop low-confidence ChIPs (several are huge & noisy, e.g. ZNF677)
+  lc     <- grepl("lowconf", basename(files))
+  files  <- files[!lc];   factor <- factor[!lc]
+  
+  stopifnot(!any(grepl("^293T|^PRDM9$|^ZSCAN18$", factor)))   # sanity
+  message(length(unique(factor)), " KZFP factors from ", length(files), " files")
+  # 277 KZFP factors from 298 files
+  
+  # read, tag by factor, pool each factor's runs/replicates into ONE set
+  read_bed <- function(f) { g <- import(f, format = "BED"); seqlevelsStyle(g) <- "UCSC"; g }
+  peaks_by_factor <- tapply(files, factor, function(fs)
+    reduce(trim(do.call(c, lapply(fs, read_bed)))))
+  peaks_by_factor <- GRangesList(lapply(
+    split(files, factor),
+    function(fs) reduce(trim(do.call(c, lapply(fs, read_bed))))
+  ))  
+  
+  # drop failed ChIPs (too few peaks). Inspect sort(lengths(.)) to tune.
+  MIN_PEAKS <- 100
+  peaks_by_factor <- peaks_by_factor[lengths(peaks_by_factor) >= MIN_PEAKS]
+  message(length(peaks_by_factor), " KZFP factors kept after >= ", MIN_PEAKS, " peaks")
+  # 228 KZFP factors kept after >= 100 peaks
+  
+  # union across all KZFPs = "bound by any KZFP"
+  kzfp_bound <- reduce(unlist(peaks_by_factor))
+  message("union KZFP-bound regions: ", length(kzfp_bound))
+  # union KZFP-bound regions: 1289764
+  
+  ## ============================================================
+  ## 1. COMMON OBJECTS
+  ## ============================================================
+  top        <- top99q_CpGs_GR
+  bg_only_GR <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos[
+    !table3layers_coveredIn3dt$chr_pos %in% top99q_CpGs], "bg_only")
+  
+  res_cols <- c("label", "pvalue", "odds_ratio", "conf_low", "conf_high")
+  
+  # safe wrapper: reduce/trim the region, tolerate an empty set, return a 1-row dt
+  te_or_na <- function(region, target, background, label) {
+    region <- reduce(trim(region))
+    if (length(region) == 0L)
+      return(data.table(label = label, pvalue = NA_real_, odds_ratio = NA_real_,
+                        conf_low = NA_real_, conf_high = NA_real_))
+    r <- fisher_test_te(region, target, background,
+                        label = label, nameTarget = "top99q_CpGs")
+    as.data.table(r[res_cols])
+  }
+  
+  ## ============================================================
+  ## 2. TEST 1 — pooled "bound by any KZFP" with distance shells
+  ## ============================================================
+  shells <- list("peak"   = c(0, 0),    "0-1kb"   = c(0, 1000),
+                 "1-3kb"  = c(1000, 3000), "3-10kb" = c(3000, 10000),
+                 "10-15kb"= c(10000, 15000))
+  build  <- function(gr, b){
+    if (b[1] == b[2]) reduce(trim(gr))
+    else GenomicRanges::setdiff(reduce(trim(gr + b[2])), reduce(trim(gr + b[1])))}
+  
+  res_shell <- rbindlist(lapply(names(shells), function(w) {
+    dt <- te_or_na(build(kzfp_bound, shells[[w]]), top, bg_only_GR,
+                   label = "KZFP-bound")
+    dt[, window := w]; dt
+  }))
+  res_shell[, window := factor(window, levels = names(shells))]
+  res_shell[, p.adj  := p.adjust(pvalue, "BH")]
+  res_shell[, sig    := p.adj < 0.05]
+  print(res_shell[])
+  #         label        pvalue odds_ratio  conf_low conf_high  window         p.adj    sig
+  # 1: KZFP-bound  0.000000e+00  0.7791534 0.7692930 0.7891024    peak  0.000000e+00   TRUE
+  # 2: KZFP-bound  1.523958e-01  0.9936093 0.9848967 1.0023874   0-1kb  1.523958e-01  FALSE
+  # 3: KZFP-bound 1.463525e-113  1.1239430 1.1127375 1.1352422   1-3kb 3.658813e-113   TRUE
+  # 4: KZFP-bound  1.103181e-95  1.2170571 1.1952168 1.2392084  3-10kb  1.838635e-95   TRUE
+  # 5: KZFP-bound  2.819590e-04  1.2161231 1.0945366 1.3475939 10-15kb  3.524487e-04   TRUE
+  
+  ## ============================================================
+  ## 3. TEST 2 — DECISIVE: hv at KZFP-bound vs unbound TEs
+  ##    (conditional on being in a TE -> TE confound removed)
+  ## ============================================================
+  
+  if(!exists(x = "te_regions")){
+    # UCSC RepeatMasker annotations (Oct2022) for Human (hg38) from AnnotationHub
+    ah <- AnnotationHub()
+    query(ah, c("UCSC", "RepeatMasker", "Homo sapiens"))
+    
+    # Retrieve the desired resource, UCSC RepeatMasker annotations for hg38:
+    rmskhg38 <- ah[["AH111333"]]
+    
+    te_classes <- c("LINE", "SINE", "LTR", "DNA", "RC", "Retroposon")
+    te_regions <- rmskhg38[mcols(rmskhg38)$repClass %in% te_classes]
+  }
+  
+  te_all     <- reduce(trim(te_regions))
+  in_te      <- overlapsAny(totalSites_GR, te_all, ignore.strand = TRUE)  # same order as chr_pos
+  te_chr_pos <- table3layers_coveredIn3dt$chr_pos[in_te]
+  
+  te_top_GR  <- makeGRfromMyCpGPos(intersect(te_chr_pos, top99q_CpGs), "te_top")  # hv,     in TE
+  te_bg_GR   <- makeGRfromMyCpGPos(setdiff(te_chr_pos,   top99q_CpGs), "te_bg")   # non-hv, in TE
+  
+  te_bound   <- subsetByOverlaps(te_regions, kzfp_bound)
+  te_unbound <- te_regions[!overlapsAny(te_regions, kzfp_bound)]
+  
+  # (a) the single conditional OR — the headline statistic
+  res_cond <- te_or_na(te_bound, te_top_GR, te_bg_GR,
+                       "hv at KZFP-bound vs unbound TE (TE-conditional)")
+  res_cond[, p.adj := p.adjust(pvalue, "BH")]
+  print(res_cond[])
+  #                                                label       pvalue odds_ratio conf_low conf_high        p.adj
+  #   1: hv at KZFP-bound vs unbound TE (TE-conditional) 2.834361e-60   1.106766  1.09347   1.12025 2.834361e-60
+  
+  # (b) bound vs unbound TEs, each vs the genome background (for the plot)
+  res_split <- rbindlist(list(
+    te_or_na(te_bound,   top, bg_only_GR, "TE: KZFP-bound"),
+    te_or_na(te_unbound, top, bg_only_GR, "TE: unbound")))
+  res_split[, p.adj := p.adjust(pvalue, "BH")][, sig := p.adj < 0.05]
+  print(res_split[])
+  #             label        pvalue odds_ratio conf_low conf_high         p.adj    sig
+  # 1: TE: KZFP-bound 5.426718e-134   1.146341 1.134055  1.158678 1.085344e-133   TRUE
+  # 2:    TE: unbound  1.180616e-02   1.011907 1.002622  1.021269  1.180616e-02   TRUE
+  
+  peak_core_te <- te_or_na(subsetByOverlaps(kzfp_bound, te_all),
+                           te_top_GR, te_bg_GR,
+                           "hv at KZFP footprint (TE-conditional)")
+  print(peak_core_te)
+  #                                   label       pvalue odds_ratio  conf_low conf_high
+  # 1: hv at KZFP footprint (TE-conditional) 4.077268e-35  0.9005643 0.8854686 0.9158105
+  
+  ## ============================================================
+  ## 4. TEST 3 — per-factor enrichment (peak-level)
+  ## ============================================================
+  per_kzfp <- rbindlist(lapply(names(peaks_by_factor), function(f)
+    te_or_na(peaks_by_factor[[f]], top, bg_only_GR, f)))
+  per_kzfp[, p.adj  := p.adjust(pvalue, "BH")]
+  per_kzfp[, sig    := p.adj < 0.05]
+  per_kzfp[, log2OR := log2(odds_ratio)]
+  setorder(per_kzfp, -log2OR)
+  print(head(per_kzfp, 25))
+  
+  ## test ZNF808 for Matt
+  per_kzfp[per_kzfp$label %in% "ZNF808",] # not significant
+  
+  ## ============================================================
+  ## 5. PLOTS  (house style: #DC3220 significant, grey60 n.s.)
+  ## ============================================================
+  sig_cols <- c(`TRUE` = "#DC3220", `FALSE` = "grey60")
+  sig_labs <- c(`TRUE` = "FDR < 0.05", `FALSE` = "n.s.")
+  
+  ## (1) pooled distance-decay
+  p_shell <- ggplot(res_shell, aes(window, odds_ratio)) +
+    geom_hline(yintercept = 1, linetype = 3) +
+    geom_errorbar(aes(ymin = conf_low, ymax = conf_high), width = 0.2) +
+    geom_point(aes(colour = sig), size = 3) +
+    scale_colour_manual(values = sig_cols, labels = sig_labs, name = NULL) +
+    scale_y_log10() +
+    labs(x = NULL, y = "Odds ratio (top1% hvCpG vs background)",
+         title = "hvCpG enrichment at KZFP binding sites, by distance") +
+    theme_minimal(base_size = 12)
+  
+  ## (2) bound vs unbound TE
+  res_split[, label := factor(label, levels = c("TE: unbound", "TE: KZFP-bound"))]
+  p_split <- ggplot(res_split, aes(odds_ratio, label)) +
+    geom_vline(xintercept = 1, linetype = 3) +
+    geom_errorbar(aes(xmin = conf_low, xmax = conf_high), height = 0.2, orientation = "y") +
+    geom_point(aes(colour = sig), size = 3) +
+    scale_colour_manual(values = sig_cols, labels = sig_labs, name = NULL) +
+    scale_x_log10() +
+    labs(x = "Odds ratio (vs background)", y = NULL,
+         title = "hvCpG enrichment: KZFP-bound vs unbound TEs",
+         subtitle = sprintf("TE-conditional OR = %.2f (FDR %.1e)",
+                            res_cond$odds_ratio, res_cond$p.adj)) +
+    theme_minimal(base_size = 12)
+  
+  ## (3) per-factor forest — most extreme factors for legibility
+  N_SHOW   <- 30
+  show_fac <- rbind(head(per_kzfp, N_SHOW), tail(per_kzfp, 5))   # top enriched + a few depleted
+  show_fac <- unique(show_fac)
+  show_fac[, label := factor(label, levels = label[order(log2OR)])]
+  p_fac <- ggplot(show_fac, aes(odds_ratio, label)) +
+    geom_vline(xintercept = 1, linetype = 3) +
+    geom_errorbar(aes(xmin = conf_low, xmax = conf_high), height = 0.3, orientation = "y") +
+    geom_point(aes(colour = sig), size = 2.5) +
+    scale_colour_manual(values = sig_cols, labels = sig_labs, name = NULL) +
+    scale_x_log10() +
+    labs(x = "Odds ratio (top1% hvCpG vs background)", y = NULL) +
+    theme_minimal(base_size = 10)
+  
+  ## assemble if cowplot is available
+  if (requireNamespace("cowplot", quietly = TRUE)) {
+    fig <- cowplot::plot_grid(
+      cowplot::plot_grid(p_shell, p_split, ncol = 1, rel_heights = c(1, 0.8)),
+      p_fac, ncol = 2, rel_widths = c(1, 1))
+    ggplot2::ggsave(
+      here("B_MultiTissues/dataOut/figures/script04/KZFP_bindingSite_enrichment.png"),
+      fig, width = 12, height = 8, dpi = 300, bg = "white")
+  }
+  
+  ## ============================================================
+  ## 6. SAVE
+  ## ============================================================
+  saveRDS(list(res_shell = res_shell, res_cond = res_cond, res_split = res_split,
+               per_kzfp = per_kzfp, n_factors = length(peaks_by_factor)),
+          here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))
+  saveRDS(list(p_shell = p_shell, p_split = p_split, p_fac = p_fac),
+          here(paste0("gitignore/KZFP_bindingSite_plots_", variant, ".RDS")))
 }
 
 #################################
@@ -873,20 +1068,240 @@ if (!file.exists(here(paste0("gitignore/TEplot_", variant, ".RDS")))){
 
 if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariability.png"))){
   plotManhattan_noDerakh <- readRDS(here(paste0("gitignore/plotManhattan_noDerakh_", variant, ".RDS")))
-  pfeatures <- readRDS(here(paste0("gitignore/pfeatures_", variant, ".RDS")))
-  TEplot <- readRDS(here("gitignore/TEplot_top99q_CpGs_SNP_SDASMrm.RDS"))
-  TEplot2 <- readRDS(here("gitignore/TEplot_top99q_in3layersoverlap_CpGs_SNP_SDASMrm.RDS"))
   
-  bottomrow <- plot_grid(pfeatures, TEplot, 
-                         TEplot2 + labs(title = "1% top overlap 3 layers") , ncol = 3,
-                         labels = c("B", "C", "D"))
+  pfeatures <- readRDS(here(paste0("gitignore/pfeatures_", variant, ".RDS")))
+  row1 <- plot_grid(plotManhattan_noDerakh+ ylab("Hypervariability score"),
+                    pfeatures + theme_minimal(base_size = 12) +
+                      ggtitle(""),
+                    ncol = 2, rel_widths = c(2,1),
+                    labels = c("A", "B"))
+  
+  TEplotfam <- readRDS(here("gitignore/TEplot_plotfam_SNP_SDASMrm.RDS"))
+  TEplotclass <- readRDS(here("gitignore/TEplot_plotclass_SNP_SDASMrm.RDS"))
+  row2 <- plot_grid(TEplotclass, TEplotfam, ncol = 2,
+                    labels = c("C", "D"))
+  
+  KZFPPlots <- readRDS(here(paste0("gitignore/KZFP_bindingSite_plots_", variant, ".RDS")))
+  row3 <- plot_grid(KZFPPlots$p_shell+ labs(x = NULL, y = "Odds ratio\n(top1% hvCpG vs background)"),
+                    KZFPPlots$p_split, ncol = 2,
+                    labels = c("E", "F"))
+  
   ggplot2::ggsave(
     filename = here::here(
       "B_MultiTissues/dataOut/figures/script04/MappingVariability.pdf"),
     plot = plot_grid(
-      plotManhattan_noDerakh + ylab("Hypervariability score"), bottomrow,
-      labels = c("A", ""), nrow = 2),
-    width = 20, height = 10, dpi = 300, bg = "white")
+      row1 , row2, row3, nrow = 3, rel_heights = c(1,2,1)),
+    width = 15, height = 12, dpi = 300, bg = "white")
+  
+  ggplot2::ggsave(
+    filename = here::here(
+      "B_MultiTissues/dataOut/figures/script04/MappingVariability.png"),
+    plot = plot_grid(
+      row1 , row2, row3, nrow = 3, rel_heights = c(1,2,1)),
+    width = 15, height = 12, dpi = 300, bg = "white")
+}
+
+#######################
+## Test GO of top 1% ##
+#######################
+
+totalSites <- table3layers_coveredIn3$chr_pos
+if (!exists("top99q_CpGs")){
+  top99q <- readRDS(here(paste0("gitignore/top99q_CpGs_", variant, ".RDS")))
+  top99q_in3layersoverlap_CpGs <- readRDS(here(paste0("gitignore/top99q_in3layersoverlap_CpGs_", variant, ".RDS")))
+}
+
+# Method. ClusterProfiler
+## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
+## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
+## 3. run GO term enrichment with clusterProfiler::enrichGO
+
+minimum_CpG_per_cluster = 2
+
+getGOtop <- function(top){
+  
+  ## Create universe
+  universe <- suppressWarnings(suppressMessages(
+    annotateCpGs_txdb(
+      clusterCpGs(totalSites, max_gap = 50, min_size = minimum_CpG_per_cluster),
+      tss_window = 10000)
+  ))
+  
+  print(paste0("Gene universe contains ", length(universe), " genes"))
+  ## "Gene universe contains 32326 genes"
+  
+  fg_bypass  <- unique(cpg_cluster_count_per_gene(top)$entrez_id)
+  fg_wrapper <- annotateCpGs_txdb(clusterCpGs(top, 50, 2), 10000)
+  message("Jaccard:")
+  print(length(intersect(fg_bypass, fg_wrapper)) / length(union(fg_bypass, fg_wrapper)))  # want ≈ 1
+  ## The Jaccard is 1.0 --> the cpg_cluster_count_per_gene counts genes under exactly 
+  # the same body∪promoter rule as the annotation wrapper. The CpG-count covariate is valid.
+  
+  # WGBS-correct control
+  res_cpg <- CpG_GO_pipeline_lengthControlled(
+    top, universe = universe, min_size = minimum_CpG_per_cluster,
+    control_method = "cpg_count", all_sites = totalSites)
+  
+  # for the sensitivity table, also run the other two
+  res_len  <- CpG_GO_pipeline_lengthControlled(top, universe = universe,
+                                               control_method = "length")
+  
+  res_none <- CpG_GO_pipeline_lengthControlled(top, universe = universe,
+                                               control_method = "none")
+  
+  ## cpg_count matching can under-power the protocadherin signal specifically,
+  # because the PCDH clusters are so CpG-dense that few comparable genes exist to match them
+  # so if adhesion terms weaken here, that's not proof they're artefactual.
+  
+  print("Direct test of prothocadherin")
+  
+  pcdh <- GRanges("chr5", IRanges(140710000, 141510000))     # hg38 PCDH clusters
+  top_gr <- makeGRfromMyCpGPos(top, "top")
+  bg_gr  <- makeGRfromMyCpGPos(totalSites,  "bg")
+  obs <- sum(overlapsAny(top_gr, pcdh))
+  exp <- length(top_gr) * mean(overlapsAny(bg_gr, pcdh))
+  print(c(observed = obs, expected = exp, fold = obs / exp))
+  in_top <- sum(overlapsAny(top_gr, pcdh))
+  in_bg  <- sum(overlapsAny(bg_gr,  pcdh))
+  mat <- matrix(c(in_top, length(top_gr) - in_top,
+                  in_bg,  length(bg_gr)  - in_bg), nrow = 2, byrow = TRUE)
+  
+  message("Fisher test:")
+  print(fisher.test(mat, alternative = "greater"))
+  
+  message("Leave-one-out: does removing the protocadherin cluster drop the terms?")
+  # PCDH-cluster entrez IDs (hg38 chr5 ~140.7–141.5 Mb)
+  pcdh_region <- GRanges("chr5", IRanges(140710000, 141510000))
+  genes_gr <- suppressMessages(genes(TxDb.Hsapiens.UCSC.hg38.knownGene))
+  pcdh_entrez <- genes_gr$gene_id[overlapsAny(genes_gr, pcdh_region, ignore.strand = TRUE)]
+  
+  res_cpg_noPCDH <- CpG_GO_pipeline_lengthControlled(
+    top, universe = universe,
+    control_method = "cpg_count", all_sites = totalSites,
+    exclude_genes = pcdh_entrez)
+  
+  return(list(res_cpg = res_cpg, res_len = res_len, res_none = res_none,
+              res_cpg_noPCDH = res_cpg_noPCDH))
+}
+
+if(!file.exists(here::here(paste0("B_MultiTissues/dataOut/figures/script04/GOplottop1pc.pdf")))){
+  GO_top99q_CpGs <- getGOtop(top = top99q_CpGs)
+  
+  go_dt <- rbindlist(lapply(names(GO_top99q_CpGs)[1:3], function(method) {
+    res <- GO_top99q_CpGs[[method]]
+    rbindlist(lapply(names(res), function(ontology) {
+      if (is.null(res[[ontology]]) || nrow(as.data.frame(res[[ontology]])) == 0)
+        return(NULL)
+      x <- as.data.table(as.data.frame(res[[ontology]]))
+      x[, `:=`(method = method, ontology = ontology)]
+      x
+    }), fill = TRUE)
+  }), fill = TRUE)
+  
+  ## GO plot top 10 terms by ontology
+  go_top <- go_dt[order(p.adjust),
+                  head(.SD, 10), by = .(method, ontology)]
+  
+  go_top[, Description := factor(Description,
+                                 levels = rev(unique(Description)))]
+  
+  go_top$method[go_top$method == "res_none"] <- "no correction"
+  go_top$method[go_top$method == "res_len"] <- "gene-length correction"
+  go_top$method[go_top$method == "res_cpg"] <- "CpG density correction"
+  
+  p <- ggplot(go_top, aes(x = method, y = Description,size = Count,
+                          colour = -log10(p.adjust))) +
+    geom_point() +
+    facet_wrap(~ontology, scales = "free_y", ncol = 2) +
+    scale_colour_viridis_c(option = "plasma") +
+    labs(x = NULL, y = NULL,
+         colour = "-log10 adjusted P",
+         size = "Gene count", title = "GO enrichment comparison") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          axis.text.y = element_text(size = 8))
+  
+  ggplot2::ggsave(
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/script04/GOplottop1pc.pdf")),
+    plot = p, width = 10, height = 8)
+  ggplot2::ggsave(
+    filename = here::here(paste0("B_MultiTissues/dataOut/figures/script04/GOplottop1pc.png")),
+    plot = p, width = 10, height = 8)
+  ## --> Likely, the broad neurodevelopmental signature is largely a CpG-density artefact, not an ME signal.
+  
+  # [1] "Direct test of prothocadherin"
+  # observed   expected       fold 
+  # 161.000000  99.380103   1.620043 
+  # Fisher test:
+  #   
+  #   Fisher's Exact Test for Count Data
+  # 
+  # data:  mat
+  # p-value = 1.029e-08
+  # alternative hypothesis: true odds ratio is greater than 1
+  # 95 percent confidence interval:
+  #  1.41476     Inf
+  # sample estimates:
+  # odds ratio 
+  #   1.620518 
+  
+  # --> top99q CpGs are 1.62× enriched at the PCDH clusters (161 observed vs 99 expected)
+  # a naive GO enrichment shows a broad neurodevelopmental signature (17 BP terms),
+  # but this is largely attributable to the higher CpG density of the foreground genes
+  # (3.7× the universe); after matching the background on per-gene CpG count,
+  # only homophilic cell-cell adhesion, cell junction organization, and
+  # negative chemotaxis remain, likely driven by enrichment at the clustered
+  # protocadherin locus on chr5 (Fisher's exact test OR = 1.62, p < 0.0001), a
+  # a known systemically-variable ME region.
+  
+  # terms lost by removing PCDH = attributable to the cluster
+  bp_with    <- GO_top99q_CpGs$res_cpg$BP@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
+  bp_without <- GO_top99q_CpGs$res_cpg_noPCDH$BP@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
+  setdiff(bp_with, bp_without)
+  # [1] "homophilic cell-cell adhesion" "negative chemotaxis"     
+  
+  cc_with    <- GO_top99q_CpGs$res_cpg$CC@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
+  cc_without <- GO_top99q_CpGs$res_cpg_noPCDH$CC@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
+  setdiff(cc_with, cc_without)
+  # 0
+  
+  mf_with    <- GO_top99q_CpGs$res_cpg$MF@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
+  mf_without <- GO_top99q_CpGs$res_cpg_noPCDH$MF@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
+  setdiff(mf_with, mf_without)
+  # 0
+}
+
+## =============================================================================
+## KEGG ENRICHMENT — same CpG-density-matched design as the GO block
+## =============================================================================
+
+## also ran with minimum_CpG_per_cluster <- 2 (in gitignore)
+redoKegg = FALSE
+if (redoKegg == TRUE) {
+  
+  minimum_CpG_per_cluster <- 2
+  
+  # universe = all genes annotated from covered CpGs (entrez), as in GO
+  universe <- annotateCpGs_txdb(
+    clusterCpGs(totalSites, max_gap = 50, min_size = minimum_CpG_per_cluster),
+    tss_window = 10000)
+  
+  # foreground genes (same clustering + annotation as GO)
+  ensg <- annotateCpGs_txdb(clusterCpGs(top99q_CpGs, 50, minimum_CpG_per_cluster), 10000)
+  
+  # CpG-density-matched background (reuse the helper function), then enrichKEGG
+  cpg_count_dt <- cpg_cluster_count_per_gene(totalSites, 50, minimum_CpG_per_cluster, 10000)
+  uni_matched  <- match_universe_by_covariate(ensg, universe, cpg_count_dt, "n_cpg")
+  
+  kk <- enrichKEGG(gene          = as.character(ensg),
+                   universe      = as.character(uni_matched),
+                   organism      = "hsa",
+                   keyType       = "ncbi-geneid",   # entrez ids
+                   pAdjustMethod = "BH",
+                   pvalueCutoff  = 0.05)
+  # translate entrez -> symbol in the geneID column for readable plots
+  setReadable(kk, OrgDb = org.Hs.eg.db, keyType = "ENTREZID")
+  # 0 enriched terms found
 }
 
 ###########################################
@@ -921,7 +1336,7 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
     "DerakhshanhvCpGs"   = RColorBrewer::brewer.pal(8, "Set2")[3],
     "GunasekaraCorSIV"   = RColorBrewer::brewer.pal(8, "Set2")[4],
     "VanBaakESS"         = RColorBrewer::brewer.pal(8, "Set2")[5],
-    "top99q"             = RColorBrewer::brewer.pal(8, "Set2")[6],
+    "top 1% hv"             = RColorBrewer::brewer.pal(8, "Set2")[6],## name dep on the plot
     "VanBaakSIV"         = RColorBrewer::brewer.pal(8, "Set2")[7]
   )
   
@@ -1010,6 +1425,9 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
   # ---- Run it (ME sets in putativeME_GR$set will be tested separately)
   res_quadrants <- test_enrichment_quadrants(listGR, putativeME_GR, me_col = "set")
   
+  res_quadrants$quadrant[res_quadrants$quadrant %in% "top99q"] <- "top 1% hv"
+  res_quadrants$quadrant[res_quadrants$quadrant %in% "allButTop99q"] <- "all but top 1% hv"
+  
   # Order quadrants within each facet by log2OR
   res_plot2 <- res_quadrants %>%
     mutate(
@@ -1020,15 +1438,15 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
     mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
     ungroup()
   
-  plot_top99qCpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
+ plot_top99qCpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
     geom_col(width = 0.8) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
     scale_fill_manual(values = c("black", "grey")) +
     labs(
       x = NULL,
       y = expression(log[2]~"(odds ratio)"),
-      title = "ME enrichment by group (vs other group)",
-      subtitle = "2x2 Fisher's exact test "
+      title = "CpG set enrichment in top 1% hypervariable CpGs by group (vs other group)",
+      subtitle = "2x2 Fisher's exact test"
     ) +
     facet_wrap(~ CpG_set, scales = "free_x", nrow = 1) +
     theme_classic(base_size = 10) +
@@ -1038,6 +1456,15 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
       strip.background = element_rect(fill = "white"),
       strip.text = element_text(face = "bold")
     )
+  
+  ggplot2::ggsave(
+    filename = here::here(
+      "B_MultiTissues/dataOut/figures/script04/plot_top99qCpGsEnrichME.pdf"),
+    plot = plot_top99qCpGsEnrichME, width = 8, height = 6,  dpi = 300, bg = "white")
+  ggplot2::ggsave(
+    filename = here::here(
+      "B_MultiTissues/dataOut/figures/script04/plot_top99qCpGsEnrichME.png"),
+    plot = plot_top99qCpGsEnrichME, width = 8, height = 6,  dpi = 300, bg = "white")
   
   ################################################################################
   ## Load SIV plots calculated in fetalSIV folder script (in ing-p5)            ##
@@ -1053,6 +1480,17 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
   # per-group N for panel D
   nD <- as.data.table(plots$interlayer_corr)[, .(n = .N), by = group]
   yD_top <- max(plots$interlayer_corr$interlayer_r, na.rm = TRUE)
+  
+  ## rename
+  renameTop <- function(x){
+    levels(x)[levels(x)=="top99q"] <- "top 1% hv"
+    x <- droplevels(x)
+  }
+  
+  plots$interlayer_corr$group <- renameTop(plots$interlayer_corr$group)
+  nD$group <- renameTop(nD$group)
+  plots$CpG_summary$group <- renameTop(plots$CpG_summary$group)
+  plots$binned_summary_boot$group <- renameTop(plots$binned_summary_boot$group)
   
   pinterlayer_corr <- ggplot(plots$interlayer_corr,
                              aes(x = group, y = interlayer_r, group = group, fill = group)) +
@@ -1088,56 +1526,66 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
       y = "Inter-germ layer correlation \n(median ± bootstrap CI)"
     )
   
-  upperRow <- plot_grid(
-    plot_grid(
-      pMElogBF_per_ds + spacing + theme(axis.title.x = element_blank()),
-      pcontrast + theme_minimal(base_size = 18) + spacing +
-        theme(plot.title = element_text(size=16), legend.position = "none"),
-      nrow = 2,
-      labels = c("A. Distribution of the hypervariability score for each CpG set",
-                 "B. Comparison of previous CPG sets groups to mQTLcontrols"),
-      label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1),
-    pdecay + theme_minimal(base_size = 20) + spacing + 
-      theme(legend.position = "inside",
-            legend.position.inside = c(.7, .6),
-            legend.justification = c(0, 0),
-            legend.background = element_rect(fill = "white", colour = "black", linewidth = 0.3)),
-    ncol = 2,
-    rel_widths = c(1, 1),
-    labels = c("", "C. Decay curve of hypervariability score per percentile"),
-    label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1
-  )
+  BASE <- 18
+  fig_theme <- theme_minimal(base_size = BASE) +
+    theme(
+      plot.title   = element_text(size = BASE, hjust = 0, margin = margin(b = 6)),
+      axis.title   = element_text(size = BASE),
+      axis.text    = element_text(size = BASE - 2),
+      legend.title = element_text(size = BASE),
+      legend.text  = element_text(size = BASE - 2),
+      plot.margin  = margin(t = 20, r = 10, b = 10, l = 10)   # replaces `spacing`
+    )
   
-  SIV_plot <- plot_grid(
-    pinterlayer_corr + theme_minimal(base_size = 20) + spacing +
-      theme(axis.text.x = element_text(angle = 20, hjust = 1),
-            axis.title.x = element_blank(), legend.position = "none"),
-    plot_grid(pinterindividual_var + theme_minimal(base_size = 14) + spacing +
-                labs(fill = "CpG set"),
-              pbinned + theme_minimal(base_size = 16) + spacing +
-                theme(axis.text.x = element_text(angle = 20, hjust = 1))+
-                labs(colour = "CpG set", fill = "CpG set"),
-              ncol = 1, align = "v",
-              labels = c("E. Densities of interindividual variation per CpG within the fetal data, by set",
-                         "F. Inter-germ-layer correlation per interindividual variation, binned"),
-              label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1),
-    ncol = 2,
-    rel_widths = c(1, 1),
-    labels = c("D. Mean inter-germ-layer correlation for each CpG set", ""),
-    label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1
-  )
+  row1 <- plot_grid(
+    pMElogBF_per_ds + fig_theme + 
+      theme(axis.title.x = element_blank(), 
+            legend.position = "none",
+            axis.text.x = element_text(angle = 20, hjust = 1)),
+    pcontrast + fig_theme + theme(legend.position = "none"),
+    ncol = 2, labels = c("A", "B"),
+    label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1)
   
-  final_plot <- plot_grid(
-    upperRow,
-    SIV_plot,
-    ncol = 1,
-    rel_heights = c(1, 1)
-  ) + theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10))
-  
-  ggplot2::ggsave(
-    filename = here::here(
-      "B_MultiTissues/dataOut/figures/script04/CompareWithpreviousMEs.png"),
-    plot = final_plot, width = 24, height = 20,  dpi = 300, bg = "white")
+  row2 <- plot_grid(pdecay + fig_theme +
+              theme(legend.position = "inside",
+                    legend.position.inside = c(.7, .6),
+                    legend.justification = c(0, 0),
+                    legend.background = element_rect(fill = "white", colour = "black", linewidth = 0.3)),
+            
+            pinterlayer_corr + fig_theme +
+              theme(axis.text.x = element_text(angle = 30, hjust = 1),
+                    axis.title.x = element_blank(), legend.position = "none"),
+            ncol = 2, labels = c("C", "D"),
+            label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1)
+
+ row3 <- plot_grid(
+    pinterindividual_var + fig_theme + labs(fill = "CpG set") ,
+    pbinned + fig_theme +
+      theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
+      labs(colour = "CpG set", fill = "CpG set") ,
+    ncol = 2, align = "v", labels = c("E", "F"),
+    label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1)
+
+final_plot <- plot_grid(row1, row2, row3, ncol = 1) +
+  theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10))
+
+## Titles:
+# A. Distribution of the hypervariability score for each CpG set
+# B. Comparison of previous CpG set groups to mQTLcontrols
+# C. Decay curve of hypervariability score per percentile
+# D. Mean inter-germ-layer correlation for each CpG set
+# E. Densities of interindividual variation per CpG (fetal data), by set
+# F. Inter-germ-layer correlation per interindividual variation, binned
+
+ggplot2::ggsave(
+  filename = here::here(
+    "B_MultiTissues/dataOut/figures/script04/CompareWithpreviousMEs.pdf"),
+  plot = final_plot, width = 20, height = 16,  dpi = 300, bg = "white")
+
+ggplot2::ggsave(
+  filename = here::here(
+    "B_MultiTissues/dataOut/figures/script04/CompareWithpreviousMEs.png"),
+  plot = final_plot, width = 20, height = 16,  dpi = 300, bg = "white")
 }
 
 ############################################################
@@ -1185,7 +1633,7 @@ baseline <- length(top_gr) / (length(top_gr) + length(rest_gr))   # ~0.01
 summary_df[, fold := (pc_top99q / 100) / baseline]
 
 ## Format pretty
-summary_df %>%
+tab <- summary_df %>%
   mutate(
     across(starts_with("pc_"), ~ scales::percent(.x / 100, accuracy = 0.1)),
     fold = scales::number(fold, accuracy = 0.1, suffix = "×")
@@ -1210,6 +1658,46 @@ summary_df %>%
     data_row.padding = px(3)
   )
 ## Screenshot saved in figures/topCpGsEnrichME_table.png
+library(dplyr)
+library(gt)
+
+tab <- summary_df %>%
+  mutate(
+    across(
+      starts_with("pc_"),
+      ~ scales::percent(.x / 100, accuracy = 0.1)
+    ),
+    fold = scales::number(
+      fold,
+      accuracy = 0.1,
+      suffix = "×"
+    )
+  ) %>%
+  gt() %>%
+  fmt_number(
+    columns = starts_with("n_"),
+    decimals = 0
+  ) %>%
+  cols_label(
+    set = "Previously published CpG set",
+    n_cpg_covered = "Covered CpGs in set",
+    n_top99q = "N in top 1% hvCpGs",
+    pc_top99q = "%",
+    n_rest = "N in rest (non-top 1% hvCpGs)",
+    pc_rest = "%",
+    fold = "Fold enrichment"
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "lightblue"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(
+    table.font.size = 13,
+    data_row.padding = px(3)
+  )
+
+gtsave(tab,
+  filename = here("B_MultiTissues/dataOut/figures/script04/topCpGsEnrichME_table.pdf"))
 
 ######################################################################
 ## Check enrichement of telomeres and centromeres for high geomMean ##
@@ -1233,169 +1721,3 @@ summary_df %>%
 # Fold enrichment:       0.92
 # Fisher p (one-sided):  1
 # Odds ratio:            0.92
-
-#######################
-## Test GO of top 1% ##
-#######################
-
-totalSites <- table3layers_coveredIn3$chr_pos
-if (!exists("top99q_CpGs")){
-  top99q <- readRDS(here(paste0("gitignore/top99q_CpGs_", variant, ".RDS")))
-  top99q_in3layersoverlap_CpGs <- readRDS(here(paste0("gitignore/top99q_in3layersoverlap_CpGs_", variant, ".RDS")))
-}
-
-# Method. ClusterProfiler
-## 1. Keep CpGs in regions where at least 2 CpGs are in 50bp distance to each other
-## 2. annotate with associated genes (in gene body or +/- 10kb from TSS)
-## 3. run GO term enrichment with clusterProfiler::enrichGO
-
-minimum_CpG_per_cluster = 2
-
-getGOtop <- function(top){
-  
-  ## Create universe
-  universe <- suppressWarnings(suppressMessages(
-    annotateCpGs_txdb(
-      clusterCpGs(totalSites, max_gap = 50, min_size = minimum_CpG_per_cluster),
-      tss_window = 10000)
-  ))
-  
-  print(paste0("Gene universe contains ", length(universe), " genes"))
-  ## "Gene universe contains 32326 genes"
-  
-  fg_bypass  <- unique(cpg_cluster_count_per_gene(top)$entrez_id)
-  fg_wrapper <- annotateCpGs_txdb(clusterCpGs(top, 50, 2), 10000)
-  message("Jaccard:")
-  print(length(intersect(fg_bypass, fg_wrapper)) / length(union(fg_bypass, fg_wrapper)))  # want ≈ 1
-  ## The Jaccard is 1.0 --> the cpg_cluster_count_per_gene counts genes under exactly 
-  # the same body∪promoter rule as the annotation wrapper. The CpG-count covariate is valid.
-  
-  # WGBS-correct control
-  res_cpg <- CpG_GO_pipeline_lengthControlled(
-    top, universe = universe, min_size = minimum_CpG_per_cluster,
-    control_method = "cpg_count", all_sites = totalSites)
-
-  # for the sensitivity table, also run the other two
-  res_len  <- CpG_GO_pipeline_lengthControlled(top, universe = universe,
-                                               control_method = "length")
-
-  res_none <- CpG_GO_pipeline_lengthControlled(top, universe = universe,
-                                               control_method = "none")
-
-  ## cpg_count matching can under-power the protocadherin signal specifically,
-  # because the PCDH clusters are so CpG-dense that few comparable genes exist to match them
-  # so if adhesion terms weaken here, that's not proof they're artefactual.
-
-  print("Direct test of prothocadherin")
-
-  pcdh <- GRanges("chr5", IRanges(140710000, 141510000))     # hg38 PCDH clusters
-  top_gr <- makeGRfromMyCpGPos(top, "top")
-  bg_gr  <- makeGRfromMyCpGPos(totalSites,  "bg")
-  obs <- sum(overlapsAny(top_gr, pcdh))
-  exp <- length(top_gr) * mean(overlapsAny(bg_gr, pcdh))
-  print(c(observed = obs, expected = exp, fold = obs / exp))
-  in_top <- sum(overlapsAny(top_gr, pcdh))
-  in_bg  <- sum(overlapsAny(bg_gr,  pcdh))
-  mat <- matrix(c(in_top, length(top_gr) - in_top,
-                  in_bg,  length(bg_gr)  - in_bg), nrow = 2, byrow = TRUE)
-
-  message("Fisher test:")
-  print(fisher.test(mat, alternative = "greater"))
-
-  message("Leave-one-out: does removing the protocadherin cluster drop the terms?")
-  # PCDH-cluster entrez IDs (hg38 chr5 ~140.7–141.5 Mb)
-  pcdh_region <- GRanges("chr5", IRanges(140710000, 141510000))
-  genes_gr <- suppressMessages(genes(TxDb.Hsapiens.UCSC.hg38.knownGene))
-  pcdh_entrez <- genes_gr$gene_id[overlapsAny(genes_gr, pcdh_region, ignore.strand = TRUE)]
-
-  res_cpg_noPCDH <- CpG_GO_pipeline_lengthControlled(
-    top, universe = universe,
-    control_method = "cpg_count", all_sites = totalSites,
-    exclude_genes = pcdh_entrez)
-
-  return(list(res_cpg = res_cpg, res_len = res_len, res_none = res_none,
-              res_cpg_noPCDH = res_cpg_noPCDH))
-}
-
-if(!file.exists(here::here(paste0("B_MultiTissues/dataOut/figures/script04/GOplottop1pc.pdf")))){
-  GO_top99q_CpGs <- getGOtop(top = top99q_CpGs)
-  
-  go_dt <- rbindlist(lapply(names(GO_top99q_CpGs)[1:3], function(method) {
-    res <- GO_top99q_CpGs[[method]]
-    rbindlist(lapply(names(res), function(ontology) {
-      if (is.null(res[[ontology]]) || nrow(as.data.frame(res[[ontology]])) == 0)
-        return(NULL)
-      x <- as.data.table(as.data.frame(res[[ontology]]))
-      x[, `:=`(method = method, ontology = ontology)]
-      x
-    }), fill = TRUE)
-  }), fill = TRUE)
-  
-  ## GO plot top 10 terms by ontology
-  go_top <- go_dt[order(p.adjust),
-                  head(.SD, 10), by = .(method, ontology)]
-  
-  go_top[, Description := factor(Description,
-                                 levels = rev(unique(Description)))]
-  
-  p <- ggplot(go_top, aes(x = method, y = Description,size = Count,
-                          colour = -log10(p.adjust))) +
-    geom_point() +
-    facet_wrap(~ontology, scales = "free_y") +
-    scale_colour_viridis_c(option = "plasma") +
-    labs(x = NULL, y = NULL,
-         colour = "-log10 adjusted P",
-         size = "Gene count", title = "GO enrichment comparison") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          axis.text.y = element_text(size = 8))
-  
-  ggplot2::ggsave(
-    filename = here::here(paste0("B_MultiTissues/dataOut/figures/script04/GOplottop1pc.pdf")),
-    plot = p, width = 14, height = 4)
-  ## --> Likely, the broad neurodevelopmental signature is largely a CpG-density artefact, not an ME signal.
-  
-  # [1] "Direct test of prothocadherin"
-  # observed   expected       fold 
-  # 161.000000  99.380103   1.620043 
-  # Fisher test:
-  #   
-  #   Fisher's Exact Test for Count Data
-  # 
-  # data:  mat
-  # p-value = 1.029e-08
-  # alternative hypothesis: true odds ratio is greater than 1
-  # 95 percent confidence interval:
-  #  1.41476     Inf
-  # sample estimates:
-  # odds ratio 
-  #   1.620518 
-  
-  # --> top99q CpGs are 1.62× enriched at the PCDH clusters (161 observed vs 99 expected)
-  # a naive GO enrichment shows a broad neurodevelopmental signature (17 BP terms),
-  # but this is largely attributable to the higher CpG density of the foreground genes
-  # (3.7× the universe); after matching the background on per-gene CpG count,
-  # only homophilic cell-cell adhesion, cell junction organization, and
-  # negative chemotaxis remain, likely driven by enrichment at the clustered
-  # protocadherin locus on chr5 (Fisher's exact test OR = 1.62, p < 0.0001), a
-  # a known systemically-variable ME region.
-  
-  # terms lost by removing PCDH = attributable to the cluster
-  bp_with    <- GO_top99q_CpGs$res_cpg$BP@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
-  bp_without <- GO_top99q_CpGs$res_cpg_noPCDH$BP@result %>% dplyr::filter(p.adjust < 0.05) %>% dplyr::pull(Description)
-  
-  setdiff(bp_with, bp_without)
-  # [1] "homophilic cell-cell adhesion" "negative chemotaxis"     
-  bp_without
-  # [1] "cell junction organization"
-}
-
-######################################
-## And for top 1% overlap 3 layers? ##
-######################################
-
-rerunGO2 = FALSE
-if (rerunGO2){
-  GO_top99q_in3layersoverlap_CpGs <- getGOtop(top = top99q_in3layersoverlap_CpGs)
-  ## No GO terms significant (too few CpGs)  
-}

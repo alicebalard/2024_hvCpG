@@ -1739,7 +1739,7 @@ setnames(meso_hits, c("r_oth","r_x"), c("r_other","r_cross"), skip_absent = TRUE
 endo_hits <- endo_pass3[cpg_site %in% endo_candidates]   # get the full rows back
 setnames(endo_hits, c("r_oth","r_x"), c("r_other","r_cross"), skip_absent = TRUE)
 
-meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr, min_hits = 2,
+meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr, min_hits = 1,
                                 tss_gr, prom_gr, exon_gr, intron_gr, te_regions, gap = 1000)
 # $clusters
 #       gene cluster_id n_hits  span    density
@@ -1747,7 +1747,7 @@ meso_res <- annotate_layer_hits(meso_hits, "meso", genes_gr, uni, uni_gr, min_hi
 # 2: COL21A1        255      2   128 0.01550388
 # 3:   MYH14        142      2   146 0.01360544
 
-endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr, min_hits = 2,
+endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr, min_hits = 1,
                                 tss_gr, prom_gr, exon_gr, intron_gr, te_regions, gap = 1000)
 # $clusters
 #       gene cluster_id n_hits  span     density
@@ -1756,6 +1756,13 @@ endo_res <- annotate_layer_hits(endo_hits, "endo", genes_gr, uni, uni_gr, min_hi
 
 saveRDS(list(meso = meso_res, endo = endo_res),
         here(paste0("B_MultiTissues/dataOut/S05_annotatedHits_", variant, ".rds")))
+
+## Save positions as tsv list
+fwrite(data.table(chr = meso_res$ann$chr, pos = meso_res$ann$pos),
+  file = here(paste0("B_MultiTissues/dataOut/S05_meso_res_annotation.tsv")), sep = "\t", quote = FALSE, na = "NA")
+
+fwrite(data.table(chr = endo_res$ann$chr, pos = endo_res$ann$pos),
+       file = here(paste0("B_MultiTissues/dataOut/S05_endo_res_annotation.tsv")), sep = "\t", quote = FALSE, na = "NA")
 
 # ── Combined pretty table (guard against either set being empty) ──────────────
 hits_tab <- rbindlist(list(
