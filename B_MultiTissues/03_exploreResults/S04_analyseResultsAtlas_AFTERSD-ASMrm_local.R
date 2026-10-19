@@ -833,7 +833,6 @@ if (!file.exists(here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))){
 ##   (1) pooled "bound by any KZFP" + distance shells (decay)         ##
 ##   (2) DECISIVE: hv enriched at KZFP-bound vs unbound TEs           ##
 ##       (conditional on being in a TE -> removes the TE confound)    ##
-##   (3) per-factor: which KZFPs' targets are most hypervariable      ##
 ########################################################################
 
 if (!file.exists(here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))) {
@@ -885,10 +884,15 @@ if (!file.exists(here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))) 
   message("union KZFP-bound regions: ", length(kzfp_bound))
   # union KZFP-bound regions: 1289764
   
+  sum(lengths(peaks_by_factor)) # total peaks BEFORE union: 1,697,658
+  summary(lengths(peaks_by_factor)) # per-factor peak counts: median 1208, mean 7445.9
+  sum(as.numeric(width(kzfp_bound))) / 3.1e9 * 100   # 10.96% of genome covered by kzfp_bound
+  
   ## ============================================================
-  ## 1. COMMON OBJECTS
+  ## COMMON OBJECTS
   ## ============================================================
-  top        <- top99q_CpGs_GR
+  totalSites_GR  <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos, "totalSites")
+  top99q_CpGs_GR <- makeGRfromMyCpGPos(top99q_CpGs, "top99q_CpGs") # before was "top"
   bg_only_GR <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos[
     !table3layers_coveredIn3dt$chr_pos %in% top99q_CpGs], "bg_only")
   
@@ -905,161 +909,460 @@ if (!file.exists(here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))) 
     as.data.table(r[res_cols])
   }
   
-  ## ============================================================
-  ## 2. TEST 1 — pooled "bound by any KZFP" with distance shells
-  ## ============================================================
-  shells <- list("peak"   = c(0, 0),    "0-1kb"   = c(0, 1000),
-                 "1-3kb"  = c(1000, 3000), "3-10kb" = c(3000, 10000),
-                 "10-15kb"= c(10000, 15000))
-  build  <- function(gr, b){
-    if (b[1] == b[2]) reduce(trim(gr))
-    else GenomicRanges::setdiff(reduce(trim(gr + b[2])), reduce(trim(gr + b[1])))}
-  
-  res_shell <- rbindlist(lapply(names(shells), function(w) {
-    dt <- te_or_na(build(kzfp_bound, shells[[w]]), top, bg_only_GR,
-                   label = "KZFP-bound")
-    dt[, window := w]; dt
-  }))
-  res_shell[, window := factor(window, levels = names(shells))]
-  res_shell[, p.adj  := p.adjust(pvalue, "BH")]
-  res_shell[, sig    := p.adj < 0.05]
-  print(res_shell[])
-  #         label        pvalue odds_ratio  conf_low conf_high  window         p.adj    sig
-  # 1: KZFP-bound  0.000000e+00  0.7791534 0.7692930 0.7891024    peak  0.000000e+00   TRUE
-  # 2: KZFP-bound  1.523958e-01  0.9936093 0.9848967 1.0023874   0-1kb  1.523958e-01  FALSE
-  # 3: KZFP-bound 1.463525e-113  1.1239430 1.1127375 1.1352422   1-3kb 3.658813e-113   TRUE
-  # 4: KZFP-bound  1.103181e-95  1.2170571 1.1952168 1.2392084  3-10kb  1.838635e-95   TRUE
-  # 5: KZFP-bound  2.819590e-04  1.2161231 1.0945366 1.3475939 10-15kb  3.524487e-04   TRUE
-  
-  ## ============================================================
-  ## 3. TEST 2 — DECISIVE: hv at KZFP-bound vs unbound TEs
-  ##    (conditional on being in a TE -> TE confound removed)
-  ## ============================================================
-  
-  if(!exists(x = "te_regions")){
-    # UCSC RepeatMasker annotations (Oct2022) for Human (hg38) from AnnotationHub
-    ah <- AnnotationHub()
-    query(ah, c("UCSC", "RepeatMasker", "Homo sapiens"))
-    
-    # Retrieve the desired resource, UCSC RepeatMasker annotations for hg38:
-    rmskhg38 <- ah[["AH111333"]]
-    
-    te_classes <- c("LINE", "SINE", "LTR", "DNA", "RC", "Retroposon")
-    te_regions <- rmskhg38[mcols(rmskhg38)$repClass %in% te_classes]
-  }
-  
-  te_all     <- reduce(trim(te_regions))
-  in_te      <- overlapsAny(totalSites_GR, te_all, ignore.strand = TRUE)  # same order as chr_pos
-  te_chr_pos <- table3layers_coveredIn3dt$chr_pos[in_te]
-  
-  te_top_GR  <- makeGRfromMyCpGPos(intersect(te_chr_pos, top99q_CpGs), "te_top")  # hv,     in TE
-  te_bg_GR   <- makeGRfromMyCpGPos(setdiff(te_chr_pos,   top99q_CpGs), "te_bg")   # non-hv, in TE
-  
-  te_bound   <- subsetByOverlaps(te_regions, kzfp_bound)
-  te_unbound <- te_regions[!overlapsAny(te_regions, kzfp_bound)]
-  
-  # (a) the single conditional OR — the headline statistic
-  res_cond <- te_or_na(te_bound, te_top_GR, te_bg_GR,
-                       "hv at KZFP-bound vs unbound TE (TE-conditional)")
-  res_cond[, p.adj := p.adjust(pvalue, "BH")]
-  print(res_cond[])
-  #                                                label       pvalue odds_ratio conf_low conf_high        p.adj
-  #   1: hv at KZFP-bound vs unbound TE (TE-conditional) 2.834361e-60   1.106766  1.09347   1.12025 2.834361e-60
-  
-  # (b) bound vs unbound TEs, each vs the genome background (for the plot)
-  res_split <- rbindlist(list(
-    te_or_na(te_bound,   top, bg_only_GR, "TE: KZFP-bound"),
-    te_or_na(te_unbound, top, bg_only_GR, "TE: unbound")))
-  res_split[, p.adj := p.adjust(pvalue, "BH")][, sig := p.adj < 0.05]
-  print(res_split[])
-  #             label        pvalue odds_ratio conf_low conf_high         p.adj    sig
-  # 1: TE: KZFP-bound 5.426718e-134   1.146341 1.134055  1.158678 1.085344e-133   TRUE
-  # 2:    TE: unbound  1.180616e-02   1.011907 1.002622  1.021269  1.180616e-02   TRUE
-  
-  peak_core_te <- te_or_na(subsetByOverlaps(kzfp_bound, te_all),
-                           te_top_GR, te_bg_GR,
-                           "hv at KZFP footprint (TE-conditional)")
-  print(peak_core_te)
-  #                                   label       pvalue odds_ratio  conf_low conf_high
-  # 1: hv at KZFP footprint (TE-conditional) 4.077268e-35  0.9005643 0.8854686 0.9158105
-  
-  ## ============================================================
-  ## 4. TEST 3 — per-factor enrichment (peak-level)
-  ## ============================================================
-  per_kzfp <- rbindlist(lapply(names(peaks_by_factor), function(f)
-    te_or_na(peaks_by_factor[[f]], top, bg_only_GR, f)))
-  per_kzfp[, p.adj  := p.adjust(pvalue, "BH")]
-  per_kzfp[, sig    := p.adj < 0.05]
-  per_kzfp[, log2OR := log2(odds_ratio)]
-  setorder(per_kzfp, -log2OR)
-  print(head(per_kzfp, 25))
-  
-  ## test ZNF808 for Matt
-  per_kzfp[per_kzfp$label %in% "ZNF808",] # not significant
-  
-  ## ============================================================
-  ## 5. PLOTS  (house style: #DC3220 significant, grey60 n.s.)
-  ## ============================================================
+  ## for plots
   sig_cols <- c(`TRUE` = "#DC3220", `FALSE` = "grey60")
   sig_labs <- c(`TRUE` = "FDR < 0.05", `FALSE` = "n.s.")
   
-  ## (1) pooled distance-decay
-  p_shell <- ggplot(res_shell, aes(window, odds_ratio)) +
+  ## load TE info
+  if (!exists("te_regions")) {
+    ah <- AnnotationHub(); rmskhg38 <- ah[["AH111333"]]
+    te_classes <- c("LINE","SINE","LTR","DNA","RC","Retroposon")
+    te_regions <- rmskhg38[mcols(rmskhg38)$repClass %in% te_classes]
+  }
+  if (!exists("te_all")) te_all <- reduce(trim(te_regions))
+  
+  
+  in_te_site <- overlapsAny(kzfp_bound, te_all, ignore.strand = TRUE)
+  grp_peaks  <- list("KZFP in TE"     = kzfp_bound[ in_te_site],
+                     "KZFP not in TE" = kzfp_bound[!in_te_site])
+  message(sprintf("KZFP-bound regions: %d in TE, %d not in TE",
+                  sum(in_te_site), sum(!in_te_site)))
+  # KZFP-bound regions: 877160 in TE, 412604 not in TE
+  
+  # ring breakpoints: 0,2,...,20 kb  -> labels "0-2kb" ... "18-20kb"
+  brk <- seq(0L, 10000L, by = 2000L)
+  ring_labels <- paste0(head(brk,-1)/1000, "-", tail(brk,-1)/1000, "kb")
+  
+  # build the genomic region for one category of one peak set
+  build_region <- function(peaks, cat) {
+    if (cat == "KZFP peak") return(reduce(trim(peaks)))
+    if (cat == "TE body") {                       # element(s) containing the peak, minus the peak
+      tes <- reduce(trim(subsetByOverlaps(te_regions, peaks)))
+      return(GenomicRanges::setdiff(tes, reduce(trim(peaks))))
+    }
+    i     <- match(cat, ring_labels)              # a non-TE flank ring
+    inner <- brk[i]; outer <- brk[i + 1]
+    rng   <- GenomicRanges::setdiff(reduce(trim(peaks + outer)),
+                                    reduce(trim(peaks + inner)))
+    GenomicRanges::setdiff(rng, te_all)           # keep only non-TE flank
+  }
+  
+  ############################################################################## 
+  ## Stage 1: compute the enrichment separately for each KZFP (one log-OR per category per factor)
+  ## Stage 2: combine across the 228 KZFPs with a random-effects meta-analysis per category:
+  ### now each KZFP is one data point, and the pooled CI reflects between-KZFP variability.
+  ##############################################################################
+  
+  ## STAGE 1 — per-factor effect per category (reuses build_region / te_or_na)
+  
+  is_top <- table3layers_coveredIn3dt$chr_pos %in% top99q_CpGs          # top-1% flag per CpG
+  in_te  <- overlapsAny(totalSites_GR, te_all, ignore.strand = TRUE)    # in-TE flag per CpG
+  N_top  <- sum(is_top); N_bg <- sum(!is_top)                           # global 2x2 column totals
+  brk    <- seq(0L, 5000L, by = 1000L)
+  ring_labels <- paste0(head(brk,-1)/1000, "-", tail(brk,-1)/1000, "kb")
+  
+  ## ---- precompute ONCE (factor-independent) ----
+  classify_factor <- function(fac, min_peaks = 30) {
+    pk     <- peaks_by_factor[[fac]]
+    inTEpk <- overlapsAny(pk, te_all, ignore.strand = TRUE)
+    arms   <- list("KZFP in TE" = pk[inTEpk], "KZFP not in TE" = pk[!inTEpk])
+    
+    rbindlist(lapply(names(arms), function(gname) {
+      pks <- arms[[gname]]; if (length(pks) < min_peaks) return(NULL)
+      
+      win <- reduce(trim(pks + 10000L))
+      loc <- which(overlapsAny(totalSites_GR, win, ignore.strand = TRUE))
+      if (!length(loc)) return(NULL)
+      g   <- totalSites_GR[loc]
+      
+      d    <- distanceToNearest(g, pks, ignore.strand = TRUE)
+      dist <- rep(NA_integer_, length(g)); dist[queryHits(d)] <- mcols(d)$distance
+      top  <- is_top[loc]; cpg_inTE <- in_te[loc]
+      
+      cat <- rep(NA_character_, length(g))
+      cat[which(dist == 0)] <- "KZFP peak"
+      if (gname == "KZFP in TE") {
+        te_loc <- subsetByOverlaps(te_regions, win)                       # restrict TEs to window first
+        teb    <- overlapsAny(g, reduce(trim(subsetByOverlaps(te_loc, pks))), ignore.strand = TRUE)
+        cat[is.na(cat) & teb] <- "TE body"
+      }
+      r <- is.na(cat) & !cpg_inTE & !is.na(dist)
+      cat[r] <- as.character(cut(dist[r], breaks = brk, labels = ring_labels,
+                                 right = TRUE, include.lowest = FALSE))
+      k <- !is.na(cat)
+      
+      ## >>> aggregate HERE: return ~6-7 rows, not thousands <<<
+      data.table(category = cat[k], top = top[k])[
+        , .(a = sum(top), c = sum(!top)), by = category][
+          , `:=`(factor = fac, teclass = gname)]
+    }))
+  }
+  
+  ## check
+  classify_factor(facs[1])                       # raw — let it error
+  # or get the messages for the first few:
+  lapply(facs[1:3], function(f) tryCatch(classify_factor(f),
+                                         error = function(e) conditionMessage(e)))
+  
+  ## sequential, memory-safe, with progress + gc
+  facs     <- names(peaks_by_factor)
+  res_list <- vector("list", length(facs))
+  for (i in seq_along(facs)) {
+    res_list[[i]] <- tryCatch(classify_factor(facs[i]), error = function(e) NULL)
+    if (i %% 20 == 0) { message(i, "/", length(facs)); gc(FALSE) }
+  }
+  
+  saveRDS(res_list, file = "../../gitignore/script04_res_list.RDS")
+  
+  counts <- rbindlist(res_list)                 # ~ 228 × 7 rows, tiny
+  
+  counts[, `:=`(b = N_top - a, d = N_bg - c)]
+  counts[, `:=`(a = a + .5, b = b + .5, c = c + .5, d = d + .5)]
+  counts[, `:=`(logOR = log((a*d)/(b*c)), seLogOR = sqrt(1/a + 1/b + 1/c + 1/d))]
+  counts[, `:=`(odds_ratio = exp(logOR),
+                conf_low = exp(logOR - 1.96*seLogOR),
+                conf_high = exp(logOR + 1.96*seLogOR))]
+  all_fac <- counts[is.finite(logOR) & seLogOR > 0]
+  
+  ## STAGE 2 — random-effects meta-analysis per category (KZFP = unit)
+  library(metafor)
+  meta <- all_fac[, {
+    if (.N < 2) {
+      .(OR = NA_real_, OR_lo = NA_real_, OR_hi = NA_real_, p = NA_real_, I2 = NA_real_, k = .N)
+    } else {
+      m <- tryCatch(rma(yi = logOR, sei = seLogOR, data = .SD, method = "REML"),
+                    error = function(e) NULL)
+      if (is.null(m))
+        .(OR = NA_real_, OR_lo = NA_real_, OR_hi = NA_real_, p = NA_real_, I2 = NA_real_, k = .N)
+      else
+        .(OR = exp(m$b[1]), OR_lo = exp(m$ci.lb), OR_hi = exp(m$ci.ub),
+          p = m$pval, I2 = m$I2, k = .N)
+    }
+  }, by = .(teclass, category)]
+  meta[, category := factor(category, levels = c("KZFP peak","TE body", ring_labels))]
+  print(meta[])
+  
+  plotKZFP1 <- ggplot() +
     geom_hline(yintercept = 1, linetype = 3) +
-    geom_errorbar(aes(ymin = conf_low, ymax = conf_high), width = 0.2) +
-    geom_point(aes(colour = sig), size = 3) +
+    geom_jitter(data = all_fac, aes(category, odds_ratio, colour = teclass),
+                width = 0.15, alpha = 0.15, size = 0.6) +                 # each KZFP
+    geom_pointrange(data = meta,
+                    aes(category, OR, ymin = OR_lo, ymax = OR_hi, colour = teclass),
+                    position = position_dodge(0.4), size = 0.7) +         # pooled
+    scale_y_log10() + scale_colour_viridis_d(begin = 1, end = 0, name = NULL) +
+    labs(x = NULL, y = "Odds ratio (per-KZFP; pooled ± 95% CI)",
+         title = "hvCpG enrichment around KZFP sites\n(KZFP as unit of replication)") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  
+  ## ============================================================
+  ## TEST 2 — DECISIVE: hv at KZFP-bound vs unbound TEs
+  ##    (conditional on being in a TE -> TE confound removed)
+  ## ============================================================
+  
+  getTEenrich <- function(region = te_regions){
+    
+    ## map covered CpGs -> TE elements, count hv per element
+    ov  <- findOverlaps(totalSites_GR, region, ignore.strand = TRUE)
+    elt <- data.table(elem = subjectHits(ov), top = is_top[queryHits(ov)])[
+      , .(n_cpg = .N, n_top = sum(top)), by = elem]
+    elt[, bound := overlapsAny(region[elem], kzfp_bound, ignore.strand = TRUE)]
+    elt <- elt[n_cpg >= 3]                               # drop 1–2-CpG elements for stability
+    elt[, bound := factor(bound, levels = c(FALSE, TRUE))]
+    
+    ## element-level test: is being bound associated with a higher hv fraction?
+    fit <- glm(cbind(n_top, n_cpg - n_top) ~ bound, family = quasibinomial, data = elt)
+    print(fit)
+    ci  <- exp(c(coef(fit)["boundTRUE"], confint(fit)["boundTRUE", ]))   # OR + 95% CI
+    print(c(OR = ci[1], lo = ci[2], hi = ci[3], dispersion = summary(fit)$dispersion))
+  }
+  
+  getTEenrich(te_regions)
+  # Call:  glm(formula = cbind(n_top, n_cpg - n_top) ~ bound, family = quasibinomial, 
+  #            data = elt)
+  # 
+  # Coefficients:
+  #   (Intercept)    boundTRUE  
+  # -4.6744       0.1661  
+  # 
+  # Degrees of Freedom: 1412214 Total (i.e. Null);  1412213 Residual
+  # Null Deviance:	    498200 
+  # Residual Deviance: 497700 	AIC: NA
+  
+  # OR.boundTRUE     lo.2.5 %    hi.97.5 %   dispersion 
+  # 1.180691     1.163736     1.197880     1.140992
+  
+  getTEenrich(trim(te_regions + 1000L))
+  # Call:  glm(formula = cbind(n_top, n_cpg - n_top) ~ bound, family = quasibinomial, 
+  #            data = elt)
+  # 
+  # Coefficients:
+  #   (Intercept)    boundTRUE  
+  # -4.5285      -0.1037  
+  # 
+  # Degrees of Freedom: 4297583 Total (i.e. Null);  4297582 Residual
+  # Null Deviance:	    3074000 
+  # Residual Deviance: 3072000 	AIC: NA
+  
+  # OR.boundTRUE     lo.2.5 %    hi.97.5 %   dispersion 
+  # 0.9014714    0.8960980    0.9068818    1.4075377 
+  
+  getTEenrich(trim(te_regions + 2000L))
+  # Call:  glm(formula = cbind(n_top, n_cpg - n_top) ~ bound, family = quasibinomial, 
+  #            data = elt)
+  # 
+  # Coefficients:
+  #   (Intercept)    boundTRUE  
+  # -4.476       -0.159  
+  # 
+  # Degrees of Freedom: 4370271 Total (i.e. Null);  4370270 Residual
+  # Null Deviance:	    4381000 
+  # Residual Deviance: 4377000 	AIC: NA
+  
+  # OR.boundTRUE     lo.2.5 %    hi.97.5 %   dispersion 
+  # 0.8530322    0.8475438    0.8585651    1.5688526 
+  
+  getTEenrich2 <- function(region, min_cpg = 3) {
+    ov  <- findOverlaps(totalSites_GR, region, ignore.strand = TRUE)
+    elt <- data.table(elem = subjectHits(ov), top = is_top[queryHits(ov)])[
+      , .(n_cpg = .N, n_top = sum(top)), by = elem]
+    elt[, bound := overlapsAny(region[elem], kzfp_bound, ignore.strand = TRUE)]
+    elt <- elt[n_cpg >= min_cpg]
+    elt[, bound := factor(bound, levels = c(FALSE, TRUE))]
+    
+    fit <- glm(cbind(n_top, n_cpg - n_top) ~ bound, family = quasibinomial, data = elt)
+    b   <- coef(fit)["boundTRUE"]
+    se  <- summary(fit)$coefficients["boundTRUE", "Std. Error"]      # Wald (fast)
+    data.table(OR = exp(b), lo = exp(b - 1.96*se), hi = exp(b + 1.96*se),
+               dispersion = summary(fit)$dispersion,
+               n_elem = nrow(elt), n_bound = sum(elt$bound == "TRUE"))
+  }
+  
+  windows <- list("TE"     = te_regions,
+                  "TE+1kb" = trim(te_regions + 1000L),
+                  "TE+2kb" = trim(te_regions + 2000L),
+                  "TE+3kb" = trim(te_regions + 3000L))
+  
+  res_te <- rbindlist(Map(function(nm, gr) getTEenrich2(gr)[, window := nm],
+                          names(windows), windows))
+  res_te[, window := factor(window, levels = names(windows))]
+  res_te[, sig := lo > 1 | hi < 1]                                   # CI excludes OR = 1
+  print(res_te[])
+  
+  p_teElem <- ggplot(res_te, aes(window, OR)) +
+    geom_hline(yintercept = 1, linetype = 3) +
+    geom_pointrange(aes(ymin = lo, ymax = hi, colour = sig), size = 0.8) +
     scale_colour_manual(values = sig_cols, labels = sig_labs, name = NULL) +
     scale_y_log10() +
-    labs(x = NULL, y = "Odds ratio (top1% hvCpG vs background)",
-         title = "hvCpG enrichment at KZFP binding sites, by distance") +
-    theme_minimal(base_size = 12)
+    labs(x = NULL,
+         y = "OR: hv fraction, KZFP-bound vs unbound\n(element-level, quasibinomial)",
+         title = "hvCpG in KZFP-bound vs unbound TEs\nby window around the element") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
   
-  ## (2) bound vs unbound TE
-  res_split[, label := factor(label, levels = c("TE: unbound", "TE: KZFP-bound"))]
-  p_split <- ggplot(res_split, aes(odds_ratio, label)) +
-    geom_vline(xintercept = 1, linetype = 3) +
-    geom_errorbar(aes(xmin = conf_low, xmax = conf_high), height = 0.2, orientation = "y") +
-    geom_point(aes(colour = sig), size = 3) +
-    scale_colour_manual(values = sig_cols, labels = sig_labs, name = NULL) +
-    scale_x_log10() +
-    labs(x = "Odds ratio (vs background)", y = NULL,
-         title = "hvCpG enrichment: KZFP-bound vs unbound TEs",
-         subtitle = sprintf("TE-conditional OR = %.2f (FDR %.1e)",
-                            res_cond$odds_ratio, res_cond$p.adj)) +
-    theme_minimal(base_size = 12)
+  if (requireNamespace("cowplot", quietly = TRUE)) {
+    fig <- cowplot::plot_grid(plotKZFP1, p_teElem, ncol = 2, rel_widths = c(2, 1),
+                              labels = c("A", "B"))
+    ggplot2::ggsave(
+      here("B_MultiTissues/dataOut/figures/script04/KZFP_TE_elementLevel.png"),
+      fig, width = 14, height = 5, dpi = 300, bg = "white")
+  }
+  saveRDS(res_te, here(paste0("gitignore/KZFP_TEelement_", variant, ".RDS")))
   
-  ## (3) per-factor forest — most extreme factors for legibility
-  N_SHOW   <- 30
-  show_fac <- rbind(head(per_kzfp, N_SHOW), tail(per_kzfp, 5))   # top enriched + a few depleted
-  show_fac <- unique(show_fac)
-  show_fac[, label := factor(label, levels = label[order(log2OR)])]
-  p_fac <- ggplot(show_fac, aes(odds_ratio, label)) +
-    geom_vline(xintercept = 1, linetype = 3) +
-    geom_errorbar(aes(xmin = conf_low, xmax = conf_high), height = 0.3, orientation = "y") +
-    geom_point(aes(colour = sig), size = 2.5) +
-    scale_colour_manual(values = sig_cols, labels = sig_labs, name = NULL) +
-    scale_x_log10() +
-    labs(x = "Odds ratio (top1% hvCpG vs background)", y = NULL) +
-    theme_minimal(base_size = 10)
+  
+  
+  
+  
+  
+  
+  
+  # te_all     <- reduce(trim(te_regions))
+  # in_te      <- overlapsAny(totalSites_GR, te_all, ignore.strand = TRUE)  # same order as chr_pos
+  # te_chr_pos <- table3layers_coveredIn3dt$chr_pos[in_te]
+  # 
+  # te_top_GR  <- makeGRfromMyCpGPos(intersect(te_chr_pos, top99q_CpGs), "te_top")  # hv,     in TE
+  # te_bg_GR   <- makeGRfromMyCpGPos(setdiff(te_chr_pos,   top99q_CpGs), "te_bg")   # non-hv, in TE
+  # 
+  # te_bound   <- subsetByOverlaps(te_regions, kzfp_bound)
+  # te_unbound <- te_regions[!overlapsAny(te_regions, kzfp_bound)]
+  # 
+  # # (a) the single conditional OR — the headline statistic
+  # res_cond <- te_or_na(te_bound, te_top_GR, te_bg_GR,
+  #                      "hv at KZFP-bound vs unbound TE (TE-conditional)")
+  # res_cond[, p.adj := p.adjust(pvalue, "BH")]
+  # print(res_cond[])
+  # #                                                label       pvalue odds_ratio conf_low conf_high        p.adj
+  # #   1: hv at KZFP-bound vs unbound TE (TE-conditional) 2.834361e-60   1.106766  1.09347   1.12025 2.834361e-60
+  # 
+  # # (b) bound vs unbound TEs, each vs the genome background (for the plot)
+  # res_split <- rbindlist(list(
+  #   te_or_na(te_bound,   top99q_CpGs_GR, bg_only_GR, "TE: KZFP-bound"),
+  #   te_or_na(te_unbound, top99q_CpGs_GR, bg_only_GR, "TE: unbound")))
+  # res_split[, p.adj := p.adjust(pvalue, "BH")][, sig := p.adj < 0.05]
+  # print(res_split[])
+  # #             label        pvalue odds_ratio conf_low conf_high         p.adj    sig
+  # # 1: TE: KZFP-bound 5.426718e-134   1.146341 1.134055  1.158678 1.085344e-133   TRUE
+  # # 2:    TE: unbound  1.180616e-02   1.011907 1.002622  1.021269  1.180616e-02   TRUE
+  # 
+  # peak_core_te <- te_or_na(subsetByOverlaps(kzfp_bound, te_all),
+  #                          te_top_GR, te_bg_GR,
+  #                          "hv at KZFP footprint (TE-conditional)")
+  # print(peak_core_te)
+  # #                                   label       pvalue odds_ratio  conf_low conf_high
+  # # 1: hv at KZFP footprint (TE-conditional) 4.077268e-35  0.9005643 0.8854686 0.9158105
+  # 
+  # ## ============================================================
+  # ## TEST 2b — same, but on TE + 1 kb (element extended ±1 kb)
+  # ## ============================================================
+  # te1k         <- trim(te_regions + 1000L)                      # TE ± 1 kb
+  # te1k_bound   <- te1k[ overlapsAny(te1k, kzfp_bound, ignore.strand = TRUE)]
+  # te1k_unbound <- te1k[!overlapsAny(te1k, kzfp_bound, ignore.strand = TRUE)]
+  # 
+  # # conditional universe = CpGs within TE+1kb
+  # in_te1k      <- overlapsAny(totalSites_GR, reduce(te1k), ignore.strand = TRUE)
+  # te1k_chr_pos <- table3layers_coveredIn3dt$chr_pos[in_te1k]
+  # te1k_top_GR  <- makeGRfromMyCpGPos(intersect(te1k_chr_pos, top99q_CpGs), "te1k_top")
+  # te1k_bg_GR   <- makeGRfromMyCpGPos(setdiff(te1k_chr_pos,   top99q_CpGs), "te1k_bg")
+  # 
+  # # (a) conditional OR
+  # res_cond_1k <- te_or_na(te1k_bound, te1k_top_GR, te1k_bg_GR,
+  #                         "hv at KZFP-bound vs unbound TE+1kb (conditional)")
+  # res_cond_1k[, p.adj := p.adjust(pvalue, "BH")]
+  # print(res_cond_1k[])
+  # #                                               label      pvalue odds_ratio  conf_low conf_high       p.adj
+  # # 1: hv at KZFP-bound vs unbound TE+1kb (conditional) 7.614849e-65  0.8979398 0.8870517 0.9090427 7.614849e-65
+  # 
+  # # (b) bound vs unbound TE+1kb, each vs genome background
+  # res_split_1k <- rbindlist(list(
+  #   te_or_na(te1k_bound,   top99q_CpGs_GR, bg_only_GR, "TE+1kb: KZFP-bound"),
+  #   te_or_na(te1k_unbound, top99q_CpGs_GR, bg_only_GR, "TE+1kb: unbound")))
+  # res_split_1k[, p.adj := p.adjust(pvalue, "BH")][, sig := p.adj < 0.05]
+  # print(res_split_1k[])
+  # #                 label        pvalue odds_ratio  conf_low conf_high         p.adj    sig
+  # # 1: TE+1kb: KZFP-bound  3.716967e-01  0.9950087 0.9841607  1.005987  3.716967e-01  FALSE
+  # # 2:    TE+1kb: unbound 1.079083e-160  1.1319378 1.1218329  1.142142 2.158166e-160   TRUE
+  # 
+  # # 1: TE+1kb: KZFP-bound  7.082091e-15  0.8976515 0.8739582 0.9221445  7.082091e-15   TRUE
+  # # 2:    TE+1kb: unbound 1.296782e-200  1.2171632 1.2020396 1.2324433 2.593564e-200   TRUE
+  # 
+  # ## ============================================================
+  # ## 4. PLOTS  (house style: #DC3220 significant, grey60 n.s.)
+  # ## ============================================================
+  # 
+  # ## (1) pooled distance-decay
+  # p_shell <- ggplot(res_shell, aes(window, odds_ratio)) +
+  #   geom_hline(yintercept = 1, linetype = 3) +
+  #   geom_errorbar(aes(ymin = conf_low, ymax = conf_high), width = 0.2) +
+  #   geom_point(aes(colour = sig), size = 3) +
+  #   scale_colour_manual(values = sig_cols, labels = sig_labs, name = NULL) +
+  #   scale_y_log10() +
+  #   labs(x = NULL, y = "Odds ratio (top1% hvCpG vs background)",
+  #        title = "hvCpG enrichment at KZFP binding sites\nby distance from peak") +
+  #   theme_minimal(base_size = 12) +
+  #   theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  # 
+  # p_anat <- ggplot(res_anat,
+  #                  aes(category, odds_ratio, colour = teclass, group = teclass)) +
+  #   geom_hline(yintercept = 1, linetype = 3) +
+  #   geom_line(position = position_dodge(0.3)) +
+  #   geom_errorbar(aes(ymin = conf_low, ymax = conf_high),
+  #                 width = 0.2, position = position_dodge(0.3)) +
+  #   geom_point(aes(shape = sig), col = "black", size = 3, position = position_dodge(0.3)) +
+  #   scale_colour_viridis_d(name = NULL,begin = 1, end = 0) +
+  #   scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1), labels = sig_labs, name = NULL) +
+  #   labs(x = NULL, y = "Odds ratio (top1% hvCpG vs background)",
+  #        title = "hvCpG enrichment around KZFP sites:\nfootprint, TE body, and (non-TE) flanks") +
+  #   theme_minimal(base_size = 12) +
+  #   theme(axis.text.x = element_text(angle = 30, hjust = 1),
+  #         legend.position = "inside", legend.position.inside = c(0.9, 0.5),
+  #         legend.justification = c("right", "top"),
+  #         legend.background = element_rect(fill = "white", colour = "black",
+  #                                          linewidth = 0.4), legend.margin = margin(5, 5, 5, 5))
+  # 
+  # ## (2) bound vs unbound TE
+  # ## combined plot: TE vs TE+1kb, bound vs unbound
+  # res_split[,    window := "TE"]
+  # res_split_1k[, window := "TE + 1 kb"]
+  # res_both <- rbind(res_split, res_split_1k)
+  # res_both[, bound  := ifelse(grepl("unbound", label), "unbound", "KZFP-bound")]
+  # res_both[, bound  := factor(bound,  levels = c("unbound", "KZFP-bound"))]
+  # res_both[, window := factor(window, levels = c("TE", "TE + 1 kb"))]
+  # 
+  # p_split_both <- ggplot(res_both, aes(odds_ratio, bound, colour = sig)) +
+  #   geom_vline(xintercept = 1, linetype = 3) +
+  #   geom_errorbar(aes(xmin = conf_low, xmax = conf_high), height = 0.2, orientation = "y") +
+  #   geom_point(size = 3) +
+  #   facet_wrap(~ window, ncol = 1) +
+  #   scale_colour_manual(values = sig_cols, labels = sig_labs, name = NULL) +
+  #   scale_x_log10() +
+  #   labs(x = "Odds ratio (vs background)", y = NULL,
+  #        title = "hvCpG enrichment: KZFP-bound vs unbound TEs",
+  #        subtitle = sprintf("conditional OR  —  TE: %.2f (FDR %.1e)   |   TE+1kb: %.2f (FDR %.1e)",
+  #                           res_cond$odds_ratio, res_cond$p.adj,
+  #                           res_cond_1k$odds_ratio, res_cond_1k$p.adj)) +
+  #   theme_minimal(base_size = 12)
+  # 
   
   ## assemble if cowplot is available
   if (requireNamespace("cowplot", quietly = TRUE)) {
-    fig <- cowplot::plot_grid(
-      cowplot::plot_grid(p_shell, p_split, ncol = 1, rel_heights = c(1, 0.8)),
-      p_fac, ncol = 2, rel_widths = c(1, 1))
+    fig <- cowplot::plot_grid(p_shell, p_anat, p_split, ncol = 3)
     ggplot2::ggsave(
       here("B_MultiTissues/dataOut/figures/script04/KZFP_bindingSite_enrichment.png"),
-      fig, width = 12, height = 8, dpi = 300, bg = "white")
+      fig, width = 16, height = 4, dpi = 300, bg = "white")
   }
   
   ## ============================================================
   ## 6. SAVE
   ## ============================================================
-  saveRDS(list(res_shell = res_shell, res_cond = res_cond, res_split = res_split,
-               per_kzfp = per_kzfp, n_factors = length(peaks_by_factor)),
+  saveRDS(list(res_shell = res_shell, res_anat = res_anat, res_split = res_split,
+               n_factors = length(peaks_by_factor)),
           here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))
-  saveRDS(list(p_shell = p_shell, p_split = p_split, p_fac = p_fac),
+  saveRDS(list(p_shell = p_shell, p_split = p_split, p_anat = p_anat),
           here(paste0("gitignore/KZFP_bindingSite_plots_", variant, ".RDS")))
+  
+  ##############################################################################
+  ## Bonus: test Matt's KZFP of interest
+  plot_one_kzfp <- function(fac, peaks_by_factor, min_peaks = 50) {
+    stopifnot(fac %in% names(peaks_by_factor))
+    pk_all <- peaks_by_factor[[fac]]
+    in_te  <- overlapsAny(pk_all, te_all, ignore.strand = TRUE)
+    grp    <- list("KZFP in TE" = pk_all[in_te], "KZFP not in TE" = pk_all[!in_te])
+    message(sprintf("%s: %d peaks (%d in TE, %d not in TE)",
+                    fac, length(pk_all), sum(in_te), sum(!in_te)))
+    
+    gcats <- list("KZFP in TE"     = c("KZFP peak", "TE body", ring_labels),
+                  "KZFP not in TE" = c("KZFP peak",            ring_labels))
+    
+    res <- rbindlist(lapply(names(grp), function(g) {
+      pk <- grp[[g]]
+      if (length(pk) < min_peaks) return(NULL)          # skip an arm with too few peaks
+      rbindlist(lapply(gcats[[g]], function(cat) {
+        dt <- te_or_na(build_region(pk, cat), top99q_CpGs_GR, bg_only_GR, label = g)
+        dt[, `:=`(category = cat, teclass = g)]; dt
+      }))
+    }))
+    if (!nrow(res)) { message(fac, ": too few peaks"); return(NULL) }
+    
+    res[, category := factor(category, levels = c("KZFP peak", "TE body", ring_labels))]
+    res[, p.adj := p.adjust(pvalue, "BH")][, sig := p.adj < 0.05][, log2OR := log2(odds_ratio)]
+    
+    ggplot(res, aes(category, odds_ratio, colour = teclass, group = teclass)) +
+      geom_hline(yintercept = 1, linetype = 3) +
+      geom_line(position = position_dodge(0.3)) +
+      geom_errorbar(aes(ymin = conf_low, ymax = conf_high),
+                    width = 0.2, position = position_dodge(0.3)) +
+      geom_point(aes(shape = sig), size = 3, col = "black", position = position_dodge(0.3)) +
+      scale_colour_viridis_d(name = NULL, begin = 1, end = 0) +
+      scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1), labels = sig_labs, name = NULL) +
+      # scale_y_log10() +
+      labs(x = NULL, y = "Odds ratio (top1% hvCpG vs background)",
+           title = sprintf("%s: hvCpG around binding sites (binding, TE body, flanks)", fac)) +
+      theme_minimal(base_size = 12) +
+      theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  }
+  
+  p_ZNF808 <- plot_one_kzfp("ZNF808", peaks_by_factor) # ZNF808: 3408 peaks (2486 in TE, 922 not in TE)
+  p_ZNF808
 }
 
 #################################
@@ -1083,22 +1386,22 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariabilit
   
   KZFPPlots <- readRDS(here(paste0("gitignore/KZFP_bindingSite_plots_", variant, ".RDS")))
   row3 <- plot_grid(KZFPPlots$p_shell+ labs(x = NULL, y = "Odds ratio\n(top1% hvCpG vs background)"),
-                    KZFPPlots$p_split, ncol = 2,
-                    labels = c("E", "F"))
+                    KZFPPlots$p_anat, KZFPPlots$p_split, 
+                    ncol = 3, labels = c("E", "F", "G"))
   
   ggplot2::ggsave(
     filename = here::here(
       "B_MultiTissues/dataOut/figures/script04/MappingVariability.pdf"),
     plot = plot_grid(
-      row1 , row2, row3, nrow = 3, rel_heights = c(1,2,1)),
-    width = 15, height = 12, dpi = 300, bg = "white")
+      row1 , row2, row3, nrow = 3, rel_heights = c(.7,1.3,1)),
+    width = 17, height = 12, dpi = 300, bg = "white")
   
   ggplot2::ggsave(
     filename = here::here(
       "B_MultiTissues/dataOut/figures/script04/MappingVariability.png"),
     plot = plot_grid(
-      row1 , row2, row3, nrow = 3, rel_heights = c(1,2,1)),
-    width = 15, height = 12, dpi = 300, bg = "white")
+      row1 , row2, row3, nrow = 3, rel_heights = c(.7,1.3,1)),
+    width = 18, height = 12, dpi = 300, bg = "white")
 }
 
 #######################
@@ -1438,7 +1741,7 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
     mutate(quadrant_ord = reorder(quadrant, log2OR)) %>%
     ungroup()
   
- plot_top99qCpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
+  plot_top99qCpGsEnrichME <- ggplot(res_plot2, aes(x = quadrant_ord, y = log2OR, fill = signif)) +
     geom_col(width = 0.8) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
     scale_fill_manual(values = c("black", "grey")) +
@@ -1547,45 +1850,45 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithprevio
     label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1)
   
   row2 <- plot_grid(pdecay + fig_theme +
-              theme(legend.position = "inside",
-                    legend.position.inside = c(.7, .6),
-                    legend.justification = c(0, 0),
-                    legend.background = element_rect(fill = "white", colour = "black", linewidth = 0.3)),
-            
-            pinterlayer_corr + fig_theme +
-              theme(axis.text.x = element_text(angle = 30, hjust = 1),
-                    axis.title.x = element_blank(), legend.position = "none"),
-            ncol = 2, labels = c("C", "D"),
-            label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1)
-
- row3 <- plot_grid(
+                      theme(legend.position = "inside",
+                            legend.position.inside = c(.7, .6),
+                            legend.justification = c(0, 0),
+                            legend.background = element_rect(fill = "white", colour = "black", linewidth = 0.3)),
+                    
+                    pinterlayer_corr + fig_theme +
+                      theme(axis.text.x = element_text(angle = 30, hjust = 1),
+                            axis.title.x = element_blank(), legend.position = "none"),
+                    ncol = 2, labels = c("C", "D"),
+                    label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1)
+  
+  row3 <- plot_grid(
     pinterindividual_var + fig_theme + labs(fill = "CpG set") ,
     pbinned + fig_theme +
       theme(axis.text.x = element_text(angle = 30, hjust = 1)) +
       labs(colour = "CpG set", fill = "CpG set") ,
     ncol = 2, align = "v", labels = c("E", "F"),
     label_size = 16, label_x = 0, hjust = 0, label_y = 0.98, vjust = 1)
-
-final_plot <- plot_grid(row1, row2, row3, ncol = 1) +
-  theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10))
-
-## Titles:
-# A. Distribution of the hypervariability score for each CpG set
-# B. Comparison of previous CpG set groups to mQTLcontrols
-# C. Decay curve of hypervariability score per percentile
-# D. Mean inter-germ-layer correlation for each CpG set
-# E. Densities of interindividual variation per CpG (fetal data), by set
-# F. Inter-germ-layer correlation per interindividual variation, binned
-
-ggplot2::ggsave(
-  filename = here::here(
-    "B_MultiTissues/dataOut/figures/script04/CompareWithpreviousMEs.pdf"),
-  plot = final_plot, width = 20, height = 16,  dpi = 300, bg = "white")
-
-ggplot2::ggsave(
-  filename = here::here(
-    "B_MultiTissues/dataOut/figures/script04/CompareWithpreviousMEs.png"),
-  plot = final_plot, width = 20, height = 16,  dpi = 300, bg = "white")
+  
+  final_plot <- plot_grid(row1, row2, row3, ncol = 1) +
+    theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10))
+  
+  ## Titles:
+  # A. Distribution of the hypervariability score for each CpG set
+  # B. Comparison of previous CpG set groups to mQTLcontrols
+  # C. Decay curve of hypervariability score per percentile
+  # D. Mean inter-germ-layer correlation for each CpG set
+  # E. Densities of interindividual variation per CpG (fetal data), by set
+  # F. Inter-germ-layer correlation per interindividual variation, binned
+  
+  ggplot2::ggsave(
+    filename = here::here(
+      "B_MultiTissues/dataOut/figures/script04/CompareWithpreviousMEs.pdf"),
+    plot = final_plot, width = 20, height = 16,  dpi = 300, bg = "white")
+  
+  ggplot2::ggsave(
+    filename = here::here(
+      "B_MultiTissues/dataOut/figures/script04/CompareWithpreviousMEs.png"),
+    plot = final_plot, width = 20, height = 16,  dpi = 300, bg = "white")
 }
 
 ############################################################
@@ -1697,7 +2000,81 @@ tab <- summary_df %>%
   )
 
 gtsave(tab,
-  filename = here("B_MultiTissues/dataOut/figures/script04/topCpGsEnrichME_table.pdf"))
+       filename = here("B_MultiTissues/dataOut/figures/script04/topCpGsEnrichME_table.pdf"))
+
+#############################################################################
+## Are Kessler Season of Conception CpGs enriched in hyper variable sites? ##
+#############################################################################
+
+# SoCCpGs_hg38 in prepPreviousSIV.R
+if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/SoC_enrichment.pdf"))) {
+  
+  ## chr-prefixed seqlevels on the covered-CpG object (as elsewhere)
+  if (sum(grepl("chr", seqlevels(table3layers_coveredIn3))) == 0)
+    seqlevels(table3layers_coveredIn3) <- paste0("chr", seqlevels(table3layers_coveredIn3))
+  
+  ## GRanges of the sets, on the same covered-in-3 universe
+  SoC_GR         <- makeGRfromMyCpGPos(SoCCpGs_hg38,      "Silver SoC")
+  ctrl_GR        <- makeGRfromMyCpGPos(mQTLcontrols_hg38, "mQTLcontrols")
+  top99q_CpGs_GR <- makeGRfromMyCpGPos(top99q_CpGs,       "top99q")
+  bg_only_GR     <- makeGRfromMyCpGPos(
+    setdiff(table3layers_coveredIn3dt$chr_pos, top99q_CpGs), "bg_only")
+  
+  ## ===================== TEST =====================
+  ## Are the top 1% hvCpGs over-represented at SoC CpGs vs background?
+  ## (same 2x2 overlap logic as the TE / KZFP enrichment tests)
+  SoC_fisher <- fisher_test_te(SoC_GR, top99q_CpGs_GR, bg_only_GR,
+                               label = "SoC", nameTarget = "top99q")
+  print(SoC_fisher$contingency)
+  #            in_SoC not_in_SoC
+  # top99q          2     202465
+  # background    119   20044093
+  message(sprintf("SoC enrichment among top1%% hvCpG: OR = %.2f (%.2f-%.2f), p = %.2e",
+                  SoC_fisher$odds_ratio, SoC_fisher$conf_low,
+                  SoC_fisher$conf_high, SoC_fisher$pvalue))
+  # SoC enrichment among top1% hvCpG: OR = 1.66 (0.20-6.14), p = 3.41e-01
+  
+  ## ===================== Score distribution (for the plot) =====================
+  SoCsetdt <- make_MEsetdt(list(mQTLcontrols = ctrl_GR, `Silver SoC` = SoC_GR),
+                           GR = table3layers_coveredIn3)
+  SoCsetdt <- rbind(SoCsetdt,
+                    data.table(logBF_per_ds = table3layers_coveredIn3$logBF_per_ds_allLayers,
+                               ME = "background"))
+  SoCsetdt <- na.omit(SoCsetdt)
+  SoCsetdt[, ME := factor(ME, levels = c("background", "mQTLcontrols", "Silver SoC"))]
+  
+  ## secondary test on the scores: SoC vs mQTLcontrols
+  w <- wilcox.test(logBF_per_ds ~ ME,
+                   data = SoCsetdt[ME %in% c("mQTLcontrols", "Silver SoC")])
+  
+  nlab <- SoCsetdt[, .(n = .N), by = ME][, y := max(SoCsetdt$logBF_per_ds, na.rm = TRUE)]
+  cols <- c(background = "#999999", mQTLcontrols = "#000000",
+            `Silver SoC` = RColorBrewer::brewer.pal(8, "Set2")[2])
+  
+  pSoC <- ggplot(SoCsetdt, aes(ME, logBF_per_ds)) +
+    geom_violin(aes(colour = ME)) +
+    geom_boxplot(aes(colour = ME), width = .1, outlier.size = .3) +
+    geom_text(data = nlab, aes(ME, y, label = format(n, big.mark = ",")),
+              vjust = -0.4, size = 4, fontface = "bold") +
+    scale_colour_manual(values = cols) +
+    scale_y_continuous(expand = expansion(mult = c(.05, .12))) +
+    theme_minimal(base_size = 14) +
+    theme(legend.position = "none", axis.title.x = element_blank()) +
+    labs(y = "Hypervariability score",
+         title = "Season-of-Conception CpGs (Silver 2022) vs controls",
+         subtitle = sprintf(
+           "top1%% hvCpG enrichment at SoC: OR = %.2f (%.2f-%.2f), p = %.1e   \n   SoC vs mQTLcontrols: Wilcoxon p = %.1e",
+           SoC_fisher$odds_ratio, SoC_fisher$conf_low, SoC_fisher$conf_high,
+           SoC_fisher$pvalue, w$p.value))
+  
+  ggsave(here("B_MultiTissues/dataOut/figures/script04/SoC_enrichment.pdf"),
+         pSoC, width = 8, height = 6, dpi = 300, bg = "white")
+  ggsave(here("B_MultiTissues/dataOut/figures/script04/SoC_enrichment.png"),
+         pSoC, width = 8, height = 6, dpi = 300, bg = "white")
+  
+  saveRDS(list(SoC_fisher = SoC_fisher, wilcox = w, SoCsetdt = SoCsetdt, plot = pSoC),
+          here(paste0("gitignore/SoC_enrichment_", variant, ".RDS")))
+}
 
 ######################################################################
 ## Check enrichement of telomeres and centromeres for high geomMean ##
