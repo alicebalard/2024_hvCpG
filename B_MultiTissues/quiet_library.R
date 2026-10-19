@@ -30,7 +30,7 @@ bioc_packages <- c(
   "IlluminaHumanMethylationEPICanno.ilm10b4.hg19",
   "GenomicRanges", "IRanges", "GenomicFeatures",
   "TxDb.Hsapiens.UCSC.hg38.knownGene",
-  "GSEABase",
+  "GSEABase", "GenomeInfoDb",
   "methylKit", 
   # Enrichment
   "rGREAT", "simplifyEnrichment", "org.Hs.eg.db", "BioMartGOGeneSets",
