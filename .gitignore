@@ -15,3 +15,4 @@ B_MultiTissues/resultsDir_gitIgnored/
 
 ## Matt's data
 B_MultiTissues/dataIn/DEGCAGS_intersect_repeats_Alice_withalpha_GITIGNORE.xlsx
+B_MultiTissues/01_dataPrep/__pycache__
