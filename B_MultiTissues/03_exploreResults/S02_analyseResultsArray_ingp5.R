@@ -263,6 +263,14 @@ ggplot2::ggsave(
 ################################################################################
 makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
                            label = "logBF per ds", shift = TRUE){
+  myblue="#0042FF"
+  myred="#E00404"
+  
+  BASE <- 14
+  fig_theme <- theme_minimal(base_size = BASE) +
+    theme(axis.title  = element_text(size = BASE),
+          axis.text   = element_text(size = BASE - 1),
+          legend.text = element_text(size = BASE))
   
   setDT(resArray)
   if (shift){
@@ -292,38 +300,28 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
     # background cloud: alternating grey per chromosome
     geom_point(data = resArray[is.na(group)],
                aes(x = cum_pos, y = .data[["score_shifted"]], colour = parity),
-               alpha = .4, size = .8) +
+               alpha = .05, size = .8) +
     scale_colour_manual(values = band_cols, na.translate = FALSE, guide = "none") +
     # highlighted sets keep their own colour scale
     ggnewscale::new_scale_colour() +
     geom_point(data = resArray[!is.na(group)],
-               aes(x = cum_pos, y = .data[["score_shifted"]], colour = group), alpha = .6, size = 1) +
-    scale_colour_manual(values = c("hvCpG_Derakhshan" = "#DC3220",
-                                   "mQTLcontrols"     = "#005AB5"),
+               aes(x = cum_pos, y = .data[["score_shifted"]], colour = group), alpha = 1, size = 1) +
+    scale_colour_manual(values = c("hvCpG_Derakhshan" = myred,
+                                   "mQTLcontrols"     = myblue),
                         labels = c("hvCpG_Derakhshan" = "Derakhshan hvCpG",
                                    "mQTLcontrols"     = "mQTL controls")) +
     scale_x_continuous(breaks = chr_tab$mid,
                        labels = gsub("chr", "", chr_tab$chr), expand = c(0, 0)) +
-    theme_minimal(base_size = 14) +
+    fig_theme +
     guides(colour = guide_legend(override.aes = list(size = 5, alpha = 1))) +
-    labs(x = "Chromosome", y = score) +
+    labs(x = "Chromosome", y = "Hypervariability score") +
     theme(legend.position            = "inside",
           legend.position.inside      = c(0.9, 1.15),
           legend.justification.inside = c(1, 1),
           plot.margin  = margin(t = 40, r = 5, b = 5, l = 5),
           legend.title = element_blank(),
-          legend.text  = element_text(size = 14),
+          legend.text  = element_text(size = BASE),
           legend.background = element_rect(linewidth = 0.5, linetype = "blank", colour = "black"))
-  
-  if (shift){
-    p1_manhattanArray <-
-      p1_manhattanArray +
-      ylab(paste0(label, " shifted to start at zero"))
-  } else {
-    p1_manhattanArray <-
-      p1_manhattanArray +
-      ylab(paste0(label))
-  }
   
   ###################################################################
   ## Calculate proba hvCpG minus matching control: is it always +? ##
@@ -353,40 +351,20 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
   
   p2_DiffProbhvCpG_matchingcontrol_Array <-
     ggplot(merged, aes(x="", y=diffscore))+
-    geom_jitter(data=merged[merged$diffscore>=0,], col="black", alpha=.3)+
-    geom_jitter(data=merged[merged$diffscore<0,], fill="yellow",col="black",
-                pch=21, alpha=.5)+
+    geom_jitter(data=merged, col="black", alpha=.2, size =2)+
     geom_violin(width=.5, fill = "grey", alpha=.8) +
     geom_boxplot(width=0.1, color="black", fill = "grey", alpha=0.8) +
-    theme_minimal(base_size = 11)+
-    theme(axis.title.x = element_blank(), axis.text.x = element_blank())
-  
-  if (shift){
-    p2_DiffProbhvCpG_matchingcontrol_Array <-
-      p2_DiffProbhvCpG_matchingcontrol_Array +
-      ylab(paste0("Difference of ", label, " shifted to start at zero"))
-  } else {
-    p2_DiffProbhvCpG_matchingcontrol_Array <-
-      p2_DiffProbhvCpG_matchingcontrol_Array +
-      ylab(paste0("Difference of ", label))
-  }
-  
+    geom_hline(yintercept = 0, col = "red", style = 3) +
+    fig_theme +
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank()) +
+    ylab(paste0("Difference of hypervariability scores\nbetween hvCpGs and mQTL controls"))
+  ## NB: shifted to start at zero
   ###############################
   ## Make figure of array test ##
   ###############################
   
   lab <- list(size = 14, x = 0.01, y = 0.99, hjust = 0, vjust = 1)
   mg  <- theme(plot.margin = margin(15, 5, 5, 5))
-  
-  row1 <- cowplot::plot_grid(
-    p1_manhattanArray + theme(plot.margin = margin(40, 5, 5, 5)),
-    p2_DiffProbhvCpG_matchingcontrol_Array + theme(plot.margin = margin(50, 5, 5, 5)),
-    ncol = 2, rel_widths = c(4, 1),
-    labels = c("A. Detection of highly variable CpGs with both methods",
-               "B. Difference of score between\nDerakhshan hvCpGs and\nmatching controls"),
-    label_size = lab$size, label_x = lab$x, label_y = lab$y,
-    hjust = lab$hjust, vjust = lab$vjust)
-  row1
   
   ################################################################
   ## Load full results on array with only 2 or 3 individuals/ds ##
@@ -403,17 +381,18 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
            aes(x = logBF_per_ds_array_all, y = logBF_per_ds_array_reduce)) +
       geom_point(data = resCompArray[is.na(resCompArray$group),], aes(col = group), alpha = 0.01) +
       geom_point(data = resCompArray[!is.na(resCompArray$group),], aes(col = group), alpha = 0.4) +
-      geom_smooth(method = "lm", fill = "grey", col = "grey") +
-      scale_color_manual(values = c("#DC3220", "#005AB5", "grey"),
+      geom_smooth(method = "lm", fill = "grey", col = "black") +
+      geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "black") +
+      scale_color_manual(values = c(myred, myblue, "grey"),
                          labels = c("hvCpG (Derakhshan)", "mQTL controls", "background")) +
       # anchor annotation to data corner, not to 0.5/0.9
       annotate("text", x = xr[1], y = yr[2], hjust = 0, vjust = 1,
-               label = sprintf("Pearson r = %.2f", mycor)) +
+               label = sprintf("Pearson r = %.2f", mycor), size = 5) +
       coord_cartesian(xlim = xr, ylim = yr) +          # explicit, data-driven — nothing clipped
-      theme_minimal(base_size = 14) +
+      fig_theme +
       theme(legend.title = element_blank()) +
-      labs(x = "Hypervariability score, full datasets",
-           y = sprintf("Hypervariability score, reduced (%d ind/ds)", N))
+      labs(x = "Hypervariability score\n(full datasets)",
+           y = sprintf("Hypervariability score\n(reduced datasets, %d ind/ds)", N))
   }
   
   resArray3ind <- as.data.frame(readRDS(here(paste0(
@@ -495,16 +474,25 @@ makeScript2Fig <- function(resArray, path, p0p1, score = "logBF_per_ds",
   )
   recovery$pct_recovered <- round(100 * recovery$n_recovered / recovery$n_full, 1)
   print(recovery)
-  row2_2 <- cowplot::plot_grid(
-    p2ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
-    p3ind + theme_minimal(base_size = 11) + theme(legend.position = "none") + mg,
-    labels = c("C. Bayesian: full vs 2 ind/ds", "D. Bayesian: full vs 3 ind/ds"), nrow = 1,
+  
+  # ── top row: A (Manhattan, wide) ──
+  top <- cowplot::plot_grid(
+    p1_manhattanArray + theme(plot.margin = margin(40, 5, 5, 5)),
+    labels = c("A"),
     label_size = lab$size, label_x = lab$x, label_y = lab$y,
     hjust = lab$hjust, vjust = lab$vjust)
   
-  row2 <- cowplot::plot_grid(row2_2)
+  # ── bottom row: B (violin, narrow) + C + D (equal width) ──
+  bottom <- cowplot::plot_grid(
+    p2_DiffProbhvCpG_matchingcontrol_Array + theme(plot.margin = margin(40, 5, 5, 5)),
+    p2ind + theme(legend.position = "none") + mg,
+    p3ind + theme(legend.position = "none") + mg,
+    ncol = 3, rel_widths = c(1.3,2,2),
+    labels = c("B", "C", "D"),
+    label_size = lab$size, label_x = lab$x, label_y = lab$y,
+    hjust = lab$hjust, vjust = lab$vjust)
   
-  figure2 <- cowplot::plot_grid(row1, row2, nrow = 2)
+  figure2 <- cowplot::plot_grid(top, bottom, nrow = 2, rel_heights = c(1, 1))
   
   return(figure2)
 }
@@ -518,9 +506,10 @@ fig2 <- makeScript2Fig(resArray_0_8p0_0_65p1, path = pathNew, p0p1 = "0_8p0_0_65
 
 ggplot2::ggsave(
   filename = here::here("B_MultiTissues/dataOut/figures/script02/Fig2_newAug26_resArray_0_8p0_0_65p1.png"),
-  plot = fig2, width = 18, height = 10,
+  plot = fig2, width = 15, height = 10,
   dpi = 300, bg = "white")
 
+###
 top5pc <- quantile(resArray_0_8p0_0_65p1$logBF_per_ds, prob=1-5/100)
 top <- resArray_0_8p0_0_65p1[
   resArray_0_8p0_0_65p1$logBF_per_ds >= top5pc,]
