@@ -499,9 +499,9 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithResult
          width = 20, height = 12, dpi = 300, bg = "white")
 }
 
-################################################################################
-## Figure 3: MappingVariability                                               ##
-################################################################################
+###############################################################################
+## Figure : MappingVariability                                               ##
+###############################################################################
 
 ####################################
 ## Plot Manhattan of logBF_per_ds ##
@@ -599,14 +599,18 @@ if (!file.exists(here(paste0("gitignore/pfeatures_", variant, ".RDS")))){
   gr_cpg <- gr_cpg[gr_cpg@seqnames %in% c(paste0("chr", 1:22), "chrX"),]
   length(gr_cpg) # 20.241.760 CpGs
   
-  # Import bed file
-  bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
-  
   # Annotate CpGs and see which regions have higher logBF_per_ds_allLayers (takes long)
-  anno_result <- genomation::annotateWithGeneParts(
-    target = gr_cpg, feature = bed_features)
-  
-  saveRDS(anno_result, here("gitignore/anno_result.RDS"))
+  if (!file.exists(here("gitignore/anno_result.RDS"))){
+    # Import bed file
+    bed_features <- genomation::readTranscriptFeatures(here("gitignore/hg38_GENCODE_V47.bed"))
+    
+    anno_result <- genomation::annotateWithGeneParts(
+      target = gr_cpg, feature = bed_features)
+    
+    saveRDS(anno_result, here("gitignore/anno_result.RDS"))
+  } else {
+    anno_result <- readRDS(here("gitignore/anno_result.RDS"))
+  }
   
   anno_result@perc.of.OlapFeat
   # promoter     exon   intron 
@@ -647,9 +651,55 @@ if (!file.exists(here(paste0("gitignore/pfeatures_", variant, ".RDS")))){
     theme_minimal(base_size = 14) +
     geom_hline(yintercept = 10, linetype = 3, linewidth = 0.3) +
     ggtitle("Distribution of CpG hypervariability across feature types")
-  pfeatures
   
   saveRDS(pfeatures, here(paste0("gitignore/pfeatures_", variant, ".RDS")))
+  
+  ## Option 2:
+  ## order the bands low -> high so the stack reads Bottom 10% (bottom) to Top 10% (top)
+  band_levels <- c("Bottom 10%", "10–20th", "20–30th", "30–40th", "40–50th",
+                   "50–60th", "60–70th", "70–80th", "80–90th", "Top 10%")
+  frac$band <- factor(frac$band, levels = band_levels)
+  
+  pfeatures2 <- ggplot(frac, aes(featureType, N, fill = band)) +
+    geom_col(position = "fill", width = 0.8) +              # normalises each feature to 100%
+    scale_y_continuous(labels = percent_format(), expand = c(0, 0)) +
+    scale_fill_viridis_d() + 
+    labs(y = "Proportion of CpGs in feature", x = NULL,
+         fill = "Hypervariability score\n(percentile)") +
+    ggtitle("Hypervariability-score composition within each feature type") +
+    theme_minimal(base_size = 14) +
+    theme(panel.grid.major.x = element_blank())
+  
+  pfeatures2
+  saveRDS(pfeatures2, here(paste0("gitignore/pfeatures2_", variant, ".RDS")))
+  
+  ## third option:
+  band_levels <- c("Bottom 10%", "10–20th", "20–30th", "30–40th", "40–50th",
+                   "50–60th", "60–70th", "70–80th", "80–90th", "Top 10%")
+  feat_levels <- c("promoter", "exon", "intron", "intergenic")
+  
+  frac$band        <- factor(frac$band,        levels = band_levels)
+  frac$featureType <- factor(frac$featureType, levels = rev(feat_levels))  # promoter on top
+  frac$log2enr     <- log2(frac$pct / 10)                                  # obs / 10% expected
+  
+  lim <- max(abs(frac$log2enr))
+  
+  pheat <- ggplot(frac, aes(band,featureType, fill = log2enr)) +
+    geom_tile(colour = "white", linewidth = 0.6) +
+    geom_text(aes(label = sprintf("%+.2f", log2enr)), size = 3) +
+    scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B",
+                         midpoint = 0, limits = c(-lim, lim),
+                         name = expression(log[2]*"(observed / 10% expected)")) +
+    labs(x = "Hypervariability score (percentile band)", y = NULL,
+         title = "Hypervariability-score enrichment by feature type",
+         subtitle = expression(log[2]*"(observed / 10% expected)")) +
+    coord_fixed() +
+    theme_minimal(base_size = 14) +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1),
+          panel.grid = element_blank(), legend.position = "none")
+  
+  pheat
+  saveRDS(pheat, here(paste0("gitignore/pheat_", variant, ".RDS")))
 }
 
 # Distribution of CpG hypervariability across feature types. CpGs were binned into quantiles 
@@ -728,98 +778,143 @@ if (!file.exists(here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))){
   # tRNA                0       0       0       0          0    2295
   # tRNA-Deu            0       0       0       0          0     643
   # tRNA-RTE            0       0       0       0          0    5695
-  length(te_regions)  # Total TE regions
+  length(te_regions)  # Total TE regions: 4.815.861
   
   top99q_CpGs_GR <- makeGRfromMyCpGPos(top99q_CpGs, "top99q_CpGs")
   top99q_in3layersoverlap_CpGs_GR <- makeGRfromMyCpGPos(top99q_in3layersoverlap_CpGs, "top99q_in3layersoverlap_CpGs")
   totalSites_GR  <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos, "totalSites")
   
+  ## ---- makeTEplot: distance-from-CENTRE rings + size + age ------------------
   makeTEplot <- function(top = top99q_CpGs_GR, whichtop = "top99q_CpGs",
-                         mode = c("shell","nested"), famorclass = c("family","class")){
-    mode       <- match.arg(mode)
+                         famorclass = c("family","class")) {
     famorclass <- match.arg(famorclass)
     
     bg_only_GR <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos[
       !table3layers_coveredIn3dt$chr_pos %in% top], "bg_only")
     res_cols <- c("label","pvalue","odds_ratio","conf_low","conf_high")
     
-    ## ── choose the grouping column, the split, and the keys ONCE ────────────
     grp_col <- if (famorclass == "family") mcols(te_regions)$repFamily
     else                        mcols(te_regions)$repClass
     gr_by   <- split(te_regions, grp_col)
     
     grp_tab <- table(grp_col)
-    if (famorclass == "family") {
-      keep <- names(grp_tab)[grp_tab >= 1000 & !grepl("\\?$", names(grp_tab))]
-    } else {
-      keep <- names(grp_tab)                       # keep all 6 TE classes
+    keep <- if (famorclass == "family")
+      names(grp_tab)[grp_tab >= 1000 & !grepl("\\?$", names(grp_tab))]
+    else names(grp_tab)
+    
+    ## >>> distance-from-CENTRE ring windows (symmetric around the midpoint) <<<
+    bounds <- list("0-1kb"  = c(0,     1000),
+                   "1-3kb"  = c(1000,  3000),
+                   "3-10kb" = c(3000, 10000),
+                   "10-15kb"= c(10000,15000))
+    build <- function(gr, w) {
+      b   <- bounds[[w]]
+      ## Get geometric midpoint of the annotated element on the genome
+      ctr <- GenomicRanges::resize(gr, width = 1L, fix = "center")   # 1 point / element
+      outer <- reduce(trim(ctr + b[2]))
+      if (b[1] == 0) outer
+      else GenomicRanges::setdiff(outer, reduce(trim(ctr + b[1])))   # the ring only
     }
     
-    ## windows
-    if (mode == "nested") {
-      wins  <- list("TE body"=0L, "TE+1kb"=1000L, "TE+3kb"=3000L, "TE+10kb"=10000L)
-      build <- function(gr, w) trim(gr + wins[[w]])
-    } else {
-      bounds <- list("TE body"=c(0,0), "0-1kb"=c(0,1000),
-                     "1-3kb"=c(1000,3000), "3-10kb"=c(3000,10000),
-                     "10-15kb"=c(10000,15000))
-      build <- function(gr, w) {
-        b <- bounds[[w]]
-        if (b[1]==b[2]) reduce(trim(gr))
-        else GenomicRanges::setdiff(reduce(trim(gr + b[2])), reduce(trim(gr + b[1])))
-      }
-      wins <- bounds
-    }
-    
-    run_one_window <- function(w) {
+    run_one <- function(w) {
       res <- lapply(keep, function(f)
         fisher_test_te(build(gr_by[[f]], w), top, bg_only_GR,
                        label = f, nameTarget = whichtop))
-      dt <- data.table::rbindlist(lapply(res, `[`, res_cols))
-      dt[, window := w]
-      dt
+      dt <- data.table::rbindlist(lapply(res, `[`, res_cols)); dt[, window := w]; dt
     }
     
-    res_dt <- data.table::rbindlist(lapply(names(wins), run_one_window))
-    res_dt[, window := factor(window, levels = names(wins))]
+    res_dt <- data.table::rbindlist(lapply(names(bounds), run_one))
+    res_dt[, window := factor(window, levels = names(bounds))]
     res_dt[, p.adj  := p.adjust(pvalue, "BH")]
-    res_dt[, sig    := p.adj < 0.05]
-    res_dt[, log2OR := log2(odds_ratio)]            # <- needed for ordering & heatmap
+    res_dt[, log2OR := log2(odds_ratio)]
+    ## >>> finer star tiers (on BH-adjusted p) <<<
+    res_dt[, stars := as.character(cut(p.adj,
+                                       breaks = c(-Inf, .001, .01, .05, .1, Inf),
+                                       labels = c("***","**","*","\u00b7","")))]   # ***  **  *  ·  (blank)
     
-    ref <- res_dt[window == "TE body"][order(log2OR), unique(as.character(label))]
-    res_dt[, label := factor(as.character(label), levels = ref)]
-    res_dt[]
+    ## >>> per-group metadata: mean element SIZE + AGE (% divergence) <<<
+    has_div <- "milliDiv" %in% names(mcols(te_regions))
+    meta <- data.table::data.table(
+      label  = keep,
+      meanW  = as.numeric(tapply(width(te_regions), grp_col, mean)[keep]),
+      divpct = if (has_div)
+        as.numeric(tapply(mcols(te_regions)$milliDiv, grp_col, mean)[keep]) / 10
+      else NA_real_)
+    if (!has_div)
+      warning("milliDiv not in mcols(te_regions): rows ordered by log2OR, not age.")
+    
+    ## order y by AGE (youngest at top, oldest at bottom); fallback = log2OR
+    ord <- if (has_div) meta[order(divpct), label]
+    else res_dt[window == "0-1kb"][order(log2OR), as.character(label)]
+    res_dt[, label := factor(as.character(label), levels = ord)]
+    meta[ , label := factor(as.character(label), levels = ord)]
+    if (has_div)
+      meta[, age_class := cut(divpct, quantile(divpct, c(0, 1/3, 2/3, 1)),
+                              labels = c("young","mid","old"), include.lowest = TRUE)]
+    
+    list(res = res_dt[], meta = meta[], bounds = bounds)
   }
   
-  res_dt_class <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", mode = "shell", famorclass = "class")
-  res_dt_fam <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", mode = "shell", famorclass = "family")
+  ## ---- plotting helper: tiles + avg-size box + age strip --------------------
+  plot_te <- function(out, title) {
+    res <- out$res; meta <- out$meta; bounds <- out$bounds
+    win_lv <- names(bounds); K <- length(win_lv)
+    
+    ## map a distance in bp onto the continuous 1..K tile axis
+    dist_to_x <- function(d) vapply(d, function(dd) {
+      xi <- 0.5
+      for (j in seq_len(K)) {
+        inr <- bounds[[j]][1]; o <- bounds[[j]][2]
+        if (dd >= o) { xi <- j + 0.5; next }
+        xi <- (j - 0.5) + (dd - inr) / (o - inr); break
+      }
+      min(xi, K + 0.5)
+    }, numeric(1))
+    
+    res[ , `:=`(xidx = as.integer(window), yidx = as.integer(label))]
+    meta[, `:=`(yidx = as.integer(label), xbox = dist_to_x(meanW / 2))]  # avg half-size
+    
+    p <- ggplot() +
+      geom_tile(data = res, aes(xidx, yidx, fill = log2OR),
+                colour = "white", linewidth = 0.4) +
+      geom_text(data = res, aes(xidx, yidx, label = stars), vjust = 0.72, size = 5) +
+      ## black box = distances inside the AVERAGE element (centre -> mean edge)
+      geom_rect(data = meta, aes(xmin = 0.5, xmax = xbox,
+                                 ymin = yidx - 0.5, ymax = yidx + 0.5),
+                fill = NA, colour = "black", linewidth = 0.5) +
+      scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#DC3220",
+                           midpoint = 0, name = expression(log[2]~OR)) +
+      scale_x_continuous(breaks = seq_len(K), labels = win_lv, expand = c(0, 0),
+                         limits = c(-0.3, K + 0.6)) +
+      scale_y_continuous(breaks = meta$yidx, labels = as.character(meta$label),
+                         expand = c(0, 0)) +
+      labs(x = "distance from TE centre", y = NULL, title = title, 
+           subtitle = "(black box = mean element size)") +
+      theme_minimal(base_size = 12) +
+      theme(panel.grid = element_blank(),
+            axis.text.x = element_text(angle = 30, hjust = 1)) 
+    
+    ## optional left-hand AGE gradient (continuous mean divergence; needs ggnewscale)
+    if (!all(is.na(meta$divpct)) && requireNamespace("ggnewscale", quietly = TRUE)) {
+      p <- p + ggnewscale::new_scale_fill() +
+        geom_tile(data = meta, aes(x = -0.05, y = yidx, fill = divpct), width = 0.3) +
+        scale_fill_viridis_c(option = "mako", direction = -1,
+                             name = "Mean divergence\n(% from consensus)\nas proxy for age",
+                             na.value = "grey80")
+    }
+    p
+  }
   
-  plotclass <- ggplot(res_dt_class, aes(window, label, fill = log2OR)) +
-    geom_tile(colour = "white", linewidth = 0.4) +
-    geom_text(aes(label = ifelse(sig, "*", "")), vjust = 0.75, size = 6) +
-    scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#DC3220",
-                         midpoint = 0, name = expression(log[2]~OR)) +
-    labs(x = NULL, y = NULL,
-         title = "TE class enrichment of top 1% hypervariable CpGs\nby distance from element") +
-    theme_minimal(base_size = 12) +
-    theme(panel.grid = element_blank(),
-          axis.text.x = element_text(angle = 30, hjust = 1))
+  out_class <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", famorclass = "class")
+  out_fam   <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", famorclass = "family")
   
-  plotfam <- ggplot(res_dt_fam, aes(window, label, fill = log2OR)) +
-    geom_tile(colour = "white", linewidth = 0.4) +
-    geom_text(aes(label = ifelse(sig, "*", "")), vjust = 0.75, size = 6) +
-    scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#DC3220",
-                         midpoint = 0, name = expression(log[2]~OR)) +
-    labs(x = NULL, y = NULL,
-         title = "TE family enrichment of top 1% hypervariable CpGs\nby distance from element") +
-    theme_minimal(base_size = 12) +
-    theme(panel.grid = element_blank(),
-          axis.text.x = element_text(angle = 30, hjust = 1))
+  TEplotclass <- plot_te(out_class, "TE class enrichment of top 1% hvCpGs (distance from centre)")
+  TEplotfam   <- plot_te(out_fam,   "TE family enrichment of top 1% hvCpGs (distance from centre)")
   
-  saveRDS(res_dt_class, here("gitignore/TEplot_res_dt_class.RDS"))
-  saveRDS(res_dt_fam, here("gitignore/TEplot_res_dt_fam.RDS"))
-  saveRDS(plotclass, here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))
-  saveRDS(plotfam, here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
+  saveRDS(out_class, here("gitignore/TEplot_res_dt_class.RDS"))
+  saveRDS(out_fam, here("gitignore/TEplot_res_dt_fam.RDS"))
+  saveRDS(TEplotclass, here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))
+  saveRDS(TEplotfam, here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
 }
 
 ########################################################################
@@ -1234,44 +1329,32 @@ if (!file.exists(here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))) 
   p_ZNF808
 }
 
-#################################
-## plot manhattan, feature, TE ##
-#################################
+###########################################
+## plot manhattan, feature, TE (rm KZFP) ##
+###########################################
 
 if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariability.png"))){
-  plotManhattan_noDerakh <- readRDS(here(paste0("gitignore/plotManhattan_noDerakh_", variant, ".RDS")))
+  ## force identical title / subtitle sizes on every panel
+  title_theme <- theme(plot.title    = element_text(size = 13),
+                       plot.subtitle = element_text(size = 11))
   
-  pfeatures <- readRDS(here(paste0("gitignore/pfeatures_", variant, ".RDS")))
-  row1 <- plot_grid(plotManhattan_noDerakh+ ylab("Hypervariability score"),
-                    pfeatures + theme_minimal(base_size = 12) +
-                      ggtitle(""),
-                    ncol = 2, rel_widths = c(2,1),
-                    labels = c("A", "B"))
+  p1 <- plotManhattan_noDerakh + ylab("Hypervariability score") +
+    theme(plot.margin = margin(2, 2, 2, 4)) + title_theme
+  p2 <- pfeatures    + theme(plot.margin = margin(2, 4, 2, 2)) + title_theme
+  p3 <- TEplotclass  + title_theme
+  p4 <- TEplotfam    + title_theme
   
-  TEplotfam <- readRDS(here("gitignore/TEplot_plotfam_SNP_SDASMrm.RDS"))
-  TEplotclass <- readRDS(here("gitignore/TEplot_plotclass_SNP_SDASMrm.RDS"))
-  row2 <- plot_grid(TEplotclass, TEplotfam, ncol = 2,
-                    labels = c("C", "D"))
+  top    <- plot_grid(p1, p2, ncol = 2, rel_widths = c(1.2, 1),
+                      labels = c("A", "B"), label_size = 16)
+  bottom <- plot_grid(p3, p4, ncol = 2, rel_widths = c(1, 1),
+                      labels = c("C", "D"), label_size = 16)
+  fig    <- plot_grid(top, bottom, ncol = 1, rel_heights = c(.6, 1))
   
-  # KZFPPlots:
-  plotKZFP1 <- readRDS(here(paste0("gitignore/plotKZFP1_", variant, ".RDS")))
-  p_teElem2 <- readRDS(here(paste0("gitignore/p_teElem2_", variant, ".RDS")))
-  
-  row3 <- plot_grid(plotKZFP1, p_teElem2, ncol = 2, labels = c("E", "F"))
-  
-  ggplot2::ggsave(
-    filename = here::here(
-      "B_MultiTissues/dataOut/figures/script04/MappingVariability.pdf"),
-    plot = plot_grid(
-      row1 , row2, row3, nrow = 3, rel_heights = c(.7,1.3,1)),
-    width = 17, height = 12, dpi = 300, bg = "white")
-  
-  ggplot2::ggsave(
-    filename = here::here(
-      "B_MultiTissues/dataOut/figures/script04/MappingVariability.png"),
-    plot = plot_grid(
-      row1 , row2, row3, nrow = 3, rel_heights = c(.7,1.3,1)),
-    width = 18, height = 12, dpi = 300, bg = "white")
+  for (ext in c("pdf", "png"))
+    ggplot2::ggsave(
+      filename = here::here(sprintf(
+        "B_MultiTissues/dataOut/figures/script04/MappingVariability.%s", ext)),
+      plot = fig, width = 17, height = 10, dpi = 300, bg = "white")
 }
 
 #######################
