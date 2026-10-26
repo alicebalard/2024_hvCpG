@@ -412,6 +412,8 @@ if (!file.exists(here(paste0("gitignore/table3layers_coveredIn3dt.RDS")))){
 ## sent from local to pchuckle
 ## sanput ~/Documents/Research/GIT/2024_hvCpG/gitignore/table3layers_coveredIn3dt.RDS /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/.
 
+readRDS("~/Documents/Research/GIT/2024_hvCpG/gitignore/table3layers_coveredIn3dt.RDS")
+
 #################################################
 ## Figure "Compare with Derakhshan's results"  ##
 #################################################
