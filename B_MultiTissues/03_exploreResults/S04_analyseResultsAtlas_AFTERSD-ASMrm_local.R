@@ -403,6 +403,15 @@ table3layers_coveredIn3dt[chr_pos %in% mQTLcontrols_hg38, group := "mQTLcontrols
 table3layers_coveredIn3dt[, cum_offset := as.numeric(cum_offset)]
 table3layers_coveredIn3dt[, pos2 := pos + cum_offset]
 
+#########################################
+## Save main object for other scripts: ##
+#########################################
+if (!file.exists(here(paste0("gitignore/table3layers_coveredIn3dt.RDS")))){
+  saveRDS(table3layers_coveredIn3dt, here(paste0("gitignore/table3layers_coveredIn3dt.RDS")))  
+}
+## sent from local to pchuckle
+## sanput ~/Documents/Research/GIT/2024_hvCpG/gitignore/table3layers_coveredIn3dt.RDS /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/.
+
 #################################################
 ## Figure "Compare with Derakhshan's results"  ##
 #################################################
@@ -2029,6 +2038,50 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/SoC_enrichment.pd
           here(paste0("gitignore/SoC_enrichment_", variant, ".RDS")))
 }
 
+#####################################################################
+## Prepare hv index table for the 687 Kessler et al. candidate MEs ##
+#####################################################################
+
+if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/KesslerSIVpercentilehv.csv"))){
+  
+  KesslerSIV <- readxl::read_excel(here("B_MultiTissues/dataIn/Kessler2018_supTables.xlsx"), sheet = 2, skip = 1)
+  
+  KesslerSIV_GRanges <- GRanges(
+    seqnames = KesslerSIV$Chromosome,
+    ranges = IRanges(start = KesslerSIV$`ME start`, 
+                     end = KesslerSIV$`ME end`))
+  
+  ## liftover hg19 -> hg38, keep uniquely mapping regions
+  mapped <- liftOver(KesslerSIV_GRanges, chain)
+  keep   <- lengths(mapped) == 1
+  KesslerSIV_GRanges_hg38 <- unlist(mapped[keep])
+  
+  ## carry the original hg19 range across as a metadata column
+  KesslerSIV_GRanges_hg38$range_hg19 <- as.character(KesslerSIV_GRanges[keep])
+  
+  rm(mapped, keep, KesslerSIV, KesslerSIV_GRanges)
+  
+  ## add the hv score percentile
+  KesslerSIV_GRanges_hg38$n_CpG           <- 0L
+  KesslerSIV_GRanges_hg38$mean_percentile <- NA_real_
+  
+  ov <- findOverlaps(KesslerSIV_GRanges_hg38, table3layers_coveredIn3,
+                     ignore.strand = TRUE)   # query = SIV region, subject = CpG
+  
+  a <- data.table(idx = queryHits(ov),
+                  pct = table3layers_coveredIn3$percentile_logBF_per_ds_allLayers[subjectHits(ov)]
+  )[, .(n = .N, m = mean(pct)), by = idx]
+  
+  KesslerSIV_GRanges_hg38$n_CpG[a$idx]           <- a$n
+  KesslerSIV_GRanges_hg38$mean_percentile[a$idx] <- a$m
+  
+  sum(!is.na(KesslerSIV_GRanges_hg38$mean_percentile)) # 351 regions with a value
+  
+  write.csv(KesslerSIV_GRanges_hg38,
+            here("B_MultiTissues/dataOut/figures/script04/KesslerSIVpercentilehv.csv"), 
+            row.names = F)
+}
+
 ######################################################################
 ## Check enrichement of telomeres and centromeres for high geomMean ##
 ######################################################################
@@ -2051,3 +2104,69 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/SoC_enrichment.pd
 # Fold enrichment:       0.92
 # Fisher p (one-sided):  1
 # Odds ratio:            0.92
+
+########################################
+## Exploratory test of specific genes ##
+########################################
+
+## https://www.nature.com/articles/s42255-026-01617-6
+# Hnf1α: chr12  120978543 - 121002512
+# Thra: chr 17 40062193 - 40093867 
+# Pdk4: chr 7 95583499 - 95596516
+
+## genes already in hg38
+genes <- GRanges(
+  seqnames = c("chr12", "chr17", "chr7"),
+  ranges   = IRanges(start = c(120978543, 40062193, 95583499),
+                     end   = c(121002512, 40093867, 95596516)),
+  gene     = c("Hnf1a", "Thra", "Pdk4"))
+
+## overlap with the CpG table and average the percentile per gene
+ov <- findOverlaps(genes, table3layers_coveredIn3, ignore.strand = TRUE)
+dt <- data.table(
+  gene = genes$gene[queryHits(ov)],
+  pct  = table3layers_coveredIn3$percentile_logBF_per_ds_allLayers[subjectHits(ov)])
+
+res <- dt[, .(n_CpG = .N,
+              mean_percentile   = mean(pct),
+              median_percentile = median(pct)), by = gene]
+
+##############################################################################################################
+## Detect if there are regions of x contiguous (<50bp) CpGs or more in each genes with a percentile above y ##
+##############################################################################################################
+
+## parameters
+y      <- 90    # percentile threshold (keep CpGs strictly above this)
+x      <- 3     # minimum CpGs in a cluster
+maxgap <- 50    # consecutive high CpGs must be < maxgap bp apart
+
+## 1. CpGs inside each gene, tagged with gene + position + percentile
+ov  <- findOverlaps(genes, table3layers_coveredIn3, ignore.strand = TRUE)
+cpg <- data.table(
+  gene = genes$gene[queryHits(ov)],
+  chr  = as.character(seqnames(table3layers_coveredIn3))[subjectHits(ov)],
+  pos  = start(table3layers_coveredIn3)[subjectHits(ov)],
+  pct  = table3layers_coveredIn3$percentile_logBF_per_ds_allLayers[subjectHits(ov)])
+
+## 2. keep high CpGs, cluster by <maxgap spacing within each gene
+hi <- cpg[pct > y]
+setorder(hi, gene, pos)
+hi[, gap   := pos - data.table::shift(pos), by = gene]
+hi[, clust := cumsum(is.na(gap) | gap >= maxgap), by = gene]
+
+## 3. summarise each cluster, keep those with >= x CpGs
+clusters <- hi[, .(n_CpG    = .N,
+                   start    = min(pos),
+                   end      = max(pos),
+                   span_bp  = max(pos) - min(pos),
+                   mean_pct = mean(pct)), by = .(gene, chr, clust)]
+clusters_pass <- clusters[n_CpG >= x]
+clusters_pass[]        # the actual high-density regions, with coordinates
+
+## 4. per-gene yes/no answer
+res <- clusters_pass[, .(has_cluster      = TRUE,
+                         n_clusters       = .N,
+                         max_cluster_size = max(n_CpG)), by = gene]
+res <- res[data.table(gene = genes$gene), on = "gene"]
+res[is.na(has_cluster), `:=`(has_cluster = FALSE, n_clusters = 0L, max_cluster_size = 0L)]
+res[]
