@@ -14,16 +14,14 @@ Rscript $CODEDIR/04_twinTest/build_reference_jaffe.R --build hg38 --chain  $CODE
 #Annotated position is the C of a CpG: 599; the G of a CpG: 0; not a CpG in this genome (dropped): 1
 #Wrote 599 CpGs to /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues//dataIn/jaffe_hg38_reference.tsv
 
-## TBC from here
-
 # 2. targets = both C positions of each reference CpG (pools strands)
 awk -F'\t' 'NR>1{print $2"\t"$3; print $2"\t"($3+1)}' \
     $CODEDIR/dataIn/jaffe_hg38_reference.tsv | sort -u \
   | sed '1i chr\tpos' > $CODEDIR/dataIn/jaffe_ref_targets_hg38.tsv
 
 # 3. extract those CpGs from the blood .cov with the flexible S02
-S02_extractTargetMeth.sh $CODEDIR/dataIn/jaffe_ref_targets_hg38.tsv \
-                          blood $CODEDIR/dataOut/blood_jaffeRef_meth.tsv
+bash $CODEDIR/04_twinTest/extractTargetMeth.sh $CODEDIR/dataIn/jaffe_ref_targets_hg38.tsv blood $CODEDIR/dataOut/blood_jaffeRef_meth.tsv
+## Wrote /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues//dataOut/blood_jaffeRef_meth.tsv  (25128 lines)
 
 # 4. reshape to the 'long' deconvolution input
 awk 'BEGIN{FS=OFS="\t"} NR==1{print "sample","chrom","pos","n_valid","meth";next}
@@ -31,7 +29,18 @@ awk 'BEGIN{FS=OFS="\t"} NR==1{print "sample","chrom","pos","n_valid","meth";next
      $CODEDIR/dataOut/blood_jaffeRef_meth.tsv > $CODEDIR/dataOut/blood_ref_long.tsv
 
 # 5. estimate proportions
+## Changed min depth to 4 because we have a relatively low depth
 Rscript $CODEDIR/04_twinTest/ont_cell_proportions.R --input $CODEDIR/dataOut/blood_ref_long.tsv \
-  --input_type long --scale percent \
+  --input_type long --scale percent --min_depth 4 \
   --reference $CODEDIR/dataIn/jaffe_hg38_reference.tsv \
   --output $CODEDIR/dataOut/blood_cellprops
+
+##Reference: 599 CpGs, 6 cell types (CD8T, CD4T, NK, Bcell, Mono, Gran)
+##Reference CpGs with data in at least one sample: 568 of 599
+##
+##27 samples: 19 PASS, 8 FLAG
+##  high_sampling_error: 4
+##  low_cpg_proportion: 4
+##  too_few_cpgs: 4
+##CpGs used per sample: median 468, range 1 to 566
+##Results written with prefix /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/B_MultiTissues//dataOut/blood_cellprops
