@@ -1,92 +1,18 @@
-# add to the S01
-# 
-# cd $METHCALL_OUTDIR
-# instead of 
-# 
-# cd 01Methcall/Blood
-# 
+library(here); library(data.table)
+
+#############################################################################################
+## PART I. Select top 1% hvCpG and same number of random control matching methylation mean ##
+## accross samples. Min cov = 5X, in at least 10 twins.
+## Output saved in here("gitignore/matched_CpGs_top_vs_control.rds")
+#############################################################################################
+# Twin methylation extracted in cluster in: S01_alignCallMeth.sh
+## After S01 methyl call has ran, in cluster run the following to select only 5X
+## CpG positions:
+# /SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/Busche2015/01Methcall/Blood
 # for f in *.bismark.cov.gz; do
 # base=${f%.bismark.cov.gz}
 # zcat "$f" | awk -F'\t' '($5+$6) >= 5' > "${base}_5X.cov"
 # done
-# 
-# 
-# 
-# DATADIR="/SAN/ghlab/epigen/Alice/hvCpG_project/data/WGBS_human/Busche2015"
-# EGAN00001342042 still running
-# 
-# 
-# I have data for extracting twins (mono and dizygotic, MZ and DZ) in script
-# S01_alignCallMeth.sh. It is done.
-# 
-# I also have a table saved as a RDS object in:
-#   
-#   /SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/table3layers_coveredIn3dt.RDS
-# that contains when opened in R:
-#   
-#   Index: <chr_pos>
-#   chr   pos   end width strand logBF_per_ds_endo logBF_per_ds_ecto logBF_per_ds_meso logBF_per_ds_allLayers
-# <fctr> <int> <int> <int> <fctr>             <num>             <num>             <num>                  <num>
-#   1:   chr1 17452 17452     1      *       -0.04351713        -0.5127993       -0.09070382             -0.1152128
-# 2:   chr1 17478 17478     1      *       -0.66693206        -0.7742006       -0.75360608             -0.7150446
-# 3:   chr1 17483 17483     1      *       -0.77952104        -0.7235260       -0.65861379             -0.7208407
-# 4:   chr1 17492 17492     1      *       -0.78485244        -0.7959979       -0.77317453             -0.7807970
-# 5:   chr1 17562 17562     1      *       -0.67376480        -0.1162556       -0.73765576             -0.6249438
-# ---                                                                                                             
-#   20246675:   chrM 16427 16427     1      *       -0.76611492        -0.8092041       -0.78422530             -0.7777684
-# 20246676:   chrM 16449 16449     1      *       -0.77896241        -0.8102262       -0.78454732             -0.7842658
-# 20246677:   chrM 16454 16454     1      *       -0.76012998        -0.8100064       -0.78424614             -0.7750473
-# 20246678:   chrM 16495 16495     1      *       -0.79843223        -0.8107169       -0.78475610             -0.7940611
-# 20246679:   chrM 16542 16542     1      *       -0.79789180        -0.8098529       -0.78450459             -0.7935754
-# logBF_per_ds_endo6gp logBF_per_ds_meso6gp    chr_pos logBF_per_ds_mean3layers n_layers percentile_logBF_per_ds_allLayers
-# <num>                <num>     <char>                    <num>    <num>                             <num>
-#   1:         -0.090381521            0.7125974 chr1_17452               -0.2156734        3                      68.707598910
-# 2:         -0.209438572           -0.2523771 chr1_17478               -0.7315796        3                       5.926571958
-# 3:          0.211521887           -0.3124793 chr1_17483               -0.7205536        3                       5.087940595
-# 4:         -0.794229508           -0.3687644 chr1_17492               -0.7846750        3                       0.031269326
-# 5:         -0.391897218           -0.7440644 chr1_17562               -0.5092254        3                      20.162447382
-# ---                                                                                                                         
-#   20246675:          0.022283014            0.4930459 chrM_16427               -0.7865148        3                       0.069700320
-# 20246676:          0.558905432           -0.3465653 chrM_16449               -0.7912453        3                       0.011231472
-# 20246677:         -0.413283469           -0.5471890 chrM_16454               -0.7847942        3                       0.125087181
-# 20246678:          0.545002981           -0.4953212 chrM_16495               -0.7979684        3                       0.001052024
-# 20246679:         -0.005184287           -0.6119597 chrM_16542               -0.7974164        3                       0.002276917
-# cum_offset  group       pos2
-# <num> <char>      <num>
-#   1:          0   <NA>      17452
-# 2:          0   <NA>      17478
-# 3:          0   <NA>      17483
-# 4:          0   <NA>      17492
-# 5:          0   <NA>      17562
-# ---                             
-#   20246675: 3086384434   <NA> 3086400861
-# 20246676: 3086384434   <NA> 3086400883
-# 20246677: 3086384434   <NA> 3086400888
-# 20246678: 3086384434   <NA> 3086400929
-# 20246679: 3086384434   <NA> 3086400976
-# 
-# From there, I would like to:
-#   
-#   (1) Select the top 1% chr_pos on percentile_logBF_per_ds_allLayers with this:
-#   table3layers_coveredIn3dt$chr_pos[
-#     table3layers_coveredIn3dt$percentile_logBF_per_ds_allLayers >= 99] (total is 202467)
-# 
-# (2) find how many of them have a sufficient coverage in twins for blood cells (find the average and median coverage, do a histogram)
-# 
-# (2) extract methylation for all twins of the top 1% using S02_extractTargetMeth.sh
-# 
-# (3) extract methylation for all twins of a random set of chr_pos contained in table3layers_coveredIn3dt$chr_pos, maybe 500 000 for a start. Then I want to select 
-# 
-# 
-# EGAN00001342041_R1_val_1_bismark_bt2_pe
-
-
-
-
-
-
-
-library(here); library(data.table)
 
 ## ---------------- parameters ----------------
 tabRDS     <- here("gitignore/table3layers_coveredIn3dt.RDS")
@@ -108,7 +34,7 @@ refseq2ucsc <- c(
 
 MINCOV  <- 5L     # a CpG is "covered" in a sample at >= this depth
 MINSAMP <- 10L    # "usable" = covered in >= this many samples
-BG_MULT <- 3L     # candidate controls drawn = BG_MULT x (#top CpGs)
+BG_MULT <- 15L     # candidate controls drawn = BG_MULT x (#top CpGs) (7 was too small)
 SEED    <- 1234
 
 ## ================================================================
@@ -129,8 +55,8 @@ if (file.exists(targetfile) && identical(readRDS(targetfile)$sig, sig)) {
   saveRDS(list(target = target, n_top = n_top, sig = sig), targetfile)
   rm(dt, top_pos, bg_pos); gc()
 }
-cat("target CpGs:", nrow(target), "(top:", n_top, ")\n")
-# target CpGs: 809868 (top: 202467 )
+cat("target CpGs:", nrow(target), "(top:", n_top, ")")
+# target CpGs: 3239472 (top: 202467 )
 
 ## ================================================================
 ## (2) ONE streaming pass: coverage + methylation for every target CpG
@@ -148,18 +74,20 @@ if (file.exists(cachefile)) {
 
 files    <- list.files(covdir, pattern = covpat, full.names = TRUE)
 newfiles <- files[!(basename(files) %in% done)]
-cat(length(newfiles), "new /", length(files), "files\n")
+cat(length(newfiles), "new /", length(files), "files")
+# 27 new / 27 files
 
 for (f in newfiles) {
   print(f)
   x <- fread(f, header = FALSE, select = c(1, 2, 5, 6),
              col.names = c("chr", "start", "M", "U"))
-  x[, chr := refseq2ucsc[as.character(chr)]]
-  x <- x[!is.na(chr)]
-  x[, chr_pos := paste0(chr, "_", start)]
-  x <- x[target, on = "chr_pos", nomatch = 0L]        # keep top + candidate controls only
-  x[, cov := M + U]
-  x <- x[cov >= MINCOV]                               # >=5x (redundant on 5X files, safe on full)
+  x[, chr := refseq2ucsc[as.character(chr)]] # correct chromosome name
+  x <- x[!is.na(chr)] # remove extra chromosomes
+  x[, chr_pos := paste0(chr, "_", start)] # same format in both
+  x <- x[target, on = "chr_pos", nomatch = 0L] # keep top + candidate controls only
+  x[, cov := M + U] # calculate coverage
+  x <- x[cov >= MINCOV] # safety step (redundant on 5X files, safe on full)
+  ## calc total accross samples for later mean calculation by sample
   s <- x[, .(np = .N, tc = sum(cov), tM = sum(M)), by = chr_pos]
   acc[s, on = "chr_pos",
       `:=`(n_samp = n_samp + np, total_cov = total_cov + tc, total_M = total_M + tM)]
@@ -168,10 +96,10 @@ for (f in newfiles) {
   rm(x, s); gc(FALSE)
 }
 
-nsamp <- length(done)
-acc[, `:=`(mean_cov  = total_cov / nsamp,                            # mean depth (absent = 0)
+nsamp <- length(done) # 27
+acc[, `:=`(mean_cov  = total_cov / nsamp,  # mean depth (absent = 0)
            mean_meth = fifelse(total_cov > 0, total_M / total_cov, NA_real_))]  # pooled beta
-acc[, usable := n_samp >= MINSAMP]                                   # >=5x in >=10 samples
+acc[, usable := n_samp >= MINSAMP] # >=5x in >=10 samples
 
 ## ================================================================
 ## (3) usable sets for each category
@@ -179,6 +107,7 @@ acc[, usable := n_samp >= MINSAMP]                                   # >=5x in >
 fg <- acc[is_top == TRUE  & usable]                      # usable top-1% CpGs
 bg <- acc[is_top == FALSE & usable & !is.na(mean_meth)]  # usable candidate controls
 cat("usable top:", nrow(fg), " | usable candidate controls:", nrow(bg), "\n")
+# usable top: 99644  | usable candidate controls: 1495851 
 
 ## ================================================================
 ## (4) match on (mean_cov, mean_meth); keep EQUAL numbers in both
@@ -204,6 +133,7 @@ ctrl_matched <- bg[k, on = "cell"][rk <= keep]           # keep `keep` controls 
 
 cat("final matched set size (each):", nrow(top_matched),
     " | top dropped for lack of in-cell control:", nrow(fg) - nrow(top_matched), "\n")
+# final matched set size (each): 99644  | top dropped for lack of in-cell control: 0 
 
 ## ================================================================
 ## (5) outputs: two equal-size, usable, matched CpG lists
@@ -217,5 +147,32 @@ saveRDS(out, here("gitignore/matched_CpGs_top_vs_control.rds"))
 
 ## checks: the two groups should have near-identical cov + meth
 print(out[, .(n = .N, mean_cov = mean(mean_cov), mean_meth = mean(mean_meth)), by = set])
+# set     n mean_cov mean_meth
+# <char> <int>    <num>     <num>
+# 1: top1pct 99644 4.840099 0.5530534
+# 2: control 99644 5.000096 0.5540202
+
 ## cells where the control pool ran short (reduce the final n)
 print(k[n_bg < n_fg][order(-(n_fg - n_bg))])
+# Key: <cell>
+#   Empty data.table (0 rows and 4 cols): cell,n_fg,n_bg,keep
+
+#######################################################################################
+## PART II. Comparison of top1pct and controls for (1) methylation and (2) hv scores ## 
+#######################################################################################
+
+######################################
+## A. Correct for blood composition ##
+######################################
+## Done in bash script S03_bloodComposition.sh
+
+######################################
+## B. Correct for blood composition ##
+######################################
+
+chr_pos mean_cov  mean_meth n_samp     set
+<char>    <num>      <num>  <int>  <char>
+  1:  chr2_137865182 8.148148 0.03636364     22 top1pct
+2:   chr5_55720156 7.111111 0.04687500     18 top1pct
+3:  chr4_174840068 7.259259 0.03061224     20 top1pct
+4:   chr1_85991691 8.185185 0.03619910     20 top1pct
