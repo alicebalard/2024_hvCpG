@@ -14,6 +14,7 @@
 #############################################################################################
 
 ## ---- external dependencies: libraries, helper functions, previous ME sets ----
+library(here)
 if (!exists("libLoaded"))          source(here("B_MultiTissues", "quiet_library.R"))
 if (!exists("functionsLoaded"))    source(here("B_MultiTissues/03_exploreResults", "functions.R"))
 if (!exists("previousSIVprepared"))source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
@@ -21,8 +22,8 @@ if (!exists("previousSIVprepared"))source(here("B_MultiTissues/03_exploreResults
 ## ===========================================================================================
 ## TISSUE SWITCH — the ONE line to change to run the other tissue
 ## ===========================================================================================
-# TISSUE <- "Blood"
-TISSUE <- "Adipose"
+TISSUE <- "Blood"
+# TISSUE <- "Adipose"
 
 ## ---------------- shared parameters (tissue-independent) ----------------
 tabRDS  <- here("gitignore/table3layers_coveredIn3dt.RDS")
@@ -368,39 +369,80 @@ run_twin_tests <- function(name = "top10%hv (mQTL-ctrl)", correct = TRUE, restri
 ## ======================================================================
 ## plotting (A: per-pair hv vs control | B: excess discordance by zygosity)
 ## ======================================================================
-plot_set_tests <- function(res, outfile = NULL) {
+plot_set_tests <- function(res, outfile = NULL, bare = FALSE, panels = FALSE) {
   pp <- copy(res$pp); s <- res$summary; nm <- res$name
   cols_zyg <- c(MZ = "#0072B2", DZ = "#D55E00")
   lim <- range(c(pp$control, pp$ME))
-  
-  if (s$p_ME_gt_control > 0.001){
-    st = sprintf("p = %.3g", s$p_ME_gt_control)
-  } else {
-    st = "p < 0.001"
-  }
+  st <- if (s$p_ME_gt_control > 0.001) sprintf("p = %.3g", s$p_ME_gt_control) else "p < 0.001"
   
   pA <- ggplot(pp, aes(control, ME, colour = zygosity)) +
     geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
     geom_point(size = 3) + coord_equal(xlim = lim, ylim = lim) +
     scale_colour_manual(values = cols_zyg, name = NULL) +
-    labs(x = "within-pair discordance, matched mQTL-control", y = "within-pair discordance, top 10% hv CpGs",
-         title = sprintf("Per pair: hv (N = %s) vs\ncontrol (N = %s)", s$n_hv, s$n_ctrl),
-         subtitle = st) +
+    labs(x = "within-pair discordance, matched mQTL-control",
+         y = "within-pair discordance, top 10% hv CpGs",
+         title = "Per pair: hv vs control", subtitle = st) +
     theme_minimal(base_size = 12) + theme(legend.position = c(.9, .1))
   pB <- ggplot(pp, aes(zygosity, excess, colour = zygosity)) +
     geom_hline(yintercept = 0, linetype = 3, colour = "grey50") +
     stat_summary(fun = mean, geom = "crossbar", width = 0.4, fatten = 1.5) +
     geom_jitter(width = 0.08, size = 3) + scale_colour_manual(values = cols_zyg, guide = "none") +
-    annotate("text", x = 1.5, y = max(pp$excess), label = sprintf("p = %.3g", s$p_MZ_vs_DZ), size = 3.2, vjust = 1) +
+    annotate("text", x = 1.5, y = max(pp$excess), label = sprintf("p = %.3g", s$p_MZ_vs_DZ),
+             size = 3.2, vjust = 1) +
     labs(x = NULL, y = "excess discordance (hv − control)", title = "Excess discordance by zygosity") +
     theme_minimal(base_size = 12)
-  fig <- cowplot::plot_grid(pA, pB, labels = c("A.", "B.")) +
-    patchwork::plot_annotation(
+  
+  ## panels = TRUE: return the two ggplots separately, for the multi-letter combined figure
+  if (panels) return(list(scatter = pA, excess = pB))
+  
+  ## otherwise behave as before (standalone 2-panel block)
+  fig <- cowplot::plot_grid(pA, pB, nrow = 1)
+  if (!bare) {
+    fig <- fig + patchwork::plot_annotation(
       title = nm,
       subtitle = sprintf("%s · %d twin pairs (%d MZ, %d DZ)",
-                         basename(covdir), nrow(pp), pp[zygosity == "MZ", .N], pp[zygosity == "DZ", .N]))
+                         s$tissue, nrow(pp), pp[zygosity == "MZ", .N], pp[zygosity == "DZ", .N]))
+  }
   if (!is.null(outfile)) ggsave(outfile, fig, width = 9, height = 5, dpi = 300, bg = "white")
   fig
+}
+
+## ======================================================================
+## Violin of ALL within-pair discordances (not the per-pair average)
+##   Reuses res$dt (per-sample beta already labelled set / pair_id / zygosity)
+##   and recomputes the per-CpG x per-pair |Δbeta| exactly as the test does
+##   (same line as `wp` inside run_twin_tests). One point = one CpG in one pair.
+##   x = set (control vs hv); points coloured by twin pair; MZ / DZ in facets.
+## ======================================================================
+plot_discordance_violin <- function(res, outfile = NULL) {
+  
+  ## 1. rebuild the per-CpG, per-pair discordances from the returned long table.
+  ##    For each CpG x complete pair (exactly 2 co-twins), |Δbeta| = |beta1 - beta2|.
+  wp <- res$dt[!is.na(beta),
+               .(d = if (.N == 2L) abs(diff(beta)) else NA_real_),
+               by = .(chr_pos, pair_id, zygosity, set)][!is.na(d)]
+  
+  ## 2. readable x-axis labels; keep control on the left, hv on the right
+  wp[, grp := factor(ifelse(set == "ME", "top 10% hv", "control"),
+                     levels = c("control", "top 10% hv"))]
+  
+  ## 3. violin = full distribution of all discordances; jittered points coloured by pair
+  g <- ggplot(wp, aes(grp, d)) +
+    geom_violin(aes(fill = grp), colour = NA, alpha = 0.25, scale = "width") +      # all CpGs' spread
+    geom_jitter(aes(colour = pair_id), width = 0.18, size = 0.4, alpha = 0.3) +     # every CpG, by pair
+    stat_summary(fun = median, geom = "point", shape = 95, size = 8, colour = "black") +  # median tick
+    scale_fill_manual(values = c(control = "grey70", "top 10% hv" = "#B2182B"), guide = "none") +
+    facet_wrap(~ zygosity) +                                                        # MZ vs DZ panels
+    labs(x = NULL, y = "within-pair discordance  (per CpG, per pair)",
+         colour = "twin pair",
+         title = sprintf("%s — all within-pair discordances", res$name),
+         subtitle = sprintf("%s · %s top 10pc hv CpGs with matched mQTL controls CpGs",
+                            res$summary$tissue, length(unique(wp$chr_pos))/2)) +
+    guides(colour = guide_legend(override.aes = list(size = 3, alpha = 1))) +       # legible legend
+    theme_minimal(base_size = 12)
+  
+  if (!is.null(outfile)) ggsave(outfile, g, width = 10, height = 5, dpi = 300, bg = "white")
+  g
 }
 
 ## ======================================================================
@@ -418,6 +460,49 @@ print(res_all); saveRDS(res_all, resultsfile)
 # top10%hv (mQTL-ctrl) Adipose      TRUE   168    166      13     7     6    0.0001220703 0.06641051 0.06941351  0.8356643
 # top10%hv (mQTL-ctrl) Adipose     FALSE   168    166      13     7     6    0.0001220703 0.07135265 0.07997177  0.7307692
 
-p <- plot_set_tests(res_adj, here(paste0("B_MultiTissues/dataOut/figures/twin/", TISSUE, "_CompositionCorrected.pdf")))
+## Plot discordance averaged per twin pair
+plot_set_tests(res_adj, here(paste0("B_MultiTissues/dataOut/figures/twin/", TISSUE, "_CompositionCorrected.pdf")))
 plot_set_tests(res_raw, here(paste0("B_MultiTissues/dataOut/figures/twin/", TISSUE, "_raw.pdf")))
 
+## Plot discordance not averaged (violin plot)
+plot_discordance_violin(res_adj, here(paste0("B_MultiTissues/dataOut/figures/twin/", TISSUE, "_discordance_violin.pdf")))
+
+## Save object (run for both tissues) for combined plot:
+saveRDS(res_adj, here(paste0("gitignore/res_adj_", TISSUE, ".rds")))
+
+## ============================================================
+## FINAL figure: Blood (A, B, C) over Adipose (D, E, F)
+##   A/D = violin of all discordances ; B/E = per-pair scatter ; C/F = excess by zygosity
+##   One bold line over each row names the tissue + hv CpG count.
+## ============================================================
+runFinal <- T   # set TRUE once res_adj_Blood.rds AND res_adj_Adipose.rds both exist
+
+if (runFinal) {
+  res_blood   <- readRDS(here("gitignore/res_adj_Blood.rds"))      # blood, composition-corrected
+  res_adipose <- readRDS(here("gitignore/res_adj_Adipose.rds"))    # adipose, surrogate-corrected
+
+  ## build one tissue row: violin + scatter + excess, each lettered, under a single header line
+  build_row <- function(res, lab3) {
+    v  <- plot_discordance_violin(res) +
+      labs(title = "All within-pair discordances", subtitle = NULL)   # tissue text goes in the header
+    ps <- plot_set_tests(res, panels = TRUE)                                 # list(scatter, excess)
+    row <- cowplot::plot_grid(v, ps$scatter, ps$excess,
+                              labels = lab3, label_size = 16,
+                              nrow = 1, rel_widths = c(1.5, 1, 1))           # violin is 2 facets wide
+    header <- cowplot::ggdraw() +
+      cowplot::draw_label(
+        sprintf("%s · %s top 10%% hv CpGs with matched mQTL control CpGs",
+                res$summary$tissue, format(res$summary$n_hv, big.mark = ",")),
+        fontface = "bold", x = 0.01, hjust = 0, size = 13)
+    cowplot::plot_grid(header, row, ncol = 1, rel_heights = c(0.08, 1))      # header line over the row
+  }
+  
+  rowBlood   <- build_row(res_blood,   c("A", "B", "C"))
+  rowAdipose <- build_row(res_adipose, c("D", "E", "F"))
+  final <- cowplot::plot_grid(rowBlood, rowAdipose, ncol = 1)               # two stacked rows
+  
+  ggsave(here("B_MultiTissues/dataOut/figures/twin/Twin_final_blood_adipose.pdf"),
+         final, width = 18, height = 11, dpi = 300, bg = "white")
+  ggsave(here("B_MultiTissues/dataOut/figures/twin/Twin_final_blood_adipose.png"),
+         final, width = 18, height = 11, dpi = 300, bg = "white")
+}
