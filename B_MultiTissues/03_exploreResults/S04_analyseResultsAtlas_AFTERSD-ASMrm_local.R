@@ -737,195 +737,220 @@ if (!file.exists(here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))){
   
   # View summary
   table(mcols(te_regions)$repFamily, mcols(te_regions)$repClass)
-  #                   DNA    LINE     LTR      RC Retroposon    SINE
-  # 5S-Deu-L2           0       0       0       0          0    2588
-  # Alu                 0       0       0       0          0 1282821
-  # CR1                 0   69603       0       0          0       0
-  # Crypton             3       0       0       0          0       0
-  # Crypton-A           1       0       0       0          0       0
-  # DNA              2430       0       0       0          0       0
-  # Dong-R4             0     548       0       0          0       0
-  # ERV1                0       0  187201       0          0       0
-  # ERV1?               0       0    1288       0          0       0
-  # ERVK                0       0   11903       0          0       0
-  # ERVL                0       0  171950       0          0       0
-  # ERVL-MaLR           0       0  367470       0          0       0
-  # ERVL?               0       0    2326       0          0       0
-  # Gypsy               0       0   17427       0          0       0
-  # Gypsy?              0       0    7548       0          0       0
-  # hAT              8888       0       0       0          0       0
-  # hAT-Ac           4596       0       0       0          0       0
-  # hAT-Blackjack   20062       0       0       0          0       0
-  # hAT-Charlie    270942       0       0       0          0       0
-  # hAT-Tag1          244       0       0       0          0       0
-  # hAT-Tip100      47824       0       0       0          0       0
-  # hAT-Tip100?      2041       0       0       0          0       0
-  # hAT?             1543       0       0       0          0       0
-  # Helitron            0       0       0    1820          0       0
-  # I-Jockey            0       5       0       0          0       0
-  # Kolobok             4       0       0       0          0       0
-  # L1                  0 1031524       0       0          0       0
-  # L1-Tx1              0       1       0       0          0       0
-  # L2                  0  486431       0       0          0       0
-  # LTR                 0       0    3438       0          0       0
-  # Merlin             63       0       0       0          0       0
-  # MIR                 0       0       0       0          0  616589
-  # MULE-MuDR        2078       0       0       0          0       0
-  # MULE-MuDR?          7       0       0       0          0       0
-  # Penelope            0    1128       0       0          0       0
-  # PIF-Harbinger      33       0       0       0          0       0
-  # PiggyBac         2253       0       0       0          0       0
-  # PiggyBac?         225       0       0       0          0       0
-  # RTE-BovB            0    9297       0       0          0       0
-  # RTE-X               0   15944       0       0          0       0
-  # SVA                 0       0       0       0       5974       0
-  # TcMar             172       0       0       0          0       0
-  # TcMar-Mariner   16871       0       0       0          0       0
-  # TcMar-Pogo         35       0       0       0          0       0
-  # TcMar-Tc1          15       0       0       0          0       0
-  # TcMar-Tc2        8479       0       0       0          0       0
-  # TcMar-Tigger   123237       0       0       0          0       0
-  # TcMar?            358       0       0       0          0       0
-  # tRNA                0       0       0       0          0    2295
-  # tRNA-Deu            0       0       0       0          0     643
-  # tRNA-RTE            0       0       0       0          0    5695
   length(te_regions)  # Total TE regions: 4.815.861
   
   top99q_CpGs_GR <- makeGRfromMyCpGPos(top99q_CpGs, "top99q_CpGs")
   top99q_in3layersoverlap_CpGs_GR <- makeGRfromMyCpGPos(top99q_in3layersoverlap_CpGs, "top99q_in3layersoverlap_CpGs")
   totalSites_GR  <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos, "totalSites")
   
-  ## ---- makeTEplot: distance-from-CENTRE rings + size + age ------------------
-  makeTEplot <- function(top = top99q_CpGs_GR, whichtop = "top99q_CpGs",
-                         famorclass = c("family","class")) {
-    famorclass <- match.arg(famorclass)
-    
-    bg_only_GR <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos[
-      !table3layers_coveredIn3dt$chr_pos %in% top], "bg_only")
-    res_cols <- c("label","pvalue","odds_ratio","conf_low","conf_high")
-    
-    grp_col <- if (famorclass == "family") mcols(te_regions)$repFamily
-    else                        mcols(te_regions)$repClass
-    gr_by   <- split(te_regions, grp_col)
-    
-    grp_tab <- table(grp_col)
-    keep <- if (famorclass == "family")
-      names(grp_tab)[grp_tab >= 1000 & !grepl("\\?$", names(grp_tab))]
-    else names(grp_tab)
-    
-    ## >>> distance-from-CENTRE ring windows (symmetric around the midpoint) <<<
-    bounds <- list("0-1kb"  = c(0,     1000),
-                   "1-3kb"  = c(1000,  3000),
-                   "3-10kb" = c(3000, 10000),
-                   "10-15kb"= c(10000,15000))
-    build <- function(gr, w) {
-      b   <- bounds[[w]]
-      ## Get geometric midpoint of the annotated element on the genome
-      ctr <- GenomicRanges::resize(gr, width = 1L, fix = "center")   # 1 point / element
-      outer <- reduce(trim(ctr + b[2]))
-      if (b[1] == 0) outer
-      else GenomicRanges::setdiff(outer, reduce(trim(ctr + b[1])))   # the ring only
-    }
-    
-    run_one <- function(w) {
-      res <- lapply(keep, function(f)
-        fisher_test_te(build(gr_by[[f]], w), top, bg_only_GR,
-                       label = f, nameTarget = whichtop))
-      dt <- data.table::rbindlist(lapply(res, `[`, res_cols)); dt[, window := w]; dt
-    }
-    
-    res_dt <- data.table::rbindlist(lapply(names(bounds), run_one))
-    res_dt[, window := factor(window, levels = names(bounds))]
-    res_dt[, p.adj  := p.adjust(pvalue, "BH")]
-    res_dt[, log2OR := log2(odds_ratio)]
-    ## >>> finer star tiers (on BH-adjusted p) <<<
-    res_dt[, stars := as.character(cut(p.adj,
-                                       breaks = c(-Inf, .001, .01, .05, .1, Inf),
-                                       labels = c("***","**","*","\u00b7","")))]   # ***  **  *  ·  (blank)
-    
-    ## >>> per-group metadata: mean element SIZE + AGE (% divergence) <<<
-    has_div <- "milliDiv" %in% names(mcols(te_regions))
-    meta <- data.table::data.table(
-      label  = keep,
-      meanW  = as.numeric(tapply(width(te_regions), grp_col, mean)[keep]),
-      divpct = if (has_div)
-        as.numeric(tapply(mcols(te_regions)$milliDiv, grp_col, mean)[keep]) / 10
-      else NA_real_)
-    if (!has_div)
-      warning("milliDiv not in mcols(te_regions): rows ordered by log2OR, not age.")
-    
-    ## order y by AGE (youngest at top, oldest at bottom); fallback = log2OR
-    ord <- if (has_div) meta[order(divpct), label]
-    else res_dt[window == "0-1kb"][order(log2OR), as.character(label)]
-    res_dt[, label := factor(as.character(label), levels = ord)]
-    meta[ , label := factor(as.character(label), levels = ord)]
-    if (has_div)
-      meta[, age_class := cut(divpct, quantile(divpct, c(0, 1/3, 2/3, 1)),
-                              labels = c("young","mid","old"), include.lowest = TRUE)]
-    
-    list(res = res_dt[], meta = meta[], bounds = bounds)
-  }
+  ## =====================================================================
+  ## Load CpG-corrected Kimura age and attach to te_regions  (MOVED UP so
+  ## the family/class enrichment plot below can order/colour by real age)
+  ## =====================================================================
+  ## reads the TSV and removes implausible/saturated Kimura values (keeps 0-60%),
+  ## then makes one genomic interval per element carrying its age proxy.
+  kim <- fread(here("gitignore/TEage/hg38_rmsk_kimura.tsv"),
+               col.names = c("chr","start","end","strand","repName","repClassFam","kimura"))
+  kim <- kim[is.finite(kimura) & kimura >= 0 & kimura <= 60]   # drop runaway/saturated K2P
+  kim_gr <- GRanges(kim$chr, IRanges(kim$start, kim$end),
+                    strand = ifelse(kim$strand == "C", "-", kim$strand),
+                    kimura = kim$kimura)
   
-  ## ---- plotting helper: tiles + avg-size box + age strip --------------------
-  plot_te <- function(out, title) {
-    res <- out$res; meta <- out$meta; bounds <- out$bounds
-    win_lv <- names(bounds); K <- length(win_lv)
+  ## attach age to te_regions by maximal genomic overlap
+  ov    <- findOverlaps(te_regions, kim_gr, ignore.strand = TRUE)
+  ov_dt <- data.table(q = queryHits(ov), s = subjectHits(ov),
+                      w = width(pintersect(te_regions[queryHits(ov)],
+                                           kim_gr[subjectHits(ov)], ignore.strand = TRUE)))
+  best  <- ov_dt[order(q, -w)][, .SD[1], by = q]        # best-overlap element
+  mcols(te_regions)$kimuraDiv <- NA_real_
+  mcols(te_regions)$kimuraDiv[best$q] <- mcols(kim_gr)$kimura[best$s]
+  cat("Kimura matched to", sum(!is.na(mcols(te_regions)$kimuraDiv)),
+      "of", length(te_regions), "elements\n")
+  # Kimura matched to 4666611 of 4815861 elements  (96.9%)
+  
+  ## sanity: family age ordering should be biological (Alu/SVA young, L2/MIR/CR1 old)
+  md <- as.data.frame(mcols(te_regions))
+  sort(tapply(md$kimuraDiv, md$repFamily, median, na.rm = TRUE))
+  # SVA/Alu/ERVK youngest ... L2/MIR/CR1 oldest -> correct.
+  
+  if (!file.exists(here("gitignore/TEplot_res_dt_fam.RDS"))){
     
-    ## map a distance in bp onto the continuous 1..K tile axis
-    dist_to_x <- function(d) vapply(d, function(dd) {
-      xi <- 0.5
-      for (j in seq_len(K)) {
-        inr <- bounds[[j]][1]; o <- bounds[[j]][2]
-        if (dd >= o) { xi <- j + 0.5; next }
-        xi <- (j - 0.5) + (dd - inr) / (o - inr); break
+    ## ---- makeTEplot: distance-from-CENTRE rings + size + age ------------------
+    makeTEplot <- function(top = top99q_CpGs_GR, whichtop = "top99q_CpGs",
+                           famorclass = c("family","class")) {
+      famorclass <- match.arg(famorclass)
+      
+      bg_only_GR <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos[
+        !table3layers_coveredIn3dt$chr_pos %in% top], "bg_only")
+      res_cols <- c("label","pvalue","odds_ratio","conf_low","conf_high")
+      
+      grp_col <- if (famorclass == "family") mcols(te_regions)$repFamily
+      else                        mcols(te_regions)$repClass
+      gr_by   <- split(te_regions, grp_col)
+      
+      grp_tab <- table(grp_col)
+      keep <- if (famorclass == "family")
+        names(grp_tab)[grp_tab >= 1000 & !grepl("\\?$", names(grp_tab))]
+      else names(grp_tab)
+      
+      ## >>> distance-from-CENTRE ring windows: REDUCED to 0-1kb only <<<
+      bounds <- list("0-1kb" = c(0, 1000))
+      build <- function(gr, w) {
+        b   <- bounds[[w]]
+        ## Get geometric midpoint of the annotated element on the genome
+        ctr <- GenomicRanges::resize(gr, width = 1L, fix = "center")   # 1 point / element
+        outer <- reduce(trim(ctr + b[2]))
+        if (b[1] == 0) outer
+        else GenomicRanges::setdiff(outer, reduce(trim(ctr + b[1])))   # the ring only
       }
-      min(xi, K + 0.5)
-    }, numeric(1))
-    
-    res[ , `:=`(xidx = as.integer(window), yidx = as.integer(label))]
-    meta[, `:=`(yidx = as.integer(label), xbox = dist_to_x(meanW / 2))]  # avg half-size
-    
-    p <- ggplot() +
-      geom_tile(data = res, aes(xidx, yidx, fill = log2OR),
-                colour = "white", linewidth = 0.4) +
-      geom_text(data = res, aes(xidx, yidx, label = stars), vjust = 0.72, size = 5) +
-      ## black box = distances inside the AVERAGE element (centre -> mean edge)
-      geom_rect(data = meta, aes(xmin = 0.5, xmax = xbox,
-                                 ymin = yidx - 0.5, ymax = yidx + 0.5),
-                fill = NA, colour = "black", linewidth = 0.5) +
-      scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#DC3220",
-                           midpoint = 0, name = expression(log[2]~OR)) +
-      scale_x_continuous(breaks = seq_len(K), labels = win_lv, expand = c(0, 0),
-                         limits = c(-0.3, K + 0.6)) +
-      scale_y_continuous(breaks = meta$yidx, labels = as.character(meta$label),
-                         expand = c(0, 0)) +
-      labs(x = "distance from TE centre", y = NULL, title = title, 
-           subtitle = "(black box = mean element size)") +
-      theme_minimal(base_size = 12) +
-      theme(panel.grid = element_blank(),
-            axis.text.x = element_text(angle = 30, hjust = 1)) 
-    
-    ## optional left-hand AGE gradient (continuous mean divergence; needs ggnewscale)
-    if (!all(is.na(meta$divpct)) && requireNamespace("ggnewscale", quietly = TRUE)) {
-      p <- p + ggnewscale::new_scale_fill() +
-        geom_tile(data = meta, aes(x = -0.05, y = yidx, fill = divpct), width = 0.3) +
-        scale_fill_viridis_c(option = "mako", direction = -1,
-                             name = "Mean divergence\n(% from consensus)\nas proxy for age",
-                             na.value = "grey80")
+      
+      run_one <- function(w) {
+        res <- lapply(keep, function(f)
+          fisher_test_te(build(gr_by[[f]], w), top, bg_only_GR,
+                         label = f, nameTarget = whichtop))
+        dt <- data.table::rbindlist(lapply(res, `[`, res_cols)); dt[, window := w]; dt
+      }
+      
+      res_dt <- data.table::rbindlist(lapply(names(bounds), run_one))
+      res_dt[, window := factor(window, levels = names(bounds))]
+      res_dt[, p.adj  := p.adjust(pvalue, "BH")]
+      res_dt[, log2OR := log2(odds_ratio)]
+      ## >>> finer star tiers (on BH-adjusted p) <<<
+      res_dt[, stars := as.character(cut(p.adj,
+                                         breaks = c(-Inf, .001, .01, .05, .1, Inf),
+                                         labels = c("***","**","*","\u00b7","")))]   # ***  **  *  ·  (blank)
+      
+      ## >>> per-group metadata: mean element SIZE + AGE (CpG-corrected Kimura %) <<<
+      has_div <- "kimuraDiv" %in% names(mcols(te_regions))
+      meta <- data.table::data.table(
+        label  = keep,
+        meanW  = as.numeric(tapply(width(te_regions), grp_col, mean)[keep]),
+        divpct = if (has_div)
+          as.numeric(tapply(mcols(te_regions)$kimuraDiv, grp_col, mean, na.rm = TRUE)[keep])
+        else NA_real_)
+      if (!has_div)
+        warning("kimuraDiv not in mcols(te_regions): rows ordered by log2OR, not age.")
+      
+      ## order y by AGE (youngest at top, oldest at bottom); fallback = log2OR
+      ord <- if (has_div) meta[order(divpct), label]
+      else res_dt[window == "0-1kb"][order(log2OR), as.character(label)]
+      res_dt[, label := factor(as.character(label), levels = ord)]
+      meta[ , label := factor(as.character(label), levels = ord)]
+      if (has_div)
+        meta[, age_class := cut(divpct, quantile(divpct, c(0, 1/3, 2/3, 1), na.rm = TRUE),
+                                labels = c("young","mid","old"), include.lowest = TRUE)]
+      
+      list(res = res_dt[], meta = meta[], bounds = bounds)
     }
-    p
+    
+    ## ---- plotting helper: tiles + avg-size box + age strip --------------------
+    plot_te <- function(out, title) {
+      res <- out$res; meta <- out$meta; bounds <- out$bounds
+      win_lv <- names(bounds); K <- length(win_lv)
+      
+      ## map a distance in bp onto the continuous 1..K tile axis
+      dist_to_x <- function(d) vapply(d, function(dd) {
+        xi <- 0.5
+        for (j in seq_len(K)) {
+          inr <- bounds[[j]][1]; o <- bounds[[j]][2]
+          if (dd >= o) { xi <- j + 0.5; next }
+          xi <- (j - 0.5) + (dd - inr) / (o - inr); break
+        }
+        min(xi, K + 0.5)
+      }, numeric(1))
+      
+      res[ , `:=`(xidx = as.integer(window), yidx = as.integer(label))]
+      meta[, `:=`(yidx = as.integer(label), xbox = dist_to_x(meanW / 2))]  # avg half-size
+      
+      p <- ggplot() +
+        geom_tile(data = res, aes(xidx, yidx, fill = log2OR),
+                  colour = "white", linewidth = 0.4) +
+        geom_text(data = res, aes(xidx, yidx, label = stars), vjust = 0.72, size = 5) +
+        ## black box = distances inside the AVERAGE element (centre -> mean edge)
+        geom_rect(data = meta, aes(xmin = 0.5, xmax = xbox,
+                                   ymin = yidx - 0.5, ymax = yidx + 0.5),
+                  fill = NA, colour = "black", linewidth = 0.5) +
+        scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#DC3220",
+                             midpoint = 0, name = expression(log[2]~OR)) +
+        scale_x_continuous(breaks = seq_len(K), labels = win_lv, expand = c(0, 0),
+                           limits = c(-0.3, K + 0.6)) +
+        scale_y_continuous(breaks = meta$yidx, labels = as.character(meta$label),
+                           expand = c(0, 0)) +
+        labs(x = "distance from TE centre", y = NULL, title = title, 
+             subtitle = "(black box = mean element size)") +
+        theme_minimal(base_size = 12) +
+        theme(panel.grid = element_blank(),
+              axis.text.x = element_text(angle = 30, hjust = 1)) 
+      
+      ## left-hand AGE gradient (continuous mean Kimura divergence; needs ggnewscale)
+      if (!all(is.na(meta$divpct)) && requireNamespace("ggnewscale", quietly = TRUE)) {
+        p <- p + ggnewscale::new_scale_fill() +
+          geom_tile(data = meta, aes(x = -0.05, y = yidx, fill = divpct), width = 0.3) +
+          scale_fill_viridis_c(option = "mako", direction = -1,
+                               name = "Mean Kimura divergence\n(CpG-corrected %)\nas proxy for age",
+                               na.value = "grey80")
+      }
+      p
+    }
+    
+    out_class <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", famorclass = "class")
+    out_fam   <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", famorclass = "family")
+    
+    TEplotclass <- plot_te(out_class, "TE class enrichment of top 1% hvCpGs (0-1kb from centre)")
+    TEplotfam   <- plot_te(out_fam,   "TE family enrichment of top 1% hvCpGs (0-1kb from centre)")
+    
+    saveRDS(out_class, here("gitignore/TEplot_res_dt_class.RDS"))
+    saveRDS(out_fam, here("gitignore/TEplot_res_dt_fam.RDS"))
+    saveRDS(TEplotclass, here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))
+    saveRDS(TEplotfam, here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
   }
   
-  out_class <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", famorclass = "class")
-  out_fam   <- makeTEplot(top99q_CpGs_GR, "top99q_CpGs", famorclass = "family")
+  ## ---- 0. all covered CpGs, with a hypervariable flag -------------------------
+  ## labels every covered CpG hv/not and sets the null rate p0
+  pct_col <- "percentile_logBF_per_ds_allLayers"              # confirm column name
+  cpg_gr  <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos, "cpg")
+  mcols(cpg_gr)$hv <- table3layers_coveredIn3dt[[pct_col]] >= 99   # top 1% = hv (change threshold if needed)
   
-  TEplotclass <- plot_te(out_class, "TE class enrichment of top 1% hvCpGs (distance from centre)")
-  TEplotfam   <- plot_te(out_fam,   "TE family enrichment of top 1% hvCpGs (distance from centre)")
+  p0 <- mean(mcols(cpg_gr)$hv)        # genome-wide hv rate = null prob. a CpG is hv (~0.01)
   
-  saveRDS(out_class, here("gitignore/TEplot_res_dt_class.RDS"))
-  saveRDS(out_fam, here("gitignore/TEplot_res_dt_fam.RDS"))
-  saveRDS(TEplotclass, here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))
-  saveRDS(TEplotfam, here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
+  ## ---- 1. per-element window: midpoint +/- 1 kb (your "0-1 kb from centre") ----
+  ## builds one midpoint±1 kb window per element
+  ctr <- resize(te_regions, width = 1L, fix = "center")
+  win <- trim(ctr + 1000L)            # 2001 bp centred on each element; one window per element
+  mcols(win) <- mcols(te_regions)[, c("repName","repClass","repFamily")]
+  
+  ## ---- 2. count CpGs (n) and hvCpGs (k) in each element's window --------------
+  ov  <- findOverlaps(cpg_gr, win, ignore.strand = TRUE)
+  cnt <- data.table(elem = subjectHits(ov), hv = mcols(cpg_gr)$hv[queryHits(ov)])
+  per_elem <- cnt[, .(n = .N, k = sum(hv)), by = elem]        # only elements with >=1 CpG appear
+  per_elem[, `:=`(repName   = as.character(mcols(win)$repName  [elem]),
+                  repClass  = as.character(mcols(win)$repClass [elem]),
+                  repFamily = as.character(mcols(win)$repFamily[elem]))]
+  
+  ## ---- 3. per-element enrichment: binomial vs the genome-wide hv rate ---------
+  ## H0: each CpG in the window is hv with prob p0.  One-sided: more hv than expected.
+  per_elem[, p.value := pbinom(k - 1L, n, p0, lower.tail = FALSE)]   # P(X >= k)
+  per_elem[, p.adj   := p.adjust(p.value, "BH")]                    # control FDR across elements
+  per_elem[, log2FE  := log2(((k / n) + 1e-9) / p0)]               # fold-enrichment of hv rate
+  per_elem[, enriched := p.adj < 0.05]
+  
+  per_elem[, divpct := mcols(te_regions)$kimuraDiv[elem]]   # CpG-corrected Kimura %; higher = older
+  per_elem <- per_elem[n >= 3 & !is.na(divpct)]             # need >=3 CpGs and an age
+  
+  ## TEST 1a — genome-wide (confounded by family; context only)
+  m_glm <- glm(cbind(k, n - k) ~ divpct, data = per_elem, family = binomial)
+  print(summary(m_glm))
+  sl <- coef(m_glm)[["divpct"]]; pv <- coef(summary(m_glm))["divpct","Pr(>|z|)"]
+  
+  ## TEST 1b — WITHIN family (the result to report)
+  m_glm_fam <- glm(cbind(k, n - k) ~ divpct + repFamily, data = per_elem, family = binomial)
+  print(coef(summary(m_glm_fam))["divpct", ])
+  # Estimate -3.19e-04, p = 0.0317  (negligible within-family age effect)
+  
+  ## TEST 2 — are the significantly-enriched elements younger or older?
+  wilcox.test(divpct ~ enriched, data = per_elem)
+  print(per_elem[, .(median_age = median(divpct), .N), by = enriched])
+  # enriched FALSE median 22.98 (n=4,248,442) ; TRUE median 21.73 (n=1,093)
 }
 
 ########################################################################
@@ -1345,6 +1370,12 @@ if (!file.exists(here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))) 
 ###########################################
 
 if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariability.png"))){
+  
+  plotManhattan_noDerakh <- readRDS(here(paste0("gitignore/plotManhattan_noDerakh_", variant, ".RDS")))
+  pfeatures <- readRDS(here(paste0("gitignore/pfeatures_", variant, ".RDS")))
+  TEplotclass <- readRDS(here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))
+  TEplotfam <- readRDS(here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
+  
   ## force identical title / subtitle sizes on every panel
   title_theme <- theme(plot.title    = element_text(size = 13),
                        plot.subtitle = element_text(size = 11))
@@ -2065,7 +2096,7 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/KesslerSIVpercent
   
   ## add the hv score percentile
   KesslerSIV_GRanges_hg38$n_CpG           <- 0L
-  KesslerSIV_GRanges_hg38$mean_percentile <- NA_real_
+  KesslerSIV_GRanges_hg38$mean_percentile_hv_score <- NA_real_
   
   ov <- findOverlaps(KesslerSIV_GRanges_hg38, table3layers_coveredIn3,
                      ignore.strand = TRUE)   # query = SIV region, subject = CpG
@@ -2075,9 +2106,9 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/KesslerSIVpercent
   )[, .(n = .N, m = mean(pct)), by = idx]
   
   KesslerSIV_GRanges_hg38$n_CpG[a$idx]           <- a$n
-  KesslerSIV_GRanges_hg38$mean_percentile[a$idx] <- a$m
+  KesslerSIV_GRanges_hg38$mean_percentile_hv_score[a$idx] <- round(a$m,1)
   
-  sum(!is.na(KesslerSIV_GRanges_hg38$mean_percentile)) # 351 regions with a value
+  sum(!is.na(KesslerSIV_GRanges_hg38$mean_percentile_hv_score)) # 351 regions with a value
   
   write.csv(KesslerSIV_GRanges_hg38,
             here("B_MultiTissues/dataOut/figures/script04/KesslerSIVpercentilehv.csv"), 

@@ -28,14 +28,14 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="1.4449635"
-     inkscape:cx="375.44201"
-     inkscape:cy="304.15993"
+     inkscape:cx="450.18438"
+     inkscape:cy="421.80996"
      inkscape:window-width="1920"
      inkscape:window-height="1043"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer1" />
+     inkscape:current-layer="g19963" />
   <defs
      id="defs11329">
     <clipPath
@@ -392,16 +392,16 @@
          transform="translate(1.6556925,-1.9340814)"><tspan
            x="240.22716"
            y="-15.342589"
-           id="tspan2693"><tspan
+           id="tspan3575"><tspan
    style="font-family:sans-serif;-inkscape-font-specification:sans-serif;fill:#000000;stroke:none"
-   id="tspan2691">How likely is this CpG to be</tspan><tspan
+   id="tspan3573">How likely is this CpG to be</tspan><tspan
    y="-15.342589"
-   id="tspan2695"> </tspan></tspan><tspan
+   id="tspan3577"> </tspan></tspan><tspan
            x="240.22716"
            y="-10.73575"
-           id="tspan2699"><tspan
+           id="tspan3581"><tspan
              style="font-family:sans-serif;-inkscape-font-specification:sans-serif;fill:#000000;stroke:none"
-             id="tspan2697">hypervariable?</tspan></tspan></text>
+             id="tspan3579">hypervariable?</tspan></tspan></text>
     </g>
     <rect
        style="fill:#000080;fill-opacity:1;stroke:#000080;stroke-width:0.21691;stroke-dasharray:none;stop-color:#000000"
@@ -431,17 +431,17 @@
        transform="translate(9.58854,171.17875)"><tspan
          x="295.98746"
          y="67.624016"
-         id="tspan2705"><tspan
+         id="tspan3587"><tspan
            style="fill:#ffffff"
-           id="tspan2701">Hypervariability score</tspan><tspan
+           id="tspan3583">Hypervariability score</tspan><tspan
            style="font-weight:bold;-inkscape-font-specification:'sans-serif Bold'"
-           id="tspan2703">
+           id="tspan3585">
 </tspan></tspan><tspan
          x="295.98746"
          y="72.562899"
-         id="tspan2709"><tspan
+         id="tspan3591"><tspan
            style="fill:#ffffff;stroke-width:0.5"
-           id="tspan2707"> averaged per-dataset 
+           id="tspan3589"> averaged per-dataset 
 </tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -610,54 +610,6 @@
          cy="262.2146"
          rx="0.3509714"
          ry="0.6348244" />
-      <g
-         id="g39319-3"
-         transform="matrix(1.326849,0,0,1.326849,14.893917,-161.53232)">
-        <path
-           style="fill:#ff0000;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -53.535086,321.30958 2.08129,-0.0616"
-           id="path4101-5-73-5-7-0-4-9-3-5-6-4-0-5-0-8-0-7"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:#ff0000;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -54.027667,320.02648 2.685549,-0.0593"
-           id="path4101-4-4-7-11-9-6-7-7-2-67-1-9-6-3-5-5-3-4"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:none;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -54.029253,319.49105 c -0.0916,2.1581 1.61937,2.51681 2.174068,4.11758"
-           id="path3868-7-4-7-9-0-7-6-6-4-0-30-9-3-7-4-6-1-5"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:none;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -51.413902,320.83696 c -0.02483,0.70022 -0.683853,0.94543 -1.307787,1.4655 -0.460263,0.38364 -0.849978,1.09563 -1.216837,1.32969"
-           id="path3868-9-0-7-6-9-8-6-2-5-5-8-71-3-7-2-6-6-0-2"
-           sodipodi:nodetypes="csc" />
-        <text
-           xml:space="preserve"
-           style="font-size:1.84203px;line-height:normal;font-family:Helvetica;-inkscape-font-specification:Helvetica;text-align:center;text-decoration-color:#000000;text-anchor:middle;fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none;stop-color:#000000"
-           x="-57.091255"
-           y="285.86218"
-           id="text8734-2-5-1-1-3-0-7-4-7-1-7-0-2-2-7-2-1-3-5"
-           transform="scale(0.89267255,1.1202316)"><tspan
-             sodipodi:role="line"
-             id="tspan8732-0-5-9-0-8-2-2-0-7-3-8-7-0-7-9-2-9-2-4"
-             style="fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none"
-             x="-57.091255"
-             y="285.86218">C</tspan></text>
-        <text
-           xml:space="preserve"
-           style="font-size:1.84203px;line-height:normal;font-family:Helvetica;-inkscape-font-specification:Helvetica;text-align:center;text-decoration-color:#000000;text-anchor:middle;fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none;stop-color:#000000"
-           x="-57.098625"
-           y="287.36642"
-           id="text8734-2-5-1-1-3-0-7-4-7-1-7-0-2-2-7-2-1-3-0-7"
-           transform="scale(0.89267255,1.1202316)"><tspan
-             sodipodi:role="line"
-             id="tspan8732-0-5-9-0-8-2-2-0-7-3-8-7-0-7-9-2-9-2-6-4"
-             style="fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none"
-             x="-57.098625"
-             y="287.36642">G</tspan></text>
-      </g>
     </g>
     <g
        id="g19963"
@@ -933,52 +885,39 @@
          rx="1.6032882"
          ry="1.6032881" />
       <g
-         id="g39319"
-         transform="matrix(1.326849,0,0,1.326849,15.023239,-119.56764)">
-        <path
-           style="fill:#ff0000;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -53.535086,321.30958 2.08129,-0.0616"
-           id="path4101-5-73-5-7-0-4-9-3-5-6-4-0-5-0-8-0"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:#ff0000;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -54.027667,320.02648 2.685549,-0.0593"
-           id="path4101-4-4-7-11-9-6-7-7-2-67-1-9-6-3-5-5-3"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:none;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -54.029253,319.49105 c -0.0916,2.1581 1.61937,2.51681 2.174068,4.11758"
-           id="path3868-7-4-7-9-0-7-6-6-4-0-30-9-3-7-4-6-1"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:none;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -51.413902,320.83696 c -0.02483,0.70022 -0.683853,0.94543 -1.307787,1.4655 -0.460263,0.38364 -0.849978,1.09563 -1.216837,1.32969"
-           id="path3868-9-0-7-6-9-8-6-2-5-5-8-71-3-7-2-6-6-0"
-           sodipodi:nodetypes="csc" />
+         id="g1985-2"
+         transform="translate(-295.43212,100.44914)">
+        <g
+           id="g1820-9"
+           transform="translate(6.7417982,0.86408343)">
+          <path
+             style="opacity:1;fill:#000000;stroke-width:0.846075;stop-color:#000000"
+             id="path1020-1"
+             sodipodi:type="arc"
+             sodipodi:cx="234.73663"
+             sodipodi:cy="201.72098"
+             sodipodi:rx="1"
+             sodipodi:ry="1"
+             sodipodi:start="0"
+             sodipodi:end="6.2827049"
+             sodipodi:arc-type="slice"
+             d="m 235.73663,201.72098 a 1,1 0 0 1 -0.99988,1 1,1 0 0 1 -1.00012,-0.99976 1,1 0 0 1 0.99964,-1.00024 1,1 0 0 1 1.00036,0.99952 l -1,4.8e-4 z" />
+          <path
+             style="opacity:1;fill:#1a1a1a;stroke:#000000;stroke-width:0.5;stroke-dasharray:none;stop-color:#000000"
+             d="m 234.73663,201.72098 v 3.01051"
+             id="path1262-2" />
+        </g>
         <text
            xml:space="preserve"
-           style="font-size:1.84203px;line-height:normal;font-family:Helvetica;-inkscape-font-specification:Helvetica;text-align:center;text-decoration-color:#000000;text-anchor:middle;fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none;stop-color:#000000"
-           x="-57.091255"
-           y="285.86218"
-           id="text8734-2-5-1-1-3-0-7-4-7-1-7-0-2-2-7-2-1-3"
-           transform="scale(0.89267255,1.1202316)"><tspan
+           style="font-size:1.76389px;line-height:normal;font-family:sans-serif;-inkscape-font-specification:sans-serif;text-align:center;text-decoration-color:#000000;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#1a1a1a;stroke:#000000;stroke-width:0.499999;stroke-dasharray:none;stop-color:#000000"
+           x="241.49254"
+           y="206.61473"
+           id="text1876-7"><tspan
              sodipodi:role="line"
-             id="tspan8732-0-5-9-0-8-2-2-0-7-3-8-7-0-7-9-2-9-2"
-             style="fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none"
-             x="-57.091255"
-             y="285.86218">C</tspan></text>
-        <text
-           xml:space="preserve"
-           style="font-size:1.84203px;line-height:normal;font-family:Helvetica;-inkscape-font-specification:Helvetica;text-align:center;text-decoration-color:#000000;text-anchor:middle;fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none;stop-color:#000000"
-           x="-57.098625"
-           y="287.36642"
-           id="text8734-2-5-1-1-3-0-7-4-7-1-7-0-2-2-7-2-1-3-0"
-           transform="scale(0.89267255,1.1202316)"><tspan
-             sodipodi:role="line"
-             id="tspan8732-0-5-9-0-8-2-2-0-7-3-8-7-0-7-9-2-9-2-6"
-             style="fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none"
-             x="-57.098625"
-             y="287.36642">G</tspan></text>
+             id="tspan1874-0"
+             style="fill:#000000;stroke:none;stroke-width:0.5"
+             x="241.49254"
+             y="206.61473">CpGi</tspan></text>
       </g>
     </g>
     <g
@@ -1137,54 +1076,6 @@
          cy="284.01929"
          rx="1.6032882"
          ry="1.6032881" />
-      <g
-         id="g39319-1"
-         transform="matrix(1.326849,0,0,1.326849,15.023239,-139.98106)">
-        <path
-           style="fill:#ff0000;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -53.535086,321.30958 2.08129,-0.0616"
-           id="path4101-5-73-5-7-0-4-9-3-5-6-4-0-5-0-8-0-5"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:#ff0000;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -54.027667,320.02648 2.685549,-0.0593"
-           id="path4101-4-4-7-11-9-6-7-7-2-67-1-9-6-3-5-5-3-5"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:none;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -54.029253,319.49105 c -0.0916,2.1581 1.61937,2.51681 2.174068,4.11758"
-           id="path3868-7-4-7-9-0-7-6-6-4-0-30-9-3-7-4-6-1-4"
-           sodipodi:nodetypes="cc" />
-        <path
-           style="fill:none;stroke:#000000;stroke-width:0.143659;stroke-dasharray:none;stop-color:#000000"
-           d="m -51.413902,320.83696 c -0.02483,0.70022 -0.683853,0.94543 -1.307787,1.4655 -0.460263,0.38364 -0.849978,1.09563 -1.216837,1.32969"
-           id="path3868-9-0-7-6-9-8-6-2-5-5-8-71-3-7-2-6-6-0-7"
-           sodipodi:nodetypes="csc" />
-        <text
-           xml:space="preserve"
-           style="font-size:1.84203px;line-height:normal;font-family:Helvetica;-inkscape-font-specification:Helvetica;text-align:center;text-decoration-color:#000000;text-anchor:middle;fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none;stop-color:#000000"
-           x="-57.091255"
-           y="285.86218"
-           id="text8734-2-5-1-1-3-0-7-4-7-1-7-0-2-2-7-2-1-3-6"
-           transform="scale(0.89267255,1.1202316)"><tspan
-             sodipodi:role="line"
-             id="tspan8732-0-5-9-0-8-2-2-0-7-3-8-7-0-7-9-2-9-2-5"
-             style="fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none"
-             x="-57.091255"
-             y="285.86218">C</tspan></text>
-        <text
-           xml:space="preserve"
-           style="font-size:1.84203px;line-height:normal;font-family:Helvetica;-inkscape-font-specification:Helvetica;text-align:center;text-decoration-color:#000000;text-anchor:middle;fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none;stop-color:#000000"
-           x="-57.098625"
-           y="287.36642"
-           id="text8734-2-5-1-1-3-0-7-4-7-1-7-0-2-2-7-2-1-3-0-6"
-           transform="scale(0.89267255,1.1202316)"><tspan
-             sodipodi:role="line"
-             id="tspan8732-0-5-9-0-8-2-2-0-7-3-8-7-0-7-9-2-9-2-6-9"
-             style="fill:#ffffff;stroke:#000000;stroke-width:0.108593;stroke-dasharray:none"
-             x="-57.098625"
-             y="287.36642">G</tspan></text>
-      </g>
     </g>
     <text
        xml:space="preserve"
@@ -1300,16 +1191,16 @@
        transform="translate(295.25408,-55.226499)"><tspan
          x="28.450562"
          y="227.34912"
-         id="tspan2713"><tspan
+         id="tspan3595"><tspan
    style="font-family:sans-serif;-inkscape-font-specification:sans-serif;fill:#000000;stroke:none;stroke-width:0.69"
-   id="tspan2711">In each dataset, for each CpG,</tspan><tspan
+   id="tspan3593">In each dataset, for each CpG,</tspan><tspan
    y="227.34912"
-   id="tspan2715"> </tspan></tspan><tspan
+   id="tspan3597"> </tspan></tspan><tspan
          x="28.450562"
          y="231.95596"
-         id="tspan2719"><tspan
+         id="tspan3601"><tspan
            style="font-family:sans-serif;-inkscape-font-specification:sans-serif;fill:#000000;stroke:none;stroke-width:0.69"
-           id="tspan2717">the model compares two fits</tspan></tspan></text>
+           id="tspan3599">the model compares two fits</tspan></tspan></text>
     <text
        xml:space="preserve"
        style="font-size:3.175px;line-height:normal;font-family:Helvetica;-inkscape-font-specification:Helvetica;text-align:center;text-decoration-color:#000000;text-anchor:middle;white-space:pre;inline-size:73.9964;display:inline;fill:none;stroke:#000000;stroke-width:0.689999;stroke-dasharray:none;stroke-dashoffset:0;stop-color:#000000"
@@ -1319,9 +1210,9 @@
        transform="translate(295.26544,-27.654356)"><tspan
          x="28.450562"
          y="227.34912"
-         id="tspan2723"><tspan
+         id="tspan3605"><tspan
            style="font-family:sans-serif;-inkscape-font-specification:sans-serif;fill:#000000;stroke:none"
-           id="tspan2721">Non-hypervariable ; hypervariable</tspan></tspan></text>
+           id="tspan3603">Non-hypervariable ; hypervariable</tspan></tspan></text>
     <text
        xml:space="preserve"
        style="font-size:3.52778px;line-height:normal;font-family:Helvetica;-inkscape-font-specification:Helvetica;text-align:center;text-decoration-color:#000000;text-anchor:middle;fill:none;stroke:#000000;stroke-width:0.689999;stroke-dasharray:none;stroke-dashoffset:0;stop-color:#000000"
@@ -5172,6 +5063,79 @@
          id="circle30412-8-2-7"
          rx="0.26586333"
          ry="0.24169394" />
+    </g>
+    <path
+       style="opacity:1;fill:#000000;stroke-width:0.983001;stop-color:#000000"
+       d="m 234.73663,201.72098 v 3.01051 0"
+       id="path1076" />
+    <g
+       id="g1985">
+      <g
+         id="g1820"
+         transform="translate(6.7417982,0.86408343)">
+        <path
+           style="opacity:1;fill:#000000;stroke-width:0.846075;stop-color:#000000"
+           id="path1020"
+           sodipodi:type="arc"
+           sodipodi:cx="234.73663"
+           sodipodi:cy="201.72098"
+           sodipodi:rx="1"
+           sodipodi:ry="1"
+           sodipodi:start="0"
+           sodipodi:end="6.2827049"
+           sodipodi:arc-type="slice"
+           d="m 235.73663,201.72098 a 1,1 0 0 1 -0.99988,1 1,1 0 0 1 -1.00012,-0.99976 1,1 0 0 1 0.99964,-1.00024 1,1 0 0 1 1.00036,0.99952 l -1,4.8e-4 z" />
+        <path
+           style="opacity:1;fill:#1a1a1a;stroke:#000000;stroke-width:0.5;stroke-dasharray:none;stop-color:#000000"
+           d="m 234.73663,201.72098 v 3.01051"
+           id="path1262" />
+      </g>
+      <text
+         xml:space="preserve"
+         style="font-size:1.76389px;line-height:normal;font-family:sans-serif;-inkscape-font-specification:sans-serif;text-align:center;text-decoration-color:#000000;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#1a1a1a;stroke:#000000;stroke-width:0.499999;stroke-dasharray:none;stop-color:#000000"
+         x="241.49254"
+         y="206.61473"
+         id="text1876"><tspan
+           sodipodi:role="line"
+           id="tspan1874"
+           style="fill:#000000;stroke:none;stroke-width:0.5"
+           x="241.49254"
+           y="206.61473">CpGi</tspan></text>
+    </g>
+    <g
+       id="g1985-6"
+       transform="translate(-0.10368559,15.35093)">
+      <g
+         id="g1820-7"
+         transform="translate(6.7417982,0.86408343)">
+        <path
+           style="opacity:1;fill:#000000;stroke-width:0.846075;stop-color:#000000"
+           id="path1020-5"
+           sodipodi:type="arc"
+           sodipodi:cx="234.73663"
+           sodipodi:cy="201.72098"
+           sodipodi:rx="1"
+           sodipodi:ry="1"
+           sodipodi:start="0"
+           sodipodi:end="6.2827049"
+           sodipodi:arc-type="slice"
+           d="m 235.73663,201.72098 a 1,1 0 0 1 -0.99988,1 1,1 0 0 1 -1.00012,-0.99976 1,1 0 0 1 0.99964,-1.00024 1,1 0 0 1 1.00036,0.99952 l -1,4.8e-4 z" />
+        <path
+           style="opacity:1;fill:#1a1a1a;stroke:#000000;stroke-width:0.5;stroke-dasharray:none;stop-color:#000000"
+           d="m 234.73663,201.72098 v 3.01051"
+           id="path1262-3" />
+      </g>
+      <text
+         xml:space="preserve"
+         style="font-size:1.76389px;line-height:normal;font-family:sans-serif;-inkscape-font-specification:sans-serif;text-align:center;text-decoration-color:#000000;dominant-baseline:central;text-anchor:middle;opacity:1;fill:#1a1a1a;stroke:#000000;stroke-width:0.499999;stroke-dasharray:none;stop-color:#000000"
+         x="241.49254"
+         y="206.61473"
+         id="text1876-5"><tspan
+           sodipodi:role="line"
+           id="tspan1874-6"
+           style="fill:#000000;stroke:none;stroke-width:0.5"
+           x="241.49254"
+           y="206.61473">CpGi</tspan></text>
     </g>
   </g>
 </svg>
