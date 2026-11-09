@@ -105,6 +105,13 @@ COV="$BISMARK_OUTDIR/$(basename "${DEDUPBAM%.*}").bismark.cov.gz"
 mv -f "$BISMARK_OUTDIR/${SAMPLE}_R1_val_1_bismark_bt2_PE_report.txt" "$METHCALL_OUTDIR/" 2>/dev/null || true
 mv -f "$COV" "$METHCALL_OUTDIR/"
 
+## Step 6. Subselect only coverage 5X or more
+cd $METHCALL_OUTDIR
+for f in *.bismark.cov.gz; do
+  base=${f%.cov.gz}        
+  zcat "$f" | awk -F'\t' '($5+$6) >= 5' > "${base}_5X.cov"
+done
+
 function finish { rm -rf "$TRIMOM_OUTDIR"/*"${SAMPLE}"* "$BISMARK_OUTDIR"/*"${SAMPLE}"*; rm -f "$MERGED_R1" "$MERGED_R2"; }
 trap finish EXIT ERR INT TERM
 echo "**** done $SAMPLE $(date) ****"
