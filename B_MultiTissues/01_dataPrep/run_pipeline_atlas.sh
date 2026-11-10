@@ -86,8 +86,14 @@ case "$EXCLUDE_MODE" in
   *) echo "ERROR: EXCLUDE_MODE must be snp|both|none (got '$EXCLUDE_MODE')" >&2; exit 1 ;;
 esac
 
-SUFFIX=""
-[[ "$EXCLUDE_MODE" == "both" ]] && SUFFIX="_noSDASM"
+## NEW: give each mode its own output-folder suffix so the runs sit side by side.
+## snp="" keeps the previous behaviour/paths; none now gets "_noFilter" instead of ""
+## (previously none shared "" with snp and would overwrite the snp output).
+case "$EXCLUDE_MODE" in                    ## NEW (replaces: SUFFIX="" ; [[ ... == both ]] && SUFFIX="_noSDASM")
+  snp)  SUFFIX="" ;;                        ## NEW: default, unchanged (no suffix)
+  both) SUFFIX="_noSDASM" ;;               ## NEW: unchanged
+  none) SUFFIX="_noFilter" ;;              ## NEW: nothing removed → its own folder
+esac                                       ## NEW
 
 # ──────────────────────────────────────────────
 #  Argument parsing
