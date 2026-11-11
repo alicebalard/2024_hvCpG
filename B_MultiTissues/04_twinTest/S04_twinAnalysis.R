@@ -20,7 +20,7 @@ if (!exists("functionsLoaded"))    source(here("B_MultiTissues/03_exploreResults
 if (!exists("previousSIVprepared"))source(here("B_MultiTissues/03_exploreResults/prepPreviousSIV.R"))
 
 ## ===========================================================================================
-## TISSUE SWITCH — the ONE line to change to run the other tissue
+# TISSUE SWITCH — the ONE line to change to run the other tissue
 ## ===========================================================================================
 TISSUE <- "Blood"
 # TISSUE <- "Adipose"
@@ -139,34 +139,35 @@ ggplot(out, aes(mean_meth, colour=set)) + geom_density()
 #############################################################################################
 targ  <- unique(out[, .(chr_pos, set)]); setkey(targ, chr_pos)
 files <- list.files(covdir, pattern = covpat, full.names = TRUE)
-if (file.exists(betalongfile)) {
-  betalong <- readRDS(betalongfile)
-} else {
+## PART VII needs per-sample coverage (to remove binomial sequencing noise): an old cache
+## without a 'cov' column is rebuilt once.
+betalong <- if (file.exists(betalongfile)) readRDS(betalongfile) else NULL
+if (is.null(betalong) || !"cov" %in% names(betalong)) {
   betalong <- rbindlist(lapply(files, function(f) {
     x <- fread(f, header = FALSE, select = c(1,2,5,6), col.names = c("chr","start","M","U"))
     x[, chr := refseq2ucsc[as.character(chr)]]; x <- x[!is.na(chr)]
     x[, chr_pos := paste0(chr, "_", start)]
     x <- x[targ, on = "chr_pos", nomatch = 0L]
-    x[, cov := M + U][cov >= MINCOV]
-    x[, .(chr_pos, sample = sample_from_file(f), beta = M / cov)]  # per-sample methylation
+    x <- x[, cov := M + U][cov >= MINCOV]                        # (assign: filter now applied)
+    x[, .(chr_pos, sample = sample_from_file(f), beta = M / cov, cov)]  # per-sample methylation + depth
   }))
   saveRDS(betalong, betalongfile)
 }
 
 betalong
 ## Blood
-#            chr_pos          sample      beta
-# 1: chr10_100065428 EGAN00001342016 0.5000000
-# 2:  chr10_10093262 EGAN00001342016 1.0000000
-# 3: chr10_107165464 EGAN00001342016 0.6000000
-# 4: chr10_110006146 EGAN00001342016 1.0000000
-# 5: chr10_112838756 EGAN00001342016 1.0000000
-# ---                                          
-# 43587:   chrX_71053404 EGAN00001342042 0.1666667
-# 43588:   chrX_75785267 EGAN00001342042 0.5833333
-# 43589:   chrX_75785296 EGAN00001342042 0.5000000
-# 43590:    chrX_9352941 EGAN00001342042 0.0000000
-# 43591:   chrX_96337963 EGAN00001342042 0.6363636
+#            chr_pos          sample      beta   cov
+# 1: chr10_100065428 EGAN00001342016 0.5000000     6
+# 2:  chr10_10093262 EGAN00001342016 1.0000000     7
+# 3: chr10_107165464 EGAN00001342016 0.6000000     5
+# 4: chr10_110006146 EGAN00001342016 1.0000000     5
+# 5: chr10_112838756 EGAN00001342016 1.0000000     6
+# ---                                                
+#   43587:   chrX_71053404 EGAN00001342042 0.1666667     6
+# 43588:   chrX_75785267 EGAN00001342042 0.5833333    12
+# 43589:   chrX_75785296 EGAN00001342042 0.5000000    10
+# 43590:    chrX_9352941 EGAN00001342042 0.0000000     9
+# 43591:   chrX_96337963 EGAN00001342042 0.6363636    11
 
 ## Adipose
 #            chr_pos          sample      beta
@@ -470,6 +471,95 @@ plot_discordance_violin(res_adj, here(paste0("B_MultiTissues/dataOut/figures/twi
 ## Save object (run for both tissues) for combined plot:
 saveRDS(res_adj, here(paste0("gitignore/res_adj_", TISSUE, ".rds")))
 
+#############################################################################################
+## PART VII — twin variance decomposition (simplified from Hannon et al. 2018, PLoS Genet
+##            14:e1007544, doi:10.1371/journal.pgen.1007544)
+##   Hannon et al. split each site's methylation variance into additive genetic (A), shared
+##   environment (C) and unique environment / stochastic + measurement error (E) by comparing
+##   MZ and DZ co-twin similarity (ACE models, 426 MZ + 306 DZ pairs). They found A is HIGHEST at
+##   highly variable sites and at intermediate methylation (0.2-0.8). Our hvCpGs are, by
+##   construction, more variable and more intermediate than their controls, so if hypervariability
+##   were mostly genetic we would expect A(hv) > A(control). A(hv) <= A(control), with the extra
+##   variance of hv sites falling mainly into E, supports a non-genetic origin.
+##
+##   With 6-7 MZ and 4-6 DZ pairs a per-CpG ACE fit is impossible, so we use the moment
+##   (Falconer / within-pair mean-square) version, pooled over each CpG set:
+##     V    = variance of beta across all twins                    (per CpG)
+##     W_MZ = mean over MZ pairs of (b1 - b2)^2 / 2                (= E: MZ share all genes)
+##     W_DZ = mean over DZ pairs of (b1 - b2)^2 / 2                (= E + A/2)
+##   averaged over the CpGs of a set:
+##     absolute : sA = 2 (W_DZ - W_MZ) ;  sE = W_MZ ;  sC = V - sA - sE
+##     proportion: A = sA / V ;  E = sE / V ;  C = 1 - A - E
+##   Binomial sequencing noise is removed first: each beta carries variance b(1-b)/(cov-1),
+##   subtracted from V and from each pair's (b1-b2)^2/2 (otherwise noise inflates E).
+##   Extra variance of hv over control, and the share of it that is non-genetic / genetic:
+##     extra_E = (sE_hv - sE_ctrl) / (V_hv - V_ctrl) ; extra_A = (sA_hv - sA_ctrl) / (V_hv - V_ctrl)
+##   Uncertainty: 95% CI from a bootstrap over twin pairs (resampled within zygosity) —
+##   pairs, not CpGs, are the independent units. Estimates are unconstrained (can fall
+##   outside 0-1). meth_range = c(0.2, 0.8) repeats it on intermediate CpGs only (Hannon's
+##   definition), removing the methylation-level difference between hv and controls.
+#############################################################################################
+variance_decomp <- function(res, B = 1000L, meth_range = c(0, 1), seed = SEED) {
+  ## per-sample beta (raw or composition-corrected, from run_twin_tests) + depth for the noise
+  d <- merge(res$dt, betalong[, .(chr_pos, sample, braw = beta, cov)], by = c("chr_pos", "sample"))
+  d <- d[!is.na(beta)]
+  d[, noise := braw * (1 - braw) / (cov - 1)]                     # binomial variance of beta
+  keep_cpg <- d[, .(m = mean(braw)), by = chr_pos][m >= meth_range[1] & m <= meth_range[2], chr_pos]
+  d <- d[chr_pos %in% keep_cpg]
+  
+  ## one row per CpG x complete twin pair
+  pr <- d[, if (.N == 2L) .(b1 = beta[1], b2 = beta[2], n1 = noise[1], n2 = noise[2]),
+          by = .(chr_pos, set, pair_id, zygosity)]
+  pr[, g := .GRP, by = .(chr_pos, set)]
+  gset <- pr[, .(set = as.character(set[1])), keyby = g]$set
+  pr[, `:=`(s1 = b1 + b2, s2 = b1^2 + b2^2, sn = n1 + n2,
+            wd = ((b1 - b2)^2 - n1 - n2) / 2,                      # noise-corrected within-pair var
+            mz = as.numeric(zygosity == "MZ"))]
+  pairs <- unique(pr[, .(pair_id, zygosity)])
+  
+  ## estimator for a vector of pair weights (all 1 = observed data; bootstrap counts otherwise)
+  est <- function(wpair) {
+    wt <- wpair[pr$pair_id]
+    M  <- rowsum(cbind(2 * wt, wt * pr$s1, wt * pr$s2, wt * pr$sn,
+                       wt * pr$mz, wt * pr$mz * pr$wd, wt * (1 - pr$mz), wt * (1 - pr$mz) * pr$wd),
+                 pr$g, reorder = TRUE)
+    V    <- (M[, 3] - M[, 2]^2 / M[, 1]) / (M[, 1] - 1) - M[, 4] / M[, 1]   # total var - noise
+    W_MZ <- M[, 6] / M[, 5]; W_DZ <- M[, 8] / M[, 7]
+    st   <- gset[as.integer(rownames(M))]
+    ok   <- is.finite(V) & is.finite(W_MZ) & is.finite(W_DZ)
+    agg  <- function(s) { i <- ok & st == s
+    v <- mean(V[i]); sE <- mean(W_MZ[i]); sA <- 2 * (mean(W_DZ[i]) - sE)
+    c(V = v, sA = sA, sE = sE, sC = v - sA - sE, A = sA / v, E = sE / v, C = 1 - (sA + sE) / v, n = sum(i)) }
+    h <- agg("ME"); k <- agg("control"); dV <- h[["V"]] - k[["V"]]
+    c(setNames(h, paste0(names(h), "_hv")), setNames(k, paste0(names(k), "_ctrl")),
+      A_hv_minus_ctrl = h[["A"]] - k[["A"]], E_hv_minus_ctrl = h[["E"]] - k[["E"]],
+      extra_A = (h[["sA"]] - k[["sA"]]) / dV, extra_E = (h[["sE"]] - k[["sE"]]) / dV)
+  }
+  
+  pt <- est(setNames(rep(1, nrow(pairs)), pairs$pair_id))
+  set.seed(seed)
+  pid  <- split(pairs$pair_id, pairs$zygosity)
+  boot <- t(replicate(B, {
+    smp <- unlist(lapply(pid, function(p) sample(p, length(p), replace = TRUE)), use.names = FALSE)
+    est(c(table(factor(smp, levels = pairs$pair_id))))
+  }))
+  ci  <- apply(boot, 2, quantile, c(.025, .975), na.rm = TRUE)
+  tab <- data.table(tissue = basename(covdir), corrected = res$correct,
+                    meth_range = paste(meth_range, collapse = "-"),
+                    quantity = names(pt), estimate = pt, lo95 = ci[1, ], hi95 = ci[2, ])
+  tab[, p_boot_le0 := colMeans(boot <= 0, na.rm = TRUE)[quantity]]   # one-sided bootstrap p (H1: > 0)
+  list(table = tab, boot = boot)
+}
+
+vd_adj <- variance_decomp(res_adj)                              # composition-adjusted (main)
+vd_raw <- variance_decomp(res_raw)                              # raw
+vd_int <- variance_decomp(res_adj, meth_range = c(0.2, 0.8))    # intermediate CpGs only
+vd_all <- rbindlist(list(vd_adj$table, vd_raw$table, vd_int$table))
+print(vd_all[!grepl("^n_", quantity)], digits = 3)
+saveRDS(vd_all, here(paste0("gitignore/twin_varDecomp_", TISSUE, ".rds")))
+## Key rows: A_hv vs A_ctrl (expectation from Hannon: A_hv > A_ctrl if hv were genetic),
+##           A_hv_minus_ctrl (CI), extra_E (share of hv's extra variance that is non-genetic).
+
 ## ============================================================
 ## FINAL figure: Blood (A, B, C) over Adipose (D, E, F)
 ##   A/D = violin of all discordances ; B/E = per-pair scatter ; C/F = excess by zygosity
@@ -480,7 +570,7 @@ runFinal <- T   # set TRUE once res_adj_Blood.rds AND res_adj_Adipose.rds both e
 if (runFinal) {
   res_blood   <- readRDS(here("gitignore/res_adj_Blood.rds"))      # blood, composition-corrected
   res_adipose <- readRDS(here("gitignore/res_adj_Adipose.rds"))    # adipose, surrogate-corrected
-
+  
   ## build one tissue row: violin + scatter + excess, each lettered, under a single header line
   build_row <- function(res, lab3) {
     v  <- plot_discordance_violin(res) +
@@ -506,3 +596,12 @@ if (runFinal) {
   ggsave(here("B_MultiTissues/dataOut/figures/twin/Twin_final_blood_adipose.png"),
          final, width = 18, height = 11, dpi = 300, bg = "white")
 }
+
+d <- merge(res_raw$dt, betalong[, .(chr_pos, sample, cov)], by = c("chr_pos", "sample"))
+d[, noise := beta * (1 - beta) / (cov - 1)]
+wp2 <- d[, if (.N == 2L) .(wd = ((beta[1] - beta[2])^2 - noise[1] - noise[2]) / 2),
+         by = .(chr_pos, set, pair_id, zygosity)]
+pp2 <- dcast(wp2[, .(w = mean(wd)), by = .(pair_id, zygosity, set)],
+             pair_id + zygosity ~ set, value.var = "w")
+wilcox.test(pp2$ME, pp2$control, paired = TRUE, alternative = "greater")
+pp2[, .(ME = mean(ME), control = mean(control)), by = zygosity]

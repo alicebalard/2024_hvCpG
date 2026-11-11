@@ -1372,7 +1372,7 @@ if (!file.exists(here(paste0("gitignore/KZFP_bindingSite_", variant, ".RDS")))) 
 if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariability.png"))){
   
   plotManhattan_noDerakh <- readRDS(here(paste0("gitignore/plotManhattan_noDerakh_", variant, ".RDS")))
-  pfeatures <- readRDS(here(paste0("gitignore/pfeatures_", variant, ".RDS")))
+  pheat <- readRDS(here(paste0("gitignore/pheat_", variant, ".RDS")))
   TEplotclass <- readRDS(here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))
   TEplotfam <- readRDS(here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
   
@@ -1382,7 +1382,7 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariabilit
   
   p1 <- plotManhattan_noDerakh + ylab("Hypervariability score") +
     theme(plot.margin = margin(2, 2, 2, 4)) + title_theme
-  p2 <- pfeatures    + theme(plot.margin = margin(2, 4, 2, 2)) + title_theme
+  p2 <- pheat    + theme(plot.margin = margin(2, 4, 2, 2)) + title_theme
   p3 <- TEplotclass  + title_theme
   p4 <- TEplotfam    + title_theme
   
