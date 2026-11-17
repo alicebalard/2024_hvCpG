@@ -605,3 +605,147 @@ pp2 <- dcast(wp2[, .(w = mean(wd)), by = .(pair_id, zygosity, set)],
              pair_id + zygosity ~ set, value.var = "w")
 wilcox.test(pp2$ME, pp2$control, paired = TRUE, alternative = "greater")
 pp2[, .(ME = mean(ME), control = mean(control)), by = zygosity]
+
+################################################################################
+#### PART II. Hannon et al 2018 data ###########################################
+################################################################################
+
+## Load the top 10% hv + mQTL control
+## read the pre-matched pairs; map both CpGs (450k probe IDs) to hg38 chr_pos
+mc <- as.data.table(read.table(
+  here("B_MultiTissues/01_dataPrep/cistrans_GoDMC_mytop10pchv_matched_control.txt"), header = TRUE))
+mc[, `:=`(hv_pos   = dico$chrpos_hg38[match(hvCpG_name,      dico$CpG)],
+          ctrl_pos = dico$chrpos_hg38[match(controlCpG_name, dico$CpG)])]
+mc <- mc[!is.na(hv_pos) & !is.na(ctrl_pos)]                   # drop pairs not mappable to hg38
+mc[, cpg_pair := .I]                                          # keep the hv<->control pairing
+cat("GoDMC pairs with both CpGs mapped to hg38:", nrow(mc), "\n")
+# GoDMC pairs with both CpGs mapped to hg38: 16289 
+
+head(mc)
+# hvCpG_name controlCpG_name         hv_pos       ctrl_pos cpg_pair
+# <char>          <char>         <char>         <char>    <int>
+#   1: cg03085549      cg15672022 chr16_75116921 chr5_142426207        1
+# 2: cg15272186      cg03720390  chr6_29741833  chr6_28944349        2
+# 3: cg00637745      cg27164797 chr2_120739758  chr6_57173433        3
+# 4: cg02063817      cg10230427  chr7_27213902  chr6_57173429        4
+# 5: cg00086577      cg11190754  chr6_32155117  chr5_65562725        5
+# 6: cg16586538      cg05335186  chr6_30601328 chr13_52599372        6
+
+
+## Load the Hannon Heritabiliy estimates from ACE structural equation model for 
+# autosome sites with covariates for cellular compoisition
+HeritabilityEstimatesFromACMModel_CC <- read.csv(
+  here("gitignore/Hannon2018/HeritabilityEstimatesFromACMModel_ControlForCC(in).csv"))
+
+head(HeritabilityEstimatesFromACMModel_CC)[c("A.", "C.", "E.")]
+# A.           C.        E.
+# 1 1.975913e-01 3.330611e-01 0.4693476
+# 2 5.194348e-01 2.370000e-10 0.4805652
+# 3 2.660544e-02 8.232465e-02 0.8910699
+# 4 4.417828e-03 4.061242e-02 0.9549698
+# 5 1.837396e-01 5.043327e-02 0.7658271
+# 6 2.680000e-12 3.832518e-01 0.6167482
+
+################################################################################
+## For each pair of top10pchv - mQTLcontrol in mc, extract A., C. and E., 
+## i.e. the percentage of additive genetic (A), shared environmental (C) 
+## and unshared or unique environmental (E) calculated by Hannon et al. 2018 on twins
+## Question to test: are these 3 percentage different between  top10pchv and mQTLcontrol?
+# in which direction?
+################################################################################
+
+## ---- 1. tidy the Hannon ACE table: CpG id + BOTH absolute (A,C,E) and proportion (A.,C.,E.) ----
+her <- as.data.table(HeritabilityEstimatesFromACMModel_CC)
+id_col <- names(her)[1]                  # 1st col is the probe id
+setnames(her, id_col, "CpG")
+## absolute variances = A/C/E ; proportions = A%/C%/E% (read.csv renamed to A./C./E.)
+her <- her[, .(CpG,
+               A_abs = A,  C_abs = C,  E_abs = E,         # absolute variance components
+               A_prop = `A.`, C_prop = `C.`, E_prop = `E.`)]  # proportion of total variance
+
+## ---- 2. attach every component (both scales) to BOTH members of each GoDMC pair ----
+mc2 <- copy(mc)
+for (sc in c("abs","prop")) for (v in c("A","C","E")) {
+  col <- paste0(v, "_", sc)
+  mc2[[paste0(col,"_hv")]]   <- her[[col]][match(mc2$hvCpG_name,      her$CpG)]  # top-10% hv
+  mc2[[paste0(col,"_ctrl")]] <- her[[col]][match(mc2$controlCpG_name, her$CpG)]  # mQTL control
+}
+## keep only pairs where BOTH members have an estimate (A present -> all present)
+keepcols <- as.vector(outer(c("A","C","E"), c("abs","prop"),
+                            function(v,s) paste0(v,"_",s)))
+keepcols <- as.vector(outer(keepcols, c("hv","ctrl"), paste, sep="_"))
+mc2 <- mc2[complete.cases(mc2[, ..keepcols])]
+cat("pairs with ACE for both members:", nrow(mc2), "\n")   # 14847
+# pairs with ACE for both members: 14847 
+
+## ---- 3. paired test per component AND per scale (hv vs its matched control) ----
+comp_test <- function(hv, ct, component, scale) {
+  w <- wilcox.test(hv, ct, paired = TRUE)                 # two-sided, paired by cpg_pair
+  data.table(scale = scale, component = component, n = length(hv),
+             median_hv = median(hv), median_ctrl = median(ct),
+             median_diff = median(hv - ct),               # >0: higher in hv
+             p = w$p.value)
+}
+res <- rbindlist(lapply(c("abs","prop"), function(sc)
+  rbindlist(lapply(c("A","C","E"), function(v)
+    comp_test(mc2[[paste0(v,"_",sc,"_hv")]], mc2[[paste0(v,"_",sc,"_ctrl")]], v, sc)))))
+res[, p.adj := p.adjust(p, "BH")]
+print(res)
+#     scale component     n   median_hv median_ctrl   median_diff            p        p.adj
+# 1:    abs         A 14847 0.000423101 0.000107540  1.944420e-04 0.000000e+00 0.000000e+00
+# 2:    abs         C 14847 0.000035300 0.000033200 -9.400000e-16 7.975308e-07 7.975308e-07
+# 3:    abs         E 14847 0.000611862 0.000392273  2.098860e-04 0.000000e+00 0.000000e+00
+# 4:   prop         A 14847 0.373390712 0.196671685  1.204416e-01 0.000000e+00 0.000000e+00
+# 5:   prop         C 14847 0.037137649 0.080228113 -4.340137e-03 6.615272e-86 7.938326e-86
+# 6:   prop         E 14847 0.549023834 0.667084862 -9.452633e-02 0.000000e+00 0.000000e+00
+
+## ---- 4. plot: A/C/E, hv vs control, absolute (top row) + proportion (bottom row) ----
+long <- rbindlist(lapply(c("abs","prop"), function(sc)
+  rbindlist(lapply(c("A","C","E"), function(v) rbind(
+    data.table(scale=sc, component=v, set="top 10% hv",   value=mc2[[paste0(v,"_",sc,"_hv")]]),
+    data.table(scale=sc, component=v, set="mQTL control", value=mc2[[paste0(v,"_",sc,"_ctrl")]]))))))
+comp_lab  <- c(A="A (genetic)", C="C (shared env)", E="E (unique/stochastic)")
+scale_lab <- c(abs="absolute variance", prop="proportion of variance")
+long[, `:=`(component = factor(comp_lab[component], levels = comp_lab),
+            scale     = factor(scale_lab[scale],    levels = scale_lab),
+            set       = factor(set, levels = c("mQTL control","top 10% hv")))]
+res[, `:=`(component = factor(comp_lab[component], levels = comp_lab),
+           scale     = factor(scale_lab[scale],    levels = scale_lab),
+           lab = ifelse(p.adj < 0.001, "p < 0.001", sprintf("p = %.3g", p.adj)))]
+
+# library(patchwork)
+
+abs_cap <- quantile(long[scale == "absolute variance", value], 0.95, na.rm = TRUE)
+
+make_panel <- function(sc, ylim) {
+  d <- long[scale == sc]
+  r <- res [scale == sc]                       # has median_hv, median_ctrl, lab
+  ggplot(d, aes(set, value, fill = set)) +
+    geom_violin(colour = NA, alpha = .5, scale = "width") +         # computed on ALL data
+    geom_boxplot(width = .15, outlier.shape = NA, fill = "white") + # computed on ALL data
+    ## direction arrow: control median -> hv median, in the gap between violins
+    geom_segment(data = r,
+                 aes(x = 1.5, xend = 1.5, y = median_ctrl, yend = median_hv),
+                 inherit.aes = FALSE, linewidth = .7,
+                 arrow = arrow(length = unit(.22, "cm"), type = "closed")) +
+    geom_text(data = r, aes(x = 1.5, y = Inf, label = lab),
+              inherit.aes = FALSE, vjust = 1.4, size = 3) +
+    facet_grid(. ~ component) +
+    coord_cartesian(ylim = ylim) +             # zoom view only; stats keep all points
+    scale_fill_manual(values = c("mQTL control" = "grey70", "top 10% hv" = "#B2182B"),
+                      guide = "none") +
+    labs(x = NULL, y = sc) +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_text(angle = 20, hjust = 1))
+}
+
+p_abs  <- make_panel("absolute variance",      c(0, abs_cap))
+p_prop <- make_panel("proportion of variance", c(0, 1))
+
+(p_abs / p_prop) +
+  patchwork::plot_annotation(
+    title   = "ACE decomposition (Hannon 2018, blood twins): top-10% hv vs mQTL-matched control",
+    caption = "Arrow: control median \u2192 hv median (points up when hv is larger). Violins/boxes computed on all pairs; y-axis of the top panel is cropped for readability.")
+
+ggsave(here("B_MultiTissues/dataOut/figures/twin/ACE_hv_vs_mQTLcontrol.pdf"),
+       width = 9, height = 7, dpi = 300, bg = "white")

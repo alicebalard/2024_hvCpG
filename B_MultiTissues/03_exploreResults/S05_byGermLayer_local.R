@@ -403,6 +403,43 @@ print(test_tab)
 # 3: ecto_only   297     0   980  0.3951251        NA  0.9411471      NA 3.725522e-102   1.165062e-05
 # 4:  endomeso     5     0   980  0.9189015        NA  0.9364590      NA  4.624837e-02   9.375000e-02
 
+## Is the restricted categories' LOWER concordance vs the systemic hv control 
+## (~0.94) just an effect of testing FEWER CpGs?      
+## For each category, we take the systemic control (control_3layers) in the SAME 
+## layer(s), subsample it down to that category's n, and recompute the median 
+## |r| (B times). If the systemic median stays ~0.94 at that small n and sits 
+## ABOVE the category's observed median, the gap is real, not a sample-size   
+## artefact (the median is unbiased by n).                                    
+
+set.seed(1234); B <- 2000L
+downsample_check <- rbindlist(lapply(names(own_layers), function(cat){
+  cols <- paste0("r_", own_layers[[cat]])
+  own  <- conc[category == cat, own]; own <- own[is.finite(own)]            # restricted-category values
+  pos  <- conc[category == "control_3layers",
+               rowMeans(.SD, na.rm = TRUE), .SDcols = cols]                 # systemic, SAME layer(s)
+  pos  <- pos[is.finite(pos)]
+  n_cat <- length(own)
+  med_sys_n <- replicate(B, median(sample(pos, n_cat)))                    # systemic median at the SAME small n
+  data.table(
+    category = cat, n = n_cat,
+    median_own           = median(own),            # observed restricted median
+    median_systemic_full = median(pos),            # systemic at full n (~980)
+    systemic_at_n        = mean(med_sys_n),         # systemic subsampled to n
+    sys_lo = quantile(med_sys_n, .025), sys_hi = quantile(med_sys_n, .975),
+    ## is the category still BELOW the systemic control at the same n?
+    below_systemic = median(own) < quantile(med_sys_n, .025))
+}))
+print(downsample_check, digits = 3)
+
+#     category     n median_own median_systemic_full systemic_at_n sys_lo sys_hi below_systemic
+# 1: meso_only    63      0.679                0.949         0.948  0.932  0.961           TRUE
+# 2: endo_only    18      0.670                0.941         0.938  0.904  0.963           TRUE
+# 3: ecto_only   297      0.395                0.941         0.941  0.932  0.951           TRUE
+# 4:  endomeso     5      0.919                0.936         0.931  0.861  0.971          FALSE
+
+# NB. For every category the median per-CpG donor count is identical between the 
+# restricted set and the systemic control in the same layer(s)
+
 ################################################################################
 ## PART E — list germ-layer-specific candidates + annotate                     ##
 ##   Candidates = CpGs in the testable restricted categories. Concordance is    ##
