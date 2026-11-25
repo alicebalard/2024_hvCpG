@@ -66,9 +66,9 @@ LAMBDA_PERCENTILE="${LAMBDA_PERCENTILE:-95}"
 RANDOM_SEED="${RANDOM_SEED:-42}"
 
 # CpG exclusion list (one chr_pos per line), applied before Pass 1.
-#   EXCLUDE_MODE=snp   → SNPs only          (default, = previous behaviour)
-#   EXCLUDE_MODE=both  → SNPs + SD-ASM regions
-#   EXCLUDE_MODE=none  → no exclusion
+#   EXCLUDE_MODE=snp   → SNPs only            (output suffix _noSNP)
+#   EXCLUDE_MODE=both  → SNPs + SD-ASM regions (output suffix _noSNPnoSDASM)
+#   EXCLUDE_MODE=none  → no exclusion          (output suffix _noFilter)
 EXCLUDE_MODE="${EXCLUDE_MODE:-snp}"
 
 SNP_SITES="${SNP_SITES:-/SAN/ghlab/epigen/Alice/hvCpG_project/code/2024_hvCpG/gitignore/snps_maf_0.01_chr_pos.txt}"
@@ -82,18 +82,17 @@ case "$EXCLUDE_MODE" in
     [[ -f "$SDASM_SITES" ]] || { echo "ERROR: SD-ASM list not found: $SDASM_SITES" >&2; exit 1; }
     EXCLUDE_SITES="${WGBS_DIR}/_exclude_snp_plus_sdasm.${JOB_ID:-$$}.txt"
     sort -u "$SNP_SITES" "$SDASM_SITES" > "$EXCLUDE_SITES"
+    trap 'rm -f "$EXCLUDE_SITES"' EXIT          ## auto-remove this temp when the script exits
     echo "  Exclusion: SNP + SD-ASM = $(wc -l < "$EXCLUDE_SITES") sites -> $EXCLUDE_SITES" ;;
   *) echo "ERROR: EXCLUDE_MODE must be snp|both|none (got '$EXCLUDE_MODE')" >&2; exit 1 ;;
 esac
 
-## NEW: give each mode its own output-folder suffix so the runs sit side by side.
-## snp="" keeps the previous behaviour/paths; none now gets "_noFilter" instead of ""
-## (previously none shared "" with snp and would overwrite the snp output).
-case "$EXCLUDE_MODE" in                    ## NEW (replaces: SUFFIX="" ; [[ ... == both ]] && SUFFIX="_noSDASM")
-  snp)  SUFFIX="" ;;                        ## NEW: default, unchanged (no suffix)
-  both) SUFFIX="_noSDASM" ;;               ## NEW: unchanged
-  none) SUFFIX="_noFilter" ;;              ## NEW: nothing removed → its own folder
-esac                                       ## NEW
+## Give each mode its own output-folder suffix so the runs sit side by side.
+case "$EXCLUDE_MODE" in
+  snp)  SUFFIX="_noSNP" ;;                  ## SNPs removed
+  both) SUFFIX="_noSNPnoSDASM" ;;           ## SNPs + SD-ASM removed
+  none) SUFFIX="_noFilter" ;;               ## nothing removed
+esac
 
 # ──────────────────────────────────────────────
 #  Argument parsing
