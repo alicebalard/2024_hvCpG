@@ -30,10 +30,15 @@ top90q <- quantile(table3layers_coveredIn3$logBF_per_ds_allLayers, probs = 0.90,
 top90q_CpGs <- table3layers_coveredIn3[table3layers_coveredIn3$logBF_per_ds_allLayers >= top90q, ]$chr_pos
 ## NB: on hg38
 
+length(top90q_CpGs)
+# 2,024,668
+
 source(here("B_MultiTissues/03_exploreResults/makeProbes2GenDictionary.R"))
 
 top90q_CpGs_probes <- na.omit(dico$CpG[match(top90q_CpGs, dico$chrpos_hg38)])
-length(top90q_CpGs_probes) # 60756
+length(top90q_CpGs_probes) # 60,756
+
+# 60,756 of my 2,024,668 top 10% hvCpGs are covered in the 450k array
 
 # 2. Load GoDMC summary‐level mQTL data
 # (http://mqtldb.godmc.org.uk/downloads) --> dl then rm after script run because large file

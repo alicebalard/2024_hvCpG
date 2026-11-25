@@ -623,8 +623,7 @@ cat("GoDMC pairs with both CpGs mapped to hg38:", nrow(mc), "\n")
 
 head(mc)
 # hvCpG_name controlCpG_name         hv_pos       ctrl_pos cpg_pair
-# <char>          <char>         <char>         <char>    <int>
-#   1: cg03085549      cg15672022 chr16_75116921 chr5_142426207        1
+# 1: cg03085549      cg15672022 chr16_75116921 chr5_142426207        1
 # 2: cg15272186      cg03720390  chr6_29741833  chr6_28944349        2
 # 3: cg00637745      cg27164797 chr2_120739758  chr6_57173433        3
 # 4: cg02063817      cg10230427  chr7_27213902  chr6_57173429        4
@@ -749,3 +748,147 @@ p_prop <- make_panel("proportion of variance", c(0, 1))
 
 ggsave(here("B_MultiTissues/dataOut/figures/twin/ACE_hv_vs_mQTLcontrol.pdf"),
        width = 9, height = 7, dpi = 300, bg = "white")
+
+################################################################################
+## GoDMC gives the detected additive genetic variance (mostly cis), ACE gives the
+## total additive genetic variance, so the comparison, and especially the gap,
+## tests whether hvCpGs carry extra genetic variance GoDMC can't see
+##
+## To test: Additive genetic variance estimate for GoDMC vs ACE additive genetic 
+## variance estimate, for all + highlight hvCpGs + controls. 
+## Is it much higher on ACE for hvCpGs?
+################################################################################
+
+## ──────────────────────────────────────────────────────────────────────────
+## A. GoDMC per-CpG additive genetic variance
+##    = SUM of var_explained over the CpG's clumped (≈independent) mQTLs.
+##    Summing (not averaging) because independent variances add → this is the
+##    total *detected* additive genetic variance for that CpG.
+##    NB: GoDMC methylation was rank-normalised, so var_explained is on a
+##    proportion-of-variance scale → compare to ACE's PROPORTION A, not abs A.
+## ──────────────────────────────────────────────────────────────────────────
+
+## 1. GoDMC http://mqtldb.godmc.org.uk/
+## prepared in B_MultiTissues/01_dataPrep/prepareControls_Julius_mytop10pc.R
+filtered_goDMC <- read.csv(here("B_MultiTissues/01_dataPrep/prepDatasetsMaria_LSHTMserver/filtered_goDMC.csv"))
+
+nrow(filtered_goDMC) # 271724
+
+## Compute variance explained per mQTL
+# Formula for variance explained: # 2 * MAF * (1 - MAF) * (beta^2) 
+# Labels each as “cis” or “trans"
+GoDMC.df <- filtered_goDMC %>%  
+  dplyr::select(cpg_name=cpg, snp, beta_a1, pval, allele1, allele2, freq_a1, cistrans) %>% 
+  mutate(MAF = ifelse(freq_a1 < 0.5, freq_a1, 1-freq_a1)) %>%
+  mutate(var_explained = 2 * MAF * (1 - MAF) * (beta_a1 ^ 2)) %>% 
+  mutate(cistrans = ifelse(cistrans == F, "trans", "cis")) %>% 
+  dplyr::select(cpg_name, snp, pval, var_explained, cistrans) 
+
+godmc_A.df <- GoDMC.df %>%
+  group_by(cpg_name, cistrans) %>%
+  summarise(var_sum = sum(var_explained, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = cistrans, values_from = var_sum,
+              values_fill = list(var_sum = 0)) %>%
+  dplyr::rename(godmc_cis = cis, godmc_trans = trans) %>%
+  mutate(godmc_total = godmc_cis + godmc_trans)   # detected additive genetic variance
+
+## ──────────────────────────────────────────────────────────────────────────
+## B. ACE estimates (Hannon). CpG ids are 450k probes, same as GoDMC cpg_name,
+##    so we merge directly on the probe id (no coordinate mapping needed).
+##    Keep proportion A (comparable to GoDMC) and absolute A (for reference).
+## ──────────────────────────────────────────────────────────────────────────
+her <- fread(here("gitignore/Hannon2018/HeritabilityEstimatesFromACMModel_ControlForCC(in).csv"))
+
+setnames(her, 1, "CpG")
+ace.df <- her[, .(cpg_name = CpG, ace_A_prop = `A%`, ace_A_abs = A)]
+
+## C. Category labels — use the SAME tightened 14,847-pair set as PART II (mc2),
+##    so hv / control here match Fig S5 exactly (hg38-mapped + full ACE present).
+hv_set   <- unique(mc2$hvCpG_name)
+ctrl_set <- unique(mc2$controlCpG_name)
+
+## ──────────────────────────────────────────────────────────────────────────
+## D. One row per CpG: GoDMC-A, ACE-A, category
+## ──────────────────────────────────────────────────────────────────────────
+comp.df <- godmc_A.df %>%
+  inner_join(ace.df, by = "cpg_name") %>%
+  mutate(category = case_when(
+    cpg_name %in% hv_set   ~ "hvCpG",
+    cpg_name %in% ctrl_set ~ "matched control",
+    TRUE                   ~ "other CpG"),
+    category = factor(category, levels = c("other CpG","matched control","hvCpG")),
+    gap = ace_A_prop - godmc_total)             # total (ACE) minus detected (GoDMC)
+
+## quick summary by category
+comp.df %>% group_by(category) %>%
+  summarise(n = n(),
+            median_godmc = median(godmc_total, na.rm = TRUE),   # detected
+            median_ace   = median(ace_A_prop,  na.rm = TRUE),   # total
+            median_gap   = median(gap,         na.rm = TRUE))   # undetected genetic
+
+## ──────────────────────────────────────────────────────────────────────────
+## E. Scatter: detected (GoDMC) vs total (ACE), both as proportion of variance.
+##    Points above y = x carry genetic variance ACE sees but GoDMC doesn't.
+## ──────────────────────────────────────────────────────────────────────────
+plotGapVar <- ggplot(comp.df %>% arrange(category),
+                     aes(godmc_total, ace_A_prop, colour = category)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey40") +
+  rasterise(                                   # <- only this layer becomes a raster
+    geom_point(data = ~filter(.x, category == "other CpG"),
+               alpha = .12, size = .4),
+    dpi = 150) +
+  geom_point(data = ~filter(.x, category != "other CpG"),  # stays vector, on top
+             alpha = .7, size = 1.1) +
+  scale_colour_manual(values = c("other CpG" = "grey75",
+                                 "matched control" = "#2166AC",
+                                 "hvCpG" = "#B2182B")) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "GoDMC detected additive genetic variance (sum mQTL variance explained)",
+       y = "ACE total additive genetic variance (proportion A)",
+       colour = NULL,
+       title = "Detected (GoDMC) vs total (ACE) additive genetic variance") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position      = c(0.98, 0.02),   # x, y in [0,1]; bottom-right
+        legend.justification  = c(1, 0),         # anchor the legend's bottom-right corner there
+        legend.background      = element_rect(fill = alpha("white", 0.7), colour = NA),
+        legend.key             = element_blank())
+
+ggsave(here("B_MultiTissues/dataOut/figures/twin/plotGapVar.pdf"),
+       plotGapVar, width = 7, height = 7, dpi = 300, bg = "white") 
+
+## F. Test on the MATCHED PAIRS — tightened to the 14,847 PART-II set.
+##    ACE proportion-A comes straight from mc2 (A_prop_hv / A_prop_ctrl, the
+##    same values as Fig S5); only the GoDMC sum is joined on.
+pairs.df <- as.data.frame(
+  mc2[, .(hvCpG_name, controlCpG_name,
+          aceA_hv = A_prop_hv, aceA_ctrl = A_prop_ctrl)]) %>%
+  left_join(godmc_A.df %>% dplyr::select(cpg_name, godmc_total),
+            by = c("hvCpG_name" = "cpg_name")) %>% dplyr::rename(godmc_hv = godmc_total) %>%
+  left_join(godmc_A.df %>% dplyr::select(cpg_name, godmc_total),
+            by = c("controlCpG_name" = "cpg_name")) %>% dplyr::rename(godmc_ctrl = godmc_total) %>%
+  filter(complete.cases(.))
+
+nrow(pairs.df)   # 14,847  (stays 14,847: every matched CpG has a GoDMC mQTL sum)
+
+## (i) sanity: GoDMC-A should be ~equal across the pair (matching worked)
+wilcox.test(pairs.df$godmc_hv, pairs.df$godmc_ctrl, paired = TRUE)
+# V = 54634637, p-value = 0.3606
+with(pairs.df, c(godmc_hv = median(godmc_hv), godmc_ctrl = median(godmc_ctrl)))
+# godmc_hv godmc_ctrl 
+# 0.01891049 0.01890771 
+
+## (ii) ACE-A: higher in hv? (recovers Fig S5, now against matched GoDMC-A)
+wilcox.test(pairs.df$aceA_hv, pairs.df$aceA_ctrl, paired = TRUE, alternative = "greater")
+# V = 79976537, p-value < 2.2e-16
+with(pairs.df, c(aceA_hv = median(aceA_hv), aceA_ctrl = median(aceA_ctrl)))
+# aceA_hv aceA_ctrl 
+# 0.3733907 0.1966717 
+
+## (iii) the gap (total − detected): bigger in hv → more UNDETECTED genetic variance
+pairs.df <- pairs.df %>% mutate(gap_hv = aceA_hv - godmc_hv, gap_ctrl = aceA_ctrl - godmc_ctrl)
+wilcox.test(pairs.df$gap_hv, pairs.df$gap_ctrl, paired = TRUE, alternative = "greater")
+# V = 79987752, p-value < 2.2e-16
+with(pairs.df, c(gap_hv = median(gap_hv), gap_ctrl = median(gap_ctrl),
+                 excess = median(gap_hv - gap_ctrl)))
+# gap_hv  gap_ctrl    excess 
+# 0.3405102 0.1688806 0.1203393 

@@ -444,6 +444,10 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/CompareWithResult
     stringsAsFactors = FALSE
   )
   
+  # How many of both are recovered?
+  nrow(is.na(pairs))
+  # 3644
+  
   # Merge hvCpG logBF_per_ds
   res <- table3layers_coveredIn3dt[!is.na(group)]
   
@@ -905,52 +909,193 @@ if (!file.exists(here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))){
     saveRDS(TEplotfam, here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
   }
   
-  ## ---- 0. all covered CpGs, with a hypervariable flag -------------------------
-  ## labels every covered CpG hv/not and sets the null rate p0
-  pct_col <- "percentile_logBF_per_ds_allLayers"              # confirm column name
+  ## =============================================================================
+  ## hvCpG rate vs TE age: is it a steep decline that then flattens (a breakpoint)?
+  ## Test = segmented (piecewise) regression. Unit = AGE BINS, not raw elements
+  ## (millions of elements within a few families would be pseudoreplicated).
+  ## Alu is excluded: it is young (Kimura ~8) yet hv-DEPLETED, a known SINE effect,
+  ## and as a 1.3M-element outlier it distorts any element-level slope.
+  ## =============================================================================
+  library(segmented)
+  
+  ## ---- 1. flag every covered CpG as hypervariable (top 1%) + genome-wide rate p0 ----
+  pct_col <- "percentile_logBF_per_ds_allLayers"
   cpg_gr  <- makeGRfromMyCpGPos(table3layers_coveredIn3dt$chr_pos, "cpg")
-  mcols(cpg_gr)$hv <- table3layers_coveredIn3dt[[pct_col]] >= 99   # top 1% = hv (change threshold if needed)
+  mcols(cpg_gr)$hv <- table3layers_coveredIn3dt[[pct_col]] >= 99     # top 1% = hv
+  p0 <- mean(mcols(cpg_gr)$hv)                                       # baseline hv rate (~0.01)
   
-  p0 <- mean(mcols(cpg_gr)$hv)        # genome-wide hv rate = null prob. a CpG is hv (~0.01)
-  
-  ## ---- 1. per-element window: midpoint +/- 1 kb (your "0-1 kb from centre") ----
-  ## builds one midpoint±1 kb window per element
-  ctr <- resize(te_regions, width = 1L, fix = "center")
-  win <- trim(ctr + 1000L)            # 2001 bp centred on each element; one window per element
-  mcols(win) <- mcols(te_regions)[, c("repName","repClass","repFamily")]
-  
-  ## ---- 2. count CpGs (n) and hvCpGs (k) in each element's window --------------
+  ## ---- 2. one ±1 kb window per element; count CpGs (n) & hvCpGs (k); attach family + age ----
+  win <- trim(resize(te_regions, width = 1L, fix = "center") + 1000L)   # 2001 bp, element-centred (1:1 with te_regions)
   ov  <- findOverlaps(cpg_gr, win, ignore.strand = TRUE)
   cnt <- data.table(elem = subjectHits(ov), hv = mcols(cpg_gr)$hv[queryHits(ov)])
-  per_elem <- cnt[, .(n = .N, k = sum(hv)), by = elem]        # only elements with >=1 CpG appear
-  per_elem[, `:=`(repName   = as.character(mcols(win)$repName  [elem]),
-                  repClass  = as.character(mcols(win)$repClass [elem]),
-                  repFamily = as.character(mcols(win)$repFamily[elem]))]
+  per_elem <- cnt[, .(n = .N, k = sum(hv)), by = elem]
+  per_elem[, repFamily := as.character(mcols(te_regions)$repFamily[elem])]   # elem indexes te_regions
+  per_elem[, divpct    := mcols(te_regions)$kimuraDiv[elem]]
+  per_elem[, prop_hv   := k / n]
+  per_elem <- per_elem[!is.na(divpct) & n >= 3]
   
-  ## ---- 3. per-element enrichment: binomial vs the genome-wide hv rate ---------
-  ## H0: each CpG in the window is hv with prob p0.  One-sided: more hv than expected.
-  per_elem[, p.value := pbinom(k - 1L, n, p0, lower.tail = FALSE)]   # P(X >= k)
-  per_elem[, p.adj   := p.adjust(p.value, "BH")]                    # control FDR across elements
-  per_elem[, log2FE  := log2(((k / n) + 1e-9) / p0)]               # fold-enrichment of hv rate
-  per_elem[, enriched := p.adj < 0.05]
+  ## ---- 3. aggregate into 2%-divergence age bins (Alu excluded); weight = CpGs in bin ----
+  de <- per_elem[repFamily != "Alu"]
+  de[, age_bin := cut(divpct, breaks = seq(0, 60, 2), include.lowest = TRUE)]
+  binned <- de[, .(age     = weighted.mean(divpct, n),              # mean age in the bin
+                   hv_rate = weighted.mean(prop_hv, n),             # CpG-weighted hv rate
+                   n_cpg   = sum(n)), by = age_bin][order(age)]
   
-  per_elem[, divpct := mcols(te_regions)$kimuraDiv[elem]]   # CpG-corrected Kimura %; higher = older
-  per_elem <- per_elem[n >= 3 & !is.na(divpct)]             # need >=3 CpGs and an age
+  ## ---- 4. segmented regression: one breakpoint, slope each side ----
+  lin <- lm(hv_rate ~ age, data = binned, weights = n_cpg)          # straight-line baseline
+  print(davies.test(lin, ~ age))                                    # is there a breakpoint at all?
+  #   Davies' test for a change in the slope
+  # 
+  # data:  formula = hv_rate ~ age ,   method = lm 
+  # model = gaussian , link = identity  
+  # segmented variable = age
+  # 'best' at = 27.039, n.points = 10, p-value = 1.232e-09
+  # alternative hypothesis: two.sided
   
-  ## TEST 1a — genome-wide (confounded by family; context only)
-  m_glm <- glm(cbind(k, n - k) ~ divpct, data = per_elem, family = binomial)
-  print(summary(m_glm))
-  sl <- coef(m_glm)[["divpct"]]; pv <- coef(summary(m_glm))["divpct","Pr(>|z|)"]
+  seg <- segmented(lin, seg.Z = ~ age, psi = 30)                    # fit a breakpoint (psi = start guess)
+  print(summary(seg))
+  # ***Regression Model with Segmented Relationship(s)***
+  #   
+  #   Call: 
+  #   segmented.lm(obj = lin, seg.Z = ~age, psi = 30)
+  # 
+  # Estimated Break-Point(s):
+  #   Est. St.Err
+  # psi1.age 28.275  1.058
+  # 
+  # Coefficients of the linear terms:
+  #   Estimate Std. Error t value Pr(>|t|)    
+  # (Intercept)  1.286e-02  1.373e-04   93.68  < 2e-16 ***
+  #   age         -1.000e-04  7.055e-06  -14.18  9.6e-14 ***
+  #   U1.age       1.064e-04  9.644e-06   11.03       NA   
   
-  ## TEST 1b — WITHIN family (the result to report)
-  m_glm_fam <- glm(cbind(k, n - k) ~ divpct + repFamily, data = per_elem, family = binomial)
-  print(coef(summary(m_glm_fam))["divpct", ])
-  # Estimate -3.19e-04, p = 0.0317  (negligible within-family age effect)
+  print(slope(seg))      # slope1 (young, steep) vs slope2 (old); plateau if slope2 CI spans 0
+  # $age
+  # Est.    St.Err.   t value   CI(95%).l   CI(95%).u
+  # slope1 -1.0002e-04 7.0553e-06 -14.17600 -1.1452e-04 -8.5513e-05
+  # slope2  6.3434e-06 6.5755e-06   0.96471 -7.1727e-06  1.9860e-05
   
-  ## TEST 2 — are the significantly-enriched elements younger or older?
-  wilcox.test(divpct ~ enriched, data = per_elem)
-  print(per_elem[, .(median_age = median(divpct), .N), by = enriched])
-  # enriched FALSE median 22.98 (n=4,248,442) ; TRUE median 21.73 (n=1,093)
+  print(confint(seg))    # 95% CI of the breakpoint age
+  # Est. CI(95%).low CI(95%).up
+  # psi1.age 28.2749     26.0999    30.4499
+  # 
+  bp <- seg$psi[, "Est."]; sl <- slope(seg)$age[, "Est."]
+  
+  ## ---- 5. plot: binned hv rate + fitted broken line + breakpoint + baseline ----
+  grid <- data.frame(age = seq(min(binned$age), max(binned$age), length.out = 200))
+  grid$fit <- predict(seg, newdata = grid)
+  
+  TEslopeAge <- ggplot(binned, aes(age, hv_rate)) +
+    geom_hline(yintercept = p0, linetype = 3, colour = "grey50") +           # genome-wide baseline
+    geom_vline(xintercept = bp, linetype = 2, colour = "grey40") +           # fitted breakpoint
+    geom_point(aes(size = n_cpg), alpha = .8) +
+    geom_line(data = grid, aes(age, fit), colour = "#2166AC", linewidth = 1) +
+    annotate("text", x = bp, y = max(binned$hv_rate), hjust = -0.1, vjust = 1, size = 3,
+             label = sprintf("breakpoint \u2248 %.0f%%", bp)) +
+    scale_size_continuous(name = "CpGs in bin") +
+    labs(x = "TE age  (mean CpG-corrected Kimura %, higher = older)",
+         y = "hv rate  (weighted mean prop. of CpGs that are hv)",
+         title = "hvCpG rate declines with TE age, then plateaus at baseline",
+         subtitle = "NB: Alu elements excluded (strong outlier family)") +
+    theme_minimal(base_size = 12) +
+    theme(legend.position      = c(0.98, 0.98),   # x, y in [1,1]; top-right
+          legend.justification  = c(1, 1),         # anchor the legend's bottom-right corner there
+          legend.background      = element_rect(fill = alpha("white", 0.7), colour = NA),
+          legend.key             = element_blank())
+  TEslopeAge
+  saveRDS(TEslopeAge, here(paste0("gitignore/TEslopeAge", variant, ".RDS")))
+  
+  # We see a breakpoint at ~28% Kimura divergence (95% CI 26–30), 
+  # a steep decline before it (slope1 = −1.0×10⁻⁴, p < 2×10⁻¹⁶) and a 
+  # flat segment after (slope2 = +6×10⁻⁶, CI spans 0 indicating a genuine plateau), 
+  # with the model fitting the binned shape very well (R² = 0.94) and the
+  # Davies test confirming a breakpoint (p = 1.6×10⁻⁹). 
+  #
+  # Ccl: hv enrichment is concentrated in young TEs (Alu excluded) and decays to 
+  # the genome‑wide baseline by ~28% divergence, after which age has no further effect.
+  
+  ####################################
+  ## Same for TE with at least 10 CpGs:
+  per_elem <- per_elem[!is.na(divpct) & n >= 10]
+  
+  ## ---- 3. aggregate into 2%-divergence age bins (Alu excluded); weight = CpGs in bin ----
+  de <- per_elem[repFamily != "Alu"]
+  de[, age_bin := cut(divpct, breaks = seq(0, 60, 2), include.lowest = TRUE)]
+  binned <- de[, .(age     = weighted.mean(divpct, n),              # mean age in the bin
+                   hv_rate = weighted.mean(prop_hv, n),             # CpG-weighted hv rate
+                   n_cpg   = sum(n)), by = age_bin][order(age)]
+  
+  ## ---- 4. segmented regression: one breakpoint, slope each side ----
+  lin <- lm(hv_rate ~ age, data = binned, weights = n_cpg)          # straight-line baseline
+  print(davies.test(lin, ~ age))                                    # is there a breakpoint at all?
+  #   Davies' test for a change in the slope
+  # 
+  # data:  formula = hv_rate ~ age ,   method = lm 
+  # model = gaussian , link = identity  
+  # segmented variable = age
+  # 'best' at = 27.062, n.points = 10, p-value = 7.617e-09
+  # alternative hypothesis: two.sided
+  
+  seg <- segmented(lin, seg.Z = ~ age, psi = 30)                    # fit a breakpoint (psi = start guess)
+  print(summary(seg))
+  # ***Regression Model with Segmented Relationship(s)***
+  #   
+  #   Call: 
+  #   segmented.lm(obj = lin, seg.Z = ~age, psi = 30)
+  # 
+  # Estimated Break-Point(s):
+  #   Est. St.Err
+  # psi1.age 27.87  1.164
+  # 
+  # Coefficients of the linear terms:
+  #   Estimate Std. Error t value Pr(>|t|)    
+  # (Intercept)  1.145e-02  1.230e-04  93.055  < 2e-16 ***
+  #   age         -8.100e-05  6.293e-06 -12.870 8.75e-13 ***
+  #   U1.age       8.520e-05  8.590e-06   9.919       NA    
+  # ---
+  #   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+  # 
+  # Residual standard error: 0.1714 on 26 degrees of freedom
+  # Multiple R-Squared: 0.9277,  Adjusted R-squared: 0.9193 
+  # 
+  # Boot restarting based on 6 samples. Last fit:
+  #   Convergence attained in 3 iterations (rel. change 5.6305e-11)
+  
+  print(slope(seg))      # slope1 (young, steep) vs slope2 (old); plateau if slope2 CI spans 0
+  # $age
+  # Est.    St.Err.   t value   CI(95%).l   CI(95%).u
+  # slope1 -8.0997e-05 6.2934e-06 -12.87000 -9.3933e-05 -6.8060e-05
+  # slope2  4.2040e-06 5.8460e-06   0.71912 -7.8126e-06  1.6221e-05
+  
+  print(confint(seg))    # 95% CI of the breakpoint age
+  # Est. CI(95%).low CI(95%).up
+  # psi1.age 27.8698     25.4773    30.2623
+  # 
+  bp <- seg$psi[, "Est."]; sl <- slope(seg)$age[, "Est."]
+  
+  ## ---- 5. plot: binned hv rate + fitted broken line + breakpoint + baseline ----
+  grid <- data.frame(age = seq(min(binned$age), max(binned$age), length.out = 200))
+  grid$fit <- predict(seg, newdata = grid)
+  
+  TEslopeAge2 <- ggplot(binned, aes(age, hv_rate)) +
+    geom_hline(yintercept = p0, linetype = 3, colour = "grey50") +           # genome-wide baseline
+    geom_vline(xintercept = bp, linetype = 2, colour = "grey40") +           # fitted breakpoint
+    geom_point(aes(size = n_cpg), alpha = .8) +
+    geom_line(data = grid, aes(age, fit), colour = "#2166AC", linewidth = 1) +
+    annotate("text", x = bp, y = max(binned$hv_rate), hjust = -0.1, vjust = 1, size = 3,
+             label = sprintf("breakpoint \u2248 %.0f%%", bp)) +
+    scale_size_continuous(name = "CpGs in bin") +
+    labs(x = "TE age  (mean CpG-corrected Kimura %, higher = older)",
+         y = "hv rate  (weighted mean prop. of CpGs that are hv)",
+         title = "hvCpG rate declines with TE age, then plateaus at baseline",
+         subtitle = sprintf("segmented fit: slope %.1e (young) \u2192 %.1e (old, n.s.)",
+                            sl[1], sl[2])) +
+    theme_minimal(base_size = 12)
+  
+  saveRDS(TEslopeAge2, here(paste0("gitignore/TEslopeAge_10CpGs", variant, ".RDS")))
+  
+  ## Same results
+  
 }
 
 ########################################################################
@@ -1375,7 +1520,8 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariabilit
   pheat <- readRDS(here(paste0("gitignore/pheat_", variant, ".RDS")))
   TEplotclass <- readRDS(here(paste0("gitignore/TEplot_plotclass_", variant, ".RDS")))
   TEplotfam <- readRDS(here(paste0("gitignore/TEplot_plotfam_", variant, ".RDS")))
-  
+  TEslopeAge <- readRDS(here(paste0("gitignore/TEslopeAge", variant, ".RDS")))
+
   ## force identical title / subtitle sizes on every panel
   title_theme <- theme(plot.title    = element_text(size = 13),
                        plot.subtitle = element_text(size = 11))
@@ -1385,11 +1531,12 @@ if (!file.exists(here("B_MultiTissues/dataOut/figures/script04/MappingVariabilit
   p2 <- pheat    + theme(plot.margin = margin(2, 4, 2, 2)) + title_theme
   p3 <- TEplotclass  + title_theme
   p4 <- TEplotfam    + title_theme
+  p5 <- TEslopeAge    + title_theme
   
   top    <- plot_grid(p1, p2, ncol = 2, rel_widths = c(1.2, 1),
                       labels = c("A", "B"), label_size = 16)
-  bottom <- plot_grid(p3, p4, ncol = 2, rel_widths = c(1, 1),
-                      labels = c("C", "D"), label_size = 16)
+  bottom <- plot_grid(p3, p4, p5, ncol = 3, rel_widths = c(1, 1, 1),
+                      labels = c("C", "D", "E"), label_size = 16)
   fig    <- plot_grid(top, bottom, ncol = 1, rel_heights = c(.6, 1))
   
   for (ext in c("pdf", "png"))
